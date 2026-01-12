@@ -4,20 +4,19 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('inventory', '0007_alter_stockmovement_part_number'),
+        ("inventory", "0007_alter_stockmovement_part_number"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='salesorder',
-            name='item',
-            field=models.CharField(blank=True, max_length=255, null=True, verbose_name='出庫対象（製品・材料）'),
+            model_name="salesorder",
+            name="item",
+            field=models.CharField(blank=True, max_length=255, null=True, verbose_name="出庫対象（製品・材料）"),
         ),
         migrations.AlterField(
-            model_name='salesorder',
-            name='warehouse',
-            field=models.CharField(blank=True, max_length=255, null=True, verbose_name='出庫倉庫'),
+            model_name="salesorder",
+            name="warehouse",
+            field=models.CharField(blank=True, max_length=255, null=True, verbose_name="出庫倉庫"),
         ),
     ]

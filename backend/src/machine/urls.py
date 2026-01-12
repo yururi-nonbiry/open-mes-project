@@ -1,6 +1,4 @@
-from django.urls import path
-
-app_name = 'machine'
+app_name = "machine"
 
 urlpatterns = [
     # The URL patterns for the machine app are now handled by api_urls.py

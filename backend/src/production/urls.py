@@ -1,4 +1,4 @@
-app_name = 'production'
+app_name = "production"
 
 # This file is intentionally left empty.
 # The production app's functionality is exposed via a REST API

@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('production', '0003_alter_partsused_production_plan_and_more'),
+        ("production", "0003_alter_partsused_production_plan_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='partsused',
-            name='warehouse',
-            field=models.CharField(blank=True, max_length=255, null=True, verbose_name='使用倉庫'),
+            model_name="partsused",
+            name="warehouse",
+            field=models.CharField(blank=True, max_length=255, null=True, verbose_name="使用倉庫"),
         ),
     ]

@@ -1,13 +1,14 @@
-from django.urls import path, include
+from django.urls import include, path
 from rest_framework.routers import DefaultRouter
+
 from . import rest_views
 
-app_name = 'quality_api'
+app_name = "quality_api"
 
 router = DefaultRouter()
-router.register(r'inspection-items', rest_views.InspectionItemViewSet, basename='inspection-item')
-router.register(r'inspection-results', rest_views.InspectionResultViewSet, basename='inspection-result')
+router.register(r"inspection-items", rest_views.InspectionItemViewSet, basename="inspection-item")
+router.register(r"inspection-results", rest_views.InspectionResultViewSet, basename="inspection-result")
 
 urlpatterns = [
-    path('', include(router.urls)),
+    path("", include(router.urls)),
 ]

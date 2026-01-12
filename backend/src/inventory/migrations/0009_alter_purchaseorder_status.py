@@ -4,15 +4,18 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('inventory', '0008_alter_salesorder_item_alter_salesorder_warehouse'),
+        ("inventory", "0008_alter_salesorder_item_alter_salesorder_warehouse"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='purchaseorder',
-            name='status',
-            field=models.CharField(choices=[('pending', '未入庫'), ('received', '入庫済み'), ('canceled', 'キャンセル')], default='pending', max_length=20),
+            model_name="purchaseorder",
+            name="status",
+            field=models.CharField(
+                choices=[("pending", "未入庫"), ("received", "入庫済み"), ("canceled", "キャンセル")],
+                default="pending",
+                max_length=20,
+            ),
         ),
     ]

@@ -4,15 +4,24 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('quality', '0003_inspectionresultdetail'),
+        ("quality", "0003_inspectionresultdetail"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='inspectionresult',
-            name='judgment',
-            field=models.CharField(choices=[('pass', '合格'), ('fail', '不合格'), ('pending', '保留'), ('conditional_pass', '条件付き合格')], default='pending', max_length=20, verbose_name='判定結果'),
+            model_name="inspectionresult",
+            name="judgment",
+            field=models.CharField(
+                choices=[
+                    ("pass", "合格"),
+                    ("fail", "不合格"),
+                    ("pending", "保留"),
+                    ("conditional_pass", "条件付き合格"),
+                ],
+                default="pending",
+                max_length=20,
+                verbose_name="判定結果",
+            ),
         ),
     ]

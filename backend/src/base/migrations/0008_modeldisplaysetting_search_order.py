@@ -4,15 +4,18 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('base', '0007_alter_csvcolumnmapping_data_type_and_more'),
+        ("base", "0007_alter_csvcolumnmapping_data_type_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='modeldisplaysetting',
-            name='search_order',
-            field=models.PositiveIntegerField(default=10, help_text='検索項目としての表示順を制御します。小さい順に表示されます。', verbose_name='検索順'),
+            model_name="modeldisplaysetting",
+            name="search_order",
+            field=models.PositiveIntegerField(
+                default=10,
+                help_text="検索項目としての表示順を制御します。小さい順に表示されます。",
+                verbose_name="検索順",
+            ),
         ),
     ]

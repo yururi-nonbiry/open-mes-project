@@ -1,6 +1,3 @@
-from django.urls import path
+app_name = "inventory"
 
-app_name = 'inventory'
-
-urlpatterns = [
-]
+urlpatterns = []

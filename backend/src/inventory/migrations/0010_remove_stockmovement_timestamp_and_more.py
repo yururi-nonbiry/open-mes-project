@@ -7,40 +7,53 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('inventory', '0009_alter_purchaseorder_status'),
+        ("inventory", "0009_alter_purchaseorder_status"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='stockmovement',
-            name='timestamp',
+            model_name="stockmovement",
+            name="timestamp",
         ),
         migrations.AddField(
-            model_name='stockmovement',
-            name='movement_date',
-            field=models.DateTimeField(default=django.utils.timezone.now, verbose_name='移動日時'),
+            model_name="stockmovement",
+            name="movement_date",
+            field=models.DateTimeField(default=django.utils.timezone.now, verbose_name="移動日時"),
         ),
         migrations.AddField(
-            model_name='stockmovement',
-            name='operator',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to=settings.AUTH_USER_MODEL, verbose_name='記録者'),
+            model_name="stockmovement",
+            name="operator",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                to=settings.AUTH_USER_MODEL,
+                verbose_name="記録者",
+            ),
         ),
         migrations.AddField(
-            model_name='stockmovement',
-            name='reference_document',
-            field=models.CharField(blank=True, max_length=255, null=True, verbose_name='参照ドキュメント'),
+            model_name="stockmovement",
+            name="reference_document",
+            field=models.CharField(blank=True, max_length=255, null=True, verbose_name="参照ドキュメント"),
         ),
         migrations.AddField(
-            model_name='stockmovement',
-            name='warehouse',
-            field=models.CharField(blank=True, max_length=255, null=True, verbose_name='倉庫'),
+            model_name="stockmovement",
+            name="warehouse",
+            field=models.CharField(blank=True, max_length=255, null=True, verbose_name="倉庫"),
         ),
         migrations.AlterField(
-            model_name='stockmovement',
-            name='movement_type',
-            field=models.CharField(choices=[('incoming', 'Incoming'), ('outgoing', 'Outgoing'), ('used', 'Used in production'), ('PRODUCTION_OUTPUT', 'Production Output')], max_length=20),
+            model_name="stockmovement",
+            name="movement_type",
+            field=models.CharField(
+                choices=[
+                    ("incoming", "Incoming"),
+                    ("outgoing", "Outgoing"),
+                    ("used", "Used in production"),
+                    ("PRODUCTION_OUTPUT", "Production Output"),
+                ],
+                max_length=20,
+            ),
         ),
     ]

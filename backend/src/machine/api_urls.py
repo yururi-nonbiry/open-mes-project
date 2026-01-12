@@ -1,12 +1,13 @@
-from django.urls import path, include
+from django.urls import include, path
 from rest_framework.routers import DefaultRouter
+
 from . import rest_views
 
-app_name = 'machine_api'
+app_name = "machine_api"
 
 router = DefaultRouter()
-router.register(r'machines', rest_views.MachineViewSet, basename='machine')
+router.register(r"machines", rest_views.MachineViewSet, basename="machine")
 
 urlpatterns = [
-    path('', include(router.urls)),
+    path("", include(router.urls)),
 ]

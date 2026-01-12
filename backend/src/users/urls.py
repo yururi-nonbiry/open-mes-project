@@ -1,6 +1,6 @@
 # users/urls.py
 
-app_name = 'users'
+app_name = "users"
 
 urlpatterns = [
     # このファイルは、APIベースではないDjangoテンプレートビュー用のURLを定義するために使用されていました。

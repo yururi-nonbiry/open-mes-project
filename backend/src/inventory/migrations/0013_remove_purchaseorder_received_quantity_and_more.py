@@ -8,38 +8,63 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('inventory', '0012_purchaseorder_location_alter_purchaseorder_warehouse'),
+        ("inventory", "0012_purchaseorder_location_alter_purchaseorder_warehouse"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='purchaseorder',
-            name='received_quantity',
+            model_name="purchaseorder",
+            name="received_quantity",
         ),
         migrations.AlterField(
-            model_name='purchaseorder',
-            name='status',
-            field=models.CharField(choices=[('pending', '未入庫'), ('partially_received', '一部入庫'), ('fully_received', '全量入庫済み'), ('canceled', 'キャンセル')], default='pending', max_length=20),
+            model_name="purchaseorder",
+            name="status",
+            field=models.CharField(
+                choices=[
+                    ("pending", "未入庫"),
+                    ("partially_received", "一部入庫"),
+                    ("fully_received", "全量入庫済み"),
+                    ("canceled", "キャンセル"),
+                ],
+                default="pending",
+                max_length=20,
+            ),
         ),
         migrations.CreateModel(
-            name='Receipt',
+            name="Receipt",
             fields=[
-                ('id', models.UUIDField(default=uuid6.uuid7, editable=False, primary_key=True, serialize=False)),
-                ('received_quantity', models.PositiveIntegerField(verbose_name='入庫数量')),
-                ('received_date', models.DateTimeField(default=django.utils.timezone.now, verbose_name='入庫日')),
-                ('warehouse', models.CharField(max_length=255, verbose_name='入庫倉庫')),
-                ('location', models.CharField(blank=True, max_length=255, null=True, verbose_name='入庫棚番')),
-                ('remarks', models.TextField(blank=True, null=True, verbose_name='備考')),
-                ('operator', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to=settings.AUTH_USER_MODEL, verbose_name='作業者')),
-                ('purchase_order', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='receipts', to='inventory.purchaseorder', verbose_name='入庫予定')),
+                ("id", models.UUIDField(default=uuid6.uuid7, editable=False, primary_key=True, serialize=False)),
+                ("received_quantity", models.PositiveIntegerField(verbose_name="入庫数量")),
+                ("received_date", models.DateTimeField(default=django.utils.timezone.now, verbose_name="入庫日")),
+                ("warehouse", models.CharField(max_length=255, verbose_name="入庫倉庫")),
+                ("location", models.CharField(blank=True, max_length=255, null=True, verbose_name="入庫棚番")),
+                ("remarks", models.TextField(blank=True, null=True, verbose_name="備考")),
+                (
+                    "operator",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        to=settings.AUTH_USER_MODEL,
+                        verbose_name="作業者",
+                    ),
+                ),
+                (
+                    "purchase_order",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="receipts",
+                        to="inventory.purchaseorder",
+                        verbose_name="入庫予定",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': '入庫実績',
-                'verbose_name_plural': '入庫実績',
-                'ordering': ['-received_date'],
+                "verbose_name": "入庫実績",
+                "verbose_name_plural": "入庫実績",
+                "ordering": ["-received_date"],
             },
         ),
     ]

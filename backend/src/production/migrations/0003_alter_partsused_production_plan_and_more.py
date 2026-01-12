@@ -4,20 +4,29 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('production', '0002_productionplan_production_plan'),
+        ("production", "0002_productionplan_production_plan"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='partsused',
-            name='production_plan',
-            field=models.CharField(help_text='関連する生産計画の名前やIDなどの識別子を文字列で記録します。', max_length=255, verbose_name='生産計画識別子'),
+            model_name="partsused",
+            name="production_plan",
+            field=models.CharField(
+                help_text="関連する生産計画の名前やIDなどの識別子を文字列で記録します。",
+                max_length=255,
+                verbose_name="生産計画識別子",
+            ),
         ),
         migrations.AlterField(
-            model_name='productionplan',
-            name='production_plan',
-            field=models.CharField(blank=True, help_text='参照する生産計画の名前や識別子を文字列で記録します。', max_length=255, null=True, verbose_name='参照生産計画'),
+            model_name="productionplan",
+            name="production_plan",
+            field=models.CharField(
+                blank=True,
+                help_text="参照する生産計画の名前や識別子を文字列で記録します。",
+                max_length=255,
+                null=True,
+                verbose_name="参照生産計画",
+            ),
         ),
     ]

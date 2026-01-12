@@ -4,18 +4,17 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('base', '0004_modeldisplaysetting_display_name'),
+        ("base", "0004_modeldisplaysetting_display_name"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='modeldisplaysetting',
-            name='is_visible',
+            model_name="modeldisplaysetting",
+            name="is_visible",
         ),
         migrations.RemoveField(
-            model_name='modeldisplaysetting',
-            name='list_width',
+            model_name="modeldisplaysetting",
+            name="list_width",
         ),
     ]

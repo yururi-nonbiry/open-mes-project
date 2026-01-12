@@ -5,26 +5,25 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('inventory', '0002_purchaseorder_color_info_and_more'),
-        ('master', '0001_initial'),
+        ("inventory", "0002_purchaseorder_color_info_and_more"),
+        ("master", "0001_initial"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='purchaseorder',
-            name='item',
-            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, to='master.item'),
+            model_name="purchaseorder",
+            name="item",
+            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, to="master.item"),
         ),
         migrations.AlterField(
-            model_name='purchaseorder',
-            name='supplier',
-            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, to='master.supplier'),
+            model_name="purchaseorder",
+            name="supplier",
+            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, to="master.supplier"),
         ),
         migrations.AlterField(
-            model_name='purchaseorder',
-            name='warehouse',
-            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, to='master.warehouse'),
+            model_name="purchaseorder",
+            name="warehouse",
+            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, to="master.warehouse"),
         ),
     ]

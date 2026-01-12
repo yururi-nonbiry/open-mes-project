@@ -3,8 +3,10 @@ from uuid6 import uuid7
 
 # Create your models here.
 
+
 class Machine(models.Model):
     """設備マスター"""
+
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
     machine_number = models.CharField(max_length=50, unique=True, verbose_name="設備番号")
     name = models.CharField(max_length=255, verbose_name="設備名")
@@ -18,4 +20,4 @@ class Machine(models.Model):
     class Meta:
         verbose_name = "設備"
         verbose_name_plural = "設備"
-        ordering = ['machine_number']
+        ordering = ["machine_number"]

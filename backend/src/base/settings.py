@@ -10,13 +10,12 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
-from pathlib import Path
 from datetime import timedelta
+from pathlib import Path
 
-import os
 import environ
 
-VERSION = '0.0.0'
+VERSION = "0.0.0"
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -28,31 +27,31 @@ env = environ.Env()
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = env('SECRET_KEY')
+SECRET_KEY = env("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env.bool('DEBUG')
+DEBUG = env.bool("DEBUG")
 
-ALLOWED_HOSTS = env.list('ALLOWED_HOSTS')
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS")
 
 DEBUG_TOOLBAR_CONFIG = {
-    "SHOW_TOOLBAR_CALLBACK" : lambda request: env.bool('DEBUG'),
+    "SHOW_TOOLBAR_CALLBACK": lambda request: env.bool("DEBUG"),
     "FETCH_INSTRUMENTATION_ENABLED": False,
 }
 
 # フロントエンドのオリジンを信頼する設定
 # .env ファイルから読み込む。Vite開発サーバーやリバースプロキシからのリクエストを許可するために使用します。
-CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=[])
+CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
 
 # CORS設定: Vite開発サーバーからのAPIリクエストを許可
 # .env ファイルから読み込む。
-CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[])
+CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
 
 # --- Cookie, CSRF, and Reverse Proxy Settings ---
 
 # リバースプロキシ(Nginx)からのX-Forwarded-Protoヘッダーを信頼し、
 # request.is_secure()が正しく動作するようにします。HTTPS環境では必須です。
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 # 本番環境(HTTPS)ではセキュアなクッキーを使用します
 CSRF_COOKIE_SECURE = not DEBUG
@@ -60,8 +59,8 @@ SESSION_COOKIE_SECURE = not DEBUG
 
 # CookieのSameSite属性。クロスオリジンリクエストを許可するために必要です。
 CORS_ALLOW_CREDENTIALS = True
-CSRF_COOKIE_SAMESITE = 'Lax'
-SESSION_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SAMESITE = "Lax"
+SESSION_COOKIE_SAMESITE = "Lax"
 
 # JavaScriptからCSRFトークンを読み取れるようにする
 # フロントエンドの `getCookie('csrftoken')` が機能するために必要です。
@@ -70,61 +69,59 @@ CSRF_COOKIE_HTTPONLY = False
 # Application definition
 
 INSTALLED_APPS = [
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
     # Third-party apps
-    'corsheaders',
-    'django_vite',
-    'debug_toolbar',
-    'rest_framework',
-    'django_static_md5url',
-    'rest_framework_simplejwt',
-
-    'rest_framework_simplejwt.token_blacklist',
+    "corsheaders",
+    "django_vite",
+    "debug_toolbar",
+    "rest_framework",
+    "django_static_md5url",
+    "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
     # Project apps
-    'base.apps.BaseConfig',
-    'users.apps.UsersConfig',
-    'production.apps.ProductionConfig',
-    'inventory.apps.InventoryConfig',
-    'machine.apps.MachineConfig',
-    'quality.apps.QualityConfig',
-    'master.apps.MasterConfig',
+    "base.apps.BaseConfig",
+    "users.apps.UsersConfig",
+    "production.apps.ProductionConfig",
+    "inventory.apps.InventoryConfig",
+    "machine.apps.MachineConfig",
+    "quality.apps.QualityConfig",
+    "master.apps.MasterConfig",
 ]
 
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'users.middleware.PasswordExpirationMiddleware', # パスワード有効期限
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'debug_toolbar.middleware.DebugToolbarMiddleware',
+    "django.middleware.security.SecurityMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "users.middleware.PasswordExpirationMiddleware",  # パスワード有効期限
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "debug_toolbar.middleware.DebugToolbarMiddleware",
 ]
 
-ROOT_URLCONF = 'base.urls'
+ROOT_URLCONF = "base.urls"
 
 TEMPLATES = [
     {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [
-            BASE_DIR / 'templates',
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [
+            BASE_DIR / "templates",
         ],
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.debug',
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.debug",
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
             ],
         },
     },
@@ -135,15 +132,14 @@ TEMPLATES = [
 # このビューが有効になっていると、CSRFエラーの真の原因が隠蔽され、汎用的な400エラーが返される可能性があります。
 # CSRF_FAILURE_VIEW = 'users.rest.csrf_failure'
 
-WSGI_APPLICATION = 'base.wsgi.application'
+WSGI_APPLICATION = "base.wsgi.application"
 
 
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
 DATABASES = {
-    'default': env.db(),
-
+    "default": env.db(),
 }
 
 
@@ -152,16 +148,16 @@ DATABASES = {
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
 ]
 
@@ -169,9 +165,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.1/topics/i18n/
 
-LANGUAGE_CODE = 'ja'
+LANGUAGE_CODE = "ja"
 
-TIME_ZONE = 'Asia/Tokyo'
+TIME_ZONE = "Asia/Tokyo"
 
 USE_I18N = True
 
@@ -181,7 +177,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-STATIC_URL = '/static/'
+STATIC_URL = "/static/"
 
 # `collectstatic` が静的ファイルを集める場所 (本番環境用)
 STATIC_ROOT = BASE_DIR / "staticfiles"
@@ -210,79 +206,79 @@ DJANGO_VITE = {
 }
 # 開発時および本番起動時にViteのmanifest.jsonが見つからない警告(W001)を抑制します。
 # 本番環境ではNginxがフロントエンドを直接配信するため、Djangoはmanifestを読み込む必要がありません。
-SILENCED_SYSTEM_CHECKS = ['django_vite.W001']
+SILENCED_SYSTEM_CHECKS = ["django_vite.W001"]
 
 # Django REST Framework settings
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': [
+    "DEFAULT_AUTHENTICATION_CLASSES": [
         # 'rest_framework.authentication.SessionAuthentication', # APIではJWT認証を主とするため無効化
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
     ]
 }
 
 # djangorestframework-simplejwt settings
 SIMPLE_JWT = {
     # アクセストークンの有効期間
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
     # リフレッシュトークンの有効期間
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=14),
-    'ROTATE_REFRESH_TOKENS': True,
-    'BLACKLIST_AFTER_ROTATION': True,
-    'ALGORITHM': 'HS256',
-    'SIGNING_KEY': SECRET_KEY,
-    'AUTH_HEADER_TYPES': ('Bearer',),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=14),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "ALGORITHM": "HS256",
+    "SIGNING_KEY": SECRET_KEY,
+    "AUTH_HEADER_TYPES": ("Bearer",),
 }
 
 # 本番環境ではWhiteNoiseが圧縮ファイルを配信できるように設定
 if not DEBUG:
-    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+    STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # カスタムユーザー
-AUTH_USER_MODEL = 'users.CustomUser'
+AUTH_USER_MODEL = "users.CustomUser"
 # ログインページのURL。Reactフロントエンドを使用するため、URL名をリバース解決するのではなく、
 # フロントエンドのルーターが処理する固定パス '/login/' に設定します。
 # これにより、LoginRequiredMixinなどがこのパスにリダイレクトし、Reactがログインページを表示できます。
-LOGIN_URL = '/login/'
-LOGIN_REDIRECT_URL = '/'  # ログイン後のリダイレクト先
-LOGOUT_REDIRECT_URL = '/'  # ログアウト後のリダイレクト先
+LOGIN_URL = "/login/"
+LOGIN_REDIRECT_URL = "/"  # ログイン後のリダイレクト先
+LOGOUT_REDIRECT_URL = "/"  # ログアウト後のリダイレクト先
 
 # settings.py
 # ... other settings
 
-PASSWORD_EXPIRATION_DAYS = 180 # 例: 90日
+PASSWORD_EXPIRATION_DAYS = 180  # 例: 90日
 
 # LOGGING設定
 # DEBUG=False の場合でも、エラーがコンソールに出力されるように設定します。
 # これにより、DisallowedHostのような本番環境でのみ発生するエラーをDockerログで確認できます。
 LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'verbose': {
-            'format': '{levelname} {asctime} {module} {message}',
-            'style': '{',
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "{levelname} {asctime} {module} {message}",
+            "style": "{",
         },
     },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'formatter': 'verbose',
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
         },
     },
-    'root': {
-        'handlers': ['console'],
-        'level': 'INFO',
+    "root": {
+        "handlers": ["console"],
+        "level": "INFO",
     },
-    'loggers': {
-        'django.security': {
-            'handlers': ['console'],
-            'level': 'DEBUG',
-            'propagate': True,
+    "loggers": {
+        "django.security": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": True,
         },
     },
 }
@@ -290,10 +286,10 @@ LOGGING = {
 # PASSWORD_EXPIRATION_DAYS = None
 
 # Celery Configuration Options
-CELERY_BROKER_URL = 'redis://redis:6379/0'
-CELERY_RESULT_BACKEND = 'redis://redis:6379/0'
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = 'Asia/Tokyo'
+CELERY_BROKER_URL = "redis://redis:6379/0"
+CELERY_RESULT_BACKEND = "redis://redis:6379/0"
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = "Asia/Tokyo"
 CELERY_TASK_TRACK_STARTED = True

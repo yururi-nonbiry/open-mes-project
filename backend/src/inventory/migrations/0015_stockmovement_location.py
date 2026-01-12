@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('inventory', '0014_alter_inventory_id_alter_inventory_is_active_and_more'),
+        ("inventory", "0014_alter_inventory_id_alter_inventory_is_active_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='stockmovement',
-            name='location',
-            field=models.CharField(blank=True, max_length=255, null=True, verbose_name='棚番'),
+            model_name="stockmovement",
+            name="location",
+            field=models.CharField(blank=True, max_length=255, null=True, verbose_name="棚番"),
         ),
     ]

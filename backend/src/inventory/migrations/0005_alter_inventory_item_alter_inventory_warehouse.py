@@ -4,20 +4,19 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('inventory', '0004_alter_purchaseorder_item_and_more'),
+        ("inventory", "0004_alter_purchaseorder_item_and_more"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='inventory',
-            name='item',
+            model_name="inventory",
+            name="item",
             field=models.CharField(blank=True, max_length=255, null=True),
         ),
         migrations.AlterField(
-            model_name='inventory',
-            name='warehouse',
+            model_name="inventory",
+            name="warehouse",
             field=models.CharField(blank=True, max_length=255, null=True),
         ),
     ]

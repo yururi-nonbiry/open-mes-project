@@ -5,44 +5,45 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='Item',
+            name="Item",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=255, unique=True)),
-                ('code', models.CharField(max_length=50, unique=True)),
-                ('item_type', models.CharField(choices=[('product', 'Product'), ('material', 'Material')], max_length=10)),
-                ('description', models.TextField(blank=True, null=True)),
-                ('unit', models.CharField(default='kg', max_length=10)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                ("name", models.CharField(max_length=255, unique=True)),
+                ("code", models.CharField(max_length=50, unique=True)),
+                (
+                    "item_type",
+                    models.CharField(choices=[("product", "Product"), ("material", "Material")], max_length=10),
+                ),
+                ("description", models.TextField(blank=True, null=True)),
+                ("unit", models.CharField(default="kg", max_length=10)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
             ],
         ),
         migrations.CreateModel(
-            name='Supplier',
+            name="Supplier",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=255, unique=True)),
-                ('contact_person', models.CharField(blank=True, max_length=255, null=True)),
-                ('phone', models.CharField(blank=True, max_length=50, null=True)),
-                ('email', models.EmailField(blank=True, max_length=254, null=True)),
-                ('address', models.TextField(blank=True, null=True)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                ("name", models.CharField(max_length=255, unique=True)),
+                ("contact_person", models.CharField(blank=True, max_length=255, null=True)),
+                ("phone", models.CharField(blank=True, max_length=50, null=True)),
+                ("email", models.EmailField(blank=True, max_length=254, null=True)),
+                ("address", models.TextField(blank=True, null=True)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
             ],
         ),
         migrations.CreateModel(
-            name='Warehouse',
+            name="Warehouse",
             fields=[
-                ('id', models.UUIDField(default=uuid6.uuid7, editable=False, primary_key=True, serialize=False)),
-                ('warehouse_number', models.CharField(max_length=50, unique=True)),
-                ('name', models.CharField(max_length=255)),
-                ('location', models.CharField(blank=True, max_length=255, null=True)),
+                ("id", models.UUIDField(default=uuid6.uuid7, editable=False, primary_key=True, serialize=False)),
+                ("warehouse_number", models.CharField(max_length=50, unique=True)),
+                ("name", models.CharField(max_length=255)),
+                ("location", models.CharField(blank=True, max_length=255, null=True)),
             ],
         ),
     ]

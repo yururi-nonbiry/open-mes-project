@@ -5,15 +5,21 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('production', '0001_initial'),
+        ("production", "0001_initial"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='productionplan',
-            name='production_plan',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='referencing_production_plans', to='production.productionplan', verbose_name='参照生産計画'),
+            model_name="productionplan",
+            name="production_plan",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="referencing_production_plans",
+                to="production.productionplan",
+                verbose_name="参照生産計画",
+            ),
         ),
     ]

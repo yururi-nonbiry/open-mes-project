@@ -4,13 +4,12 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('master', '0002_inventorypurchaseentry'),
+        ("master", "0002_inventorypurchaseentry"),
     ]
 
     operations = [
         migrations.DeleteModel(
-            name='InventoryPurchaseEntry',
+            name="InventoryPurchaseEntry",
         ),
     ]

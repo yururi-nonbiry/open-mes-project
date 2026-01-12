@@ -5,24 +5,27 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('users', '0001_initial'),
+        ("users", "0001_initial"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='customuser',
-            name='is_planet_culc',
+            model_name="customuser",
+            name="is_planet_culc",
         ),
         migrations.AddField(
-            model_name='customuser',
-            name='password_last_changed',
-            field=models.DateTimeField(default=django.utils.timezone.now, help_text='パスワードが最後に変更された日時。', verbose_name='password last changed'),
+            model_name="customuser",
+            name="password_last_changed",
+            field=models.DateTimeField(
+                default=django.utils.timezone.now,
+                help_text="パスワードが最後に変更された日時。",
+                verbose_name="password last changed",
+            ),
         ),
         migrations.AlterField(
-            model_name='customuser',
-            name='email',
-            field=models.EmailField(blank=True, max_length=254, null=True, unique=True, verbose_name='email address'),
+            model_name="customuser",
+            name="email",
+            field=models.EmailField(blank=True, max_length=254, null=True, unique=True, verbose_name="email address"),
         ),
     ]
