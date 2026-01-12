@@ -2,10 +2,15 @@ import { getCookie } from './cookies';
 
 const BASE_URL = '/api';
 
-let isRefreshing = false;
-let failedQueue = [];
+interface FailedRequest {
+  resolve: (token: string | null) => void;
+  reject: (error: any) => void;
+}
 
-const processQueue = (error, token = null) => {
+let isRefreshing = false;
+let failedQueue: FailedRequest[] = [];
+
+const processQueue = (error: any, token: string | null = null) => {
   failedQueue.forEach(prom => {
     if (error) {
       prom.reject(error);
@@ -16,11 +21,11 @@ const processQueue = (error, token = null) => {
   failedQueue = [];
 };
 
-const authFetch = async (url, options = {}) => {
+const authFetch = async (url: string, options: RequestInit = {}): Promise<Response> => {
   let accessToken = localStorage.getItem('access_token');
 
-  const headers = {
-    ...options.headers,
+  const headers: Record<string, string> = {
+    ...Object.fromEntries(new Headers(options.headers || {}).entries()),
   };
 
   // FormDataの場合、ブラウザが自動でContent-Typeとboundaryを設定するので、
@@ -35,7 +40,7 @@ const authFetch = async (url, options = {}) => {
 
   // CSRFが必要なリクエスト（セッション認証との併用など）のために残す
   const csrfToken = getCookie('csrftoken');
-  if (csrfToken && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(options.method?.toUpperCase())) {
+  if (csrfToken && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(options.method?.toUpperCase() || '')) {
       headers['X-CSRFToken'] = csrfToken;
   }
 

@@ -1,6 +1,12 @@
 import React from 'react';
 
-const Header = ({ onMenuClick, isMenuOpen, isAuthenticated }) => {
+interface HeaderProps {
+  onMenuClick: () => void;
+  isMenuOpen: boolean;
+  isAuthenticated: boolean;
+}
+
+const Header: React.FC<HeaderProps> = ({ onMenuClick, isMenuOpen, isAuthenticated }) => {
   return (
     <header>
       {isAuthenticated && (

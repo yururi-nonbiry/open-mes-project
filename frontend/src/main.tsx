@@ -6,9 +6,12 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 
 // Import custom styles and the main App component
 import './index.css';
-import App from './App.jsx';
+import App from './App';
 
-createRoot(document.getElementById('root')).render(
+const rootElement = document.getElementById('root');
+if (!rootElement) throw new Error('Failed to find the root element');
+
+createRoot(rootElement).render(
   <StrictMode>
     <App />
   </StrictMode>,

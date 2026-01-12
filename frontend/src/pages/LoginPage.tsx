@@ -2,7 +2,12 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './LoginPage.css'; // Add some basic styling
 
-const LoginPage = ({ onLoginSuccess, isAuthenticated }) => {
+interface LoginPageProps {
+  onLoginSuccess: () => Promise<void>;
+  isAuthenticated: boolean;
+}
+
+const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, isAuthenticated }) => {
   const [customId, setCustomId] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -17,7 +22,7 @@ const LoginPage = ({ onLoginSuccess, isAuthenticated }) => {
     }
   }, [isAuthenticated, navigate, from]);
 
-  const handleLogin = async (e) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 

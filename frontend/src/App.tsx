@@ -1,44 +1,45 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import type { ReactNode } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation, Outlet } from 'react-router-dom';
 import './App.css';
-import authFetch from './utils/api.js';
-import Header from './components/Header.jsx';
-import SideMenu from './components/SideMenu.jsx';
-import ProtectedRoute from './components/ProtectedRoute.jsx';
-import LoginPage from './pages/LoginPage.jsx';
-import VersionModal from './components/VersionModal.jsx';
-import TopPage from './pages/TopPage.jsx';
-import InventoryInquiry from './pages/InventoryInquiry.jsx';
-import StockMovementHistory from './pages/StockMovementHistory.jsx';
-import ShipmentSchedule from './pages/ShipmentSchedule.jsx';
-import GoodsReceipt from './pages/GoodsReceipt.jsx';
-import GoodsIssue from './pages/GoodsIssue.jsx';
-import ProductionPlan from './pages/ProductionPlan.jsx';
-import PartsUsed from './pages/PartsUsed.jsx';
-import MaterialAllocation from './pages/MaterialAllocation.jsx';
-import WorkProgress from './pages/WorkProgress.jsx';
-import ProcessInspection from './pages/ProcessInspection.jsx';
-import AcceptanceInspection from './pages/AcceptanceInspection.jsx';
-import QualityMasterCreation from './pages/QualityMasterCreation.jsx';
-import StartInspection from './pages/StartInspection.jsx';
-import InspectionHistory from './pages/InspectionHistory.jsx';
-import MachineMasterCreation from './pages/MachineMasterCreation.jsx';
-import DataImport from './pages/DataImport.jsx';
-import UserSettings from './pages/UserSettings.jsx';
-import UserManagement from './pages/UserManagement.jsx';
-import SystemSettings from './pages/SystemSettings.jsx';
-import CsvMappingSettings from './pages/CsvMappingSettings.jsx';
-import ModelDisplaySettings from './pages/ModelDisplaySettings.jsx';
-import PageDisplaySettings from './pages/PageDisplaySettings.jsx';
-import QrCodeActionSettings from './pages/QrCodeActionSettings.jsx';
-import ShelfQrCodeCreation from './pages/ShelfQrCodeCreation.jsx';
-import MobileLayout from './layouts/MobileLayout.jsx';
-import MobileTopPage from './pages/MobileTopPage.jsx';
-import MobileGoodsReceiptPage from './pages/mobile/MobileGoodsReceiptPage.jsx';
-import MobileGoodsIssuePage from './pages/mobile/MobileGoodsIssuePage.jsx';
-import MobileLocationTransferPage from './pages/mobile/MobileLocationTransferPage.jsx';
-import MobileLoginPage from './pages/mobile/MobileLoginPage.jsx';
-import Help from './pages/Help.jsx';
+import authFetch from './utils/api';
+import Header from './components/Header';
+import SideMenu from './components/SideMenu';
+import ProtectedRoute from './components/ProtectedRoute';
+import LoginPage from './pages/LoginPage';
+import VersionModal from './components/VersionModal';
+import TopPage from './pages/TopPage';
+import InventoryInquiry from './pages/InventoryInquiry';
+import StockMovementHistory from './pages/StockMovementHistory';
+import ShipmentSchedule from './pages/ShipmentSchedule';
+import GoodsReceipt from './pages/GoodsReceipt';
+import GoodsIssue from './pages/GoodsIssue';
+import ProductionPlan from './pages/ProductionPlan';
+import PartsUsed from './pages/PartsUsed';
+import MaterialAllocation from './pages/MaterialAllocation';
+import WorkProgress from './pages/WorkProgress';
+import ProcessInspection from './pages/ProcessInspection';
+import AcceptanceInspection from './pages/AcceptanceInspection';
+import QualityMasterCreation from './pages/QualityMasterCreation';
+import StartInspection from './pages/StartInspection';
+import InspectionHistory from './pages/InspectionHistory';
+import MachineMasterCreation from './pages/MachineMasterCreation';
+import DataImport from './pages/DataImport';
+import UserSettings from './pages/UserSettings';
+import UserManagement from './pages/UserManagement';
+import SystemSettings from './pages/SystemSettings';
+import CsvMappingSettings from './pages/CsvMappingSettings';
+import ModelDisplaySettings from './pages/ModelDisplaySettings';
+import PageDisplaySettings from './pages/PageDisplaySettings';
+import QrCodeActionSettings from './pages/QrCodeActionSettings';
+import ShelfQrCodeCreation from './pages/ShelfQrCodeCreation';
+import MobileLayout from './layouts/MobileLayout';
+import MobileTopPage from './pages/MobileTopPage';
+import MobileGoodsReceiptPage from './pages/mobile/MobileGoodsReceiptPage';
+import MobileGoodsIssuePage from './pages/mobile/MobileGoodsIssuePage';
+import MobileLocationTransferPage from './pages/mobile/MobileLocationTransferPage';
+import MobileLoginPage from './pages/mobile/MobileLoginPage';
+import Help from './pages/Help';
 
 // モバイル専用リダイレクト処理
 const MobileRedirector = () => {
@@ -75,7 +76,6 @@ const MobileRedirector = () => {
 };
 
 function AppContent() {
-  const location = useLocation();
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('access_token'));
   const [isStaff, setIsStaff] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -134,7 +134,7 @@ function AppContent() {
 
   if (loading) return <div>Loading...</div>;
 
-  const StaffRoute = ({ children }) => {
+  const StaffRoute = ({ children }: { children: ReactNode }) => {
     if (!isStaff) {
       // スタッフでない場合はトップページにリダイレクト
       return <Navigate to="/" replace />;

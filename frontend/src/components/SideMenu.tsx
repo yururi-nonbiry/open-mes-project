@@ -1,8 +1,17 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
-const SideMenu = ({ isOpen, isStaffOrSuperuser, onVersionClick, onLinkClick, onLogout }) => {
-  const handleLogoutClick = (e) => {
+interface SideMenuProps {
+  isOpen: boolean;
+  isStaffOrSuperuser: boolean;
+  onVersionClick: () => void;
+  onLinkClick: () => void;
+  onLogout: () => void;
+  isAuthenticated: boolean;
+}
+
+const SideMenu: React.FC<SideMenuProps> = ({ isOpen, isStaffOrSuperuser, onVersionClick, onLinkClick, onLogout }) => {
+  const handleLogoutClick = (e: React.MouseEvent) => {
     e.preventDefault();
     onLinkClick(); // Close menu on click
     onLogout();
