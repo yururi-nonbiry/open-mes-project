@@ -152,3 +152,32 @@ cp .env.example .env
     *   `false`: 本番用証明書を取得します。**本番運用の際は必ず `false` に設定してください。**
 
 詳細の設定値については、`.env.example` 内のコメントを参照してください。
+
+### SSL証明書の切り替え（テスト→本番）
+
+`.env` の `CERTBOT_USE_STAGING` を `true` (テスト用) から `false` (本番用) に変更しても、既存の証明書が残っている場合は新しい証明書は取得されません。
+本番用証明書へ切り替える場合は、以下の手順で既存の証明書を削除する必要があります。
+
+1. コンテナを停止します。
+   ```bash
+   docker compose -f compose.https.yml down
+   ```
+2. 証明書の実体があるディレクトリを削除します（**注意: 全ての証明書が削除されます**）。
+   ```bash
+   sudo rm -rf ./certbot/conf
+   ```
+3. `.env` を修正し (`CERTBOT_USE_STAGING=false`)、コンテナを再起動します。
+   ```bash
+   docker compose -f compose.https.yml up -d
+   ```
+
+## フロントエンドのビルド (本番環境用)
+
+本番環境 (`compose.https.yml`) では、ホスト側でビルドされたフロントエンドの静的ファイル (`frontend/dist`) を使用します。
+以下のコマンドを使用して、Dockerコンテナ経由でビルドを行うことができます（ホスト環境に Node.js は不要です）。
+
+```bash
+docker compose -f compose.yml run --rm frontend npm run build
+```
+
+上記コマンド実行後、`frontend/dist` ディレクトリが生成（または更新）されていることを確認してから、本番用コンテナを起動してください。
