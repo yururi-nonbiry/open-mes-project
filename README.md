@@ -127,23 +127,28 @@ docker compose run -it --rm backend python3 manage.py createsuperuser
 docker compose -f compose.yml run -it --rm backend python3 manage.py createsuperuser
 ```
 
-## .envファイルのサンプル
+## 環境変数の設定 (.env)
 
-下記コマンドでセキュリティキーを再発行する
+プロジェクトには `.env.example` ファイルが含まれています。これをコピーして `.env` ファイルを作成し、必要な設定を行ってください。
+
+```bash
+cp .env.example .env
 ```
-docker compose exec -it backend python3 -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
-```
-.env
-```
-SECRET_KEY=(生成したセキュリティキーをここに記載する)
 
-DEBUG=True
+### 設定項目説明
 
-ALLOWED_HOSTS=*
-# フロントエンドやリバースプロキシが動作するオリジン(スキーマ+ホスト+ポート)をカンマ区切りで指定します。
-# 例: "http://localhost:3000,http://127.0.0.1:8000,https://your-domain.com"
-CSRF_TRUSTED_ORIGINS="http://localhost:8000,http://127.0.0.1:8000"
+*   **SECRET_KEY**: Djangoのセキュリティキーです。本番環境では必ず推測不可能な値に変更してください。
+    *   キーの生成コマンド例:
+        ```bash
+        docker compose exec -it backend python3 -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+        ```
+*   **DEBUG**: デバッグモードの有効化。本番環境では `False` に設定します。
+*   **ALLOWED_HOSTS**: アクセスを許可するホスト名（ドメイン）を設定します。
+*   **CSRF_TRUSTED_ORIGINS**: CSRF検証で信頼するオリジンを設定します（`https://your-domain.com` など）。
+*   **DOMAIN**: SSL証明書を取得するドメイン名。
+*   **EMAIL**: SSL証明書取得に使用するメールアドレス。
+*   **CERTBOT_USE_STAGING**: Let's Encryptのテスト環境を使用するかどうか。
+    *   `true`: テスト用証明書を取得します（発行制限が緩い）。動作確認用。
+    *   `false`: 本番用証明書を取得します。**本番運用の際は必ず `false` に設定してください。**
 
-DATABASE_URL=postgres://django:django@db:5432/open_mes
-
-```
+詳細の設定値については、`.env.example` 内のコメントを参照してください。

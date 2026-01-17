@@ -5,7 +5,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data/
     env_file:
-      - .env.prod # DB設定はこちらを参照
+      - .env # DB設定はこちらを参照
     restart: always
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U django -d open_mes"]
@@ -26,7 +26,7 @@ services:
       - ./backend/src:/open_mes
       - static_volume:/open_mes/staticfiles
     env_file:
-      - .env.prod # Django設定はこちらを参照
+      - .env # Django設定はこちらを参照
     depends_on:
       db:
         condition: service_healthy
@@ -53,7 +53,7 @@ services:
       - ./certbot/www:/var/www/certbot
       - ./reverse-proxy_https/entrypoint.sh:/docker-entrypoint.d/20-setup-certs.sh:ro
     env_file:
-      - .env.prod
+      - .env
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost/healthz"]
       interval: 10s
@@ -76,7 +76,7 @@ services:
       - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot
     env_file:
-      - .env.prod
+      - .env
     depends_on:
       reverse-proxy:
         condition: service_healthy
@@ -96,10 +96,12 @@ services:
           rm -rf /etc/letsencrypt/live/$$DOMAIN /etc/letsencrypt/archive/$$DOMAIN /etc/letsencrypt/renewal/$$DOMAIN.conf
 
           # 現在レート制限中のため、ステージング（テスト用）サーバーを使用します。本番移行時にこのフラグを削除してください。
+          STAGING_ARG="";
+          if [ "$$CERTBOT_USE_STAGING" = "true" ]; then STAGING_ARG="--test-cert"; fi;
           certbot certonly --webroot -w /var/www/certbot \
             --email $$EMAIL -d $$DOMAIN \
             --rsa-key-size 4096 --agree-tos --no-eff-email --non-interactive \
-            --cert-name $$DOMAIN
+            --cert-name $$DOMAIN $$STAGING_ARG
           echo "### Certificate command finished, reloading Nginx..."
           docker kill -s HUP https_reverse_proxy
         else
