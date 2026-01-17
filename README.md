@@ -2,7 +2,7 @@
 
 ## 詳細ドキュメント
 
-Open MES Project (みんなのMES) の詳細な技術ドキュメントやガイドラインは、[こちら (`docs/README.md`)](./docs/README.md) を参照してください。
+Open MES Project (現場Navi) の詳細な技術ドキュメントやガイドラインは、[こちら (`docs/README.md`)](./docs/README.md) を参照してください。
 これらのドキュメントは `docs` ディレクトリに格納されています。
 
 ### 目次

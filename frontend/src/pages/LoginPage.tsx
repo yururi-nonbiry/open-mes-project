@@ -47,15 +47,15 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, isAuthenticated }
       } else {
         let errorMessage = 'Login failed. Please check your credentials and try again.'; // Default message
         if (data) {
-            if (data.non_field_errors) {
-                errorMessage = data.non_field_errors.join(' ');
-            } else if (data.detail) {
-                errorMessage = data.detail;
-            } else if (typeof data === 'object' && !Array.isArray(data) && Object.keys(data).length > 0) {
-                // Handle field-specific errors (e.g., {'password': ['This field is required.']})
-                const fieldErrors = Object.entries(data).map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(' ') : String(value)}`).join('; ');
-                if (fieldErrors) errorMessage = fieldErrors;
-            }
+          if (data.non_field_errors) {
+            errorMessage = data.non_field_errors.join(' ');
+          } else if (data.detail) {
+            errorMessage = data.detail;
+          } else if (typeof data === 'object' && !Array.isArray(data) && Object.keys(data).length > 0) {
+            // Handle field-specific errors (e.g., {'password': ['This field is required.']})
+            const fieldErrors = Object.entries(data).map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(' ') : String(value)}`).join('; ');
+            if (fieldErrors) errorMessage = fieldErrors;
+          }
         }
         setError(errorMessage);
       }
@@ -72,7 +72,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, isAuthenticated }
   return (
     <div className="login-page-container">
       <div className="login-card">
-        <h2 className="login-title">みんなのMES</h2>
+        <h2 className="login-title">現場Navi</h2>
         {error && <div className="alert alert-danger">{error}</div>}
         <form onSubmit={handleLogin} className="login-form">
           <div className="form-group">
