@@ -30,7 +30,7 @@ import string  # for production_plan code generation
 API_BASE_URL = "http://127.0.0.1:8000/api" # Adjust if your API base URL is different
 PRODUCTION_PLANS_ENDPOINT = f"{API_BASE_URL}/production/plans/"
 PARTS_USED_ENDPOINT = f"{API_BASE_URL}/production/parts-used/"
-PURCHASE_ORDERS_ENDPOINT = f"{API_BASE_URL}/inventory/purchase-orders/create/" # Corrected endpoint
+PURCHASE_ORDERS_ENDPOINT = f"{API_BASE_URL}/inventory/purchase-orders/" 
 
 # --- Load API Token ---
 API_TOKEN = None
@@ -42,7 +42,7 @@ try:
     config.read(config_path)
     API_TOKEN = config.get('API', 'TOKEN', fallback=None)
     if API_TOKEN:
-        HEADERS["Authorization"] = f"Token {API_TOKEN}"
+        HEADERS["Authorization"] = f"Bearer {API_TOKEN}"
     else:
         print("警告: config.ini に API_TOKEN が見つかりません。リクエストは認証なしで送信されます。")
 except Exception as e:

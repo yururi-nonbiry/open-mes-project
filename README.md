@@ -181,3 +181,36 @@ docker compose -f compose.yml run --rm frontend npm run build
 ```
 
 上記コマンド実行後、`frontend/dist` ディレクトリが生成（または更新）されていることを確認してから、本番用コンテナを起動してください。
+
+---
+
+## テストデータの作成
+
+開発や動作確認のために、API経由でテストデータを一括作成するスクリプトが用意されています。
+
+### 準備
+
+1. **必要なライブラリのインストール**:
+   ```bash
+   pip install requests Faker
+   ```
+
+2. **APIアクセストークンの取得**:
+   JWTアクセストークンを取得します。以下のコマンドで取得可能です（`your_id` は自身のユーザーIDに置き換えてください）。
+   ```bash
+   docker compose exec backend python3 manage.py shell -c "from users.models import CustomUser; from rest_framework_simplejwt.tokens import RefreshToken; user = CustomUser.objects.get(custom_id='your_id'); print(str(RefreshToken.for_user(user).access_token))"
+   ```
+
+3. **設定ファイルの作成**:
+   `script/` ディレクトリ内に `config.ini` ファイルを作成し、取得したトークンを設定します。
+   ```ini
+   [API]
+   TOKEN = <取得したアクセストークン>
+   ```
+
+### 実行
+
+以下のコマンドを実行すると、生産計画、使用部品、発注データが作成されます。
+```bash
+python script/create_comprehensive_test_data.py
+```
