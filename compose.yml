@@ -69,6 +69,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
     volumes:
       - ./frontend:/app
       - /app/node_modules
@@ -79,15 +81,6 @@ services:
     depends_on:
       backend:
         condition: service_healthy
-
-  reverse-proxy:
-    container_name: reverse-proxy
-    build: ./reverse-proxy
-    ports:
-      - "80:80"
-    depends_on:
-      - backend
-      - frontend
 
 volumes:
   postgres_data:

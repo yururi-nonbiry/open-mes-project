@@ -16,9 +16,9 @@ export default defineConfig({
     // '*' は常に許可し、.envファイルから読み込んだホストも追加する
     allowedHosts: ['*', ...allowedHostsFromEnv],
     proxy: {
-      // DjangoバックエンドへのAPIリクエストをプロキシする設定
-      // /api で始まるリクエストのみをバックエンドに転送する
-      '^/api/.*': {
+      // Djangoバックエンドへのリクエストをプロキシする設定
+      // API, Admin, Static, Debug Toolbarのリクエストをバックエンドに転送する
+      '^/(api|admin|static|__debug__)/.*': {
         target: 'http://backend:8000',
         changeOrigin: true,
       },
