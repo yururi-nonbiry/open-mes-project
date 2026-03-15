@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import authFetch from '../utils/api';
 import { getCookie } from '../utils/cookies';
 import Modal from '../components/Modal'; // Generic Modal component
 
 // Constants for statuses, similar to the Django template
 const AVAILABLE_STATUSES = [
     { key: 'PENDING', label: '未着手', btnClass: 'btn-secondary', btnOutlineClass: 'btn-outline-secondary', default_selected: true },
-    { key: 'IN_PROGRESS', label: '進行中', btnClass: 'btn-info',     btnOutlineClass: 'btn-outline-info',    default_selected: true },
-    { key: 'COMPLETED', label: '完了',    btnClass: 'btn-success',  btnOutlineClass: 'btn-outline-success', default_selected: false },
-    { key: 'ON_HOLD', label: '保留',    btnClass: 'btn-warning',  btnOutlineClass: 'btn-outline-warning', default_selected: true },
-    { key: 'CANCELLED', label: '中止',  btnClass: 'btn-danger',   btnOutlineClass: 'btn-outline-danger',  default_selected: false }
+    { key: 'IN_PROGRESS', label: '進行中', btnClass: 'btn-info', btnOutlineClass: 'btn-outline-info', default_selected: true },
+    { key: 'COMPLETED', label: '完了', btnClass: 'btn-success', btnOutlineClass: 'btn-outline-success', default_selected: false },
+    { key: 'ON_HOLD', label: '保留', btnClass: 'btn-warning', btnOutlineClass: 'btn-outline-warning', default_selected: true },
+    { key: 'CANCELLED', label: '中止', btnClass: 'btn-danger', btnOutlineClass: 'btn-outline-danger', default_selected: false }
 ];
 
 const getDefaultSelectedStatuses = () => {
@@ -56,7 +57,7 @@ const WorkProgress = () => {
 
         const params = new URLSearchParams();
         params.append('page_size', pageSize.toString());
-        
+
         // Sorting
         const sortOrderPrefix = sorting.direction === 'desc' ? '-' : '';
         params.append('ordering', `${sortOrderPrefix}${sorting.field}`);
@@ -90,9 +91,7 @@ const WorkProgress = () => {
         const url = buildApiUrl(pageUrl);
 
         try {
-            const response = await fetch(url, {
-                credentials: 'include',
-            });
+            const response = await authFetch(url);
             if (!response.ok) {
                 const errorData = await response.json();
                 throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
@@ -100,7 +99,7 @@ const WorkProgress = () => {
             const data = await response.json();
             setPlans(data.results || []);
             setPagination({ count: data.count, next: data.next, previous: data.previous });
-            
+
             if (data.count > 0) {
                 let currentPage = 1;
                 const urlParams = new URL(url, window.location.origin).searchParams;
@@ -175,7 +174,7 @@ const WorkProgress = () => {
         setSelectedPlan(plan);
         setModalStatus(plan.status);
         setModalError('');
-        
+
         let quantities = { actual: '', good: '', defective: '' };
         if (plan.status === 'COMPLETED') {
             quantities = {
@@ -200,7 +199,7 @@ const WorkProgress = () => {
         const actual = parseInt(newQuantities.actual, 10) || 0;
         const defective = parseInt(newQuantities.defective, 10) || 0;
         newQuantities.good = Math.max(0, actual - defective).toString();
-        
+
         setModalQuantities(newQuantities);
     };
 
@@ -219,19 +218,17 @@ const WorkProgress = () => {
             if (isNaN(good) || good < 0) { setModalError('OK数量を正しく入力してください。'); return; }
             if (isNaN(defective) || defective < 0) { setModalError('NG数量を正しく入力してください。'); return; }
             if (good + defective > actual) { setModalError('OK数量とNG数量の合計は、製作数量を超えることはできません。'); return; }
-            
+
             payload.actual_quantity = actual;
             payload.good_quantity = good;
             payload.defective_quantity = defective;
         }
 
         try {
-            const csrfToken = getCookie('csrftoken');
-            const response = await fetch(`/api/production/plans/${selectedPlan.id}/update-progress/`, {
+            const response = await authFetch(`/api/production/plans/${selectedPlan.id}/update-progress/`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
-                credentials: 'include',
             });
             const data = await response.json();
             if (!response.ok) {

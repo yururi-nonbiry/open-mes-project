@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import authFetch from '../utils/api';
 
 // Constants from the Django template
 const AVAILABLE_MOVEMENT_TYPES = [
@@ -43,7 +44,7 @@ const StockMovementHistory = () => {
         reference_document: '',
     });
     const [selectedTypes, setSelectedTypes] = useState(getDefaultSelectedTypes());
-    
+
     // State to trigger fetch
     const [activeSearch, setActiveSearch] = useState({});
     const [currentPage, setCurrentPage] = useState(1);
@@ -54,7 +55,7 @@ const StockMovementHistory = () => {
     const fetchHistory = useCallback(async (page, params) => {
         setLoading(true);
         setError(null);
-        
+
         const dataUrl = new URL(`${window.location.origin}/api/inventory/stock-movements/`);
         dataUrl.searchParams.append('page', page);
         dataUrl.searchParams.append('page_size', pageSize);
@@ -76,9 +77,9 @@ const StockMovementHistory = () => {
 
         try {
             const [settingsResponse, fieldsResponse, dataResponse] = await Promise.all([
-                fetch(settingsUrl, { credentials: 'include' }),
-                fetch(fieldsUrl, { credentials: 'include' }),
-                fetch(dataUrl.toString(), { credentials: 'include' })
+                authFetch(settingsUrl),
+                authFetch(fieldsUrl),
+                authFetch(dataUrl.toString())
             ]);
 
             if (settingsResponse.ok && fieldsResponse.ok) {
@@ -360,7 +361,7 @@ const StockMovementHistory = () => {
 
             <h2 className="mb-3">入出庫履歴</h2>
             <p id="history-count-info" className="text-muted">{renderHistoryCountInfo()}</p>
-            
+
             <div className="table-responsive">
                 <table id="schedule-table" className="table table-striped table-bordered table-hover table-sm">
                     <thead className="table-light">

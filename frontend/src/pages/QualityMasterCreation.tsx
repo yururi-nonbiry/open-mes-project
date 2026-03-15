@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import authFetch from '../utils/api';
 import Sortable from 'sortablejs';
 import { getCookie } from '../utils/cookies';
 
@@ -67,7 +68,7 @@ const QualityMasterCreation = () => {
         setLoading(true);
         setListError(null);
         try {
-            const response = await fetch('/api/quality/inspection-items/');
+            const response = await authFetch('/api/quality/inspection-items/');
             if (!response.ok) throw new Error('Network response was not ok');
             const data = await response.json();
             if (data.status === 'success') {
@@ -127,7 +128,7 @@ const QualityMasterCreation = () => {
         } else {
             setModalTitle(`${name} 変更`);
             try {
-                const response = await fetch(`/api/quality/inspection-items/${id}/`);
+                const response = await authFetch(`/api/quality/inspection-items/${id}//`);
                 if (!response.ok) throw new Error(`サーバーが ${response.status} で応答しました`);
                 const result = await response.json();
                 if (result.status === 'success') {
@@ -186,11 +187,10 @@ const QualityMasterCreation = () => {
         const method = modalMode === 'new' ? 'POST' : 'PUT';
 
         try {
-            const response = await fetch(url, {
+            const response = await authFetch(url, {
                 method: method,
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRFToken': getCookie('csrftoken'),
                 },
                 body: JSON.stringify(payload),
             });
@@ -226,9 +226,8 @@ const QualityMasterCreation = () => {
     const handleDelete = async (id, code) => {
         if (window.confirm(`検査項目「${code}」を本当に削除しますか？`)) {
             try {
-                const response = await fetch(`/api/quality/inspection-items/${id}/`, {
+                const response = await authFetch(`/api/quality/inspection-items/${id}//`, {
                     method: 'DELETE',
-                    headers: { 'X-CSRFToken': getCookie('csrftoken'), 'Accept': 'application/json' },
                 });
                 const data = await response.json();
                 alert(data.message);
@@ -298,7 +297,7 @@ const QualityMasterCreation = () => {
                                         <table className="table table-sm table-bordered" style={{ tableLayout: 'fixed', width: '100%' }}>
                                             <thead className="thead-light">
                                                 <tr>
-                                                    <th style={{width: '30px'}}></th><th style={{width: '150px'}}>測定・判定名*</th><th style={{width: '90px'}}>タイプ*</th><th style={{width: '80px'}}>規格値(中心)</th><th style={{width: '80px'}}>規格上限</th><th style={{width: '80px'}}>規格下限</th><th style={{width: '60px'}}>単位</th><th style={{width: '100px'}}>期待結果(定性)</th><th style={{width: '60px'}}>削除</th>
+                                                    <th style={{ width: '30px' }}></th><th style={{ width: '150px' }}>測定・判定名*</th><th style={{ width: '90px' }}>タイプ*</th><th style={{ width: '80px' }}>規格値(中心)</th><th style={{ width: '80px' }}>規格上限</th><th style={{ width: '80px' }}>規格下限</th><th style={{ width: '60px' }}>単位</th><th style={{ width: '100px' }}>期待結果(定性)</th><th style={{ width: '60px' }}>削除</th>
                                                 </tr>
                                             </thead>
                                             <tbody ref={formsetTableBodyRef}>
@@ -310,9 +309,9 @@ const QualityMasterCreation = () => {
                                                             <td className="drag-handle">☰</td>
                                                             <td><input type="text" value={detail.name || ''} onChange={e => handleDetailChange(e, index)} name="name" className={`form-control form-control-sm ${formErrors[`${prefix}-name`] ? 'is-invalid' : ''}`} /><div className="invalid-feedback">{formErrors[`${prefix}-name`]}</div></td>
                                                             <td><select value={detail.measurement_type || ''} onChange={e => handleDetailChange(e, index)} name="measurement_type" className={`form-control form-control-sm ${formErrors[`${prefix}-measurement_type`] ? 'is-invalid' : ''}`}>{MEASUREMENT_TYPE_CHOICES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select><div className="invalid-feedback">{formErrors[`${prefix}-measurement_type`]}</div></td>
-                                                            {['specification_nominal', 'specification_upper_limit', 'specification_lower_limit'].map(f => (<td key={f} style={{visibility: isQuantitative ? 'visible' : 'hidden'}}><input type="number" step="any" value={isQuantitative ? detail[f] ?? '' : ''} onChange={e => handleDetailChange(e, index)} name={f} className={`form-control form-control-sm ${formErrors[`${prefix}-${f}`] ? 'is-invalid' : ''}`} /><div className="invalid-feedback">{formErrors[`${prefix}-${f}`]}</div></td>))}
-                                                            <td style={{visibility: isQuantitative ? 'visible' : 'hidden'}}><input type="text" value={isQuantitative ? detail.specification_unit || '' : ''} onChange={e => handleDetailChange(e, index)} name="specification_unit" className={`form-control form-control-sm ${formErrors[`${prefix}-specification_unit`] ? 'is-invalid' : ''}`} /><div className="invalid-feedback">{formErrors[`${prefix}-specification_unit`]}</div></td>
-                                                            <td style={{visibility: !isQuantitative ? 'visible' : 'hidden'}}><input type="text" value={!isQuantitative ? detail.expected_qualitative_result || '' : ''} onChange={e => handleDetailChange(e, index)} name="expected_qualitative_result" className={`form-control form-control-sm ${formErrors[`${prefix}-expected_qualitative_result`] ? 'is-invalid' : ''}`} /><div className="invalid-feedback">{formErrors[`${prefix}-expected_qualitative_result`]}</div></td>
+                                                            {['specification_nominal', 'specification_upper_limit', 'specification_lower_limit'].map(f => (<td key={f} style={{ visibility: isQuantitative ? 'visible' : 'hidden' }}><input type="number" step="any" value={isQuantitative ? detail[f] ?? '' : ''} onChange={e => handleDetailChange(e, index)} name={f} className={`form-control form-control-sm ${formErrors[`${prefix}-${f}`] ? 'is-invalid' : ''}`} /><div className="invalid-feedback">{formErrors[`${prefix}-${f}`]}</div></td>))}
+                                                            <td style={{ visibility: isQuantitative ? 'visible' : 'hidden' }}><input type="text" value={isQuantitative ? detail.specification_unit || '' : ''} onChange={e => handleDetailChange(e, index)} name="specification_unit" className={`form-control form-control-sm ${formErrors[`${prefix}-specification_unit`] ? 'is-invalid' : ''}`} /><div className="invalid-feedback">{formErrors[`${prefix}-specification_unit`]}</div></td>
+                                                            <td style={{ visibility: !isQuantitative ? 'visible' : 'hidden' }}><input type="text" value={!isQuantitative ? detail.expected_qualitative_result || '' : ''} onChange={e => handleDetailChange(e, index)} name="expected_qualitative_result" className={`form-control form-control-sm ${formErrors[`${prefix}-expected_qualitative_result`] ? 'is-invalid' : ''}`} /><div className="invalid-feedback">{formErrors[`${prefix}-expected_qualitative_result`]}</div></td>
                                                             <td><button type="button" className="btn btn-sm btn-danger" onClick={() => removeDetailRow(index)} title="行を削除"><i className="fas fa-trash-alt"></i></button></td>
                                                         </tr>
                                                     );
