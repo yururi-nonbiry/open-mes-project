@@ -3,9 +3,32 @@ import authFetch from '../utils/api';
 import Modal from '../components/Modal';
 import './InventoryInquiry.css';
 
+interface DisplaySetting {
+  model_field_name: string;
+  display_name: string;
+  verbose_name: string;
+  display_order: number;
+  is_list_display: boolean;
+  is_search_field: boolean;
+  search_order: number;
+}
+
+interface InventoryItem {
+  id: string | number;
+  part_number: string;
+  part_name?: string;
+  warehouse: string;
+  location: string;
+  quantity: number;
+  reserved: number;
+  available_quantity: number;
+  last_updated?: string;
+  [key: string]: any;
+}
+
 const InventoryInquiry = () => {
   // State for inventory data, pagination, and loading/error status
-  const [inventory, setInventory] = useState([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [pagination, setPagination] = useState({
     count: 0,
     next: null,
@@ -14,23 +37,47 @@ const InventoryInquiry = () => {
     totalPages: 1,
   });
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [displaySettings, setDisplaySettings] = useState([]);
-  const [searchFields, setSearchFields] = useState([]);
+  const [error, setError] = useState<string | null>(null);
+  const [displaySettings, setDisplaySettings] = useState<DisplaySetting[]>([]);
+  const [searchFields, setSearchFields] = useState<DisplaySetting[]>([]);
 
   // State for search filters
-  const [filters, setFilters] = useState({
-    // part_number, warehouse, location will be added dynamically
+  const [filters, setFilters] = useState<Record<string, any>>({
     hideZeroStock: true,
   });
 
   // State for modals
-  const [modifyModal, setModifyModal] = useState({ isOpen: false, item: null, error: '', success: '' });
-  const [moveModal, setMoveModal] = useState({ isOpen: false, item: null, error: '', success: '' });
+  const [modifyModal, setModifyModal] = useState<{
+    isOpen: boolean;
+    item: InventoryItem | null;
+    error: string;
+    success: string;
+  }>({ isOpen: false, item: null, error: '', success: '' });
+
+  const [moveModal, setMoveModal] = useState<{
+    isOpen: boolean;
+    item: InventoryItem | null;
+    error: string;
+    success: string;
+  }>({ isOpen: false, item: null, error: '', success: '' });
 
   // State for form data within modals
-  const [modifyFormData, setModifyFormData] = useState({ warehouse: '', location: '', quantity: 0 });
-  const [moveFormData, setMoveFormData] = useState({ quantity_to_move: 0, target_warehouse: '', target_location: '' });
+  const [modifyFormData, setModifyFormData] = useState({
+    warehouse: '',
+    location: '',
+    quantity: 0,
+    reserved: 0,
+    is_active: true,
+    is_allocatable: true
+  });
+  const [moveFormData, setMoveFormData] = useState({
+    from_warehouse: '',
+    to_warehouse: '',
+    quantity: 0,
+    target_warehouse: '', // Added back if needed by submit
+    target_location: '',   // Added back if needed by submit
+    quantity_to_move: 0    // Added back if needed by submit
+  });
 
   // API call to fetch inventory data
   const fetchInventory = useCallback(async (pageUrl = null) => {
@@ -54,7 +101,7 @@ const InventoryInquiry = () => {
           params.append(`${key}_query`, value);
         }
       }
-      params.append('hide_zero_stock_query', filters.hideZeroStock);
+      params.append('hide_zero_stock_query', filters.hideZeroStock ? 'true' : 'false');
       apiUrl = `/api/inventory/inventories/?${params.toString()}`;
     }
 
@@ -71,21 +118,21 @@ const InventoryInquiry = () => {
       if (settingsResponse.ok && fieldsResponse.ok) {
         const settings = await settingsResponse.json();
         const fields = await fieldsResponse.json();
-        const verboseNameMap = new Map(fields.map(f => [f.name, f.verbose_name]));
+        const verboseNameMap = new Map(fields.map((f: any) => [f.name, f.verbose_name]));
 
-        const combinedSettings = settings.map(setting => ({
+        const combinedSettings = settings.map((setting: any) => ({
           ...setting,
           verbose_name: verboseNameMap.get(setting.model_field_name) || setting.model_field_name,
         }));
 
         const visibleColumns = combinedSettings
-          .filter(s => s.is_list_display)
-          .sort((a, b) => a.display_order - b.display_order);
+          .filter((s: any) => s.is_list_display)
+          .sort((a: any, b: any) => a.display_order - b.display_order);
         setDisplaySettings(visibleColumns);
 
         const searchableFields = combinedSettings
-          .filter(s => s.is_search_field)
-          .sort((a, b) => a.search_order - b.search_order);
+          .filter((s: any) => s.is_search_field)
+          .sort((a: any, b: any) => a.search_order - b.search_order);
         setSearchFields(searchableFields);
       } else {
         console.error('表示設定の取得に失敗しました。');
@@ -101,15 +148,15 @@ const InventoryInquiry = () => {
 
       // 品番マスターから品名を取得してマージする
       if (inventoryResults.length > 0) {
-        const partNumbers = [...new Set(inventoryResults.map(item => item.part_number).filter(Boolean))];
+        const partNumbers = [...new Set(inventoryResults.map((item: any) => item.part_number).filter(Boolean))];
         if (partNumbers.length > 0) {
           const itemsUrl = `/api/master/items/?code__in=${partNumbers.join(',')}`;
           const itemsResponse = await authFetch(itemsUrl);
           if (itemsResponse.ok) {
             const itemsData = await itemsResponse.json();
             const items = itemsData.results || itemsData.data || itemsData || [];
-            const partNameMap = new Map(items.map(item => [item.code, item.name]));
-            inventoryResults.forEach(inv => { inv.part_name = partNameMap.get(inv.part_number) || ''; });
+            const partNameMap = new Map(items.map((item: any) => [item.code, item.name]));
+            inventoryResults.forEach((inv: any) => { inv.part_name = partNameMap.get(inv.part_number) || ''; });
           }
         }
       }
@@ -121,7 +168,7 @@ const InventoryInquiry = () => {
         currentPage: data.current_page,
         totalPages: data.total_pages,
       });
-    } catch (err) {
+    } catch (err: any) {
       setError('在庫データの取得中にエラーが発生しました。');
       console.error('Error fetching inventory data:', err);
     } finally {
@@ -134,15 +181,22 @@ const InventoryInquiry = () => {
     fetchInventory();
   }, [fetchInventory]);
 
-  // Cleanup effect to remove body class on unmount
+  // モーダル表示時にスクロールを禁止する
   useEffect(() => {
+    if (modifyModal.isOpen || moveModal.isOpen) {
+      document.body.classList.add('menu-open-no-scroll');
+    } else {
+      document.body.classList.remove('menu-open-no-scroll');
+    }
+
+    // クリーンアップ関数
     return () => {
       document.body.classList.remove('menu-open-no-scroll');
     };
-  }, []);
+  }, [modifyModal.isOpen, moveModal.isOpen]);
 
   // Handlers for filter changes and search
-  const handleFilterChange = (e) => {
+  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
     setFilters(prev => ({
       ...prev,
@@ -155,59 +209,61 @@ const InventoryInquiry = () => {
   };
 
   // Modal control functions
-  const openModifyModal = (item) => {
+  const openModifyModal = (item: InventoryItem) => {
     setModifyModal({ isOpen: true, item, error: '', success: '' });
     setModifyFormData({
       warehouse: item.warehouse,
       location: item.location === '-' ? '' : item.location,
       quantity: item.quantity,
+      reserved: item.reserved,
+      is_active: item.is_active,
+      is_allocatable: item.is_allocatable,
     });
-    document.body.classList.add('menu-open-no-scroll');
   };
 
   const closeModifyModal = () => {
     setModifyModal({ isOpen: false, item: null, error: '', success: '' });
-    document.body.classList.remove('menu-open-no-scroll');
   };
 
-  const openMoveModal = (item) => {
+  const openMoveModal = (item: InventoryItem) => {
     setMoveModal({ isOpen: true, item, error: '', success: '' });
     setMoveFormData({
-      quantity_to_move: item.quantity, // Default to moving all
+      from_warehouse: item.warehouse,
+      to_warehouse: '',
+      quantity: 1,
       target_warehouse: '',
       target_location: '',
+      quantity_to_move: 1
     });
-    document.body.classList.add('menu-open-no-scroll');
   };
 
   const closeMoveModal = () => {
     setMoveModal({ isOpen: false, item: null, error: '', success: '' });
-    document.body.classList.remove('menu-open-no-scroll');
   };
 
   // Handlers for form data changes in modals
-  const handleModifyFormChange = (e) => {
+  const handleModifyFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setModifyFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleMoveFormChange = (e) => {
+  const handleMoveFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setMoveFormData(prev => ({ ...prev, [name]: value }));
   };
 
   // Handler for submitting the modify form
-  const handleModifySubmit = async (e) => {
+  const handleModifySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setModifyModal(prev => ({ ...prev, error: '', success: '' }));
     try {
       // Use PATCH for partial updates. The warehouse should not be changed here.
       // Changing the warehouse is a 'move' operation.
-      const response = await authFetch(`/api/inventory/inventories/${modifyModal.item.id}/`, {
+      const response = await authFetch(`/api/inventory/inventories/${modifyModal.item!.id}/`, {
         method: 'PATCH',
         body: JSON.stringify({
           quantity: modifyFormData.quantity,
-          location: modifyFormData.location.trim(),
+          location: (modifyFormData.location || '').trim(),
         }),
       });
       const result = await response.json();
@@ -220,17 +276,17 @@ const InventoryInquiry = () => {
       } else {
         setModifyModal(prev => ({ ...prev, error: result.error || result.detail || '在庫の更新に失敗しました。' }));
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error submitting inventory update:', err);
       setModifyModal(prev => ({ ...prev, error: err.message || '在庫更新中に通信エラーが発生しました。' }));
     }
   };
 
   // Handler for submitting the move form
-  const handleMoveSubmit = async (e) => {
+  const handleMoveSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMoveModal(prev => ({ ...prev, error: '', success: '' }));
-    const quantityToMove = parseInt(moveFormData.quantity_to_move, 10);
+    const quantityToMove = parseInt(String(moveFormData.quantity_to_move), 10);
     if (quantityToMove <= 0) {
       setMoveModal(prev => ({ ...prev, error: '移動数量は1以上である必要があります。' }));
       return;
@@ -240,7 +296,7 @@ const InventoryInquiry = () => {
       return;
     }
     try {
-      const response = await authFetch(`/api/inventory/inventories/${moveModal.item.id}/move/`, {
+      const response = await authFetch(`/api/inventory/inventories/${moveModal.item!.id}/move/`, {
         method: 'POST',
         body: JSON.stringify({
           quantity_to_move: quantityToMove,
@@ -379,75 +435,75 @@ const InventoryInquiry = () => {
       {/* Modify Inventory Modal */}
       <Modal isOpen={modifyModal.isOpen} onClose={closeModifyModal}>
         <div className="inventory-modal-content">
-            <h2>在庫修正</h2>
-            <form onSubmit={handleModifySubmit}>
-              <table className="table table-sm table-bordered mb-3">
-                <tbody>
-                  <tr>
-                    <td style={{ width: '35%' }}><label className="mb-0">製品/材料名:</label></td>
-                    <td><p className="mb-0">{modifyModal.item?.part_number}</p></td>
-                  </tr>
-                  <tr>
-                    <td><label className="mb-0">倉庫 (変更不可):</label></td>
-                    <td><p className="form-control-plaintext form-control-sm ps-2 mb-0">{modifyModal.item?.warehouse}</p></td>
-                  </tr>
-                  <tr>
-                    <td><label htmlFor="modal_location_input" className="mb-0">場所:</label></td>
-                    <td><input type="text" id="modal_location_input" name="location" value={modifyFormData.location} onChange={handleModifyFormChange} className="form-control form-control-sm" /></td>
-                  </tr>
-                  <tr>
-                    <td><label htmlFor="modal_quantity_input" className="mb-0">在庫数:</label></td>
-                    <td><input type="number" id="modal_quantity_input" name="quantity" value={modifyFormData.quantity} onChange={handleModifyFormChange} className="form-control form-control-sm text-end" required /></td>
-                  </tr>
-                  <tr>
-                    <td><label className="mb-0">引当在庫 (変更不可):</label></td>
-                    <td><p className="mb-0 text-end" style={{ paddingRight: '0.5rem' }}>{modifyModal.item?.reserved}</p></td>
-                  </tr>
-                  <tr>
-                    <td><label className="mb-0">利用可能数 (参考):</label></td>
-                    <td><p className="mb-0 text-end" style={{ paddingRight: '0.5rem' }}>{modifyModal.item?.available_quantity}</p></td>
-                  </tr>
-                </tbody>
-              </table>
-              {modifyModal.error && <div className="alert alert-danger">{modifyModal.error}</div>}
-              {modifyModal.success && <div className="alert alert-success">{modifyModal.success}</div>}
-              <div className="mt-3 text-end">
-                <button type="submit" className="btn btn-primary btn-sm">保存</button>
-                <button type="button" className="btn btn-secondary btn-sm ms-2" onClick={closeModifyModal}>キャンセル</button>
-              </div>
-            </form>
+          <h2>在庫修正</h2>
+          <form onSubmit={handleModifySubmit}>
+            <table className="table table-sm table-bordered mb-3">
+              <tbody>
+                <tr>
+                  <td style={{ width: '35%' }}><label className="mb-0">製品/材料名:</label></td>
+                  <td><p className="mb-0">{modifyModal.item?.part_number}</p></td>
+                </tr>
+                <tr>
+                  <td><label className="mb-0">倉庫 (変更不可):</label></td>
+                  <td><p className="form-control-plaintext form-control-sm ps-2 mb-0">{modifyModal.item?.warehouse}</p></td>
+                </tr>
+                <tr>
+                  <td><label htmlFor="modal_location_input" className="mb-0">場所:</label></td>
+                  <td><input type="text" id="modal_location_input" name="location" value={modifyFormData.location} onChange={handleModifyFormChange} className="form-control form-control-sm" /></td>
+                </tr>
+                <tr>
+                  <td><label htmlFor="modal_quantity_input" className="mb-0">在庫数:</label></td>
+                  <td><input type="number" id="modal_quantity_input" name="quantity" value={modifyFormData.quantity} onChange={handleModifyFormChange} className="form-control form-control-sm text-end" required /></td>
+                </tr>
+                <tr>
+                  <td><label className="mb-0">引当在庫 (変更不可):</label></td>
+                  <td><p className="mb-0 text-end" style={{ paddingRight: '0.5rem' }}>{modifyModal.item?.reserved}</p></td>
+                </tr>
+                <tr>
+                  <td><label className="mb-0">利用可能数 (参考):</label></td>
+                  <td><p className="mb-0 text-end" style={{ paddingRight: '0.5rem' }}>{modifyModal.item?.available_quantity}</p></td>
+                </tr>
+              </tbody>
+            </table>
+            {modifyModal.error && <div className="alert alert-danger">{modifyModal.error}</div>}
+            {modifyModal.success && <div className="alert alert-success">{modifyModal.success}</div>}
+            <div className="mt-3 text-end">
+              <button type="submit" className="btn btn-primary btn-sm">保存</button>
+              <button type="button" className="btn btn-secondary btn-sm ms-2" onClick={closeModifyModal}>キャンセル</button>
+            </div>
+          </form>
         </div>
       </Modal>
 
       {/* Move Inventory Modal */}
       <Modal isOpen={moveModal.isOpen} onClose={closeMoveModal}>
         <div className="inventory-modal-content">
-            <h2>在庫移動</h2>
-            <form onSubmit={handleMoveSubmit}>
-              <p><strong>品番:</strong> <span>{moveModal.item?.part_number}</span></p>
-              <p><strong>移動元倉庫:</strong> <span>{moveModal.item?.warehouse}</span></p>
-              <p><strong>移動元棚番:</strong> <span>{moveModal.item?.location}</span></p>
-              <p><strong>現在数量:</strong> <span>{moveModal.item?.quantity}</span></p>
-              <hr />
-              <div className="mb-3">
-                <label htmlFor="move_quantity_input" className="form-label">移動数量:</label>
-                <input type="number" id="move_quantity_input" name="quantity_to_move" value={moveFormData.quantity_to_move} onChange={handleMoveFormChange} className="form-control form-control-sm" required min="1" max={moveModal.item?.quantity} />
-              </div>
-              <div className="mb-3">
-                <label htmlFor="move_target_warehouse_input" className="form-label">移動先倉庫:</label>
-                <input type="text" id="move_target_warehouse_input" name="target_warehouse" value={moveFormData.target_warehouse} onChange={handleMoveFormChange} className="form-control form-control-sm" required placeholder="例: 第二倉庫" />
-              </div>
-              <div className="mb-3">
-                <label htmlFor="move_target_location_input" className="form-label">移動先棚番:</label>
-                <input type="text" id="move_target_location_input" name="target_location" value={moveFormData.target_location} onChange={handleMoveFormChange} className="form-control form-control-sm" placeholder="例: B-02-01" />
-              </div>
-              {moveModal.error && <div className="alert alert-danger">{moveModal.error}</div>}
-              {moveModal.success && <div className="alert alert-success">{moveModal.success}</div>}
-              <div className="mt-3 text-end">
-                <button type="submit" className="btn btn-success btn-sm">移動実行</button>
-                <button type="button" className="btn btn-secondary btn-sm ms-2" onClick={closeMoveModal}>キャンセル</button>
-              </div>
-            </form>
+          <h2>在庫移動</h2>
+          <form onSubmit={handleMoveSubmit}>
+            <p><strong>品番:</strong> <span>{moveModal.item?.part_number}</span></p>
+            <p><strong>移動元倉庫:</strong> <span>{moveModal.item?.warehouse}</span></p>
+            <p><strong>移動元棚番:</strong> <span>{moveModal.item?.location}</span></p>
+            <p><strong>現在数量:</strong> <span>{moveModal.item?.quantity}</span></p>
+            <hr />
+            <div className="mb-3">
+              <label htmlFor="move_quantity_input" className="form-label">移動数量:</label>
+              <input type="number" id="move_quantity_input" name="quantity_to_move" value={moveFormData.quantity_to_move} onChange={handleMoveFormChange} className="form-control form-control-sm" required min="1" max={moveModal.item?.quantity} />
+            </div>
+            <div className="mb-3">
+              <label htmlFor="move_target_warehouse_input" className="form-label">移動先倉庫:</label>
+              <input type="text" id="move_target_warehouse_input" name="target_warehouse" value={moveFormData.target_warehouse} onChange={handleMoveFormChange} className="form-control form-control-sm" required placeholder="例: 第二倉庫" />
+            </div>
+            <div className="mb-3">
+              <label htmlFor="move_target_location_input" className="form-label">移動先棚番:</label>
+              <input type="text" id="move_target_location_input" name="target_location" value={moveFormData.target_location} onChange={handleMoveFormChange} className="form-control form-control-sm" placeholder="例: B-02-01" />
+            </div>
+            {moveModal.error && <div className="alert alert-danger">{moveModal.error}</div>}
+            {moveModal.success && <div className="alert alert-success">{moveModal.success}</div>}
+            <div className="mt-3 text-end">
+              <button type="submit" className="btn btn-success btn-sm">移動実行</button>
+              <button type="button" className="btn btn-secondary btn-sm ms-2" onClick={closeMoveModal}>キャンセル</button>
+            </div>
+          </form>
         </div>
       </Modal>
     </div>

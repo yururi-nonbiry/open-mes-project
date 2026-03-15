@@ -69,9 +69,9 @@ class CsvColumnMappingAdmin(DynamicAdminMixin, admin.ModelAdmin):
 @admin.register(QrCodeAction)
 class QrCodeActionAdmin(DynamicAdminMixin, admin.ModelAdmin):
     _data_type = "qr_code_action"
-    list_display = ("name", "qr_code_pattern", "is_active", "updated_at")
-    list_filter = ("is_active",)
-    search_fields = ("name", "description", "qr_code_pattern")
+    list_display = ("name", "action_name", "qr_code_pattern", "is_active", "updated_at")
+    list_filter = ("is_active", "action_name")
+    search_fields = ("name", "description", "qr_code_pattern", "action_name")
     ordering = ("name",)
 
 

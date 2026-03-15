@@ -194,13 +194,55 @@ class InventoryViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"], url_path="adjust")
     def adjust(self, request, pk=None):
-        # This combines logic from the old `update_inventory_api`
-        # inventory = self.get_object()
-        # ... implementation from `update_inventory_api` ...
-        # For now, this is a placeholder. The logic is complex and needs careful integration.
-        return Response(
-            {"message": "Adjust action is not fully implemented yet."}, status=status.HTTP_501_NOT_IMPLEMENTED
-        )
+        """
+        在庫数量や棚番を直接調整します。
+        """
+        inventory = self.get_object()
+        new_quantity = request.data.get("quantity")
+        new_location = request.data.get("location")
+
+        if new_quantity is None:
+            return Response({"error": "数量は必須です。"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            new_quantity = int(new_quantity)
+        except ValueError:
+            return Response({"error": "数量は数値である必要があります。"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if new_quantity < inventory.reserved:
+            return Response(
+                {"error": f"調整後の数量({new_quantity})は引当済数量({inventory.reserved})以上である必要があります。"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        old_quantity = inventory.quantity
+        diff = new_quantity - old_quantity
+
+        try:
+            with transaction.atomic():
+                inventory.quantity = new_quantity
+                if new_location is not None:
+                    inventory.location = new_location
+                inventory.save()
+
+                if diff != 0:
+                    movement_type = "incoming" if diff > 0 else "outgoing"
+                    StockMovement.objects.create(
+                        part_number=inventory.part_number,
+                        movement_type=movement_type,
+                        quantity=abs(diff),
+                        warehouse=inventory.warehouse,
+                        location=inventory.location,
+                        description=f"在庫調整: {old_quantity} -> {new_quantity}",
+                        operator=request.user if request.user.is_authenticated else None,
+                    )
+
+            return Response({"success": True, "message": "在庫を正常に調整しました。"})
+        except Exception as e:
+            return Response(
+                {"error": f"在庫調整中にエラーが発生しました: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class PurchaseOrderViewSet(viewsets.ModelViewSet):

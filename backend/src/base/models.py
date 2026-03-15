@@ -173,7 +173,11 @@ class QrCodeAction(models.Model):
 
     ACTION_TYPE_CHOICES = [
         ("regex", _("正規表現で判定")),
-        ("script", _("スクリプトで判定")),
+    ]
+
+    ACTION_NAME_CHOICES = [
+        ("mark_as_received", _("入庫としてマーク")),
+        ("update_inventory", _("在庫更新")),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -196,8 +200,12 @@ class QrCodeAction(models.Model):
             "アクションタイプが「正規表現で判定」の場合に、マッチング対象となる正規表現パターン。例: '^ITEM-.+'"
         ),
     )
-    script = models.TextField(
-        _("実行スクリプト"), help_text=_("QRコードがマッチした際、またはスクリプト判定で実行されるPythonスクリプト。")
+    action_name = models.CharField(
+        _("アクション名（内部用）"),
+        max_length=50,
+        choices=ACTION_NAME_CHOICES,
+        default="mark_as_received",
+        help_text=_("実行するアクションを選択します。"),
     )
     is_active = models.BooleanField(
         _("有効"), default=True, help_text=_("このアクションが現在有効であるかを示します。")

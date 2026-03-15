@@ -271,6 +271,24 @@ class CsvColumnMappingViewSet(viewsets.ModelViewSet):
         )
 
 
+# 安全に実行可能なアクション関数を定義
+def action_mark_as_received(qr_data):
+    """入庫としてマーク（仮実装）"""
+    return {"status": "received", "data": qr_data}
+
+
+def action_update_inventory(qr_data):
+    """在庫更新（仮実装）"""
+    return {"status": "updated", "data": qr_data}
+
+
+# アクション名と関数のマッピング
+REGISTERED_ACTIONS = {
+    "mark_as_received": action_mark_as_received,
+    "update_inventory": action_update_inventory,
+}
+
+
 class QrCodeActionViewSet(viewsets.ModelViewSet):
     """
     QRコードアクションを管理するためのAPIビューセット。
@@ -286,71 +304,38 @@ class QrCodeActionViewSet(viewsets.ModelViewSet):
     def execute_action(self, request, *args, **kwargs):
         """
         QRコードのデータを受け取り、マッチするアクションを実行する。
-        注意: スクリプトの実行はセキュリティリスクを伴います。
-              本番環境では、安全なサンドボックス環境で実行するか、
-              許可された関数のみを呼び出すように制限する必要があります。
         """
         qr_data = request.data.get("qr_data")
         if not qr_data:
             return Response({"error": "qr_data is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # スクリプト判定を先に、正規表現判定を後に評価する
-        actions = QrCodeAction.objects.filter(is_active=True).order_by("-action_type")
+        # アクティブなアクションを取得
+        actions = QrCodeAction.objects.filter(is_active=True)
 
         for action_obj in actions:
-            try:
-                # **セキュリティ警告**: execの使用は非常に危険です。
-                # これはあくまで概念実証のためのコードです。
-                # 実際のアプリケーションでは、より安全な方法を検討してください。
-                script_body = "\n".join([f"    {line}" for line in action_obj.script.splitlines()])
-                wrapped_script = f"""
-def run_action(qr_data):
-{script_body}
-"""
-                script_globals = {}
-                exec(wrapped_script, script_globals)
-                action_func = script_globals["run_action"]
-
-                result = None
-                matched = False
-
-                if action_obj.action_type == "regex":
-                    if action_obj.qr_code_pattern and re.match(action_obj.qr_code_pattern, qr_data):
-                        matched = True
-                        result = action_func(qr_data)
-
-                elif action_obj.action_type == "script":
-                    # スクリプト判定では、スクリプト自体が判定と結果返却を行う
-                    result = action_func(qr_data)
-                    if result is not None:
-                        matched = True
-
-                if matched:
-                    # スクリプトがNoneを返した場合、それは「マッチしなかった」と見なす
-                    if result is None:
-                        continue
-
-                    return Response(
-                        {
-                            "status": "success",
-                            "action_name": action_obj.name,
-                            "result": result,
-                        }
-                    )
-
-            except re.error:
-                # パターンが無効な場合はログに記録するなど
-                # logger.warning(f"Invalid regex pattern for action '{action_obj.name}': {e}")
-                continue
-            except Exception as e:
-                return Response(
-                    {
-                        "status": "error",
-                        "action_name": action_obj.name,
-                        "message": f"An error occurred while executing action '{action_obj.name}': {e}",
-                    },
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                )
+            # 正規表現による判定
+            if action_obj.action_type == "regex" and action_obj.qr_code_pattern:
+                if re.match(action_obj.qr_code_pattern, qr_data):
+                    # 登録済みのアクションを取得して実行
+                    action_func = REGISTERED_ACTIONS.get(action_obj.action_name)
+                    if action_func:
+                        try:
+                            result = action_func(qr_data)
+                            return Response(
+                                {
+                                    "status": "success",
+                                    "action_name": action_obj.name,
+                                    "result": result,
+                                }
+                            )
+                        except Exception as e:
+                            return Response(
+                                {
+                                    "status": "error",
+                                    "message": f"An error occurred while executing action '{action_obj.name}': {e}",
+                                },
+                                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                            )
 
         return Response(
             {"status": "not_found", "message": "No matching action found for the given QR data."},

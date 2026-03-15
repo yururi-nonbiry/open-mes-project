@@ -40,7 +40,7 @@ class QrCodeActionSerializer(serializers.ModelSerializer):
             "description",
             "action_type",
             "qr_code_pattern",
-            "script",
+            "action_name",
             "is_active",
         ]
         read_only_fields = ["id"]
