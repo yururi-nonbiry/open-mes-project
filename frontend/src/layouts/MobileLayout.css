@@ -1,13 +1,15 @@
 /* Basic Reset & Body */
 body.mobile-nav-open {
-    overflow: hidden; /* Prevent scrolling when nav is open */
+    overflow: hidden;
+    /* Prevent scrolling when nav is open */
 }
 
 /* Main content area padding */
 .mobile-layout main {
     padding: 15px;
     /* Add padding to prevent content from being hidden behind the fixed bottom bar */
-    padding-bottom: 70px; /* Height of the header bar + some space */
+    padding-bottom: 70px;
+    /* Height of the header bar + some space */
 }
 
 /* Header Bar */
@@ -16,14 +18,16 @@ body.mobile-nav-open {
     justify-content: space-between;
     align-items: center;
     padding: 10px 15px;
-    background-color: #333; /* Dark background for the header */
+    background-color: #333;
+    /* Dark background for the header */
     color: white;
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
     z-index: 1001;
-    height: 50px; /* Explicit height */
+    height: 50px;
+    /* Explicit height */
 }
 
 .mobile-header-title {
@@ -59,9 +63,11 @@ body.mobile-nav-open {
 .hamburger-button[aria-expanded="true"] .hamburger-icon-bar:nth-child(1) {
     transform: translateY(8px) rotate(45deg);
 }
+
 .hamburger-button[aria-expanded="true"] .hamburger-icon-bar:nth-child(2) {
     opacity: 0;
 }
+
 .hamburger-button[aria-expanded="true"] .hamburger-icon-bar:nth-child(3) {
     transform: translateY(-8px) rotate(-45deg);
 }
@@ -73,14 +79,15 @@ body.mobile-nav-open {
     right: 0;
     width: 75%;
     max-width: 300px;
-    bottom: 50px; /* Position panel above the 50px bottom header bar */
+    bottom: 50px;
+    /* Position panel above the 50px bottom header bar */
     background-color: #444;
     color: white;
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
     padding-bottom: 20px;
-    box-shadow: -2px 0 10px rgba(0,0,0,0.3);
+    box-shadow: -2px 0 10px rgba(0, 0, 0, 0.3);
     z-index: 1000;
     overflow-y: auto;
 
@@ -91,7 +98,8 @@ body.mobile-nav-open {
 }
 
 .mobile-navigation-panel[aria-hidden="false"] {
-    transform: translateX(0); /* Slide in from right */
+    transform: translateX(0);
+    /* Slide in from right */
     visibility: visible;
 }
 
@@ -119,6 +127,7 @@ body.mobile-nav-open {
 .mobile-navigation-panel ul li form {
     margin: 0;
 }
+
 .mobile-navigation-panel ul li .nav-link-button {
     background: none;
     border: none;
@@ -134,7 +143,8 @@ body.mobile-nav-open {
     text-align: left;
     border-bottom: 1px solid #555;
 }
+
 .mobile-navigation-panel ul li .nav-link-button:hover,
 .mobile-navigation-panel ul li .nav-link-button:focus {
-    background-color: #555;
+    background-color: #555 !important;
 }
