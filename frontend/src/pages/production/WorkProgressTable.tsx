@@ -1,5 +1,5 @@
 import React from 'react';
-import { ProductionPlan } from '../../services/productionService';
+import { ProductionPlan, AVAILABLE_STATUSES } from '../../types/production';
 
 interface WorkProgressTableProps {
     plans: ProductionPlan[];
@@ -10,14 +10,6 @@ interface WorkProgressTableProps {
     onSort: (field: string) => void;
     onOpenModal: (plan: ProductionPlan) => void;
 }
-
-const AVAILABLE_STATUSES = [
-    { key: 'PENDING', label: '未着手', btnClass: 'btn-secondary' },
-    { key: 'IN_PROGRESS', label: '進行中', btnClass: 'btn-info' },
-    { key: 'COMPLETED', label: '完了', btnClass: 'btn-success' },
-    { key: 'ON_HOLD', label: '保留', btnClass: 'btn-warning' },
-    { key: 'CANCELLED', label: '中止', btnClass: 'btn-danger' }
-];
 
 const WorkProgressTable: React.FC<WorkProgressTableProps> = ({ 
     plans, loading, error, pageInfo, sorting, onSort, onOpenModal 

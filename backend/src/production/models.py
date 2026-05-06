@@ -11,14 +11,15 @@ class ProductionPlan(models.Model):
     生産計画モデル
     """
 
+    class Status(models.TextChoices):
+        PENDING = "PENDING", "未着手"
+        IN_PROGRESS = "IN_PROGRESS", "進行中"
+        COMPLETED = "COMPLETED", "完了"
+        ON_HOLD = "ON_HOLD", "保留"
+        CANCELLED = "CANCELLED", "中止"
+
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False)  # UUIDv7を使用
-    STATUS_CHOICES = [
-        ("PENDING", "未着手"),
-        ("IN_PROGRESS", "進行中"),
-        ("COMPLETED", "完了"),
-        ("ON_HOLD", "保留"),
-        ("CANCELLED", "中止"),
-    ]
+    STATUS_CHOICES = Status.choices
 
     plan_name = models.CharField(max_length=255, verbose_name="計画名")
     # TODO: master.Productモデルが定義されたらForeignKeyに変更する
@@ -128,13 +129,14 @@ class WorkProgress(models.Model):
     作業進捗モデル
     """
 
+    class Status(models.TextChoices):
+        NOT_STARTED = "NOT_STARTED", "未開始"
+        IN_PROGRESS = "IN_PROGRESS", "進行中"
+        COMPLETED = "COMPLETED", "完了"
+        PAUSED = "PAUSED", "一時停止"
+
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False)  # UUIDv7を使用
-    STATUS_CHOICES = [
-        ("NOT_STARTED", "未開始"),
-        ("IN_PROGRESS", "進行中"),
-        ("COMPLETED", "完了"),
-        ("PAUSED", "一時停止"),
-    ]
+    STATUS_CHOICES = Status.choices
 
     production_plan = models.ForeignKey(
         ProductionPlan, on_delete=models.CASCADE, related_name="work_progresses", verbose_name="生産計画"

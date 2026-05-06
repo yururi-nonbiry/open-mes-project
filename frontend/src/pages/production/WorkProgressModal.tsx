@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../../components/Modal';
-import productionService, { ProductionPlan } from '../../services/productionService';
+import productionService from '../../services/productionService';
+import { ProductionPlan } from '../../types/production';
 
 interface WorkProgressModalProps {
     isOpen: boolean;

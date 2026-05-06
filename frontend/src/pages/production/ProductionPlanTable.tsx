@@ -1,5 +1,5 @@
 import React from 'react';
-import { ProductionPlan } from '../../services/productionService';
+import { ProductionPlan } from '../../types/production';
 
 interface ProductionPlanTableProps {
     plans: ProductionPlan[];

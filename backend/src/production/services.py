@@ -4,7 +4,7 @@ from django.utils import timezone
 
 from inventory.models import Inventory, SalesOrder, StockMovement
 
-from .models import MaterialAllocation, WorkProgress
+from .models import MaterialAllocation, ProductionPlan, WorkProgress
 
 DEFAULT_FINISHED_GOODS_WAREHOUSE = "FG-MAIN"
 
@@ -120,89 +120,32 @@ def update_production_progress_service(plan, data, user):
     PROCESS_STEP_OVERALL = "Overall Plan Progress"
 
     with transaction.atomic():
-        work_progress, wp_created = WorkProgress.objects.select_for_update().get_or_create(
+        work_progress, _ = WorkProgress.objects.select_for_update().get_or_create(
             production_plan=plan,
             process_step=PROCESS_STEP_OVERALL,
             defaults={
                 "operator": user if user.is_authenticated else None,
-                "status": "NOT_STARTED",
+                "status": WorkProgress.Status.NOT_STARTED,
             },
         )
         previous_wp_completed_quantity = work_progress.quantity_completed
         old_plan_status = plan.status
         plan.status = new_status
 
-        # ステータスに応じたロジック
-        if new_status == "IN_PROGRESS":
-            if old_plan_status in ["PENDING", "ON_HOLD"]:
-                if not plan.actual_start_datetime:
-                    plan.actual_start_datetime = now
-            work_progress.status = "IN_PROGRESS"
-            if not work_progress.start_datetime:
-                work_progress.start_datetime = now
-            work_progress.end_datetime = None
-
-        elif new_status == "COMPLETED":
-            if not plan.actual_start_datetime:
-                plan.actual_start_datetime = now
-            plan.actual_end_datetime = now
-            work_progress.status = "COMPLETED"
-            if not work_progress.start_datetime:
-                work_progress.start_datetime = now
-            work_progress.end_datetime = now
-
-            # 数量のバリデーションと設定
-            good_quantity_str = data.get("good_quantity")
-            if good_quantity_str is None:
-                raise ValueError("good_quantity is required when status is 'COMPLETED'.")
-            try:
-                good_val = int(good_quantity_str)
-                if good_val < 0:
-                    raise ValueError("good_quantity must be non-negative.")
-                work_progress.quantity_completed = good_val
-            except (ValueError, TypeError):
-                raise ValueError("Invalid value for good_quantity.")
-
-            actual_quantity_str = data.get("actual_quantity")
-            if actual_quantity_str is not None:
-                try:
-                    actual_val = int(actual_quantity_str)
-                    if actual_val < 0:
-                        raise ValueError("actual_quantity must be non-negative.")
-                    work_progress.actual_reported_quantity = actual_val
-                except (ValueError, TypeError):
-                    raise ValueError("Invalid value for actual_quantity.")
-            else:
-                work_progress.actual_reported_quantity = None
-
-            defective_quantity_str = data.get("defective_quantity")
-            if defective_quantity_str is not None:
-                try:
-                    defective_val = int(defective_quantity_str)
-                    if defective_val < 0:
-                        raise ValueError("defective_quantity must be non-negative.")
-                    work_progress.defective_reported_quantity = defective_val
-                except (ValueError, TypeError):
-                    raise ValueError("Invalid value for defective_quantity.")
-            else:
-                work_progress.defective_reported_quantity = None
-
-        elif new_status == "ON_HOLD":
-            work_progress.status = "PAUSED"
-
-        elif new_status == "CANCELLED":
-            if plan.actual_start_datetime and not plan.actual_end_datetime:
-                plan.actual_end_datetime = now
-            if work_progress.status in ["IN_PROGRESS", "NOT_STARTED"]:
-                work_progress.status = "PAUSED"
-                if work_progress.start_datetime and not work_progress.end_datetime:
-                    work_progress.end_datetime = now
-
-        elif new_status == "PENDING":
-            work_progress.status = "NOT_STARTED"
+        # ステータスに応じたロジックをハンドラに委譲
+        if new_status == ProductionPlan.Status.IN_PROGRESS:
+            _handle_in_progress_status(plan, work_progress, old_plan_status, now)
+        elif new_status == ProductionPlan.Status.COMPLETED:
+            _handle_completed_status(plan, work_progress, data, now)
+        elif new_status == ProductionPlan.Status.ON_HOLD:
+            _handle_on_hold_status(work_progress)
+        elif new_status == ProductionPlan.Status.CANCELLED:
+            _handle_cancelled_status(plan, work_progress, now)
+        elif new_status == ProductionPlan.Status.PENDING:
+            _handle_pending_status(work_progress)
 
         # COMPLETEDから別のステータスに戻る場合の在庫逆仕訳
-        if old_plan_status == "COMPLETED" and new_status != "COMPLETED":
+        if old_plan_status == ProductionPlan.Status.COMPLETED and new_status != ProductionPlan.Status.COMPLETED:
             if previous_wp_completed_quantity > 0:
                 _reverse_inventory(plan, previous_wp_completed_quantity, now, user)
                 work_progress.quantity_completed = 0
@@ -213,16 +156,89 @@ def update_production_progress_service(plan, data, user):
         work_progress.save()
 
         # COMPLETEDになった（または完了数量が更新された）場合の在庫調整
-        if new_status == "COMPLETED":
+        if new_status == ProductionPlan.Status.COMPLETED:
             newly_reported_completed_quantity = work_progress.quantity_completed
             adjustment = newly_reported_completed_quantity
-            if old_plan_status == "COMPLETED":
+            if old_plan_status == ProductionPlan.Status.COMPLETED:
                 adjustment = newly_reported_completed_quantity - previous_wp_completed_quantity
             
             if adjustment != 0:
                 _adjust_inventory_for_completion(plan, adjustment, newly_reported_completed_quantity, now, user)
 
     return plan, work_progress
+
+
+def _handle_in_progress_status(plan, work_progress, old_plan_status, now):
+    if old_plan_status in [ProductionPlan.Status.PENDING, ProductionPlan.Status.ON_HOLD]:
+        if not plan.actual_start_datetime:
+            plan.actual_start_datetime = now
+    work_progress.status = WorkProgress.Status.IN_PROGRESS
+    if not work_progress.start_datetime:
+        work_progress.start_datetime = now
+    work_progress.end_datetime = None
+
+
+def _handle_completed_status(plan, work_progress, data, now):
+    if not plan.actual_start_datetime:
+        plan.actual_start_datetime = now
+    plan.actual_end_datetime = now
+    work_progress.status = WorkProgress.Status.COMPLETED
+    if not work_progress.start_datetime:
+        work_progress.start_datetime = now
+    work_progress.end_datetime = now
+
+    # 数量のバリデーションと設定
+    good_quantity_str = data.get("good_quantity")
+    if good_quantity_str is None:
+        raise ValueError("good_quantity is required when status is 'COMPLETED'.")
+    try:
+        good_val = int(good_quantity_str)
+        if good_val < 0:
+            raise ValueError("good_quantity must be non-negative.")
+        work_progress.quantity_completed = good_val
+    except (ValueError, TypeError):
+        raise ValueError("Invalid value for good_quantity.")
+
+    actual_quantity_str = data.get("actual_quantity")
+    if actual_quantity_str is not None:
+        try:
+            actual_val = int(actual_quantity_str)
+            if actual_val < 0:
+                raise ValueError("actual_quantity must be non-negative.")
+            work_progress.actual_reported_quantity = actual_val
+        except (ValueError, TypeError):
+            raise ValueError("Invalid value for actual_quantity.")
+    else:
+        work_progress.actual_reported_quantity = None
+
+    defective_quantity_str = data.get("defective_quantity")
+    if defective_quantity_str is not None:
+        try:
+            defective_val = int(defective_quantity_str)
+            if defective_val < 0:
+                raise ValueError("defective_quantity must be non-negative.")
+            work_progress.defective_reported_quantity = defective_val
+        except (ValueError, TypeError):
+            raise ValueError("Invalid value for defective_quantity.")
+    else:
+        work_progress.defective_reported_quantity = None
+
+
+def _handle_on_hold_status(work_progress):
+    work_progress.status = WorkProgress.Status.PAUSED
+
+
+def _handle_cancelled_status(plan, work_progress, now):
+    if plan.actual_start_datetime and not plan.actual_end_datetime:
+        plan.actual_end_datetime = now
+    if work_progress.status in [WorkProgress.Status.IN_PROGRESS, WorkProgress.Status.NOT_STARTED]:
+        work_progress.status = WorkProgress.Status.PAUSED
+        if work_progress.start_datetime and not work_progress.end_datetime:
+            work_progress.end_datetime = now
+
+
+def _handle_pending_status(work_progress):
+    work_progress.status = WorkProgress.Status.NOT_STARTED
 
 
 def _reverse_inventory(plan, quantity, now, user):

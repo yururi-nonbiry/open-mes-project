@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useWorkProgress } from '../hooks/useWorkProgress';
-import { ProductionPlan } from '../services/productionService';
+import { ProductionPlan } from '../types/production';
 import WorkProgressTable from './production/WorkProgressTable';
 import WorkProgressFilters from './production/WorkProgressFilters';
 import WorkProgressModal from './production/WorkProgressModal';
+import Pagination from '../components/common/Pagination';
 
 const WorkProgress: React.FC = () => {
     const {
@@ -48,23 +49,12 @@ const WorkProgress: React.FC = () => {
                 onOpenModal={openModal}
             />
 
-            <div className="pagination-controls text-center mt-4">
-                <button 
-                    className="btn btn-outline-primary mx-1" 
-                    onClick={() => fetchPlans(pagination.previous)} 
-                    disabled={!pagination.previous}
-                >
-                    前へ
-                </button>
-                <span className="mx-2 align-middle">{pageInfo}</span>
-                <button 
-                    className="btn btn-outline-primary mx-1" 
-                    onClick={() => fetchPlans(pagination.next)} 
-                    disabled={!pagination.next}
-                >
-                    次へ
-                </button>
-            </div>
+            <Pagination 
+                next={pagination.next}
+                previous={pagination.previous}
+                pageInfo={pageInfo}
+                onPageChange={fetchPlans}
+            />
 
             <WorkProgressModal 
                 isOpen={isModalOpen}

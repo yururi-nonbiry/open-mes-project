@@ -1,6 +1,6 @@
 import React from 'react';
 import Modal from '../../components/Modal';
-import { ProductionPlan } from '../../services/productionService';
+import { ProductionPlan } from '../../types/production';
 
 interface ProductionPlanDetailModalProps {
     isOpen: boolean;
@@ -13,7 +13,7 @@ const ProductionPlanDetailModal: React.FC<ProductionPlanDetailModalProps> = ({
 }) => {
     if (!plan) return null;
 
-    const fullFormat = (d: string | undefined) => d ? new Date(d).toLocaleString('ja-JP') : 'N/A';
+    const fullFormat = (d: string | null | undefined) => d ? new Date(d).toLocaleString('ja-JP') : 'N/A';
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} maxWidth="800px">
