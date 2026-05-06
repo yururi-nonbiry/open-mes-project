@@ -75,6 +75,24 @@ const qualityService = {
             throw new Error(data.message || 'Failed to delete item');
         }
         return data;
+    },
+
+    getInspectionFormData: async (id: string | number) => {
+        const response = await authFetch(`/api/quality/inspection-items/${id}/form-data/`);
+        if (!response.ok) throw new Error('Failed to fetch inspection form data');
+        const data = await response.json();
+        if (!data.success) throw new Error(data.message || 'Failed to fetch form data');
+        return data;
+    },
+
+    recordInspectionResult: async (id: string | number, formData: FormData) => {
+        const response = await authFetch(`/api/quality/inspection-items/${id}/record-result/`, {
+            method: 'POST',
+            body: formData,
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) throw new Error(data.message || 'Failed to record inspection result');
+        return data;
     }
 };
 
