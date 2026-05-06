@@ -1,9 +1,16 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, ReactNode } from 'react';
 import './Modal.css';
 
-const Modal = ({ isOpen, onClose, children }) => {
+interface ModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  children: ReactNode;
+  maxWidth?: string;
+}
+
+const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, maxWidth }) => {
   useEffect(() => {
-    const handleEsc = (event) => {
+    const handleEsc = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         onClose();
       }
@@ -23,7 +30,7 @@ const Modal = ({ isOpen, onClose, children }) => {
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()} style={maxWidth ? { maxWidth } : {}}>
         <button className="modal-close-button" onClick={onClose} aria-label="Close">
           &times;
         </button>

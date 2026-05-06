@@ -19,7 +19,7 @@ export default defineConfig({
       // Djangoバックエンドへのリクエストをプロキシする設定
       // API, Admin, Static, Debug Toolbarのリクエストをバックエンドに転送する
       '^/(api|admin|static|__debug__)/.*': {
-        target: 'http://backend:8000',
+        target: 'http://localhost:8000',
         changeOrigin: true,
       },
     },
