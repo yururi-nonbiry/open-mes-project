@@ -12,6 +12,7 @@ from rest_framework.filters import OrderingFilter  # OrderingFilterをインポ�
 # from rest_framework import permissions # Uncomment if you want to add permissions
 from rest_framework.pagination import PageNumberPagination  # Import PageNumberPagination
 from rest_framework.response import Response  # Responseをインポート
+from django_filters import rest_framework as filters  # django-filterをインポート
 
 from inventory.models import Inventory, SalesOrder, StockMovement  # Add StockMovement and SalesOrder
 from inventory.rest_views import StandardResultsSetPagination  # inventoryアプリのページネーションクラスをインポート
@@ -45,6 +46,31 @@ class ProductionPlanApiPagination(PageNumberPagination):
     max_page_size = 200  # Maximum page size allowed
 
 
+class CharInFilter(filters.BaseInFilter, filters.CharFilter):
+    pass
+
+
+class ProductionPlanFilter(filters.FilterSet):
+    """
+    生産計画のフィルタリングクラス
+    """
+    plan_name = filters.CharFilter(lookup_expr='icontains')
+    product_code = filters.CharFilter(lookup_expr='icontains')
+    planned_start_datetime_after = filters.DateTimeFilter(field_name="planned_start_datetime", lookup_expr='gte')
+    planned_start_datetime_before = filters.DateTimeFilter(field_name="planned_start_datetime", lookup_expr='lte')
+    status__in = CharInFilter(field_name='status', lookup_expr='in')
+
+    class Meta:
+        model = ProductionPlan
+        fields = [
+            'plan_name', 
+            'product_code', 
+            'planned_start_datetime_after', 
+            'planned_start_datetime_before',
+            'status__in'
+        ]
+
+
 class ProductionPlanViewSet(viewsets.ModelViewSet):
     """
     API endpoint that allows Production Plans to be viewed or created.
@@ -53,7 +79,8 @@ class ProductionPlanViewSet(viewsets.ModelViewSet):
     serializer_class = ProductionPlanSerializer
     pagination_class = ProductionPlanApiPagination  # Use the custom pagination class for Production Plans
     # permission_classes = [permissions.IsAuthenticated] # Example: Add authentication
-    filter_backends = [OrderingFilter]  # OrderingFilterを追加 (他のフィルターがあればそれもリストに含める)
+    filter_backends = [filters.DjangoFilterBackend, OrderingFilter]  # DjangoFilterBackendを追加
+    filterset_class = ProductionPlanFilter  # フィルタークラスを指定
     ordering_fields = [
         "plan_name",
         "product_code",
@@ -64,37 +91,8 @@ class ProductionPlanViewSet(viewsets.ModelViewSet):
     ordering = ["-planned_start_datetime"]  # デフォルトのソート順
 
     def get_queryset(self):
-        queryset = ProductionPlan.objects.all()
-        params = self.request.query_params
-
-        # フィルタリング条件の定義
-        filter_mappings = {
-            "plan_name": "plan_name__icontains",
-            "product_code": "product_code__icontains",
-            "production_plan_ref": "production_plan__icontains",
-            "planned_start_datetime_after": "planned_start_datetime__gte",
-            "planned_start_datetime_before": "planned_start_datetime__lte",
-        }
-
-        filters = Q()
-        for param_key, filter_expr in filter_mappings.items():
-            value = params.get(param_key)
-            if value:
-                if "datetime" in filter_expr:
-                    dt_value = parse_datetime(value)
-                    if dt_value:
-                        filters &= Q(**{filter_expr: dt_value})
-                else:
-                    filters &= Q(**{filter_expr: value})
-
-        # 複数ステータスの処理
-        statuses_in_str = params.get("status__in")
-        if statuses_in_str:
-            status_list = [s.strip() for s in statuses_in_str.split(",") if s.strip()]
-            if status_list:
-                filters &= Q(status__in=status_list)
-
-        return queryset.filter(filters) if filters else queryset
+        # django-filterが自動で処理するため、手動のフィルタリングを削除
+        return ProductionPlan.objects.all()
 
     @action(detail=True, methods=["get"], url_path="required-parts")
     def required_parts(self, request, pk=None):

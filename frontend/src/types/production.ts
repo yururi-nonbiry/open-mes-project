@@ -35,6 +35,44 @@ export interface ProductionPlanFilters {
     ordering?: string;
 }
 
+export interface RequiredPart {
+    part_code: string;
+    part_name: string;
+    required_quantity: number;
+    unit: string;
+    inventory_quantity: number;
+    warehouse: string | null;
+    already_allocated_quantity: number;
+}
+
+export interface MaterialAllocationPayload {
+    allocations: {
+        part_number: string;
+        warehouse: string;
+        quantity_to_allocate: number;
+    }[];
+}
+
+export interface ProgressUpdatePayload {
+    status: string;
+    good_quantity?: number;
+    actual_quantity?: number;
+    defective_quantity?: number;
+    remarks?: string;
+}
+
+export interface UpdateProgressResponse {
+    message: string;
+    plan_id: string;
+    new_status: string;
+}
+
+export interface AllocateMaterialsResponse {
+    message: string;
+    production_plan_id: string;
+    allocations_summary: any[];
+}
+
 export const AVAILABLE_STATUSES = [
     { key: 'PENDING', label: '未着手', btnClass: 'btn-secondary', btnOutlineClass: 'btn-outline-secondary', default_selected: true },
     { key: 'IN_PROGRESS', label: '進行中', btnClass: 'btn-info', btnOutlineClass: 'btn-outline-info', default_selected: true },

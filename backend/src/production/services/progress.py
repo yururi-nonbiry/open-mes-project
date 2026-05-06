@@ -1,112 +1,13 @@
 from django.db import transaction
-from django.db.models import Sum
 from django.utils import timezone
+import logging
 
 from inventory.models import Inventory, SalesOrder, StockMovement
+from ..models import MaterialAllocation, ProductionPlan, WorkProgress
 
-from .models import MaterialAllocation, PartsUsed, ProductionPlan, WorkProgress
+logger = logging.getLogger(__name__)
 
 DEFAULT_FINISHED_GOODS_WAREHOUSE = "FG-MAIN"
-
-
-def allocate_materials_service(production_plan, allocations_data):
-    """
-    生産計画に対して資材を割り当てるサービス。
-    在庫の引き当て更新と MaterialAllocation レコードの作成を行います。
-    """
-    if not isinstance(allocations_data, list):
-        raise ValueError("Allocations data must be a list.")
-    if not allocations_data:
-        raise ValueError("Allocations list cannot be empty.")
-
-    processed_allocations_summary = []
-    errors = []
-
-    with transaction.atomic():
-        for alloc_item_data in allocations_data:
-            part_number = alloc_item_data.get("part_number")
-            warehouse = alloc_item_data.get("warehouse")
-            quantity_to_allocate = alloc_item_data.get("quantity_to_allocate")
-
-            if not all([part_number, warehouse, quantity_to_allocate is not None]):
-                errors.append(
-                    f"Missing data for allocation item (part_number, warehouse, or quantity_to_allocate): {alloc_item_data}"
-                )
-                continue
-
-            try:
-                quantity_to_allocate = int(quantity_to_allocate)
-                if quantity_to_allocate <= 0:
-                    if quantity_to_allocate < 0:
-                        errors.append(f"Quantity to allocate must be non-negative for {part_number}.")
-                    continue
-            except ValueError:
-                errors.append(f"Invalid quantity for {part_number}.")
-                continue
-
-            try:
-                inventory_item = Inventory.objects.select_for_update().get(part_number=part_number, warehouse=warehouse)
-            except Inventory.DoesNotExist:
-                errors.append(f"Inventory not found for part '{part_number}' in warehouse '{warehouse}'.")
-                continue
-
-            if not inventory_item.is_active or not inventory_item.is_allocatable:
-                errors.append(
-                    f"Inventory for part '{part_number}' in warehouse '{warehouse}' is not active or allocatable."
-                )
-                continue
-
-            if inventory_item.available_quantity < quantity_to_allocate:
-                errors.append(
-                    f"Insufficient available stock for part '{part_number}' in warehouse '{warehouse}'. "
-                    f"Required: {quantity_to_allocate}, Available: {inventory_item.available_quantity}"
-                )
-                continue
-
-            # 在庫の引き当て（予約）
-            inventory_item.reserved += quantity_to_allocate
-            inventory_item.save()
-
-            # MaterialAllocationレコードの作成
-            material_allocation = MaterialAllocation.objects.create(
-                production_plan=production_plan,
-                material_code=part_number,
-                warehouse=warehouse,
-                allocated_quantity=quantity_to_allocate,
-                status="ALLOCATED",
-            )
-
-            # 出庫予定（SalesOrder）の作成
-            so_order_number = f"INT-{material_allocation.id.hex[:15]}"
-            sales_order, so_created = SalesOrder.objects.get_or_create(
-                order_number=so_order_number,
-                defaults={
-                    "item": material_allocation.material_code,
-                    "quantity": material_allocation.allocated_quantity,
-                    "warehouse": warehouse,
-                    "expected_shipment": production_plan.planned_start_datetime,
-                    "status": "pending",
-                },
-            )
-
-            processed_allocations_summary.append(
-                {
-                    "part_number": part_number,
-                    "warehouse": warehouse,
-                    "allocated_quantity": quantity_to_allocate,
-                    "material_allocation_id": material_allocation.id,
-                    "new_inventory_reserved": inventory_item.reserved,
-                    "new_inventory_available": inventory_item.available_quantity,
-                    "sales_order_id": sales_order.id,
-                    "sales_order_number": sales_order.order_number,
-                }
-            )
-
-        if errors:
-            raise ValueError(f"Errors occurred during allocation process: {'; '.join(errors)}")
-
-    return processed_allocations_summary
-
 
 def update_production_progress_service(plan, data, user):
     """
@@ -298,71 +199,6 @@ def _adjust_inventory_for_completion(plan, adjustment, total_completed, now, use
     )
 
 
-def get_production_plan_required_parts(production_plan_instance):
-    """
-    特定の生産計画に必要な部品リストとその現在の在庫・引当状況を返します。
-    クエリを最適化し、N+1問題を回避しています。
-    """
-    plan_identifier = production_plan_instance.production_plan
-    if not plan_identifier:
-        return []
-
-    # 1. 使用部品情報を一括取得
-    parts_used_queryset = PartsUsed.objects.filter(production_plan=plan_identifier)
-    if not parts_used_queryset.exists():
-        return []
-
-    part_codes = list(parts_used_queryset.values_list("part_code", flat=True).distinct())
-
-    # 2. 在庫情報を一括取得
-    inventory_items = Inventory.objects.filter(part_number__in=part_codes, is_active=True, is_allocatable=True)
-
-    # 在庫データをマッピング (part_code -> {warehouse -> quantity}) または (part_code -> total_quantity)
-    inventory_map = {}
-    for inv in inventory_items:
-        if inv.part_number not in inventory_map:
-            inventory_map[inv.part_number] = {}
-        inventory_map[inv.part_number][inv.warehouse] = inventory_map[inv.part_number].get(inv.warehouse, 0) + (
-            inv.available_quantity or 0
-        )
-
-    # 3. 引当済情報を一括取得
-    allocations = (
-        MaterialAllocation.objects.filter(production_plan=production_plan_instance, material_code__in=part_codes)
-        .values("material_code")
-        .annotate(total_allocated=Sum("allocated_quantity"))
-    )
-    allocation_map = {a["material_code"]: a["total_allocated"] for a in allocations}
-
-    # 4. 結果の組み立て
-    results = []
-    for part_used in parts_used_queryset:
-        part_code = part_used.part_code
-        target_warehouse = part_used.warehouse
-
-        # 在庫数量の計算
-        if target_warehouse:
-            # 特定の倉庫が指定されている場合
-            current_inventory_quantity = inventory_map.get(part_code, {}).get(target_warehouse, 0)
-        else:
-            # 倉庫指定がない場合、全倉庫の合計
-            current_inventory_quantity = sum(inventory_map.get(part_code, {}).values())
-
-        results.append(
-            {
-                "part_code": part_code,
-                "part_name": f"{part_code} (名称は別途マスタ参照)",  # TODO: マスタ連携
-                "required_quantity": part_used.quantity_used,
-                "unit": "個",
-                "inventory_quantity": current_inventory_quantity,
-                "warehouse": target_warehouse,
-                "already_allocated_quantity": allocation_map.get(part_code, 0),
-            }
-        )
-
-    return results
-
-
 def _consume_materials_for_plan(plan, now, user):
     """
     生産計画に関連付けられた材料を消費（出庫）処理します。
@@ -372,7 +208,6 @@ def _consume_materials_for_plan(plan, now, user):
 
     for alloc in allocations:
         if not alloc.warehouse:
-            # 倉庫情報がない場合はスキップ（古いデータの互換性のため）
             continue
 
         try:
@@ -409,9 +244,6 @@ def _consume_materials_for_plan(plan, now, user):
             )
 
         except Inventory.DoesNotExist:
-            # 本来は allocate 時点で存在確認しているため発生しないはずだが、念のため
-            import logging
-            logger = logging.getLogger(__name__)
             logger.error(f"Inventory not found for consumption: {alloc.material_code} in {alloc.warehouse}")
 
 

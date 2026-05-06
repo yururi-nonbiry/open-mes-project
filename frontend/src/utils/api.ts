@@ -15,6 +15,21 @@ export const buildQueryString = (params: Record<string, any>): string => {
     return queryString ? `?${queryString}` : '';
 };
 
+/**
+ * 共通のエラーハンドリング関数
+ */
+export const handleError = async (response: Response, defaultMessage: string) => {
+    if (response.ok) return;
+    let detail = '';
+    try {
+        const data = await response.json();
+        detail = data.error || data.detail || '';
+    } catch {
+        detail = response.statusText;
+    }
+    throw new Error(detail || defaultMessage);
+};
+
 const BASE_URL = '/api';
 
 interface FailedRequest {
