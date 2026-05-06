@@ -108,6 +108,7 @@ class MaterialAllocation(models.Model):
     # TODO: master.Materialモデルが定義されたらForeignKeyに変更する
     # material = models.ForeignKey('master.Material', on_delete=models.PROTECT, verbose_name="材料")
     material_code = models.CharField(max_length=100, verbose_name="材料コード (仮)")
+    warehouse = models.CharField(max_length=255, null=True, blank=True, verbose_name="引当倉庫")
     allocated_quantity = models.PositiveIntegerField(verbose_name="引当数量")
     allocation_datetime = models.DateTimeField(default=timezone.now, verbose_name="引当日時")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="ALLOCATED", verbose_name="ステータス")

@@ -71,6 +71,7 @@ def allocate_materials_service(production_plan, allocations_data):
             material_allocation = MaterialAllocation.objects.create(
                 production_plan=production_plan,
                 material_code=part_number,
+                warehouse=warehouse,
                 allocated_quantity=quantity_to_allocate,
                 status="ALLOCATED",
             )
@@ -124,7 +125,7 @@ def update_production_progress_service(plan, data, user):
             production_plan=plan,
             process_step=PROCESS_STEP_OVERALL,
             defaults={
-                "operator": user if user.is_authenticated else None,
+                "operator": user if user and user.is_authenticated else None,
                 "status": WorkProgress.Status.NOT_STARTED,
             },
         )
@@ -144,10 +145,11 @@ def update_production_progress_service(plan, data, user):
         elif new_status == ProductionPlan.Status.PENDING:
             _handle_pending_status(work_progress)
 
-        # COMPLETEDから別のステータスに戻る場合の在庫逆仕訳
+        # COMPLETEDから別のステータスに戻る場合の在庫逆仕訳（完成品を減らし、材料を引き当て状態に戻す）
         if old_plan_status == ProductionPlan.Status.COMPLETED and new_status != ProductionPlan.Status.COMPLETED:
             if previous_wp_completed_quantity > 0:
                 _reverse_inventory(plan, previous_wp_completed_quantity, now, user)
+                _restore_materials_for_plan(plan, now, user)
                 work_progress.quantity_completed = 0
                 work_progress.actual_reported_quantity = None
                 work_progress.defective_reported_quantity = None
@@ -164,6 +166,10 @@ def update_production_progress_service(plan, data, user):
             
             if adjustment != 0:
                 _adjust_inventory_for_completion(plan, adjustment, newly_reported_completed_quantity, now, user)
+            
+            # 初めて完了になった場合に部材を消費
+            if old_plan_status != ProductionPlan.Status.COMPLETED:
+                _consume_materials_for_plan(plan, now, user)
 
     return plan, work_progress
 
@@ -259,7 +265,7 @@ def _reverse_inventory(plan, quantity, now, user):
             movement_date=now,
             reference_document=f"Reversal for PPlan-{plan.id}",
             description=f"Prod. completion reversed for plan {plan.id}.",
-            operator=user if user.is_authenticated else None,
+            operator=user if user and user.is_authenticated else None,
         )
     except Inventory.DoesNotExist:
         raise ValueError(f"Inventory for product {product_code} not found for reversal.")
@@ -288,7 +294,7 @@ def _adjust_inventory_for_completion(plan, adjustment, total_completed, now, use
         movement_date=now,
         reference_document=f"ProductionPlan-{plan.id}",
         description=f"Plan {plan.id} completion. Qty changed by: {adjustment}. New total: {total_completed}.",
-        operator=user if user.is_authenticated else None,
+        operator=user if user and user.is_authenticated else None,
     )
 
 
@@ -355,3 +361,100 @@ def get_production_plan_required_parts(production_plan_instance):
         )
 
     return results
+
+
+def _consume_materials_for_plan(plan, now, user):
+    """
+    生産計画に関連付けられた材料を消費（出庫）処理します。
+    在庫の quantity と reserved を両方減らします。
+    """
+    allocations = MaterialAllocation.objects.filter(production_plan=plan, status="ALLOCATED").select_for_update()
+
+    for alloc in allocations:
+        if not alloc.warehouse:
+            # 倉庫情報がない場合はスキップ（古いデータの互換性のため）
+            continue
+
+        try:
+            inventory_item = Inventory.objects.select_for_update().get(
+                part_number=alloc.material_code, warehouse=alloc.warehouse
+            )
+
+            # 在庫と引当の減少
+            quantity_to_consume = alloc.allocated_quantity
+            inventory_item.quantity -= quantity_to_consume
+            inventory_item.reserved -= quantity_to_consume
+            inventory_item.save()
+
+            # ステータス更新
+            alloc.status = "ISSUED"
+            alloc.save()
+
+            # 在庫移動履歴の作成
+            StockMovement.objects.create(
+                part_number=alloc.material_code,
+                quantity=quantity_to_consume,
+                warehouse=alloc.warehouse,
+                movement_type="used",
+                movement_date=now,
+                reference_document=f"ProductionPlan-{plan.id}",
+                description=f"Consumed for plan {plan.id} completion.",
+                operator=user if user and user.is_authenticated else None,
+            )
+
+            # 関連する SalesOrder があれば完了（shipped）にする
+            so_order_number_prefix = f"INT-{alloc.id.hex[:15]}"
+            SalesOrder.objects.filter(order_number__startswith=so_order_number_prefix).update(
+                status="shipped", shipped_quantity=quantity_to_consume
+            )
+
+        except Inventory.DoesNotExist:
+            # 本来は allocate 時点で存在確認しているため発生しないはずだが、念のため
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Inventory not found for consumption: {alloc.material_code} in {alloc.warehouse}")
+
+
+def _restore_materials_for_plan(plan, now, user):
+    """
+    生産完了が取り消された際、消費された材料を引き当て状態（ALLOCATED）に戻します。
+    """
+    allocations = MaterialAllocation.objects.filter(production_plan=plan, status="ISSUED").select_for_update()
+
+    for alloc in allocations:
+        if not alloc.warehouse:
+            continue
+
+        inventory_item, created = Inventory.objects.select_for_update().get_or_create(
+            part_number=alloc.material_code,
+            warehouse=alloc.warehouse,
+            defaults={"quantity": 0, "reserved": 0, "is_active": True, "is_allocatable": True},
+        )
+
+        # 在庫と引当を戻す
+        quantity_to_restore = alloc.allocated_quantity
+        inventory_item.quantity += quantity_to_restore
+        inventory_item.reserved += quantity_to_restore
+        inventory_item.save()
+
+        # ステータス戻し
+        alloc.status = "ALLOCATED"
+        alloc.save()
+
+        # 在庫移動履歴（取消）の作成
+        StockMovement.objects.create(
+            part_number=alloc.material_code,
+            quantity=quantity_to_restore,
+            warehouse=alloc.warehouse,
+            movement_type="incoming",
+            movement_date=now,
+            reference_document=f"Reversal for PPlan-{plan.id}",
+            description=f"Restored from plan {plan.id} reversal.",
+            operator=user if user and user.is_authenticated else None,
+        )
+
+        # 関連する SalesOrder を pending に戻す
+        so_order_number_prefix = f"INT-{alloc.id.hex[:15]}"
+        SalesOrder.objects.filter(order_number__startswith=so_order_number_prefix).update(
+            status="pending", shipped_quantity=0
+        )
