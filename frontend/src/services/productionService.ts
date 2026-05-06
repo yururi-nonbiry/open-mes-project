@@ -1,23 +1,32 @@
-import authFetch from '../utils/api';
+import authFetch, { buildQueryString } from '../utils/api';
 import { ProductionPlan, PaginationData, ProductionPlanFilters } from '../types/production';
+
+/**
+ * 共通のエラーハンドリング関数
+ */
+const handleError = async (response: Response, defaultMessage: string) => {
+    if (response.ok) return;
+    let detail = '';
+    try {
+        const data = await response.json();
+        detail = data.error || data.detail || '';
+    } catch {
+        detail = response.statusText;
+    }
+    throw new Error(detail || defaultMessage);
+};
 
 const productionService = {
     getProductionPlans: async (filters: ProductionPlanFilters = {}) => {
-        const params = new URLSearchParams();
-        Object.entries(filters).forEach(([key, value]) => {
-            if (value !== undefined && value !== null && value !== '') {
-                params.append(key, value.toString());
-            }
-        });
-        
-        const response = await authFetch(`/api/production/plans/?${params.toString()}`);
-        if (!response.ok) throw new Error('Failed to fetch production plans');
+        const queryString = buildQueryString(filters);
+        const response = await authFetch(`/api/production/plans/${queryString}`);
+        await handleError(response, 'Failed to fetch production plans');
         return await response.json() as PaginationData<ProductionPlan>;
     },
 
     getProductionPlansByUrl: async (url: string) => {
         const response = await authFetch(url);
-        if (!response.ok) throw new Error('Failed to fetch production plans');
+        await handleError(response, 'Failed to fetch production plans');
         return await response.json() as PaginationData<ProductionPlan>;
     },
 
@@ -32,19 +41,13 @@ const productionService = {
             method: 'POST',
             body: JSON.stringify(payload),
         });
-        if (!response.ok) {
-            const data = await response.json();
-            throw new Error(data.error || data.detail || 'Failed to update progress');
-        }
+        await handleError(response, 'Failed to update progress');
         return await response.json();
     },
 
     getRequiredParts: async (id: string) => {
         const response = await authFetch(`/api/production/plans/${id}/required-parts/`);
-        if (!response.ok) {
-            const data = await response.json().catch(() => null);
-            throw new Error(data?.detail || response.statusText || `Server Error (${response.status})`);
-        }
+        await handleError(response, 'Failed to fetch required parts');
         return await response.json();
     },
 
@@ -57,9 +60,8 @@ const productionService = {
             method: 'POST',
             body: JSON.stringify({ allocations })
         });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || data.detail || 'Allocation failed');
-        return data;
+        await handleError(response, 'Allocation failed');
+        return await response.json();
     }
 };
 

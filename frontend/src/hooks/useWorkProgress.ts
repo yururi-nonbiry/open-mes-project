@@ -4,6 +4,7 @@ import { usePagination } from './usePagination';
 import { useFilters } from './useFilters';
 import { 
     ProductionPlan, 
+    PaginationData,
     AVAILABLE_STATUSES, 
     getDefaultSelectedStatuses,
     ProductionPlanFilters
@@ -37,12 +38,13 @@ export const useWorkProgress = () => {
         setError(null);
 
         try {
-            let data;
-            let currentUrl = pageUrl;
+            let data: PaginationData<ProductionPlan>;
 
             if (pageUrl) {
+                // ページ遷移の場合
                 data = await productionService.getProductionPlansByUrl(pageUrl);
             } else {
+                // フィルターやソートによる検索の場合
                 const apiFilters: ProductionPlanFilters = {
                     page_size: pageSize,
                     ordering: `${sorting.direction === 'desc' ? '-' : ''}${sorting.field}`,
@@ -57,17 +59,11 @@ export const useWorkProgress = () => {
                 }
 
                 data = await productionService.getProductionPlans(apiFilters);
-                
-                // For tracking pagination state
-                const params = new URLSearchParams();
-                Object.entries(apiFilters).forEach(([key, value]) => {
-                    if (value) params.append(key, value.toString());
-                });
-                currentUrl = `/api/production/plans/?${params.toString()}`;
             }
 
             setPlans(data.results || []);
-            updatePagination(data, currentUrl || '');
+            // Paginationの更新。pageUrlがあればそれを使用し、なければ現在の検索条件から推測（ただしDRFはnext/previousにURLを含めるので基本不要）
+            updatePagination(data, pageUrl || '');
         } catch (e: any) {
             setError(`データの読み込みに失敗しました: ${e.message}`);
             setPlans([]);
