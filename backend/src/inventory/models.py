@@ -9,10 +9,40 @@ from uuid6 import uuid7
 # 在庫情報
 class Inventory(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False, verbose_name="ID")  # UUIDv7を使用
-    part_number = models.CharField(
-        max_length=255, null=True, blank=True, verbose_name="品番"
-    )  # 管理対象の製品/材料の品番 (文字列として保持)
-    warehouse = models.CharField(max_length=255, null=True, blank=True, verbose_name="倉庫")  # 倉庫 (文字列として保持)
+    part_number_rel = models.ForeignKey(
+        "master.Item",
+        to_field="code",
+        db_column="part_number",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        verbose_name="品番"
+    )
+    warehouse_rel = models.ForeignKey(
+        "master.Warehouse",
+        to_field="warehouse_number",
+        db_column="warehouse",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        verbose_name="倉庫"
+    )
+
+    @property
+    def part_number(self):
+        return self.part_number_rel_id
+
+    @part_number.setter
+    def part_number(self, value):
+        self.part_number_rel_id = value
+
+    @property
+    def warehouse(self):
+        return self.warehouse_rel_id
+
+    @warehouse.setter
+    def warehouse(self, value):
+        self.warehouse_rel_id = value
     quantity = models.IntegerField(default=0, verbose_name="在庫数量")  # 在庫
     reserved = models.IntegerField(default=0, verbose_name="引当済数量")  # 引当在庫
     location = models.CharField(max_length=255, blank=True, null=True, verbose_name="棚番")  # 倉庫や棚の場所
@@ -50,10 +80,40 @@ class StockMovement(models.Model):
         ("adjustment", "在庫調整"),
     ]
 
-    part_number = models.CharField(
-        max_length=255, null=True, blank=True, verbose_name="品番"
-    )  # 在庫対象の製品/材料の品番 (文字列として保持)
-    warehouse = models.CharField(max_length=255, null=True, blank=True, verbose_name="倉庫")  # どの倉庫に関連する移動か
+    part_number_rel = models.ForeignKey(
+        "master.Item",
+        to_field="code",
+        db_column="part_number",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        verbose_name="品番"
+    )
+    warehouse_rel = models.ForeignKey(
+        "master.Warehouse",
+        to_field="warehouse_number",
+        db_column="warehouse",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        verbose_name="倉庫"
+    )
+
+    @property
+    def part_number(self):
+        return self.part_number_rel_id
+
+    @part_number.setter
+    def part_number(self, value):
+        self.part_number_rel_id = value
+
+    @property
+    def warehouse(self):
+        return self.warehouse_rel_id
+
+    @warehouse.setter
+    def warehouse(self, value):
+        self.warehouse_rel_id = value
     location = models.CharField(max_length=255, blank=True, null=True, verbose_name="棚番")  # どの棚番に関連する移動か
     movement_type = models.CharField(
         max_length=20, choices=MOVEMENT_TYPE_CHOICES, verbose_name="移動タイプ"
@@ -78,11 +138,27 @@ class PurchaseOrder(models.Model):
     order_number = models.CharField(
         max_length=20, unique=True, verbose_name="発注番号", null=True, blank=True
     )  # 発注番号
-    supplier = models.CharField(max_length=255, null=True, blank=True, verbose_name="仕入先")  # 仕入れ先
+    supplier_rel = models.ForeignKey(
+        "master.Supplier",
+        to_field="supplier_number",
+        db_column="supplier",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        verbose_name="仕入先"
+    )
     item = models.CharField(max_length=255, null=True, blank=True, verbose_name="品目")  # 発注対象（製品・材料）
     quantity = models.PositiveIntegerField(verbose_name="発注数量", null=True, blank=True)  # 発注数量
     received_quantity = models.PositiveIntegerField(default=0, verbose_name="入庫済数量")
-    part_number = models.CharField(max_length=100, blank=True, null=True, verbose_name="品番")
+    part_number_rel = models.ForeignKey(
+        "master.Item",
+        to_field="code",
+        db_column="part_number",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        verbose_name="品番"
+    )
     product_name = models.CharField(max_length=255, blank=True, null=True, verbose_name="品名")
     parent_part_number = models.CharField(max_length=100, blank=True, null=True, verbose_name="親品番")
     instruction_document = models.CharField(max_length=255, blank=True, null=True, verbose_name="指示書")
@@ -99,9 +175,40 @@ class PurchaseOrder(models.Model):
     remarks5 = models.TextField(blank=True, null=True, verbose_name="備考5")
     order_date = models.DateTimeField(auto_now_add=True, verbose_name="発注日")  # 発注日
     expected_arrival = models.DateTimeField(blank=True, null=True, verbose_name="入荷予定日時")  # 到着予定日
-    warehouse = models.CharField(
-        max_length=255, blank=True, null=True, verbose_name="入庫倉庫"
-    )  # どの倉庫に入庫するかを追加
+    warehouse_rel = models.ForeignKey(
+        "master.Warehouse",
+        to_field="warehouse_number",
+        db_column="warehouse",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        verbose_name="入庫倉庫"
+    )
+
+    @property
+    def supplier(self):
+        return self.supplier_rel_id
+
+    @supplier.setter
+    def supplier(self, value):
+        self.supplier_rel_id = value
+
+    @property
+    def part_number(self):
+        return self.part_number_rel_id
+
+    @part_number.setter
+    def part_number(self, value):
+        self.part_number_rel_id = value
+
+    @property
+    def warehouse(self):
+        return self.warehouse_rel_id
+
+    @warehouse.setter
+    def warehouse(self, value):
+        self.warehouse_rel_id = value
+
     location = models.CharField(
         max_length=255, blank=True, null=True, verbose_name="入庫棚番"
     )  # どの棚番に入庫するかを追加
@@ -137,7 +244,24 @@ class Receipt(models.Model):
     )
     received_quantity = models.PositiveIntegerField(verbose_name="入庫数量")
     received_date = models.DateTimeField(default=timezone.now, verbose_name="入庫日")
-    warehouse = models.CharField(max_length=255, verbose_name="入庫倉庫")
+    warehouse_rel = models.ForeignKey(
+        "master.Warehouse",
+        to_field="warehouse_number",
+        db_column="warehouse",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        verbose_name="入庫倉庫"
+    )
+
+    @property
+    def warehouse(self):
+        return self.warehouse_rel_id
+
+    @warehouse.setter
+    def warehouse(self, value):
+        self.warehouse_rel_id = value
+
     location = models.CharField(max_length=255, blank=True, null=True, verbose_name="入庫棚番")
     operator = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="作業者"
@@ -157,16 +281,44 @@ class Receipt(models.Model):
 class SalesOrder(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False, verbose_name="ID")
     order_number = models.CharField(max_length=20, unique=True, verbose_name="受注番号")  # 受注番号
-    item = models.CharField(
-        max_length=255, null=True, blank=True, verbose_name="出庫対象（製品・材料）"
-    )  # 出庫対象（製品・材料）
+    item_rel = models.ForeignKey(
+        "master.Item",
+        to_field="code",
+        db_column="item",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        verbose_name="出庫対象（製品・材料）"
+    )
     quantity = models.PositiveIntegerField(verbose_name="出庫予定数量")  # 出庫予定数量
     shipped_quantity = models.PositiveIntegerField(default=0, verbose_name="出庫済数量")  # 実際に出庫した数量を保持
     order_date = models.DateTimeField(auto_now_add=True, verbose_name="受注日")  # 受注日
     expected_shipment = models.DateTimeField(blank=True, null=True, verbose_name="出庫予定日時")  # 出庫予定日
-    warehouse = models.CharField(
-        max_length=255, null=True, blank=True, verbose_name="出庫倉庫"
-    )  # どの倉庫から出庫するかを追加
+    warehouse_rel = models.ForeignKey(
+        "master.Warehouse",
+        to_field="warehouse_number",
+        db_column="warehouse",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        verbose_name="出庫倉庫"
+    )
+
+    @property
+    def item(self):
+        return self.item_rel_id
+
+    @item.setter
+    def item(self, value):
+        self.item_rel_id = value
+
+    @property
+    def warehouse(self):
+        return self.warehouse_rel_id
+
+    @warehouse.setter
+    def warehouse(self, value):
+        self.warehouse_rel_id = value
     status = models.CharField(
         max_length=20,
         choices=[

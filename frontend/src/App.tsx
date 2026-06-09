@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation, Outlet } from 'react-router-dom';
 import './App.css';
-import authFetch from './utils/api';
 import Header from './components/Header';
 import SideMenu from './components/SideMenu';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -40,6 +39,8 @@ import MobileGoodsIssuePage from './pages/mobile/MobileGoodsIssuePage';
 import MobileLocationTransferPage from './pages/mobile/MobileLocationTransferPage';
 import MobileLoginPage from './pages/mobile/MobileLoginPage';
 import Help from './pages/Help';
+import { AuthProvider } from './context/AuthContext';
+import { useAuth } from './hooks/useAuth';
 
 // モバイル専用リダイレクト処理
 const MobileRedirector = () => {
@@ -76,53 +77,9 @@ const MobileRedirector = () => {
 };
 
 function AppContent() {
-  const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('access_token'));
-  const [isStaff, setIsStaff] = useState(false);
+  const { isAuthenticated, isStaff, loading, logout, checkAuth } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [versionModalOpen, setVersionModalOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  const handleLogout = useCallback(() => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    setIsAuthenticated(false);
-    setIsStaff(false);
-  }, []);
-
-  const checkAuth = useCallback(async () => {
-    const token = localStorage.getItem('access_token');
-    if (!token) {
-      setLoading(false);
-      setIsAuthenticated(false);
-      setIsStaff(false);
-      return;
-    }
-
-    try {
-      const res = await authFetch('/api/users/session/');
-      if (res.ok) {
-        const json = await res.json();
-        setIsAuthenticated(json.isAuthenticated);
-        setIsStaff(json.isStaff || json.isSuperuser);
-      } else {
-        handleLogout();
-      }
-    } catch (e) {
-      console.error("Auth check failed:", e);
-      handleLogout();
-    } finally {
-      setLoading(false);
-    }
-  }, [handleLogout]);
-
-  useEffect(() => { checkAuth(); }, [checkAuth]);
-
-  useEffect(() => {
-    window.addEventListener('logout', handleLogout);
-    return () => window.removeEventListener('logout', handleLogout);
-  }, [handleLogout]);
-
-  const onLoginSuccess = async () => { await checkAuth(); };
 
   const toggleMenu = () => setMenuOpen(prev => !prev);
   const closeMenu = () => setMenuOpen(false);
@@ -132,7 +89,7 @@ function AppContent() {
     return () => { document.body.classList.remove('menu-open-no-scroll'); };
   }, [menuOpen]);
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) return <div className="p-4">読み込み中...</div>;
 
   const StaffRoute = ({ children }: { children: ReactNode }) => {
     if (!isStaff) {
@@ -150,13 +107,11 @@ function AppContent() {
         {/* Public Login Routes */}
         <Route
           path="/login"
-          element={<LoginPage onLoginSuccess={onLoginSuccess} isAuthenticated={isAuthenticated} />
-          }
+          element={<LoginPage onLoginSuccess={checkAuth} isAuthenticated={isAuthenticated} />}
         />
         <Route
           path="/mobile/login"
-          element={<MobileLoginPage onLoginSuccess={onLoginSuccess} isAuthenticated={isAuthenticated} />
-          }
+          element={<MobileLoginPage onLoginSuccess={checkAuth} isAuthenticated={isAuthenticated} />}
         />
 
         {/* Desktop Protected Routes with Layout */}
@@ -170,7 +125,7 @@ function AppContent() {
                   isStaffOrSuperuser={isStaff}
                   onVersionClick={() => setVersionModalOpen(true)}
                   onLinkClick={closeMenu}
-                  onLogout={handleLogout}
+                  onLogout={logout}
                   isAuthenticated={isAuthenticated}
                 />
                 {menuOpen && <div id="menu-overlay" onClick={closeMenu} />}
@@ -182,7 +137,7 @@ function AppContent() {
           }
         >
           {/* Desktop Protected Routes */}
-          <Route path="/" element={<TopPage isStaffOrSuperuser={isStaff} isAuthenticated={isAuthenticated} onLogout={handleLogout} />} />
+          <Route path="/" element={<TopPage isStaffOrSuperuser={isStaff} isAuthenticated={isAuthenticated} onLogout={logout} />} />
           <Route path="/inventory/inquiry" element={<InventoryInquiry />} />
           <Route path="/inventory/stock-movement-history" element={<StockMovementHistory />} />
           <Route path="/inventory/shipment" element={<ShipmentSchedule />} />
@@ -211,7 +166,7 @@ function AppContent() {
         </Route>
 
         {/* Mobile Protected Routes */}
-        <Route element={<ProtectedRoute isAuthenticated={isAuthenticated}><MobileLayout onLogout={handleLogout} /></ProtectedRoute>}>
+        <Route element={<ProtectedRoute isAuthenticated={isAuthenticated}><MobileLayout onLogout={logout} /></ProtectedRoute>}>
           <Route path="/mobile" element={<MobileTopPage />} />
           <Route path="/mobile/goods-receipt" element={<MobileGoodsReceiptPage />} />
           <Route path="/mobile/goods-issue" element={<MobileGoodsIssuePage />} />
@@ -227,7 +182,9 @@ function AppContent() {
 export default function App() {
   return (
     <Router>
-      <AppContent />
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
     </Router>
   );
 }

@@ -22,9 +22,25 @@ class ProductionPlan(models.Model):
     STATUS_CHOICES = Status.choices
 
     plan_name = models.CharField(max_length=255, verbose_name="計画名")
-    # TODO: master.Productモデルが定義されたらForeignKeyに変更する
-    # product = models.ForeignKey('master.Product', on_delete=models.PROTECT, verbose_name="製品")
-    product_code = models.CharField(max_length=100, verbose_name="製品コード (仮)")
+    product = models.ForeignKey(
+        "master.Item",
+        to_field="code",
+        db_column="product_code",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        verbose_name="製品",
+        limit_choices_to={"item_type": "product"}
+    )
+
+    @property
+    def product_code(self):
+        return self.product_id
+
+    @product_code.setter
+    def product_code(self, value):
+        self.product_id = value
+
     production_plan = models.CharField(
         max_length=255,  # 参照する計画名などを想定
         null=True,
@@ -67,10 +83,42 @@ class PartsUsed(models.Model):
         verbose_name="生産計画識別子",
         help_text="関連する生産計画の名前やIDなどの識別子を文字列で記録します。",
     )
-    part_code = models.CharField(max_length=100, verbose_name="部品コード (仮)")
-    warehouse = models.CharField(
-        max_length=255, null=True, blank=True, verbose_name="使用倉庫"
-    )  # 部品がどの倉庫から使用されるか
+    part = models.ForeignKey(
+        "master.Item",
+        to_field="code",
+        db_column="part_code",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        verbose_name="部品",
+        limit_choices_to={"item_type": "material"}
+    )
+    warehouse_rel = models.ForeignKey(
+        "master.Warehouse",
+        to_field="warehouse_number",
+        db_column="warehouse",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        verbose_name="使用倉庫"
+    )
+
+    @property
+    def part_code(self):
+        return self.part_id
+
+    @part_code.setter
+    def part_code(self, value):
+        self.part_id = value
+
+    @property
+    def warehouse(self):
+        return self.warehouse_rel_id
+
+    @warehouse.setter
+    def warehouse(self, value):
+        self.warehouse_rel_id = value
+
     quantity_used = models.PositiveIntegerField(verbose_name="使用数量")
     used_datetime = models.DateTimeField(default=timezone.now, verbose_name="使用日時")
     remarks = models.TextField(blank=True, null=True, verbose_name="備考")
@@ -105,10 +153,41 @@ class MaterialAllocation(models.Model):
     production_plan = models.ForeignKey(
         ProductionPlan, on_delete=models.CASCADE, related_name="material_allocations", verbose_name="生産計画"
     )
-    # TODO: master.Materialモデルが定義されたらForeignKeyに変更する
-    # material = models.ForeignKey('master.Material', on_delete=models.PROTECT, verbose_name="材料")
-    material_code = models.CharField(max_length=100, verbose_name="材料コード (仮)")
-    warehouse = models.CharField(max_length=255, null=True, blank=True, verbose_name="引当倉庫")
+    material = models.ForeignKey(
+        "master.Item",
+        to_field="code",
+        db_column="material_code",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        verbose_name="材料",
+        limit_choices_to={"item_type": "material"}
+    )
+    warehouse_rel = models.ForeignKey(
+        "master.Warehouse",
+        to_field="warehouse_number",
+        db_column="warehouse",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        verbose_name="引当倉庫"
+    )
+
+    @property
+    def material_code(self):
+        return self.material_id
+
+    @material_code.setter
+    def material_code(self, value):
+        self.material_id = value
+
+    @property
+    def warehouse(self):
+        return self.warehouse_rel_id
+
+    @warehouse.setter
+    def warehouse(self, value):
+        self.warehouse_rel_id = value
     allocated_quantity = models.PositiveIntegerField(verbose_name="引当数量")
     allocation_datetime = models.DateTimeField(default=timezone.now, verbose_name="引当日時")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="ALLOCATED", verbose_name="ステータス")

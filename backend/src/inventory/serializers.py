@@ -1,8 +1,6 @@
 from rest_framework import serializers
 
-# master.modelsのインポートは、将来的に関連モデルとして扱うための準備か、
-# あるいはビューなどで型ヒント等に利用されている可能性があります。
-# 現状このシリアライザー内では直接参照されていません。
+from master.models import Item, Supplier, Warehouse
 from .models import (  # StockMovement, SalesOrder, Receiptモデルをインポート
     Inventory,
     PurchaseOrder,
@@ -18,6 +16,7 @@ class ReceiptSerializer(serializers.ModelSerializer):
     """
 
     operator_username = serializers.CharField(source="operator.username", read_only=True, allow_null=True)
+    warehouse = serializers.SlugRelatedField(source="warehouse_rel", slug_field="warehouse_number", queryset=Warehouse.objects.all())
 
     class Meta:
         model = Receipt
@@ -43,9 +42,10 @@ class PurchaseOrderSerializer(serializers.ModelSerializer):
     """
 
     # モデルの変更に伴い、シリアライザのフィールド定義も柔軟性を持たせる
-    supplier = serializers.CharField(max_length=255, allow_null=True, required=False, allow_blank=True)
+    supplier = serializers.SlugRelatedField(source="supplier_rel", slug_field="supplier_number", queryset=Supplier.objects.all(), allow_null=True, required=False)
     item = serializers.CharField(max_length=255, allow_null=True, required=False, allow_blank=True)
-    warehouse = serializers.CharField(max_length=255, allow_null=True, required=False, allow_blank=True)
+    warehouse = serializers.SlugRelatedField(source="warehouse_rel", slug_field="warehouse_number", queryset=Warehouse.objects.all(), allow_null=True, required=False)
+    part_number = serializers.SlugRelatedField(source="part_number_rel", slug_field="code", queryset=Item.objects.all(), allow_null=True, required=False)
     location = serializers.CharField(
         max_length=255, allow_null=True, required=False, allow_blank=True, help_text="入庫棚番 (文字列、省略可能)"
     )
@@ -125,6 +125,8 @@ class InventorySerializer(serializers.ModelSerializer):
     """
 
     available_quantity = serializers.IntegerField(read_only=True)
+    part_number = serializers.SlugRelatedField(source="part_number_rel", slug_field="code", queryset=Item.objects.all(), allow_null=True, required=False)
+    warehouse = serializers.SlugRelatedField(source="warehouse_rel", slug_field="warehouse_number", queryset=Warehouse.objects.all(), allow_null=True, required=False)
 
     class Meta:
         model = Inventory
@@ -151,6 +153,8 @@ class StockMovementSerializer(serializers.ModelSerializer):
     movement_type_display = serializers.CharField(source="get_movement_type_display", read_only=True)
     operator_username = serializers.CharField(source="operator.username", read_only=True, allow_null=True)
     movement_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
+    part_number = serializers.SlugRelatedField(source="part_number_rel", slug_field="code", queryset=Item.objects.all(), allow_null=True, required=False)
+    warehouse = serializers.SlugRelatedField(source="warehouse_rel", slug_field="warehouse_number", queryset=Warehouse.objects.all(), allow_null=True, required=False)
 
     class Meta:
         model = StockMovement
@@ -204,6 +208,8 @@ class SalesOrderSerializer(serializers.ModelSerializer):
 
     status_display = serializers.CharField(source="get_status_display", read_only=True)
     remaining_quantity = serializers.IntegerField(read_only=True)  # プロパティを読み取り専用フィールドとして追加
+    item = serializers.SlugRelatedField(source="item_rel", slug_field="code", queryset=Item.objects.all(), allow_null=True, required=False)
+    warehouse = serializers.SlugRelatedField(source="warehouse_rel", slug_field="warehouse_number", queryset=Warehouse.objects.all(), allow_null=True, required=False)
 
     class Meta:
         model = SalesOrder

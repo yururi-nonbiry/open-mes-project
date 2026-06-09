@@ -19,8 +19,8 @@ class PurchaseOrderAdmin(admin.ModelAdmin):
         "location",
         "status",
     )
-    list_filter = ("status", "supplier", "warehouse", "expected_arrival", "order_date")
-    search_fields = ("order_number", "item", "product_name", "supplier")
+    list_filter = ("status", "supplier_rel", "warehouse_rel", "expected_arrival", "order_date")
+    search_fields = ("order_number", "item", "product_name", "supplier_rel__name", "supplier_rel__supplier_number")
     date_hierarchy = "expected_arrival"
     readonly_fields = ("received_quantity",)
 
@@ -33,6 +33,6 @@ admin.site.register(SalesOrder)
 @admin.register(Receipt)
 class ReceiptAdmin(admin.ModelAdmin):
     list_display = ("purchase_order", "received_quantity", "received_date", "warehouse", "operator")
-    list_filter = ("received_date", "warehouse")
-    search_fields = ("purchase_order__order_number", "warehouse")
+    list_filter = ("received_date", "warehouse_rel")
+    search_fields = ("purchase_order__order_number", "warehouse_rel__warehouse_number", "warehouse_rel__name")
     date_hierarchy = "received_date"

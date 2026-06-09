@@ -6,6 +6,7 @@ interface InspectionResultModalProps {
     item: InspectionItem;
     onClose: () => void;
     onSuccess: () => void;
+    initialValues?: Record<string, any>;
 }
 
 interface FormField {
@@ -15,7 +16,7 @@ interface FormField {
     choices?: [string, string][];
 }
 
-const InspectionResultModal: React.FC<InspectionResultModalProps> = ({ item, onClose, onSuccess }) => {
+const InspectionResultModal: React.FC<InspectionResultModalProps> = ({ item, onClose, onSuccess, initialValues }) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [baseFields, setBaseFields] = useState<FormField[]>([]);
@@ -34,7 +35,11 @@ const InspectionResultModal: React.FC<InspectionResultModalProps> = ({ item, onC
 
             const initialFormData: Record<string, any> = {};
             data.result_form_fields.forEach((field: FormField) => {
-                initialFormData[field.name] = field.type === 'file' ? null : '';
+                if (initialValues && initialValues[field.name] !== undefined) {
+                    initialFormData[field.name] = initialValues[field.name];
+                } else {
+                    initialFormData[field.name] = field.type === 'file' ? null : '';
+                }
             });
             data.measurement_details.forEach((detail: MeasurementDetail) => {
                 initialFormData[`measurement_value_${detail.id}`] = '';

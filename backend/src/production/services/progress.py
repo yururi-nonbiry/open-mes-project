@@ -5,9 +5,11 @@ import logging
 from inventory.models import Inventory, SalesOrder, StockMovement
 from ..models import MaterialAllocation, ProductionPlan, WorkProgress
 
+from django.conf import settings
+
 logger = logging.getLogger(__name__)
 
-DEFAULT_FINISHED_GOODS_WAREHOUSE = "FG-MAIN"
+DEFAULT_FINISHED_GOODS_WAREHOUSE = settings.DEFAULT_FINISHED_GOODS_WAREHOUSE
 
 def update_production_progress_service(plan, data, user):
     """

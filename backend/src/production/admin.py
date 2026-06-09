@@ -9,15 +9,15 @@ from .models import MaterialAllocation, PartsUsed, ProductionPlan, WorkProgress
 class ProductionPlanAdmin(admin.ModelAdmin):
     list_display = ("plan_name", "product_code", "planned_quantity", "planned_start_datetime", "status", "created_at")
     list_filter = ("status", "planned_start_datetime")
-    search_fields = ("plan_name", "product_code")
+    search_fields = ("plan_name", "product__code")
     date_hierarchy = "planned_start_datetime"
 
 
 @admin.register(PartsUsed)
 class PartsUsedAdmin(admin.ModelAdmin):
     list_display = ("production_plan", "part_code", "warehouse", "quantity_used", "used_datetime")
-    list_filter = ("used_datetime", "warehouse")
-    search_fields = ("production_plan", "part_code", "warehouse")  # production_plan は CharField になったため直接検索
+    list_filter = ("used_datetime", "warehouse_rel")
+    search_fields = ("production_plan", "part__code", "warehouse_rel__warehouse_number")
     # autocomplete_fields は ForeignKey または ManyToManyField で使用されるため削除
 
 
@@ -25,7 +25,7 @@ class PartsUsedAdmin(admin.ModelAdmin):
 class MaterialAllocationAdmin(admin.ModelAdmin):
     list_display = ("production_plan", "material_code", "allocated_quantity", "status", "allocation_datetime")
     list_filter = ("status", "allocation_datetime")
-    search_fields = ("production_plan__plan_name", "material_code")
+    search_fields = ("production_plan__plan_name", "material__code")
     autocomplete_fields = ["production_plan"]
 
 

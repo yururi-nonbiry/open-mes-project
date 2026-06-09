@@ -1,11 +1,16 @@
 from rest_framework import serializers
 
+from master.models import Item, Warehouse
 from .models import MaterialAllocation, PartsUsed, ProductionPlan, WorkProgress
 
 
 class ProductionPlanSerializer(serializers.ModelSerializer):
     status_display = serializers.CharField(source="get_status_display", read_only=True)  # 表示名用
-    # status フィールドはモデルの定義に従い、内部キーを返します。
+    product_code = serializers.SlugRelatedField(
+        source="product",
+        slug_field="code",
+        queryset=Item.objects.filter(item_type="product")
+    )
 
     class Meta:
         model = ProductionPlan
@@ -64,6 +69,18 @@ class PartsUsedSerializer(serializers.ModelSerializer):
     """
     使用部品モデルのためのシリアライザ
     """
+    part_code = serializers.SlugRelatedField(
+        source="part",
+        slug_field="code",
+        queryset=Item.objects.filter(item_type="material")
+    )
+    warehouse = serializers.SlugRelatedField(
+        source="warehouse_rel",
+        slug_field="warehouse_number",
+        queryset=Warehouse.objects.all(),
+        allow_null=True,
+        required=False
+    )
 
     class Meta:
         model = PartsUsed
@@ -110,6 +127,18 @@ class MaterialAllocationSerializer(serializers.ModelSerializer):
 
     status_display = serializers.CharField(source="get_status_display", read_only=True)
     production_plan_name = serializers.CharField(source="production_plan.plan_name", read_only=True)
+    material_code = serializers.SlugRelatedField(
+        source="material",
+        slug_field="code",
+        queryset=Item.objects.filter(item_type="material")
+    )
+    warehouse = serializers.SlugRelatedField(
+        source="warehouse_rel",
+        slug_field="warehouse_number",
+        queryset=Warehouse.objects.all(),
+        allow_null=True,
+        required=False
+    )
 
     class Meta:
         model = MaterialAllocation

@@ -1,6 +1,7 @@
 from django.db.models import Sum
 
 from inventory.models import Inventory
+from master.models import Item
 from ..models import MaterialAllocation, PartsUsed
 
 def get_production_plan_required_parts(production_plan_instance):
@@ -18,6 +19,9 @@ def get_production_plan_required_parts(production_plan_instance):
         return []
 
     part_codes = list(parts_used_queryset.values_list("part_code", flat=True).distinct())
+
+    # 1.5. マスタから部品名を取得してマッピング
+    items_map = {item.code: item.name for item in Item.objects.filter(code__in=part_codes)}
 
     # 2. 在庫情報を一括取得
     inventory_items = Inventory.objects.filter(part_number__in=part_codes, is_active=True, is_allocatable=True)
@@ -56,7 +60,7 @@ def get_production_plan_required_parts(production_plan_instance):
         results.append(
             {
                 "part_code": part_code,
-                "part_name": f"{part_code} (名称は別途マスタ参照)",  # TODO: マスタ連携
+                "part_name": items_map.get(part_code, f"{part_code} (名称未登録)"),
                 "required_quantity": part_used.quantity_used,
                 "unit": "個",
                 "inventory_quantity": current_inventory_quantity,

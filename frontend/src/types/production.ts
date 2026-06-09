@@ -84,3 +84,17 @@ export const AVAILABLE_STATUSES = [
 export const getDefaultSelectedStatuses = () => {
     return new Set(AVAILABLE_STATUSES.filter(s => s.default_selected).map(s => s.key));
 };
+
+export interface MaterialAllocation {
+    id: string;
+    production_plan: string;
+    production_plan_name: string;
+    material_code: string;
+    allocated_quantity: number;
+    allocation_datetime: string;
+    status: 'ALLOCATED' | 'ISSUED' | 'RETURNED';
+    status_display: string;
+    remarks: string | null;
+    warehouse?: string;
+}
+

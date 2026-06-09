@@ -3,6 +3,7 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from master.models import Item, Warehouse
 from .models import Inventory, PurchaseOrder
 
 User = get_user_model()
@@ -11,8 +12,13 @@ User = get_user_model()
 class InventoryAPITests(APITestCase):
     def setUp(self):
         """テストの初期設定"""
-        self.user = User.objects.create_user(username="testuser", password="testpassword")
+        self.user = User.objects.create_user(custom_id="testuser", password="testpassword", username="testuser")
         self.client.force_authenticate(user=self.user)
+
+        Item.objects.create(code="PART-001", name="Part 1", item_type="material")
+        Item.objects.create(code="PART-002", name="Part 2", item_type="material")
+        Warehouse.objects.create(warehouse_number="WH-A", name="Warehouse A")
+        Warehouse.objects.create(warehouse_number="WH-B", name="Warehouse B")
 
         self.inventory1 = Inventory.objects.create(
             part_number="PART-001", warehouse="WH-A", location="A-01", quantity=100
@@ -48,7 +54,7 @@ class InventoryAPITests(APITestCase):
 class PurchaseOrderAPITests(APITestCase):
     def setUp(self):
         """テストの初期設定"""
-        self.user = User.objects.create_user(username="testuser", password="testpassword")
+        self.user = User.objects.create_user(custom_id="testuser", password="testpassword", username="testuser")
         self.client.force_authenticate(user=self.user)
 
         self.po1 = PurchaseOrder.objects.create(order_number="PO-001", item="Item A", quantity=10)

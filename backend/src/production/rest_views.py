@@ -35,8 +35,10 @@ from .services import (
 # BOMに関連するモデル (仮のインポート、実際には適切なモデルを定義・インポートしてください)
 # from .serializers import RequiredPartSerializer # BOM部品用のシリアライザ (仮のインポート)
 
+from django.conf import settings
+
 # Define a constant for the default finished goods warehouse
-DEFAULT_FINISHED_GOODS_WAREHOUSE = "FG-MAIN"  # TODO: Make this configurable
+DEFAULT_FINISHED_GOODS_WAREHOUSE = settings.DEFAULT_FINISHED_GOODS_WAREHOUSE
 
 
 # Define a pagination class specifically for Production Plans API
@@ -55,7 +57,7 @@ class ProductionPlanFilter(filters.FilterSet):
     生産計画のフィルタリングクラス
     """
     plan_name = filters.CharFilter(lookup_expr='icontains')
-    product_code = filters.CharFilter(lookup_expr='icontains')
+    product_code = filters.CharFilter(field_name="product__code", lookup_expr='icontains')
     planned_start_datetime_after = filters.DateTimeFilter(field_name="planned_start_datetime", lookup_expr='gte')
     planned_start_datetime_before = filters.DateTimeFilter(field_name="planned_start_datetime", lookup_expr='lte')
     status__in = CharInFilter(field_name='status', lookup_expr='in')
@@ -83,16 +85,25 @@ class ProductionPlanViewSet(viewsets.ModelViewSet):
     filterset_class = ProductionPlanFilter  # フィルタークラスを指定
     ordering_fields = [
         "plan_name",
-        "product_code",
+        "product",
         "planned_quantity",
         "planned_start_datetime",
         "status",
     ]  # ソート可能なフィールドを指定
     ordering = ["-planned_start_datetime"]  # デフォルトのソート順
 
+    def filter_queryset(self, queryset):
+        # Translate sorting by product_code to product
+        ordering = self.request.query_params.get("ordering", "")
+        if "product_code" in ordering:
+            params = self.request.query_params.copy()
+            params["ordering"] = ordering.replace("product_code", "product")
+            self.request.query_params = params
+        return super().filter_queryset(queryset)
+
     def get_queryset(self):
         # django-filterが自動で処理するため、手動のフィルタリングを削除
-        return ProductionPlan.objects.all()
+        return ProductionPlan.objects.all().select_related("product")
 
     @action(detail=True, methods=["get"], url_path="required-parts")
     def required_parts(self, request, pk=None):

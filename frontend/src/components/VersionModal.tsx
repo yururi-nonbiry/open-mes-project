@@ -1,4 +1,5 @@
 
+import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
 
 interface VersionModalProps {
@@ -7,9 +8,28 @@ interface VersionModalProps {
 }
 
 const VersionModal: React.FC<VersionModalProps> = ({ isOpen, onClose }) => {
-  // TODO: Fetch version from backend API
-  const version = '0.0.0';
+  const [version, setVersion] = useState('0.0.0');
   const credit = '© Open MES Project. since 2025';
+
+  useEffect(() => {
+    if (isOpen) {
+      fetch('/api/base/info/')
+        .then((res) => {
+          if (res.ok) {
+            return res.json();
+          }
+          throw new Error('Network response was not ok');
+        })
+        .then((data) => {
+          if (data && data.version) {
+            setVersion(data.version);
+          }
+        })
+        .catch((err) => {
+          console.error('Failed to fetch app version:', err);
+        });
+    }
+  }, [isOpen]);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose}>

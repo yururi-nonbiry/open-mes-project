@@ -84,18 +84,18 @@ class InventoryViewSet(viewsets.ModelViewSet):
 
         filters = Q()
         if part_number_query:
-            filters &= Q(part_number__icontains=part_number_query)
+            filters &= Q(part_number_rel__code__icontains=part_number_query)
         if warehouse_query:
-            filters &= Q(warehouse__icontains=warehouse_query)
+            filters &= Q(warehouse_rel__warehouse_number__icontains=warehouse_query)
         if location_query:
             filters &= Q(location__icontains=location_query)
 
-        queryset = Inventory.objects.filter(filters)
+        queryset = Inventory.objects.filter(filters).select_related("part_number_rel", "warehouse_rel")
 
         if hide_zero_stock_query:
             queryset = queryset.filter(is_active=True, is_allocatable=True, quantity__gt=F("reserved"))
 
-        return queryset.order_by("part_number", "warehouse", "location")
+        return queryset.order_by("part_number_rel__code", "warehouse_rel__warehouse_number", "location")
 
     @action(detail=False, methods=["get"], url_path="by-location")
     def by_location(self, request):
@@ -108,8 +108,8 @@ class InventoryViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        inventory_items = Inventory.objects.filter(warehouse=warehouse, location=location, quantity__gt=0).order_by(
-            "part_number"
+        inventory_items = Inventory.objects.filter(warehouse_rel__warehouse_number=warehouse, location=location, quantity__gt=0).order_by(
+            "part_number_rel__code"
         )
 
         serializer = self.get_serializer(inventory_items, many=True)
@@ -259,9 +259,9 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
         search_params_text = {
             "search_order_number": "order_number__icontains",
             "search_shipment_number": "shipment_number__icontains",
-            "search_supplier": "supplier__icontains",
-            "search_part_number": "part_number__icontains",
-            "search_warehouse": "warehouse__icontains",
+            "search_supplier": "supplier_rel__name__icontains",
+            "search_part_number": "part_number_rel__code__icontains",
+            "search_warehouse": "warehouse_rel__warehouse_number__icontains",
         }
         for param, field_lookup in search_params_text.items():
             value = self.request.query_params.get(param)
@@ -273,9 +273,9 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
         if search_q:
             filters &= (
                 Q(order_number__icontains=search_q)
-                | Q(part_number__icontains=search_q)
+                | Q(part_number_rel__code__icontains=search_q)
                 | Q(product_name__icontains=search_q)
-                | Q(supplier__icontains=search_q)
+                | Q(supplier_rel__name__icontains=search_q)
                 | Q(item__icontains=search_q)
             )
 
@@ -460,17 +460,17 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
 
         search_item = self.request.query_params.get("search_item")
         if search_item:
-            filters &= Q(item__icontains=search_item)
+            filters &= Q(item_rel__code__icontains=search_item)
 
         search_warehouse = self.request.query_params.get("search_warehouse")
         if search_warehouse:
-            filters &= Q(warehouse__icontains=search_warehouse)
+            filters &= Q(warehouse_rel__warehouse_number__icontains=search_warehouse)
 
         search_status = self.request.query_params.get("search_status")
         if search_status:
             filters &= Q(status=search_status)
 
-        return SalesOrder.objects.filter(filters).order_by("expected_shipment", "order_number")
+        return SalesOrder.objects.filter(filters).select_related("item_rel", "warehouse_rel").order_by("expected_shipment", "order_number")
 
     @action(detail=False, methods=["post"])
     def allocate(self, request):
@@ -499,8 +499,8 @@ class StockMovementViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         filters = Q()
         text_search_params = {
-            "search_part_number": "part_number__icontains",
-            "search_warehouse": "warehouse__icontains",
+            "search_part_number": "part_number_rel__code__icontains",
+            "search_warehouse": "warehouse_rel__warehouse_number__icontains",
             "search_reference_document": "reference_document__icontains",
             "search_description": "description__icontains",
             "search_operator": "operator__username__icontains",
@@ -528,4 +528,4 @@ class StockMovementViewSet(viewsets.ReadOnlyModelViewSet):
         if date_to:
             filters &= Q(movement_date__date__lte=date_to)
 
-        return StockMovement.objects.filter(filters).order_by("-movement_date", "part_number")
+        return StockMovement.objects.filter(filters).select_related("part_number_rel", "warehouse_rel").order_by("-movement_date", "part_number_rel__code")
