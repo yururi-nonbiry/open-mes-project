@@ -4,6 +4,7 @@ import logging
 
 from inventory.models import Inventory, SalesOrder, StockMovement
 from ..models import MaterialAllocation, ProductionPlan, WorkProgress
+from .allocation import build_internal_so_order_number
 
 from django.conf import settings
 
@@ -49,13 +50,15 @@ def update_production_progress_service(plan, data, user):
             _handle_pending_status(work_progress)
 
         # COMPLETEDから別のステータスに戻る場合の在庫逆仕訳（完成品を減らし、材料を引き当て状態に戻す）
+        # 材料消費は完了時の良品数量に関わらず（0件でも）常に行われるため、
+        # 復元処理も quantity_completed の値に関係なく必ず実行する。
         if old_plan_status == ProductionPlan.Status.COMPLETED and new_status != ProductionPlan.Status.COMPLETED:
             if previous_wp_completed_quantity > 0:
                 _reverse_inventory(plan, previous_wp_completed_quantity, now, user)
-                _restore_materials_for_plan(plan, now, user)
-                work_progress.quantity_completed = 0
-                work_progress.actual_reported_quantity = None
-                work_progress.defective_reported_quantity = None
+            _restore_materials_for_plan(plan, now, user)
+            work_progress.quantity_completed = 0
+            work_progress.actual_reported_quantity = None
+            work_progress.defective_reported_quantity = None
 
         plan.save()
         work_progress.save()
@@ -219,6 +222,12 @@ def _consume_materials_for_plan(plan, now, user):
 
             # 在庫と引当の減少
             quantity_to_consume = alloc.allocated_quantity
+            if inventory_item.quantity < quantity_to_consume:
+                raise ValueError(
+                    f"Cannot consume materials for plan {plan.id}: insufficient stock for "
+                    f"'{alloc.material_code}' in '{alloc.warehouse}'. "
+                    f"Required: {quantity_to_consume}, Available: {inventory_item.quantity}."
+                )
             inventory_item.quantity -= quantity_to_consume
             inventory_item.reserved -= quantity_to_consume
             inventory_item.save()
@@ -240,8 +249,8 @@ def _consume_materials_for_plan(plan, now, user):
             )
 
             # 関連する SalesOrder があれば完了（shipped）にする
-            so_order_number_prefix = f"INT-{alloc.id.hex[:15]}"
-            SalesOrder.objects.filter(order_number__startswith=so_order_number_prefix).update(
+            so_order_number = build_internal_so_order_number(alloc.id)
+            SalesOrder.objects.filter(order_number=so_order_number).update(
                 status="shipped", shipped_quantity=quantity_to_consume
             )
 
@@ -288,7 +297,7 @@ def _restore_materials_for_plan(plan, now, user):
         )
 
         # 関連する SalesOrder を pending に戻す
-        so_order_number_prefix = f"INT-{alloc.id.hex[:15]}"
-        SalesOrder.objects.filter(order_number__startswith=so_order_number_prefix).update(
+        so_order_number = build_internal_so_order_number(alloc.id)
+        SalesOrder.objects.filter(order_number=so_order_number).update(
             status="pending", shipped_quantity=0
         )

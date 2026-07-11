@@ -1,11 +1,22 @@
 from django.db import transaction
 from django.db.models import Sum
+from django.utils import timezone
 import logging
 
-from inventory.models import Inventory, SalesOrder
+from inventory.models import Inventory, SalesOrder, StockMovement
 from ..models import MaterialAllocation, PartsUsed
 
 logger = logging.getLogger(__name__)
+
+
+def build_internal_so_order_number(allocation_id):
+    """
+    MaterialAllocationに対応する内部SalesOrderの注文番号を生成します。
+    UUID7は先頭ビットがタイムスタンプで占められ同時刻生成レコード間の
+    ランダム性が乏しいため、ランダム性の高い末尾を使用します。
+    """
+    return f"INT-{allocation_id.hex[-15:]}"
+
 
 def allocate_materials_service(production_plan, allocations_data):
     """
@@ -102,7 +113,7 @@ def allocate_materials_service(production_plan, allocations_data):
             )
 
             # 出庫予定（SalesOrder）の作成
-            so_order_number = f"INT-{material_allocation.id.hex[:15]}"
+            so_order_number = build_internal_so_order_number(material_allocation.id)
             sales_order, so_created = SalesOrder.objects.get_or_create(
                 order_number=so_order_number,
                 defaults={
@@ -131,3 +142,111 @@ def allocate_materials_service(production_plan, allocations_data):
             raise ValueError(f"Errors occurred during allocation process: {'; '.join(errors)}")
 
     return processed_allocations_summary
+
+
+def release_material_allocation_service(allocation):
+    """
+    未出庫（ALLOCATED）の材料引当を解除（削除）します。
+    在庫の reserved を解放し、関連する内部SalesOrderをキャンセルします。
+    出庫済み(ISSUED)・返却済み(RETURNED)の引当は実在庫の増減を伴う履歴のため削除できません。
+    """
+    if allocation.status != "ALLOCATED":
+        raise ValueError(
+            f"Cannot delete allocation with status '{allocation.status}'. "
+            "Only 'ALLOCATED' allocations can be released."
+        )
+
+    with transaction.atomic():
+        if allocation.warehouse:
+            try:
+                inventory_item = Inventory.objects.select_for_update().get(
+                    part_number=allocation.material_code, warehouse=allocation.warehouse
+                )
+                inventory_item.reserved = max(0, inventory_item.reserved - allocation.allocated_quantity)
+                inventory_item.save()
+            except Inventory.DoesNotExist:
+                logger.error(
+                    f"Inventory not found while releasing allocation {allocation.id}: "
+                    f"{allocation.material_code} in {allocation.warehouse}"
+                )
+
+        so_order_number = build_internal_so_order_number(allocation.id)
+        SalesOrder.objects.filter(order_number=so_order_number).update(status="canceled")
+
+        allocation.delete()
+
+
+def update_material_allocation_status_service(allocation, new_status, user, now=None):
+    """
+    材料引当のステータスを変更し、実在庫の増減を伴わせるサービス。
+    ALLOCATED -> ISSUED: 在庫を出庫（quantity, reserved を減算）。
+    ISSUED -> RETURNED: 出庫した在庫を戻す（quantity のみ加算。引当は解除済みのため reserved は戻さない）。
+    """
+    now = now or timezone.now()
+    allowed_transitions = {
+        "ALLOCATED": "ISSUED",
+        "ISSUED": "RETURNED",
+    }
+    if allowed_transitions.get(allocation.status) != new_status:
+        raise ValueError(
+            f"Invalid status transition for allocation {allocation.id}: {allocation.status} -> {new_status}."
+        )
+    if not allocation.warehouse:
+        raise ValueError(f"Allocation {allocation.id} has no warehouse; cannot update inventory.")
+
+    so_order_number = build_internal_so_order_number(allocation.id)
+
+    with transaction.atomic():
+        try:
+            inventory_item = Inventory.objects.select_for_update().get(
+                part_number=allocation.material_code, warehouse=allocation.warehouse
+            )
+        except Inventory.DoesNotExist:
+            raise ValueError(
+                f"Inventory not found for '{allocation.material_code}' in '{allocation.warehouse}'."
+            )
+
+        if new_status == "ISSUED":
+            if inventory_item.quantity < allocation.allocated_quantity:
+                raise ValueError(
+                    f"Insufficient stock to issue '{allocation.material_code}' in '{allocation.warehouse}'. "
+                    f"Required: {allocation.allocated_quantity}, Available: {inventory_item.quantity}."
+                )
+            inventory_item.quantity -= allocation.allocated_quantity
+            inventory_item.reserved = max(0, inventory_item.reserved - allocation.allocated_quantity)
+            inventory_item.save()
+
+            StockMovement.objects.create(
+                part_number=allocation.material_code,
+                quantity=allocation.allocated_quantity,
+                warehouse=allocation.warehouse,
+                movement_type="used",
+                movement_date=now,
+                reference_document=f"MaterialAllocation-{allocation.id}",
+                description=f"Issued for allocation {allocation.id}.",
+                operator=user if user and user.is_authenticated else None,
+            )
+            SalesOrder.objects.filter(order_number=so_order_number).update(
+                status="shipped", shipped_quantity=allocation.allocated_quantity
+            )
+
+        elif new_status == "RETURNED":
+            inventory_item.quantity += allocation.allocated_quantity
+            inventory_item.save()
+
+            StockMovement.objects.create(
+                part_number=allocation.material_code,
+                quantity=allocation.allocated_quantity,
+                warehouse=allocation.warehouse,
+                movement_type="incoming",
+                movement_date=now,
+                reference_document=f"MaterialAllocation-{allocation.id}",
+                description=f"Returned unused from allocation {allocation.id}.",
+                operator=user if user and user.is_authenticated else None,
+            )
+            SalesOrder.objects.filter(order_number=so_order_number).update(status="canceled")
+
+        allocation.status = new_status
+        allocation.save()
+
+    return allocation

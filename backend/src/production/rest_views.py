@@ -28,6 +28,8 @@ from .serializers import (
 from .services import (
     allocate_materials_service,
     get_production_plan_required_parts,
+    release_material_allocation_service,
+    update_material_allocation_status_service,
     update_production_progress_service,
 )
 
@@ -199,7 +201,7 @@ class MaterialAllocationViewSet(viewsets.ModelViewSet):
     pagination_class = StandardResultsSetPagination
     # permission_classes = [IsAuthenticated]
     filter_backends = [OrderingFilter]
-    ordering_fields = ["material_code", "allocated_quantity", "allocation_datetime", "status"]
+    ordering_fields = ["material", "allocated_quantity", "allocation_datetime", "status"]
     ordering = ["-allocation_datetime"]
 
     def get_queryset(self):
@@ -208,6 +210,36 @@ class MaterialAllocationViewSet(viewsets.ModelViewSet):
         if plan_id:
             queryset = queryset.filter(production_plan_id=plan_id)
         return queryset
+
+    def destroy(self, request, *args, **kwargs):
+        """
+        引当の削除は在庫の reserved 解放を伴うため、専用サービスに委譲します。
+        出庫済み・返却済みの引当は実在庫の増減を伴う履歴のため削除できません。
+        """
+        allocation = self.get_object()
+        try:
+            release_material_allocation_service(allocation)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=["post"], url_path="change-status")
+    def change_status(self, request, pk=None):
+        """
+        材料引当のステータスを変更します（出庫/返却）。
+        在庫の増減を伴うため update_material_allocation_status_service に委譲します。
+        """
+        allocation = self.get_object()
+        new_status = request.data.get("status")
+        if not new_status:
+            return Response({"error": "status is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            allocation = update_material_allocation_status_service(allocation, new_status, request.user)
+            serializer = self.get_serializer(allocation)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class WorkProgressViewSet(viewsets.ModelViewSet):

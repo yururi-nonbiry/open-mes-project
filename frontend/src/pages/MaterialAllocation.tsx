@@ -75,8 +75,8 @@ const MaterialAllocationPage = () => {
       return;
     }
     try {
-      const response = await authFetch(`/api/production/material-allocations/${id}/`, {
-        method: 'PATCH',
+      const response = await authFetch(`/api/production/material-allocations/${id}/change-status/`, {
+        method: 'POST',
         body: JSON.stringify({ status: newStatus }),
       });
       await handleError(response, 'ステータスの更新に失敗しました。');
@@ -245,13 +245,15 @@ const MaterialAllocationPage = () => {
                               返却
                             </button>
                           )}
-                          <button
-                            className="btn btn-outline-danger"
-                            onClick={() => handleDelete(alloc.id)}
-                            title="削除（引当解除）"
-                          >
-                            <i className="bi bi-trash"></i>
-                          </button>
+                          {alloc.status === 'ALLOCATED' && (
+                            <button
+                              className="btn btn-outline-danger"
+                              onClick={() => handleDelete(alloc.id)}
+                              title="削除（引当解除）"
+                            >
+                              <i className="bi bi-trash"></i>
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

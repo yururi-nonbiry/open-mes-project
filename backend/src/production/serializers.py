@@ -147,6 +147,7 @@ class MaterialAllocationSerializer(serializers.ModelSerializer):
             "production_plan",
             "production_plan_name",
             "material_code",
+            "warehouse",
             "allocated_quantity",
             "allocation_datetime",
             "status",
@@ -155,7 +156,16 @@ class MaterialAllocationSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at", "status_display", "production_plan_name"]
+        # status は在庫連動が必要なため、直接の書き換えは不可。
+        # MaterialAllocationViewSet の change-status アクション経由でのみ変更する。
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "status",
+            "status_display",
+            "production_plan_name",
+        ]
 
 
 class WorkProgressSerializer(serializers.ModelSerializer):
