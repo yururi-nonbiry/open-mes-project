@@ -129,12 +129,14 @@ export const BUSINESS_CARDS = [
     { id: 'production-plan', title: '生産計画', description: '製造のスケジュールを管理します。', icon: '📅' },
 ];
 
+// value はバックエンドの DATA_TYPE_MODEL_MAPPING (backend/src/base/models.py) のキーと
+// 一致させる必要がある（アンダースコア区切り）。DATA_CONFIG等のフロント内部キー（ハイフン区切り）とは別物。
 export const CSV_DATA_TYPES = [
     { value: 'item', label: '品番マスター' },
     { value: 'supplier', label: '共通サプライヤー' },
     { value: 'warehouse', label: '倉庫マスター' },
     { value: 'customer', label: '顧客マスター' },
-    { value: 'work-center', label: 'ワークセンターマスター' },
-    { value: 'unit-cost', label: '標準単価' },
-    { value: 'production-plan', label: '生産計画' },
+    { value: 'work_center', label: 'ワークセンターマスター' },
+    { value: 'unit_cost', label: '標準単価' },
+    { value: 'production_plan', label: '生産計画' },
 ];

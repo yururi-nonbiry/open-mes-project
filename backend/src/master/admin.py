@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Item, Supplier, Warehouse
+from .models import Customer, Item, Supplier, UnitCost, Warehouse, WorkCenter
 
 # Register your models here.
 
@@ -28,3 +28,21 @@ class SupplierAdmin(admin.ModelAdmin):
 
 
 admin.site.register(Warehouse)
+
+
+@admin.register(Customer)
+class CustomerAdmin(admin.ModelAdmin):
+    list_display = ("code", "name", "created_at")
+    search_fields = ("code", "name")
+
+
+@admin.register(WorkCenter)
+class WorkCenterAdmin(admin.ModelAdmin):
+    list_display = ("code", "name", "created_at")
+    search_fields = ("code", "name")
+
+
+@admin.register(UnitCost)
+class UnitCostAdmin(admin.ModelAdmin):
+    list_display = ("item", "cost", "updated_at")
+    search_fields = ("item__code", "item__name")

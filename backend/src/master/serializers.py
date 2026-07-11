@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 
-from .models import Item, Supplier, Warehouse
+from .models import Customer, Item, Supplier, UnitCost, Warehouse, WorkCenter
 
 
 class ItemSerializer(serializers.ModelSerializer):
@@ -141,3 +141,75 @@ class WarehouseCreateUpdateSerializer(serializers.ModelSerializer):
         if self.instance is not None:
             fields["warehouse_number"].read_only = True
         return fields
+
+
+class CustomerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Customer
+        fields = ["id", "code", "name", "created_at"]
+
+
+class CustomerCreateUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Customer
+        fields = ["id", "code", "name"]
+        extra_kwargs = {
+            "code": {
+                "validators": [
+                    UniqueValidator(queryset=Customer.objects.all(), message="この顧客コードは既に使用されています。")
+                ],
+            },
+        }
+
+    def get_fields(self):
+        fields = super().get_fields()
+        if self.instance is not None:
+            fields["code"].read_only = True
+        return fields
+
+
+class WorkCenterSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WorkCenter
+        fields = ["id", "code", "name", "created_at"]
+
+
+class WorkCenterCreateUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WorkCenter
+        fields = ["id", "code", "name"]
+        extra_kwargs = {
+            "code": {
+                "validators": [
+                    UniqueValidator(
+                        queryset=WorkCenter.objects.all(), message="このワークセンターコードは既に使用されています。"
+                    )
+                ],
+            },
+        }
+
+    def get_fields(self):
+        fields = super().get_fields()
+        if self.instance is not None:
+            fields["code"].read_only = True
+        return fields
+
+
+class UnitCostSerializer(serializers.ModelSerializer):
+    item = serializers.SlugRelatedField(slug_field="code", queryset=Item.objects.all())
+
+    class Meta:
+        model = UnitCost
+        fields = ["id", "item", "cost", "created_at", "updated_at"]
+
+
+class UnitCostCreateUpdateSerializer(serializers.ModelSerializer):
+    item = serializers.SlugRelatedField(
+        slug_field="code",
+        queryset=Item.objects.all(),
+        validators=[UniqueValidator(queryset=UnitCost.objects.all(), message="この品目の標準単価は既に登録されています。")],
+    )
+
+    class Meta:
+        model = UnitCost
+        fields = ["id", "item", "cost"]

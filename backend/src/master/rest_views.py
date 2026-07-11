@@ -3,14 +3,20 @@ from rest_framework import status, viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Item, Supplier, Warehouse  # master.models を直接参照
+from .models import Customer, Item, Supplier, UnitCost, Warehouse, WorkCenter  # master.models を直接参照
 from .serializers import (
+    CustomerCreateUpdateSerializer,
+    CustomerSerializer,
     ItemCreateUpdateSerializer,
     ItemSerializer,
     SupplierCreateUpdateSerializer,
     SupplierSerializer,
+    UnitCostCreateUpdateSerializer,
+    UnitCostSerializer,
     WarehouseCreateUpdateSerializer,
     WarehouseSerializer,
+    WorkCenterCreateUpdateSerializer,
+    WorkCenterSerializer,
 )
 
 
@@ -104,3 +110,33 @@ class WarehouseViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
         if self.action in ["list"]:
             return WarehouseSerializer
         return WarehouseCreateUpdateSerializer
+
+
+class CustomerViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
+    queryset = Customer.objects.all().order_by("code")
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.action in ["list"]:
+            return CustomerSerializer
+        return CustomerCreateUpdateSerializer
+
+
+class WorkCenterViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
+    queryset = WorkCenter.objects.all().order_by("code")
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.action in ["list"]:
+            return WorkCenterSerializer
+        return WorkCenterCreateUpdateSerializer
+
+
+class UnitCostViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
+    queryset = UnitCost.objects.all().select_related("item").order_by("item__code")
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.action in ["list"]:
+            return UnitCostSerializer
+        return UnitCostCreateUpdateSerializer

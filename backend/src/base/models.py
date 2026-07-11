@@ -19,6 +19,9 @@ DATA_TYPE_CHOICES = [
     ("model_display_setting", _("モデル項目表示設定")),
     ("qr_code_action", _("QRコードアクション")),
     ("stock_movement", _("入出庫履歴")),
+    ("customer", _("顧客マスター")),
+    ("work_center", _("ワークセンターマスター")),
+    ("unit_cost", _("標準単価")),
 ]
 
 # APIなどでモデル文字列とモデルクラスをマッピングするために使用
@@ -36,6 +39,9 @@ DATA_TYPE_MODEL_MAPPING = {
     "csv_column_mapping": "base.CsvColumnMapping",
     "model_display_setting": "base.ModelDisplaySetting",
     "qr_code_action": "base.QrCodeAction",
+    "customer": "master.Customer",
+    "work_center": "master.WorkCenter",
+    "unit_cost": "master.UnitCost",
 }
 
 

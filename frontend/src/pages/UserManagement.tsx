@@ -84,7 +84,7 @@ const UserManagement = () => {
             )}
 
             <div className="mb-3">
-                <Link to="/admin/users/create" className="btn btn-primary">新規ユーザー作成</Link>
+                <Link to="/user/management/create" className="btn btn-primary">新規ユーザー作成</Link>
             </div>
 
             <table className="table table-striped table-bordered table-hover table-sm">
@@ -116,7 +116,7 @@ const UserManagement = () => {
                                 </td>
                                 <td>{formatDate(user.date_joined)}</td>
                                 <td>
-                                    <Link to={`/admin/users/edit/${user.id}`} className="btn btn-sm btn-info">編集</Link>
+                                    <Link to={`/user/management/edit/${user.id}`} className="btn btn-sm btn-info">編集</Link>
                                     <button onClick={() => handleDelete(user.id, user.custom_id)} className="btn btn-sm btn-danger ms-1">削除</button>
                                 </td>
                             </tr>

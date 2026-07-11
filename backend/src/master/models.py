@@ -64,3 +64,49 @@ class Warehouse(models.Model):
 
     def __str__(self):
         return f"{self.warehouse_number} - {self.name}"
+
+
+# 顧客マスター
+class Customer(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)  # UUIDv7 を使用
+    code = models.CharField(max_length=50, unique=True, verbose_name="顧客コード")
+    name = models.CharField(max_length=255, verbose_name="顧客名")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.code} - {self.name}"
+
+
+# ワークセンターマスター
+class WorkCenter(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)  # UUIDv7 を使用
+    code = models.CharField(max_length=50, unique=True, verbose_name="ワークセンターコード")
+    name = models.CharField(max_length=255, verbose_name="ワークセンター名")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.code} - {self.name}"
+
+
+# 標準単価マスター
+class UnitCost(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)  # UUIDv7 を使用
+    item = models.ForeignKey(
+        Item,
+        to_field="code",
+        db_column="item",
+        on_delete=models.PROTECT,
+        verbose_name="品目",
+        related_name="unit_costs",
+    )
+    cost = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="標準単価")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["item"], name="unique_unitcost_item"),
+        ]
+
+    def __str__(self):
+        return f"{self.item_id} - {self.cost}"

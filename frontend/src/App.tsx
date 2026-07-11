@@ -26,6 +26,7 @@ import MachineMasterCreation from './pages/MachineMasterCreation';
 import DataImport from './pages/DataImport';
 import UserSettings from './pages/UserSettings';
 import UserManagement from './pages/UserManagement';
+import UserForm from './pages/UserForm';
 import SystemSettings from './pages/SystemSettings';
 import CsvMappingSettings from './pages/CsvMappingSettings';
 import ModelDisplaySettings from './pages/ModelDisplaySettings';
@@ -156,6 +157,8 @@ function AppContent() {
           <Route path="/data/import" element={<DataImport />} />
           <Route path="/user/settings" element={<UserSettings />} />
           <Route path="/user/management" element={<StaffRoute><UserManagement /></StaffRoute>} />
+          <Route path="/user/management/create" element={<StaffRoute><UserForm /></StaffRoute>} />
+          <Route path="/user/management/edit/:id" element={<StaffRoute><UserForm /></StaffRoute>} />
           <Route path="/system/settings" element={<StaffRoute><SystemSettings /></StaffRoute>} />
           <Route path="/system/csv-mappings" element={<StaffRoute><CsvMappingSettings /></StaffRoute>} />
           <Route path="/system/model-display-settings" element={<StaffRoute><ModelDisplaySettings /></StaffRoute>} />
