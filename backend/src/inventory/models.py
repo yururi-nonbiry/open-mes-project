@@ -67,6 +67,14 @@ class Inventory(models.Model):
             f"({self.location}) [{status}, {allocatable}]"
         )
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["part_number_rel", "warehouse_rel", "location"],
+                name="unique_inventory_part_warehouse_location",
+            )
+        ]
+
 
 # 入出庫履歴
 class StockMovement(models.Model):

@@ -66,6 +66,8 @@ class CustomAuthTokenSerializer(serializers.Serializer):
 class AdminUserSerializer(serializers.ModelSerializer):
     """管理者によるユーザー管理用のシリアライザー"""
 
+    password = serializers.CharField(write_only=True, required=False, allow_blank=False, min_length=5)
+
     class Meta:
         model = CustomUser
         fields = [
@@ -73,6 +75,7 @@ class AdminUserSerializer(serializers.ModelSerializer):
             "custom_id",
             "username",
             "email",
+            "password",
             "is_staff",
             "is_superuser",
             "is_active",
@@ -81,6 +84,22 @@ class AdminUserSerializer(serializers.ModelSerializer):
             "password_last_changed",
         ]
         read_only_fields = ["id", "date_joined", "last_login", "password_last_changed"]
+
+    def create(self, validated_data):
+        """暗号化されたパスワードで新しいユーザーを作成して返す"""
+        password = validated_data.pop("password", None)
+        if not password:
+            raise serializers.ValidationError({"password": "パスワードは必須です。"})
+        return CustomUser.objects.create_user(password=password, **validated_data)
+
+    def update(self, instance, validated_data):
+        """パスワードが指定された場合のみ、ハッシュ化して更新する"""
+        password = validated_data.pop("password", None)
+        instance = super().update(instance, validated_data)
+        if password:
+            instance.set_password(password)
+            instance.save(update_fields=["password", "password_last_changed"])
+        return instance
 
 
 class UserProfileUpdateSerializer(serializers.ModelSerializer):

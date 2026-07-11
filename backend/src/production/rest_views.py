@@ -185,10 +185,22 @@ class PartsUsedViewSet(viewsets.ModelViewSet):
     API endpoint that allows PartsUsed records to be viewed or created.
     """
 
-    queryset = PartsUsed.objects.all().order_by("-used_datetime")
+    queryset = PartsUsed.objects.all().select_related("part", "warehouse_rel").order_by("-used_datetime")
     serializer_class = PartsUsedSerializer
     pagination_class = StandardResultsSetPagination  # ページネーションクラスを指定
     # permission_classes = [permissions.IsAuthenticated] # Example: Add authentication
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        production_plan = self.request.query_params.get("production_plan")
+        if production_plan:
+            queryset = queryset.filter(production_plan__icontains=production_plan)
+
+        part_code = self.request.query_params.get("part_code")
+        if part_code:
+            queryset = queryset.filter(part__code__icontains=part_code)
+
+        return queryset
 
 
 class MaterialAllocationViewSet(viewsets.ModelViewSet):

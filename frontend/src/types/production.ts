@@ -85,6 +85,19 @@ export const getDefaultSelectedStatuses = () => {
     return new Set(AVAILABLE_STATUSES.filter(s => s.default_selected).map(s => s.key));
 };
 
+export interface WorkProgress {
+    id: string;
+    production_plan: string;
+    process_step: string;
+    status: string;
+    status_display?: string;
+    quantity_completed: number;
+    actual_reported_quantity: number | null;
+    defective_reported_quantity: number | null;
+    start_datetime: string | null;
+    end_datetime: string | null;
+}
+
 export interface MaterialAllocation {
     id: string;
     production_plan: string;

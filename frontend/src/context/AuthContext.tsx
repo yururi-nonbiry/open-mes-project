@@ -17,10 +17,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [loading, setLoading] = useState(true);
 
   const logout = useCallback(() => {
+    const refreshToken = localStorage.getItem('refresh_token');
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     setIsAuthenticated(false);
     setIsStaff(false);
+
+    if (refreshToken) {
+      // サーバー側でもrefreshトークンを失効させる（ベストエフォート。失敗してもローカルの状態は既にクリア済み）
+      fetch('/api/users/token/blacklist/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh: refreshToken }),
+      }).catch(() => {});
+    }
   }, []);
 
   const checkAuth = useCallback(async () => {

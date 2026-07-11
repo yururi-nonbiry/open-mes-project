@@ -55,6 +55,14 @@ class ItemCreateUpdateSerializer(serializers.ModelSerializer):
             },
         }
 
+    def get_fields(self):
+        # code は inventory/production 等から to_field 経由でFK参照されているため、
+        # 作成後に変更すると参照整合性が壊れる。更新時のみ読み取り専用にする。
+        fields = super().get_fields()
+        if self.instance is not None:
+            fields["code"].read_only = True
+        return fields
+
 
 class SupplierSerializer(serializers.ModelSerializer):
     class Meta:
@@ -99,6 +107,14 @@ class SupplierCreateUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("このメールアドレスは他のサプライヤーで既に使用されています。")
         return value
 
+    def get_fields(self):
+        # supplier_number は inventory(PurchaseOrder)等から to_field 経由でFK参照されているため、
+        # 作成後に変更すると参照整合性が壊れる。更新時のみ読み取り専用にする。
+        fields = super().get_fields()
+        if self.instance is not None:
+            fields["supplier_number"].read_only = True
+        return fields
+
 
 class WarehouseSerializer(serializers.ModelSerializer):
     class Meta:
@@ -117,3 +133,11 @@ class WarehouseCreateUpdateSerializer(serializers.ModelSerializer):
                 ],
             },
         }
+
+    def get_fields(self):
+        # warehouse_number は inventory/production 等から to_field 経由でFK参照されているため、
+        # 作成後に変更すると参照整合性が壊れる。更新時のみ読み取り専用にする。
+        fields = super().get_fields()
+        if self.instance is not None:
+            fields["warehouse_number"].read_only = True
+        return fields

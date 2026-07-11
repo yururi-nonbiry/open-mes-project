@@ -197,10 +197,16 @@ class WorkProgressSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+        # status/quantity系は在庫調整・材料消費を伴う update_production_progress_service
+        # (ProductionPlanViewSet.update_progress) 経由でのみ変更させ、直接のPATCHでは変更不可にする。
         read_only_fields = [
             "id",
             "created_at",
             "updated_at",
+            "status",
+            "quantity_completed",
+            "actual_reported_quantity",
+            "defective_reported_quantity",
             "status_display",
             "production_plan_name",
             "operator_username",

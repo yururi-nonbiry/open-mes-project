@@ -1,5 +1,6 @@
 from django.urls import path
 from rest_framework_simplejwt.views import (
+    TokenBlacklistView,
     TokenObtainPairView,
     TokenRefreshView,
 )
@@ -14,6 +15,7 @@ urlpatterns = [
     # JWT認証
     path("token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    path("token/blacklist/", TokenBlacklistView.as_view(), name="token_blacklist"),
     path("logout/", rest_views.APILogoutView.as_view(), name="api_logout"),
     path("session/", rest_views.get_session_info, name="api_session_info"),
     # API endpoints for user settings

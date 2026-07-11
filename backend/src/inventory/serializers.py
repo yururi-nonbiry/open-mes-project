@@ -97,6 +97,8 @@ class PurchaseOrderSerializer(serializers.ModelSerializer):
             "order_date",
             "received_quantity",
             "remaining_quantity",
+            # status は process-receipt アクション経由でのみ更新させる（在庫計上と整合させるため）
+            "status",
         ]  # is_first_time はデフォルト値があるので読み取り専用には含めません
 
     def validate_order_number(self, value):
@@ -142,7 +144,9 @@ class InventorySerializer(serializers.ModelSerializer):
             "is_active",
             "is_allocatable",
         ]
-        read_only_fields = ["id", "last_updated", "available_quantity"]
+        # quantity/reserved は在庫移動履歴(StockMovement)の記録と整合性チェックを伴うため、
+        # 直接のPATCHでは変更不可にし、move/adjust/process-receipt等の専用アクション経由に限定する。
+        read_only_fields = ["id", "quantity", "reserved", "last_updated", "available_quantity"]
 
 
 class StockMovementSerializer(serializers.ModelSerializer):

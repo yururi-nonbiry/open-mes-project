@@ -106,6 +106,52 @@ class InspectionResultDetailSerializer(serializers.ModelSerializer):
         fields = ["measurement_detail", "measured_value_numeric", "result_qualitative"]
 
 
+def _judge_detail(measurement_detail, measured_value_numeric, result_qualitative):
+    """
+    測定・判定詳細1件の規格に対する合否を判定する。
+    値が未入力の場合は判定不能として None を返す（合格/不合格ではなく保留扱いにするため）。
+    """
+    if measurement_detail.measurement_type == "quantitative":
+        if measured_value_numeric is None:
+            return None
+        lower = measurement_detail.specification_lower_limit
+        upper = measurement_detail.specification_upper_limit
+        if lower is not None and measured_value_numeric < lower:
+            return False
+        if upper is not None and measured_value_numeric > upper:
+            return False
+        return True
+    else:  # qualitative
+        if not result_qualitative:
+            return None
+        expected = measurement_detail.expected_qualitative_result
+        if not expected:
+            return True
+        return result_qualitative.strip().lower() == expected.strip().lower()
+
+
+def compute_overall_judgment(details_data):
+    """
+    各測定・判定詳細の合否から検査実績全体の判定を決定する。
+    1件でも不合格があれば不合格、未入力の項目があれば保留、全て合格なら合格。
+    """
+    if not details_data:
+        return "pending"
+    per_detail_results = [
+        _judge_detail(
+            detail_data["measurement_detail"],
+            detail_data.get("measured_value_numeric"),
+            detail_data.get("result_qualitative"),
+        )
+        for detail_data in details_data
+    ]
+    if any(result is False for result in per_detail_results):
+        return "fail"
+    if any(result is None for result in per_detail_results):
+        return "pending"
+    return "pass"
+
+
 class InspectionResultSerializer(serializers.ModelSerializer):
     details = InspectionResultDetailSerializer(many=True)
     inspected_by_username = serializers.CharField(source="inspected_by.username", read_only=True)
@@ -132,12 +178,20 @@ class InspectionResultSerializer(serializers.ModelSerializer):
             "equipment_used",
             "details",
         ]
-        read_only_fields = ["id", "inspected_at", "inspected_by", "inspected_by_username", "judgment_display"]
+        read_only_fields = [
+            "id",
+            "inspected_at",
+            "inspected_by",
+            "inspected_by_username",
+            "judgment",
+            "judgment_display",
+        ]
 
     @transaction.atomic
     def create(self, validated_data):
         details_data = validated_data.pop("details")
         validated_data["inspected_by"] = self.context["request"].user
+        validated_data["judgment"] = compute_overall_judgment(details_data)
         inspection_result = InspectionResult.objects.create(**validated_data)
         for detail_data in details_data:
             InspectionResultDetail.objects.create(inspection_result=inspection_result, **detail_data)

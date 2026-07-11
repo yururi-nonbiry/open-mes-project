@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import importService from '../services/importService';
 
 export interface CsvResult {
@@ -73,6 +73,11 @@ export const useCsvImport = () => {
         stopPolling();
         setIsLoading(false);
     };
+
+    // コンポーネントのアンマウント時にポーリングを止める（画面遷移後もAPIを叩き続けるのを防ぐ）
+    useEffect(() => {
+        return () => stopPolling();
+    }, [stopPolling]);
 
     return {
         isLoading,

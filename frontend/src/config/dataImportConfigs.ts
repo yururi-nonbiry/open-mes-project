@@ -67,32 +67,38 @@ export const DATA_CONFIG: Record<string, DataConfigItem> = {
 export const getFormFields = (type: string): FormField[] => {
     const allFields: Record<string, FormField[]> = {
         item: [
-            { name: 'code', label: 'コード' },
+            { name: 'code', label: '品番コード' },
             { name: 'name', label: '名称' },
-            { name: 'material_type', label: '材料区分' },
-            { name: 'uom', label: '単位' },
-            { name: 'is_active', label: '有効', type: 'boolean' }
+            { name: 'item_type', label: '区分 (product/material)' },
+            { name: 'unit', label: '単位' },
+            { name: 'description', label: '説明' },
+            { name: 'default_warehouse', label: 'デフォルト入庫倉庫' },
+            { name: 'default_location', label: 'デフォルト入庫棚番' },
+            { name: 'provision_type', label: '支給種別 (paid/free/none)' }
         ],
         supplier: [
-            { name: 'code', label: 'コード' },
+            { name: 'supplier_number', label: 'サプライヤー番号' },
             { name: 'name', label: '名称' },
             { name: 'contact_person', label: '担当者' },
-            { name: 'is_active', label: '有効', type: 'boolean' }
+            { name: 'phone', label: '電話番号' },
+            { name: 'email', label: 'メールアドレス' },
+            { name: 'address', label: '住所' }
         ],
         warehouse: [
-            { name: 'code', label: 'コード' },
+            { name: 'warehouse_number', label: '倉庫番号' },
             { name: 'name', label: '名称' },
-            { name: 'is_active', label: '有効', type: 'boolean' }
+            { name: 'location', label: '場所' }
         ],
         'unit-cost': [
             { name: 'item', label: '品目コード' },
             { name: 'cost', label: '標準単価' }
         ],
         'production-plan': [
-            { name: 'order_number', label: '製造指令番号' },
-            { name: 'product', label: '製品コード' },
+            { name: 'plan_name', label: '計画名' },
+            { name: 'product_code', label: '製品コード' },
             { name: 'planned_quantity', label: '計画数量' },
-            { name: 'planned_start_datetime', label: '開始予定日時' }
+            { name: 'planned_start_datetime', label: '開始予定日時' },
+            { name: 'planned_end_datetime', label: '終了予定日時' }
         ],
         customer: [
             { name: 'code', label: 'コード' },

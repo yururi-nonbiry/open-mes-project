@@ -246,3 +246,8 @@ class WorkProgress(models.Model):
         verbose_name = "作業進捗"
         verbose_name_plural = "作業進捗"
         ordering = ["production_plan", "start_datetime"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["production_plan", "process_step"], name="unique_workprogress_plan_process_step"
+            )
+        ]

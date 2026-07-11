@@ -107,6 +107,11 @@ const authFetch = async (url: string, options: RequestInit = {}): Promise<Respon
 
         const newTokens = await refreshResponse.json();
         localStorage.setItem('access_token', newTokens.access);
+        // ROTATE_REFRESH_TOKENS が有効なため、サーバーは古いrefreshトークンをブラックリスト化し
+        // 新しいrefreshトークンを返す。保存し忘れると次回のリフレッシュが必ず失敗する。
+        if (newTokens.refresh) {
+          localStorage.setItem('refresh_token', newTokens.refresh);
+        }
         isRefreshing = false;
         processQueue(null, newTokens.access);
 

@@ -52,8 +52,10 @@ const inventoryService = {
     },
 
     updateInventory: async (id: string | number, payload: Record<string, any>) => {
-        const response = await authFetch(`/api/inventory/inventories/${id}/`, {
-            method: 'PATCH',
+        // quantity/location の変更は在庫移動履歴(StockMovement)の記録を伴うため、
+        // 専用の /adjust/ アクション経由で行う（直接のPATCHはquantity/reservedを受け付けない）。
+        const response = await authFetch(`/api/inventory/inventories/${id}/adjust/`, {
+            method: 'POST',
             body: JSON.stringify(payload),
         });
         const data = await response.json();

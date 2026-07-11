@@ -1,13 +1,14 @@
 import authFetch, { buildQueryString, handleError } from '../utils/api';
-import { 
-    ProductionPlan, 
-    PaginationData, 
-    ProductionPlanFilters, 
+import {
+    ProductionPlan,
+    PaginationData,
+    ProductionPlanFilters,
     RequiredPart,
     ProgressUpdatePayload,
     UpdateProgressResponse,
     MaterialAllocationPayload,
-    AllocateMaterialsResponse
+    AllocateMaterialsResponse,
+    WorkProgress
 } from '../types/production';
 
 /**
@@ -87,6 +88,13 @@ const productionService = {
         });
         await handleError(response, 'Allocation failed');
         return await response.json() as AllocateMaterialsResponse;
+    },
+
+    getWorkProgressForPlan: async (planId: string) => {
+        const response = await authFetch(`/api/production/work-progress/?production_plan_id=${planId}`);
+        await handleError(response, 'Failed to fetch work progress');
+        const data = await response.json() as PaginationData<WorkProgress>;
+        return data.results;
     }
 };
 

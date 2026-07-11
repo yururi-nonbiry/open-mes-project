@@ -16,6 +16,7 @@ from .serializers import (
 # 検査結果登録フォームの動的な定義
 # フロントエンドの InspectionResultModal.jsx で使用されます
 INSPECTION_RESULT_FORM_FIELDS = [
+    {"name": "part_number", "label": "品番", "type": "text"},
     {"name": "lot_number", "label": "ロット番号", "type": "text"},
     {"name": "equipment_used", "label": "使用設備", "type": "text"},
     # 'operator' はリクエストユーザーから自動的に設定するため、フォームには含めません
@@ -56,8 +57,17 @@ class CustomSuccessMessageMixin:
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
-        self.perform_update(serializer)
         model_name = self.queryset.model._meta.verbose_name
+        try:
+            self.perform_update(serializer)
+        except ProtectedError:
+            return Response(
+                {
+                    "status": "error",
+                    "message": f"この{model_name}の一部項目は実績データが関連付けられているため削除できません。",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         return Response(
             {"status": "success", "message": f"{model_name}を更新しました。", "data": serializer.data},
             status=status.HTTP_200_OK,
@@ -152,6 +162,7 @@ class InspectionItemViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
             # シリアライザ用のメインデータオブジェクトを構築
             result_data = {
                 "inspection_item": inspection_item.id,
+                "part_number": request.data.get("part_number"),
                 "lot_number": request.data.get("lot_number"),
                 "equipment_used": request.data.get("equipment_used"),
                 "remarks": request.data.get("remarks"),
@@ -186,7 +197,12 @@ class InspectionResultViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
     API endpoint for Inspection Results (検査実績).
     """
 
-    queryset = InspectionResult.objects.all().order_by("-inspected_at")
+    queryset = (
+        InspectionResult.objects.all()
+        .select_related("inspected_by", "inspection_item")
+        .prefetch_related("details__measurement_detail")
+        .order_by("-inspected_at")
+    )
     serializer_class = InspectionResultSerializer
     permission_classes = [permissions.IsAuthenticated]
 

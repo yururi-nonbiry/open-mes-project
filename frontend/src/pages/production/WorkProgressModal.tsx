@@ -23,16 +23,32 @@ const WorkProgressModal: React.FC<WorkProgressModalProps> = ({
         if (isOpen && plan) {
             setModalStatus(plan.status);
             setModalError('');
+            setModalQuantities({ actual: '', good: '', defective: '' });
 
-            let quantities = { actual: '', good: '', defective: '' };
             if (plan.status === 'COMPLETED') {
-                quantities = {
-                    actual: plan.planned_quantity.toString(),
-                    good: plan.planned_quantity.toString(),
-                    defective: '0'
-                };
+                // 実際に報告された実績数量を取得する（未取得だと計画数量で誤って上書きしてしまう）
+                productionService.getWorkProgressForPlan(plan.id)
+                    .then(records => {
+                        const overall = records.find(r => r.process_step === 'Overall Plan Progress') || records[0];
+                        if (overall) {
+                            setModalQuantities({
+                                actual: (overall.actual_reported_quantity ?? overall.quantity_completed).toString(),
+                                good: overall.quantity_completed.toString(),
+                                defective: (overall.defective_reported_quantity ?? 0).toString(),
+                            });
+                        } else {
+                            // 実績レコードがまだ無い場合のみ計画数量をフォールバックとして使用
+                            setModalQuantities({
+                                actual: plan.planned_quantity.toString(),
+                                good: plan.planned_quantity.toString(),
+                                defective: '0',
+                            });
+                        }
+                    })
+                    .catch(() => {
+                        setModalError('実績数量の取得に失敗しました。');
+                    });
             }
-            setModalQuantities(quantities);
         }
     }, [isOpen, plan]);
 

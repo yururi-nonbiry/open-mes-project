@@ -135,6 +135,15 @@ def _handle_completed_status(plan, work_progress, data, now):
     else:
         work_progress.defective_reported_quantity = None
 
+    # 良品数と不良品数の合計が実績報告数量を超えないことを検証する
+    # (良品数は完成品在庫への計上に直結するため、フロント側の検証だけに頼らずサーバー側でも必須とする)
+    if work_progress.actual_reported_quantity is not None:
+        defective_for_check = work_progress.defective_reported_quantity or 0
+        if work_progress.quantity_completed + defective_for_check > work_progress.actual_reported_quantity:
+            raise ValueError(
+                "good_quantity と defective_quantity の合計が actual_quantity を超えています。"
+            )
+
 
 def _handle_on_hold_status(work_progress):
     work_progress.status = WorkProgress.Status.PAUSED
