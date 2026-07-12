@@ -9,8 +9,10 @@ from django.db.models import (
     F,
     ProtectedError,
     Q,
+    Sum,
 )
 from django.shortcuts import get_object_or_404  # オブジェクト取得のためにインポート
+from master.models import WarehouseLocation
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.pagination import (
@@ -519,6 +521,53 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
             filters &= Q(status=search_status)
 
         return SalesOrder.objects.filter(filters).select_related("item_rel", "warehouse_rel").order_by("expected_shipment", "order_number")
+
+    @action(detail=True, methods=["get"], url_path="location-map")
+    def location_map(self, request, pk=None):
+        """
+        受注品目の在庫がある棚をハイライトするための、倉庫レイアウト情報を返します。
+        ロケーションの対応付けは WarehouseLocation.code と Inventory.location の文字列一致で行う。
+        """
+        order = self.get_object()
+        warehouse = order.warehouse_rel
+
+        qty_by_location = {
+            row["location"]: row["total_qty"]
+            for row in Inventory.objects.filter(
+                warehouse_rel=warehouse, part_number_rel=order.item_rel, quantity__gt=0
+            )
+            .values("location")
+            .annotate(total_qty=Sum(F("quantity") - F("reserved")))
+        }
+
+        locations = [
+            {
+                "code": loc.code,
+                "name": loc.name,
+                "pos_x": loc.pos_x,
+                "pos_y": loc.pos_y,
+                "width": loc.width,
+                "height": loc.height,
+                "quantity": qty_by_location.get(loc.code, 0),
+                "highlighted": loc.code in qty_by_location,
+            }
+            for loc in WarehouseLocation.objects.filter(warehouse__warehouse_number=warehouse.warehouse_number)
+        ]
+
+        return Response(
+            {
+                "status": "success",
+                "data": {
+                    "warehouse": {
+                        "warehouse_number": warehouse.warehouse_number,
+                        "name": warehouse.name,
+                        "cols": warehouse.layout_cols,
+                        "rows": warehouse.layout_rows,
+                    },
+                    "locations": locations,
+                },
+            }
+        )
 
     @action(detail=False, methods=["post"])
     def allocate(self, request):

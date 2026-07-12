@@ -3,7 +3,7 @@ from rest_framework import status, viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Customer, Item, Supplier, UnitCost, Warehouse, WorkCenter  # master.models を直接参照
+from .models import Customer, Item, Supplier, UnitCost, Warehouse, WarehouseLocation, WorkCenter  # master.models を直接参照
 from .serializers import (
     CustomerCreateUpdateSerializer,
     CustomerSerializer,
@@ -14,6 +14,8 @@ from .serializers import (
     UnitCostCreateUpdateSerializer,
     UnitCostSerializer,
     WarehouseCreateUpdateSerializer,
+    WarehouseLocationCreateUpdateSerializer,
+    WarehouseLocationSerializer,
     WarehouseSerializer,
     WorkCenterCreateUpdateSerializer,
     WorkCenterSerializer,
@@ -110,6 +112,23 @@ class WarehouseViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
         if self.action in ["list"]:
             return WarehouseSerializer
         return WarehouseCreateUpdateSerializer
+
+
+class WarehouseLocationViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
+    queryset = WarehouseLocation.objects.all().select_related("warehouse").order_by("warehouse__warehouse_number", "code")
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = self.queryset
+        warehouse = self.request.query_params.get("warehouse")
+        if warehouse:
+            queryset = queryset.filter(warehouse__warehouse_number=warehouse)
+        return queryset
+
+    def get_serializer_class(self):
+        if self.action in ["list"]:
+            return WarehouseLocationSerializer
+        return WarehouseLocationCreateUpdateSerializer
 
 
 class CustomerViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):

@@ -33,6 +33,7 @@ import ModelDisplaySettings from './pages/ModelDisplaySettings';
 import PageDisplaySettings from './pages/PageDisplaySettings';
 import QrCodeActionSettings from './pages/QrCodeActionSettings';
 import ShelfQrCodeCreation from './pages/ShelfQrCodeCreation';
+import WarehouseLayoutCreation from './pages/WarehouseLayoutCreation';
 import MobileLayout from './layouts/MobileLayout';
 import MobileTopPage from './pages/MobileTopPage';
 import MobileGoodsReceiptPage from './pages/mobile/MobileGoodsReceiptPage';
@@ -165,6 +166,7 @@ function AppContent() {
           <Route path="/system/page-display-settings" element={<StaffRoute><PageDisplaySettings /></StaffRoute>} />
           <Route path="/system/qr-code-actions" element={<StaffRoute><QrCodeActionSettings /></StaffRoute>} />
           <Route path="/system/shelf-qr-code" element={<StaffRoute><ShelfQrCodeCreation /></StaffRoute>} />
+          <Route path="/master/warehouse-layout" element={<StaffRoute><WarehouseLayoutCreation /></StaffRoute>} />
           <Route path="/help" element={<Help />} />
         </Route>
 

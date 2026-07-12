@@ -1,4 +1,5 @@
 import authFetch from '../utils/api';
+import { WarehouseLocationMap } from './warehouseLocationService';
 
 export interface InventoryItem {
     id: string | number;
@@ -71,6 +72,15 @@ const inventoryService = {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || data.detail || 'Failed to move inventory');
         return data;
+    },
+
+    getSalesOrderLocationMap: async (orderId: string | number) => {
+        const response = await authFetch(`/api/inventory/sales-orders/${orderId}/location-map/`);
+        const data = await response.json();
+        if (!response.ok || data.status !== 'success') {
+            throw new Error(data.message || data.error || 'ロケーションマップの取得に失敗しました。');
+        }
+        return data.data as WarehouseLocationMap;
     }
 };
 

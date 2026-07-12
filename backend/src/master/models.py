@@ -61,9 +61,37 @@ class Warehouse(models.Model):
     warehouse_number = models.CharField(max_length=50, unique=True)  # 倉庫番号（ユニーク）
     name = models.CharField(max_length=255)  # 倉庫名
     location = models.CharField(max_length=255, blank=True, null=True)  # 住所や場所情報
+    layout_cols = models.PositiveIntegerField(default=20, verbose_name="レイアウト列数")  # マップの列数
+    layout_rows = models.PositiveIntegerField(default=20, verbose_name="レイアウト行数")  # マップの行数
 
     def __str__(self):
         return f"{self.warehouse_number} - {self.name}"
+
+
+# 倉庫ロケーション（レイアウト上の棚配置）マスター
+class WarehouseLocation(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)  # UUIDv7 を使用
+    warehouse = models.ForeignKey(
+        Warehouse,
+        on_delete=models.CASCADE,
+        related_name="locations",
+        verbose_name="倉庫",
+    )
+    code = models.CharField(max_length=100, verbose_name="棚番")  # Inventory.location の文字列と一致させる
+    name = models.CharField(max_length=255, blank=True, verbose_name="ロケーション名")
+    pos_x = models.PositiveIntegerField(verbose_name="X座標(列)")
+    pos_y = models.PositiveIntegerField(verbose_name="Y座標(行)")
+    width = models.PositiveIntegerField(default=1, verbose_name="幅(マス数)")
+    height = models.PositiveIntegerField(default=1, verbose_name="高さ(マス数)")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["warehouse", "code"], name="unique_warehouse_location_code"),
+        ]
+
+    def __str__(self):
+        return f"{self.warehouse.warehouse_number} - {self.code}"
 
 
 # 顧客マスター

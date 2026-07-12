@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import authFetch from '../utils/api';
 import Modal from '../components/Modal';
+import WarehouseLocationMapModal from './inventory/WarehouseLocationMapModal';
 
 const GoodsIssue = () => {
   const [salesOrders, setSalesOrders] = useState([]);
@@ -12,6 +13,10 @@ const GoodsIssue = () => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [issueQuantity, setIssueQuantity] = useState('');
   const [modalMessage, setModalMessage] = useState({ text: '', type: '' }); // type: 'success' or 'danger'
+
+  // Location map modal state
+  const [isMapModalOpen, setIsMapModalOpen] = useState(false);
+  const [mapOrderId, setMapOrderId] = useState(null);
 
   const fetchSalesOrders = useCallback(async () => {
     setLoading(true);
@@ -47,6 +52,16 @@ const GoodsIssue = () => {
     setSelectedOrder(null);
     setIssueQuantity('');
     setModalMessage({ text: '', type: '' });
+  };
+
+  const openMapModal = (order) => {
+    setMapOrderId(order.id);
+    setIsMapModalOpen(true);
+  };
+
+  const closeMapModal = () => {
+    setIsMapModalOpen(false);
+    setMapOrderId(null);
   };
 
   const handleIssueSubmit = async (e) => {
@@ -115,11 +130,17 @@ const GoodsIssue = () => {
         <td>{formatDate(order.expected_shipment)}</td>
         <td className="text-center">
           <button
-            className="btn btn-sm btn-primary"
+            className="btn btn-sm btn-primary me-1"
             onClick={() => openModal(order)}
             disabled={order.remaining_quantity <= 0}
           >
             出庫
+          </button>
+          <button
+            className="btn btn-sm btn-outline-secondary"
+            onClick={() => openMapModal(order)}
+          >
+            地図で確認
           </button>
         </td>
       </tr>
@@ -189,6 +210,8 @@ const GoodsIssue = () => {
           </div>
         </Modal>
       )}
+
+      <WarehouseLocationMapModal isOpen={isMapModalOpen} onClose={closeMapModal} orderId={mapOrderId} />
     </div>
   );
 };

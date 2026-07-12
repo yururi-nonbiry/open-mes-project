@@ -1,7 +1,7 @@
 from rest_framework import serializers
-from rest_framework.validators import UniqueValidator
+from rest_framework.validators import UniqueTogetherValidator, UniqueValidator
 
-from .models import Customer, Item, Supplier, UnitCost, Warehouse, WorkCenter
+from .models import Customer, Item, Supplier, UnitCost, Warehouse, WarehouseLocation, WorkCenter
 
 
 class ItemSerializer(serializers.ModelSerializer):
@@ -119,13 +119,13 @@ class SupplierCreateUpdateSerializer(serializers.ModelSerializer):
 class WarehouseSerializer(serializers.ModelSerializer):
     class Meta:
         model = Warehouse
-        fields = ["id", "warehouse_number", "name", "location"]
+        fields = ["id", "warehouse_number", "name", "location", "layout_cols", "layout_rows"]
 
 
 class WarehouseCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Warehouse
-        fields = ["id", "warehouse_number", "name", "location"]
+        fields = ["id", "warehouse_number", "name", "location", "layout_cols", "layout_rows"]
         extra_kwargs = {
             "warehouse_number": {
                 "validators": [
@@ -141,6 +141,29 @@ class WarehouseCreateUpdateSerializer(serializers.ModelSerializer):
         if self.instance is not None:
             fields["warehouse_number"].read_only = True
         return fields
+
+
+class WarehouseLocationSerializer(serializers.ModelSerializer):
+    warehouse = serializers.SlugRelatedField(slug_field="warehouse_number", read_only=True)
+
+    class Meta:
+        model = WarehouseLocation
+        fields = ["id", "warehouse", "code", "name", "pos_x", "pos_y", "width", "height", "created_at"]
+
+
+class WarehouseLocationCreateUpdateSerializer(serializers.ModelSerializer):
+    warehouse = serializers.SlugRelatedField(slug_field="warehouse_number", queryset=Warehouse.objects.all())
+
+    class Meta:
+        model = WarehouseLocation
+        fields = ["id", "warehouse", "code", "name", "pos_x", "pos_y", "width", "height"]
+        validators = [
+            UniqueTogetherValidator(
+                queryset=WarehouseLocation.objects.all(),
+                fields=["warehouse", "code"],
+                message="この倉庫内で同じ棚番が既に登録されています。",
+            )
+        ]
 
 
 class CustomerSerializer(serializers.ModelSerializer):

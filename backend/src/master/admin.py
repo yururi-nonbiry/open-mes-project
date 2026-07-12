@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Customer, Item, Supplier, UnitCost, Warehouse, WorkCenter
+from .models import Customer, Item, Supplier, UnitCost, Warehouse, WarehouseLocation, WorkCenter
 
 # Register your models here.
 
@@ -28,6 +28,13 @@ class SupplierAdmin(admin.ModelAdmin):
 
 
 admin.site.register(Warehouse)
+
+
+@admin.register(WarehouseLocation)
+class WarehouseLocationAdmin(admin.ModelAdmin):
+    list_display = ("warehouse", "code", "name", "pos_x", "pos_y", "width", "height")
+    list_filter = ("warehouse",)
+    search_fields = ("code", "name", "warehouse__warehouse_number")
 
 
 @admin.register(Customer)
