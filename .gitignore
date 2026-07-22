@@ -16,4 +16,6 @@ __pycache__/
 /certbot/conf/
 /certbot/www/
 /backend/src/temp_csv_uploads/
+# テスト実行スクリプト(script/run_tests.sh)が一時的に書き出す構造化レポート
+/backend/src/.test_report.json
 GEMINI.md

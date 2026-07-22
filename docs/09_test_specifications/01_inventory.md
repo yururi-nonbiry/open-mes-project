@@ -212,13 +212,28 @@
 
 ## 7. 既知の懸念事項
 
-コード調査の過程で判明した、テストで挙動を確定させるべき実装上の懸念点。
+コード調査およびテスト実行(2026-07-22、[reports/inventory_20260722_112730.md](./reports/inventory_20260722_112730.md))
+の過程で判明した、実装上の懸念点。項目1は自動テストで実際の失敗として再現された**重大な不具合**であり、
+他はコードレビューによる推測または軽微な仕様上の非対称性である。
 
-1. **`allocate`/`issue` における `MultipleObjectsReturned` 未捕捉**（SO-ALLOC-08, SO-ISSUE-08）:
-   両アクションとも対象在庫を `part_number` + `warehouse` のみで一意に検索している（`location`は条件に含まれない）。
-   同一品番・倉庫で棚番違いの在庫が複数存在する場合、`Inventory.objects.get(...)` が `MultipleObjectsReturned` を
-   送出し、`ValueError` のみを捕捉する現行の `except` 節では処理されず、500エラーとして伝播する可能性が高い。
-   テストで実際の挙動を確認し、意図した仕様（例: 最初の1件を使う／エラーにする等）かどうかを製品担当に確認する。
+1. **【重大・実際に発生を確認】`move`/`process-receipt`/`allocate`/`issue` が対象在庫の検索で常に失敗する**:
+   これら4つのアクションはいずれも `Inventory.objects.select_for_update().get(part_number=..., warehouse=...)`
+   のように `part_number`/`warehouse` をキーワード引数としてクエリしている（`rest_views.py` L164-168, L417-419,
+   L614-616, L745-747）。しかし `part_number`/`warehouse` は `Inventory` モデルの実フィールドではなく、
+   実フィールド `part_number_rel`/`warehouse_rel` の値を返すだけの Python `@property` である
+   （`models.py:31-45`）。Django の `QuerySet.get()`/`filter()` はモデルの `_meta` に登録された実フィールドしか
+   解決できないため、これらの呼び出しは対象の在庫が実在するか否かに関わらず必ず
+   `django.core.exceptions.FieldError: Cannot resolve keyword 'part_number' into field...` を送出する。
+   - `move`・`process-receipt`・`issue` は広い `except Exception` で捕捉するため、**常に500エラー**を返す
+     (INV-MOVE-01/02/07, PO-RECV-01/02/03/04/07/10, SO-ISSUE-01/02/03/07/09/10/11/13 が実際に失敗することを
+     `script/run_tests.sh inventory` で確認済み)。
+   - `allocate` は `ValueError` のみを捕捉するため、`FieldError` は未処理のまま伝播し、DRFのビューからも
+     再送出される(SO-ALLOC-01〜07 が実際にエラーになることを確認済み。テスト `test_so_alloc_08_lookup_by_property_name_raises_field_error`
+     はこの挙動を固定するための回帰テスト)。
+   - 影響範囲: 在庫移動・入庫処理(在庫が既存の場合)・受注引当・受注出庫という在庫管理の中核機能が、
+     対象の在庫が実在する通常のケースでは軒並み動作しない状態にある。正しくは
+     `part_number_rel_id=<code>` (または `part_number_rel__code=<code>`)・`warehouse_rel_id=<warehouse_number>`
+     で検索する必要がある。**要早急な修正確認。**
 2. **`allocate`/`issue` でのチェック項目の非対称性**（SO-ISSUE-13）:
    `allocate` は `is_active` と `is_allocatable` の両方を確認するが、`issue` は `is_active` のみで
    `is_allocatable` を確認しない。意図的な仕様か要確認。

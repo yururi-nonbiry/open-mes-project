@@ -30,6 +30,7 @@
 ### 5. テスト仕様書
 - [総則（対象モジュール一覧・方針）](./09_test_specifications/00_overview.md)
 - [在庫管理 (inventory)](./09_test_specifications/01_inventory.md)
+- [テストの実行方法とレポートの残し方](./09_test_specifications/02_running_tests.md)
 
 ---
 詳細な情報については、各ドキュメントを参照してください。

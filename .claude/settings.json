@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker compose *)",
+      "Bash(docker info *)",
+      "Bash(git -C /home/yururi/git/open-mes-project status --short)",
+      "Bash(grep -n \"^\\\\.env\\\\|\\\\.env$\" /home/yururi/git/open-mes-project/.gitignore)",
+      "Bash(git -C /home/yururi/git/open-mes-project diff --cached --stat)",
+      "Bash(git rm *)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(echo \"exit:$?\")",
+      "Bash(grep -n \"^\\\\*\\\\.log$\\\\|test_report\" /home/yururi/git/open-mes-project/.gitignore)",
+      "Bash(chmod +x /home/yururi/git/open-mes-project/script/run_tests.sh /home/yururi/git/open-mes-project/script/generate_test_report.py)",
+      "Bash(./script/run_tests.sh inventory *)",
+      "Bash(python3 -m py_compile /home/yururi/git/open-mes-project/script/generate_test_report.py)",
+      "Bash(bash -n /home/yururi/git/open-mes-project/script/run_tests.sh)"
+    ]
+  }
+}
