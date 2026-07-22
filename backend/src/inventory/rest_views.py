@@ -614,12 +614,12 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
                         raise ValueError(f"引当数量は1以上である必要があります: {alloc_item_data}")
 
                     # 同一品番+倉庫内で棚番(location)をまたいで在庫が分散しているケースに対応するため、
-                    # 単一行の get() ではなく該当する全ロケーションを取得し、棚番の昇順で
+                    # 単一行の get() ではなく該当する全ロケーションを取得し、入庫が古い順(FIFO)で
                     # 必要数量に達するまで複数ロケーションから引き当てる。
                     inventory_rows = list(
                         Inventory.objects.select_for_update()
                         .filter(part_number_rel_id=part_number, warehouse_rel_id=warehouse)
-                        .order_by("location")
+                        .order_by(F("first_received_at").asc(nulls_last=True), "location")
                     )
                     if not inventory_rows:
                         raise ValueError(f"在庫が見つかりません: 品番'{part_number}' 倉庫'{warehouse}'。")
@@ -762,12 +762,12 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
                     )
 
                 # 同一品番+倉庫内で棚番(location)をまたいで在庫が分散しているケースに対応するため、
-                # 単一行の get() ではなく該当する全ロケーションを取得し、棚番の昇順で
+                # 単一行の get() ではなく該当する全ロケーションを取得し、入庫が古い順(FIFO)で
                 # 出庫数量に達するまで複数ロケーションから出庫する。
                 inventory_rows = list(
                     Inventory.objects.select_for_update()
                     .filter(part_number_rel_id=sales_order.item, warehouse_rel_id=sales_order.warehouse)
-                    .order_by("location")
+                    .order_by(F("first_received_at").asc(nulls_last=True), "location")
                 )
                 if not inventory_rows:
                     return Response(
@@ -806,6 +806,10 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
+                # 出庫する棚(物理在庫の消費元)と、引当(reserved)を解放する棚は必ずしも一致しない
+                # (例: 引当は別の棚で行われていたが、入庫が古い順の都合で別の棚から出庫するケース)。
+                # そのため、まず入庫が古い順に物理在庫(quantity)を消費し、reservedの解放は
+                # 品番+倉庫全体の引当済数量から出庫数量分をまとめて取り崩す、という形で分離して扱う。
                 remaining_to_ship = quantity_to_ship
                 operator = request.user if request.user.is_authenticated else None
                 for row in eligible_rows:
@@ -815,7 +819,6 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
                     if take <= 0:
                         continue
                     row.quantity -= take
-                    row.reserved -= min(row.reserved, take)
                     row.save()
                     remaining_to_ship -= take
 
@@ -829,6 +832,18 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
                         description=f"受注 {sales_order.order_number} による出庫",
                         operator=operator,
                     )
+
+                total_reserved = sum(row.reserved for row in eligible_rows)
+                remaining_to_release = min(total_reserved, quantity_to_ship)
+                for row in eligible_rows:
+                    if remaining_to_release <= 0:
+                        break
+                    release = min(row.reserved, remaining_to_release)
+                    if release <= 0:
+                        continue
+                    row.reserved -= release
+                    row.save()
+                    remaining_to_release -= release
 
                 sales_order.shipped_quantity += quantity_to_ship
                 if sales_order.remaining_quantity <= 0:

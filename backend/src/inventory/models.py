@@ -46,6 +46,9 @@ class Inventory(models.Model):
     quantity = models.IntegerField(default=0, verbose_name="在庫数量")  # 在庫
     reserved = models.IntegerField(default=0, verbose_name="引当済数量")  # 引当在庫
     location = models.CharField(max_length=255, blank=True, null=True, verbose_name="棚番")  # 倉庫や棚の場所
+    first_received_at = models.DateTimeField(
+        auto_now_add=True, null=True, verbose_name="初回入庫日時"
+    )  # この棚にこの品番が初めて入庫した日時（引当・出庫のFIFO順序判定に使用、以降の補充では更新しない）
     last_updated = models.DateTimeField(auto_now=True, verbose_name="最終更新日時")  # 更新日時
     is_active = models.BooleanField(default=True, verbose_name="有効フラグ")  # 在庫が有効かどうか
     is_allocatable = models.BooleanField(default=True, verbose_name="引当可能フラグ")  # 引き当て可能かどうか

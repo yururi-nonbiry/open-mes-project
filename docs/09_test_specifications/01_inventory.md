@@ -25,7 +25,7 @@
 
 | モデル | 参照 | テスト上の要注意点 |
 |---|---|---|
-| `Inventory` | `models.py:10-76` | `available_quantity` は `is_active`/`is_allocatable` が False なら常に0。`(part_number, warehouse, location)` に一意制約あり。`quantity`/`reserved` はシリアライザで read_only（move/adjust/process-receipt経由のみ更新想定）。 |
+| `Inventory` | `models.py:10-79` | `available_quantity` は `is_active`/`is_allocatable` が False なら常に0。`(part_number, warehouse, location)` に一意制約あり。`quantity`/`reserved` はシリアライザで read_only（move/adjust/process-receipt経由のみ更新想定）。`first_received_at`(`auto_now_add`)は棚に品番が初めて入庫した日時で、`allocate`/`issue`の複数ロケーション消費順序(FIFO)判定に使用、既存行は`null`。 |
 | `PurchaseOrder` | `models.py:144-244` | `status` choices は `pending`/`partially_received`/`fully_received`/`canceled` のみ。`remaining_quantity = quantity - received_quantity`。 |
 | `Receipt` | `models.py:248-285` | `purchase_order` へ `on_delete=PROTECT`。Receiptが存在するPOは削除不可。 |
 | `SalesOrder` | `models.py:289-347` | `status` choices は `pending`/`shipped`/`canceled`。`remaining_quantity = quantity - shipped_quantity`。 |
@@ -169,7 +169,7 @@
 | SO-ALLOC-05 | 異常系 | 在庫 `is_active=False` または `is_allocatable=False` | 引当リクエスト | 400 | |
 | SO-ALLOC-06 | 異常系 | 既存 `SalesOrder`（品目Aまたは倉庫X） | 同一 `sales_order_reference` で品目/倉庫が異なる引当 | 400「既に異なる品目/倉庫で存在します」 | |
 | SO-ALLOC-07 | 異常系 | 2件の allocations（1件目正常、2件目が在庫不足） | 一括リクエスト | 400。トランザクションロールバックにより1件目の `reserved` 加算も取り消される（DBの`reserved`が変化していないことを確認） | `transaction.atomic()` のアトミック性確認 |
-| SO-ALLOC-08 | 正常系 | 同一 `part_number`+`warehouse` で棚番違いの `Inventory` が複数存在（例: A-01 `quantity=3`, A-02 `quantity=10`） | `quantity_to_reserve=6` | 200。棚番の昇順で消費され、A-01が使い切られてから残りがA-02に割り当てられる（A-01 `reserved=3`, A-02 `reserved=3`）。レスポンスの `locations_consumed` に消費内訳が含まれる | 2026-07-22 複数ロケーション対応実装済み（[7. 既知の懸念事項](#7-既知の懸念事項)参照） |
+| SO-ALLOC-08 | 正常系 | 同一 `part_number`+`warehouse` で棚番違いの `Inventory` が複数存在（例: A-01 `quantity=3`, A-02 `quantity=10`、A-01が先に作成=入庫が古い） | `quantity_to_reserve=6` | 200。入庫が古い順(FIFO)で消費され、A-01が使い切られてから残りがA-02に割り当てられる（A-01 `reserved=3`, A-02 `reserved=3`）。レスポンスの `locations_consumed` に消費内訳が含まれる | 2026-07-22 複数ロケーション対応・FIFO順対応実装済み（[7. 既知の懸念事項](#7-既知の懸念事項)参照） |
 | SO-ALLOC-08b | 異常系 | 複数ロケーションの合計`available_quantity`でも要求数量に届かない | 引当リクエスト | 400「在庫不足」。いずれのロケーションも`reserved`は変更されない | |
 | SO-ALLOC-08c | 正常系 | 一部ロケーションが `is_allocatable=False` | 引当リクエスト | 200。無効なロケーションは対象外とし、有効なロケーションのみから引き当てる | |
 | SO-ALLOC-08d | 異常系 | 全ロケーションが `is_active=False`（在庫自体は存在） | 引当リクエスト | 400「在庫が有効または引当可能ではありません」 | |
@@ -187,9 +187,10 @@
 | SO-ISSUE-05 | 異常系 | `SalesOrder status="canceled"` | 出庫リクエスト | 400（キャンセル済み） | |
 | SO-ISSUE-06 | 異常系 | `remaining_quantity=5` | `quantity_to_ship=10` | 400（残数量超過） | |
 | SO-ISSUE-07 | 異常系 | 対応する在庫（`part_number`+`warehouse`）が存在しない | 出庫リクエスト | 404 | |
-| SO-ISSUE-08 | 正常系 | 同一 `part_number`+`warehouse` で棚番違いの `Inventory` が複数存在（例: A-01 `quantity=4`, A-02 `quantity=10`） | `quantity_to_ship=6` | 200。棚番の昇順で消費され、A-01が使い切られてから残りがA-02から出庫される（A-01 `quantity=0`, A-02 `quantity=8`）。消費したロケーションごとに`StockMovement`(`location`付き)が作成される | 2026-07-22 複数ロケーション対応実装済み（[7. 既知の懸念事項](#7-既知の懸念事項)参照） |
+| SO-ISSUE-08 | 正常系 | 同一 `part_number`+`warehouse` で棚番違いの `Inventory` が複数存在（例: A-01 `quantity=4`, A-02 `quantity=10`、A-01が先に作成=入庫が古い） | `quantity_to_ship=6` | 200。入庫が古い順(FIFO)で消費され、A-01が使い切られてから残りがA-02から出庫される（A-01 `quantity=0`, A-02 `quantity=8`）。消費したロケーションごとに`StockMovement`(`location`付き)が作成される | 2026-07-22 複数ロケーション対応・FIFO順対応実装済み（[7. 既知の懸念事項](#7-既知の懸念事項)参照） |
 | SO-ISSUE-08b | 異常系 | 複数ロケーションの合計`quantity`でも要求数量に届かない | 出庫リクエスト | 400（実在庫不足）。いずれのロケーションも変更されない | |
 | SO-ISSUE-08c | 正常系 | 一部ロケーションが `is_active=False` | 出庫リクエスト | 200。無効なロケーションは対象外とし、有効なロケーションのみから出庫する | |
+| SO-ISSUE-14 | 正常系 | 入庫が古いA-01(`reserved=0`)に十分な`quantity`があり、新しいA-02に`reserved=5`が存在 | `quantity_to_ship=4` | 200。物理在庫の消費(`quantity`減算・`StockMovement`)は入庫が古いA-01から行われるが、`reserved`の解放は実際に引当があるA-02から行われる（A-01 `reserved`のまま0, A-02 `reserved` 5→1） | 2026-07-22 引当解放ロジック分離により対応 |
 | SO-ISSUE-09 | 異常系 | 在庫 `is_active=False` | 出庫リクエスト | 400 | |
 | SO-ISSUE-10 | 異常系 | 在庫 `quantity=3`（`quantity_to_ship=5`） | 出庫リクエスト | 400（実在庫不足。`available_quantity`ではなく生の`quantity`で判定している点を確認） | |
 | SO-ISSUE-11 | 境界値 | 在庫 `quantity=10, reserved=2`、`quantity_to_ship=5`（reservedより多い） | 出庫リクエスト | 200。`reserved` は `min(reserved, quantity_to_ship)` 分のみ減算されマイナスにならない（`reserved=0`になる） | `min()`保護ロジックの確認 |
@@ -259,9 +260,9 @@
      ユーザーの意思決定によりこの案を採用。「locationを必須パラメータにする」案や「品番+倉庫につき
      1棚のみという業務ルールを課す」案は、既存の `location-map`/`move` が複数棚への分散を前提に
      作られていることと矛盾するため見送り）。
-   - 実装: `.get()` を `.filter(...).order_by("location")` に変更し、`is_active`(+ `allocate`のみ
-     `is_allocatable`)なロケーションを棚番の昇順で列挙。必要数量に達するまで複数ロケーションから
-     順に消費する。
+   - 実装: `.get()` を `.filter(...).order_by(F("first_received_at").asc(nulls_last=True), "location")` に
+     変更し、`is_active`(+ `allocate`のみ `is_allocatable`)なロケーションを入庫が古い順(FIFO)で列挙。
+     必要数量に達するまで複数ロケーションから順に消費する。
      - `allocate`: 各ロケーションの`available_quantity`を使い切ってから次のロケーションへ。
        レスポンスの `allocations_summary[].locations_consumed` に消費内訳（ロケーション・数量）を含む。
      - `issue`: 各ロケーションの`quantity`を使い切ってから次のロケーションへ。消費したロケーションごとに
@@ -270,12 +271,21 @@
        (在庫の一部だけ引き当てて残りを失敗させることはしない)。
      - 全ロケーションが `is_active=False`(または`allocate`では`is_allocatable=False`)の場合は、
        物理的な在庫行自体は存在していても専用のエラーメッセージを返す。
-   - 消費順序は棚番(location)の昇順に固定（先入れ先出し等の日付情報を`Inventory`が持たないため、
-     最も単純で予測可能な規則として採用）。運用上、異なる消費順序（残数量が多い棚を優先する等）が
-     必要になった場合は本ロジックの調整が必要。
-   - テストケース: SO-ALLOC-08/08b/08c/08d、SO-ISSUE-08/08b/08c で検証済み
-     （`script/run_tests.sh inventory` で全104件成功、
-     [reports/inventory_20260722_124729.md](./reports/inventory_20260722_124729.md)）。
+   - **【2026-07-22 追加変更】消費順序をFIFO(入庫が古い順)に変更し、`issue`の引当解放ロジックを分離**:
+     ユーザーからの追加要望により、以下2点を実装した。
+     - `Inventory` に `first_received_at`(`auto_now_add=True`、棚に初めてその品番が入庫した日時。
+       以降の補充では更新されない)を追加し、`allocate`/`issue`双方の消費順序を棚番の文字列昇順から
+       この日時の昇順(古い入庫から先に消費)に変更した(`models.py`, migration `0019`)。既存行は
+       `null`のため`nulls_last=True`で末尾に回し、`location`を第二キーとしてタイブレークする。
+     - `issue`において、物理在庫(`quantity`)を消費するロケーションと、引当(`reserved`)を解放する
+       ロケーションが異なりうる（引当はFIFO順の別ロケーションで行われていた場合など）ことに対応する
+       ため、2つのループに分離した。まず入庫が古い順に`quantity`を消費して`StockMovement`を記録し、
+       その後改めて対象品番+倉庫の`reserved`合計から出庫数量分(在庫にある範囲で)をFIFO順に取り崩す。
+       これにより、出庫元のロケーションに引当が無くても、実際に引当が存在する別ロケーションの
+       `reserved`が正しく解放される。
+   - テストケース: SO-ALLOC-08/08b/08c/08d、SO-ISSUE-08/08b/08c/14 で検証済み
+     （`script/run_tests.sh inventory` で全105件成功、
+     [reports/inventory_20260722_131423.md](./reports/inventory_20260722_131423.md)）。
 3. **`allocate`/`issue` でのチェック項目の非対称性**（SO-ISSUE-13）:
    `allocate` は `is_active` と `is_allocatable` の両方を確認するが、`issue` は `is_active` のみで
    `is_allocatable` を確認しない。意図的な仕様か要確認。

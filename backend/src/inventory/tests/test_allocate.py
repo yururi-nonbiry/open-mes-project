@@ -128,7 +128,7 @@ class AllocateTests(InventoryAPITestBase):
         self.assertEqual(self.inventory.reserved, 0, "1件目の引当もアトミックにロールバックされること")
 
     def test_so_alloc_08_multi_location_consumes_in_location_order(self):
-        """同一品番+倉庫で棚番違いの在庫が複数存在する場合、棚番(location)の昇順で
+        """同一品番+倉庫で棚番違いの在庫が複数存在する場合、入庫が古い順(first_received_at昇順)で
         必要数量に達するまで複数ロケーションから引き当てられることを確認する。
         """
         self.inventory.quantity = 3

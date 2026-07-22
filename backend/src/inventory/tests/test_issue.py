@@ -81,7 +81,7 @@ class IssueTests(InventoryAPITestBase):
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_so_issue_08_multi_location_consumes_in_location_order(self):
-        """同一品番+倉庫で棚番違いの在庫が複数存在する場合、棚番(location)の昇順で
+        """同一品番+倉庫で棚番違いの在庫が複数存在する場合、入庫が古い順(first_received_at昇順)で
         出庫数量に達するまで複数ロケーションから出庫され、ロケーションごとに
         StockMovementが記録されることを確認する。
         """
@@ -166,3 +166,28 @@ class IssueTests(InventoryAPITestBase):
     def test_so_issue_not_found_order_id(self):
         response = self._issue(order_id=str(uuid.uuid4()))
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_so_issue_14_reserved_released_from_different_location_than_shipped(self):
+        """引当(reserved)が新しい棚にあり、実際の出庫は入庫が古い棚から行われる場合でも、
+        出庫数量分の引当が(出庫元とは別の)引当がある棚から正しく解放されることを確認する。
+        """
+        self.inventory.quantity = 10
+        self.inventory.reserved = 0
+        self.inventory.save()
+        second = self.create_inventory(
+            part_number=self.item1.code,
+            warehouse=self.warehouse_a.warehouse_number,
+            location="A-02",
+            quantity=10,
+            reserved=5,
+        )
+        response = self._issue(quantity_to_ship=4)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.inventory.refresh_from_db()
+        second.refresh_from_db()
+        # 出庫(quantity消費)は入庫が古いA-01から
+        self.assertEqual(self.inventory.quantity, 6)
+        self.assertEqual(second.quantity, 10)
+        # 引当(reserved)の解放は、実際に引当があるA-02から行われる
+        self.assertEqual(self.inventory.reserved, 0)
+        self.assertEqual(second.reserved, 1)
