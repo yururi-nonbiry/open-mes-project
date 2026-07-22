@@ -212,28 +212,39 @@
 
 ## 7. 既知の懸念事項
 
-コード調査およびテスト実行(2026-07-22、[reports/inventory_20260722_112730.md](./reports/inventory_20260722_112730.md))
-の過程で判明した、実装上の懸念点。項目1は自動テストで実際の失敗として再現された**重大な不具合**であり、
-他はコードレビューによる推測または軽微な仕様上の非対称性である。
+コード調査およびテスト実行の過程で判明した実装上の懸念点。項目1は自動テストで実際の失敗として
+再現され、**2026-07-22に修正済み**。項目2以降はコードレビューによる推測または軽微な仕様上の
+非対称性であり、現時点では未修正。
 
-1. **【重大・実際に発生を確認】`move`/`process-receipt`/`allocate`/`issue` が対象在庫の検索で常に失敗する**:
+1. **【修正済み・2026-07-22】`move`/`process-receipt`/`allocate`/`issue` が対象在庫の検索で常に失敗していた**:
    これら4つのアクションはいずれも `Inventory.objects.select_for_update().get(part_number=..., warehouse=...)`
-   のように `part_number`/`warehouse` をキーワード引数としてクエリしている（`rest_views.py` L164-168, L417-419,
+   のように `part_number`/`warehouse` をキーワード引数としてクエリしていた（`rest_views.py` L164-168, L417-419,
    L614-616, L745-747）。しかし `part_number`/`warehouse` は `Inventory` モデルの実フィールドではなく、
-   実フィールド `part_number_rel`/`warehouse_rel` の値を返すだけの Python `@property` である
-   （`models.py:31-45`）。Django の `QuerySet.get()`/`filter()` はモデルの `_meta` に登録された実フィールドしか
-   解決できないため、これらの呼び出しは対象の在庫が実在するか否かに関わらず必ず
-   `django.core.exceptions.FieldError: Cannot resolve keyword 'part_number' into field...` を送出する。
-   - `move`・`process-receipt`・`issue` は広い `except Exception` で捕捉するため、**常に500エラー**を返す
-     (INV-MOVE-01/02/07, PO-RECV-01/02/03/04/07/10, SO-ISSUE-01/02/03/07/09/10/11/13 が実際に失敗することを
-     `script/run_tests.sh inventory` で確認済み)。
-   - `allocate` は `ValueError` のみを捕捉するため、`FieldError` は未処理のまま伝播し、DRFのビューからも
-     再送出される(SO-ALLOC-01〜07 が実際にエラーになることを確認済み。テスト `test_so_alloc_08_lookup_by_property_name_raises_field_error`
-     はこの挙動を固定するための回帰テスト)。
-   - 影響範囲: 在庫移動・入庫処理(在庫が既存の場合)・受注引当・受注出庫という在庫管理の中核機能が、
-     対象の在庫が実在する通常のケースでは軒並み動作しない状態にある。正しくは
-     `part_number_rel_id=<code>` (または `part_number_rel__code=<code>`)・`warehouse_rel_id=<warehouse_number>`
-     で検索する必要がある。**要早急な修正確認。**
+   実フィールド `part_number_rel`/`warehouse_rel` の値を返すだけの Python `@property` であるため
+   （`models.py:31-45`）、Djangoの `QuerySet.get()`/`filter()` では解決できず、対象の在庫が実在するか否かに
+   関わらず必ず `django.core.exceptions.FieldError` が送出されていた。
+   - `move`・`process-receipt`・`issue` は広い `except Exception` で捕捉するため常に500エラーとなり
+     (INV-MOVE-01/02/07, PO-RECV-01/02/03/04/10, SO-ISSUE-01/02/03/07/09/10/11/13)、`allocate` は
+     `ValueError` のみを捕捉するため `FieldError` が未処理のまま伝播していた(SO-ALLOC-01〜07)。
+   - 影響範囲: 在庫移動・入庫処理(在庫が既存の場合)・受注引当・受注出庫という在庫管理の中核機能。
+   - **同一の不具合が `production` アプリにも計7箇所存在し、あわせて修正した**:
+     `production/services/allocation.py`(資材引当時の在庫検索、引当解除、引当ステータス変更、計3箇所)、
+     `production/services/progress.py`(生産完了取消・完了時の在庫調整・材料消費・材料復元、計4箇所)、
+     `production/services/queries.py`(生産計画に必要な部品の在庫参照、1箇所)。
+   - 修正内容: `part_number=<code>`/`warehouse=<warehouse_number>` を
+     `part_number_rel_id=<code>`/`warehouse_rel_id=<warehouse_number>` に置き換え(`to_field` 指定により
+     `_rel_id` 属性がそのままcode/warehouse_numberの値を保持するため)。また、`process-receipt` の
+     発注ID不正時の404判定が `get_object_or_404` の送出する `Http404` を捕捉しておらず500になっていた
+     副次的な不具合(PO-RECV-07)もあわせて修正した(`except (PurchaseOrder.DoesNotExist, Http404):`)。
+   - 修正後、`script/run_tests.sh inventory` で全99件成功を確認済み
+     ([reports/inventory_20260722_122925.md](./reports/inventory_20260722_122925.md))。
+   - **修正後に判明した派生の懸念事項(未修正)**: `move`/`process-receipt`/`allocate`/`issue` は
+     いずれも対象在庫を `part_number_rel_id` + `warehouse_rel_id` のみで検索しており、`location`
+     (棚番)は条件に含まれない。同一品番・倉庫で棚番違いの在庫が複数存在する場合、
+     `Inventory.objects.get(...)` が `MultipleObjectsReturned` を送出する。`move`/`process-receipt`/`issue`
+     は広い `except Exception` で捕捉するため500エラーになる(SO-ISSUE-08で確認)。`allocate` は
+     `ValueError` のみを捕捉するため未処理のまま伝播する(SO-ALLOC-08で確認)。意図した仕様
+     (例: 常に単一の棚に集約する運用を前提とする等)かどうか、製品担当に確認が必要。
 2. **`allocate`/`issue` でのチェック項目の非対称性**（SO-ISSUE-13）:
    `allocate` は `is_active` と `is_allocatable` の両方を確認するが、`issue` は `is_active` のみで
    `is_allocatable` を確認しない。意図的な仕様か要確認。
@@ -241,9 +252,11 @@
    `quantity__gt=0` の `Inventory` 行のみを対象に `Sum(quantity - reserved)` を集計しているため、
    全数引当済み（`reserved>=quantity`）でも集計対象に含まれ、結果が0以下になり得る。UI表示への影響を要確認。
 4. **`production` アプリからの直接更新**:
-   `production/services/allocation.py` が `inventory.Inventory` の `reserved`/`quantity` を直接
-   `select_for_update()` で更新する。inventory側のロック粒度・整合性に影響するため、production側のテスト仕様書
-   作成時に本アプリとの結合テスト（資材引当と受注引当が同一在庫行を競合する場合の挙動）を追加検討する。
-5. **既存テストデータの不整合**（`inventory/tests.py` の `po2`）:
+   `production/services/allocation.py`・`progress.py` が `inventory.Inventory` の `reserved`/`quantity` を
+   直接 `select_for_update()` で更新する。inventory側のロック粒度・整合性に影響するため、production側の
+   テスト仕様書作成時に本アプリとの結合テスト（資材引当と受注引当が同一在庫行を競合する場合の挙動）を
+   追加検討する。
+5. **既存テストデータの不整合**（`inventory/tests.py` の `po2`、現在は`inventory/tests/`パッケージに
+   置き換え済み）:
    `status="received"` は現行モデルのchoicesに存在しない値。新規テスト作成時は
    `partially_received`/`fully_received` を使用する。

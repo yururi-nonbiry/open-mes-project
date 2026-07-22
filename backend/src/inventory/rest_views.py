@@ -11,6 +11,7 @@ from django.db.models import (
     Q,
     Sum,
 )
+from django.http import Http404
 from django.shortcuts import get_object_or_404  # オブジェクト取得のためにインポート
 from master.models import WarehouseLocation
 from rest_framework import status, viewsets
@@ -162,8 +163,8 @@ class InventoryViewSet(viewsets.ModelViewSet):
                 # 移動先に在庫を追加または作成（行ロックを取得してからget_or_create相当の処理を行う）
                 try:
                     target_inventory = Inventory.objects.select_for_update().get(
-                        part_number=source_inventory.part_number,
-                        warehouse=target_warehouse,
+                        part_number_rel_id=source_inventory.part_number,
+                        warehouse_rel_id=target_warehouse,
                         location=target_location,
                     )
                     target_inventory.quantity += quantity_to_move
@@ -415,7 +416,7 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
                 # 2. Update/Create Inventory（行ロックを取得してから更新し、同時入庫によるロストアップデートを防止）
                 try:
                     inventory = Inventory.objects.select_for_update().get(
-                        part_number=po.part_number, warehouse=warehouse, location=location
+                        part_number_rel_id=po.part_number, warehouse_rel_id=warehouse, location=location
                     )
                     inventory.quantity += received_quantity
                     inventory.save()
@@ -459,7 +460,9 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_200_OK,
                 )
 
-        except PurchaseOrder.DoesNotExist:
+        except (PurchaseOrder.DoesNotExist, Http404):
+            # get_object_or_404 は DoesNotExist/ValueError/TypeError を Http404 に変換して送出するため、
+            # 両方を捕捉する。
             return Response({"error": "指定された発注が見つかりません。"}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response(
@@ -612,7 +615,7 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
 
                     try:
                         inventory_item = Inventory.objects.select_for_update().get(
-                            part_number=part_number, warehouse=warehouse
+                            part_number_rel_id=part_number, warehouse_rel_id=warehouse
                         )
                     except Inventory.DoesNotExist:
                         raise ValueError(f"在庫が見つかりません: 品番'{part_number}' 倉庫'{warehouse}'。")
@@ -743,7 +746,7 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
 
                 try:
                     inventory_item = Inventory.objects.select_for_update().get(
-                        part_number=sales_order.item, warehouse=sales_order.warehouse
+                        part_number_rel_id=sales_order.item, warehouse_rel_id=sales_order.warehouse
                     )
                 except Inventory.DoesNotExist:
                     return Response(

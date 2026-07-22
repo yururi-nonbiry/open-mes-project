@@ -27,7 +27,7 @@ class InventoryMoveTests(InventoryAPITestBase):
         self.source.refresh_from_db()
         self.assertEqual(self.source.quantity, 5)
         target = Inventory.objects.get(
-            part_number=self.item1.code, warehouse=self.warehouse_b.warehouse_number, location="A-01"
+            part_number_rel_id=self.item1.code, warehouse_rel_id=self.warehouse_b.warehouse_number, location="A-01"
         )
         self.assertEqual(target.quantity, 5)
         self.assertEqual(
@@ -48,12 +48,12 @@ class InventoryMoveTests(InventoryAPITestBase):
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         target = Inventory.objects.get(
-            part_number=self.item1.code, warehouse=self.warehouse_b.warehouse_number, location="A-01"
+            part_number_rel_id=self.item1.code, warehouse_rel_id=self.warehouse_b.warehouse_number, location="A-01"
         )
         self.assertEqual(target.quantity, 8)
         self.assertEqual(
             Inventory.objects.filter(
-                part_number=self.item1.code, warehouse=self.warehouse_b.warehouse_number, location="A-01"
+                part_number_rel_id=self.item1.code, warehouse_rel_id=self.warehouse_b.warehouse_number, location="A-01"
             ).count(),
             1,
         )
@@ -98,6 +98,6 @@ class InventoryMoveTests(InventoryAPITestBase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(
             Inventory.objects.filter(
-                part_number=self.item1.code, warehouse=self.warehouse_b.warehouse_number, location=""
+                part_number_rel_id=self.item1.code, warehouse_rel_id=self.warehouse_b.warehouse_number, location=""
             ).exists()
         )

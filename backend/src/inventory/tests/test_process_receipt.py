@@ -33,7 +33,7 @@ class ProcessReceiptTests(InventoryAPITestBase):
         self.assertEqual(self.po.status, "fully_received")
         self.assertEqual(Receipt.objects.count(), 1)
         inventory = Inventory.objects.get(
-            part_number=self.item1.code, warehouse=self.warehouse_a.warehouse_number, location="A-01"
+            part_number_rel_id=self.item1.code, warehouse_rel_id=self.warehouse_a.warehouse_number, location="A-01"
         )
         self.assertEqual(inventory.quantity, 10)
         self.assertTrue(
@@ -98,12 +98,12 @@ class ProcessReceiptTests(InventoryAPITestBase):
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         inventory = Inventory.objects.get(
-            part_number=self.item1.code, warehouse=self.warehouse_a.warehouse_number, location="A-01"
+            part_number_rel_id=self.item1.code, warehouse_rel_id=self.warehouse_a.warehouse_number, location="A-01"
         )
         self.assertEqual(inventory.quantity, 8)
         self.assertEqual(
             Inventory.objects.filter(
-                part_number=self.item1.code, warehouse=self.warehouse_a.warehouse_number, location="A-01"
+                part_number_rel_id=self.item1.code, warehouse_rel_id=self.warehouse_a.warehouse_number, location="A-01"
             ).count(),
             1,
         )
@@ -171,7 +171,7 @@ class ProcessReceiptTests(InventoryAPITestBase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(
             Inventory.objects.filter(
-                part_number=self.item1.code, warehouse=self.warehouse_b.warehouse_number, location="B-01"
+                part_number_rel_id=self.item1.code, warehouse_rel_id=self.warehouse_b.warehouse_number, location="B-01"
             ).exists()
         )
 

@@ -24,7 +24,7 @@ def get_production_plan_required_parts(production_plan_instance):
     items_map = {item.code: item.name for item in Item.objects.filter(code__in=part_codes)}
 
     # 2. 在庫情報を一括取得
-    inventory_items = Inventory.objects.filter(part_number__in=part_codes, is_active=True, is_allocatable=True)
+    inventory_items = Inventory.objects.filter(part_number_rel_id__in=part_codes, is_active=True, is_allocatable=True)
 
     # 在庫データをマッピング (part_code -> {warehouse -> quantity}) または (part_code -> total_quantity)
     inventory_map = {}

@@ -81,7 +81,9 @@ def allocate_materials_service(production_plan, allocations_data):
                 logger.warning(f"Allocating part {part_number} not found in BOM for plan {plan_identifier}")
 
             try:
-                inventory_item = Inventory.objects.select_for_update().get(part_number=part_number, warehouse=warehouse)
+                inventory_item = Inventory.objects.select_for_update().get(
+                    part_number_rel_id=part_number, warehouse_rel_id=warehouse
+                )
             except Inventory.DoesNotExist:
                 errors.append(f"Inventory not found for part '{part_number}' in warehouse '{warehouse}'.")
                 continue
@@ -160,7 +162,7 @@ def release_material_allocation_service(allocation):
         if allocation.warehouse:
             try:
                 inventory_item = Inventory.objects.select_for_update().get(
-                    part_number=allocation.material_code, warehouse=allocation.warehouse
+                    part_number_rel_id=allocation.material_code, warehouse_rel_id=allocation.warehouse
                 )
                 inventory_item.reserved = max(0, inventory_item.reserved - allocation.allocated_quantity)
                 inventory_item.save()
@@ -199,7 +201,7 @@ def update_material_allocation_status_service(allocation, new_status, user, now=
     with transaction.atomic():
         try:
             inventory_item = Inventory.objects.select_for_update().get(
-                part_number=allocation.material_code, warehouse=allocation.warehouse
+                part_number_rel_id=allocation.material_code, warehouse_rel_id=allocation.warehouse
             )
         except Inventory.DoesNotExist:
             raise ValueError(

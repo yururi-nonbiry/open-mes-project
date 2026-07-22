@@ -80,14 +80,17 @@ class IssueTests(InventoryAPITestBase):
         response = self._issue(order_id=str(so2.id), quantity_to_ship=1)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
-    def test_so_issue_08_lookup_by_property_name_returns_500(self):
-        """重大な既知の不具合(自動テストで実際に検出): issue アクションも allocate と同様に
-        `Inventory.objects.get(part_number=..., warehouse=...)` で在庫を検索しているが、
-        `part_number`/`warehouse` は実フィールドではなく @property であるため
-        django.core.exceptions.FieldError が発生する。issue は `except Exception` で
-        包括的に捕捉しているため、他の正常系テスト(SO-ISSUE-01等)と同様にここでも
-        500が返ることを確認する(docs/09_test_specifications/01_inventory.md の既知の懸念事項1を参照)。
+    def test_so_issue_08_multiple_locations_same_part_warehouse_returns_500(self):
+        """既知の懸念事項(修正後も残る別の不具合): issue アクションも allocate と同様に
+        対象在庫を `part_number_rel_id`/`warehouse_rel_id` のみで検索しており、`location` は
+        条件に含まれない。同一品番+倉庫で棚番違いの在庫が複数存在すると
+        `Inventory.objects.get(...)` が `MultipleObjectsReturned` を送出する。issue は
+        `except Exception` で包括的に捕捉するため、ここでは500としてレスポンスが返ることを確認する
+        (docs/09_test_specifications/01_inventory.md の既知の懸念事項を参照)。
         """
+        self.create_inventory(
+            part_number=self.item1.code, warehouse=self.warehouse_a.warehouse_number, location="A-99", quantity=10
+        )
         response = self._issue(quantity_to_ship=1)
         self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
 

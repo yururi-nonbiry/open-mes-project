@@ -166,7 +166,9 @@ def _reverse_inventory(plan, quantity, now, user):
     product_code = plan.product_code
     warehouse = DEFAULT_FINISHED_GOODS_WAREHOUSE
     try:
-        inventory_item = Inventory.objects.select_for_update().get(part_number=product_code, warehouse=warehouse)
+        inventory_item = Inventory.objects.select_for_update().get(
+            part_number_rel_id=product_code, warehouse_rel_id=warehouse
+        )
         if inventory_item.quantity < quantity:
             raise ValueError(f"Cannot reverse production: insufficient stock for {product_code}.")
         inventory_item.quantity -= quantity
@@ -190,8 +192,8 @@ def _adjust_inventory_for_completion(plan, adjustment, total_completed, now, use
     product_code = plan.product_code
     target_warehouse = DEFAULT_FINISHED_GOODS_WAREHOUSE
     inventory_item, created = Inventory.objects.select_for_update().get_or_create(
-        part_number=product_code,
-        warehouse=target_warehouse,
+        part_number_rel_id=product_code,
+        warehouse_rel_id=target_warehouse,
         defaults={"quantity": 0, "reserved": 0, "is_active": True, "is_allocatable": True},
     )
 
@@ -226,7 +228,7 @@ def _consume_materials_for_plan(plan, now, user):
 
         try:
             inventory_item = Inventory.objects.select_for_update().get(
-                part_number=alloc.material_code, warehouse=alloc.warehouse
+                part_number_rel_id=alloc.material_code, warehouse_rel_id=alloc.warehouse
             )
 
             # 在庫と引当の減少
@@ -278,8 +280,8 @@ def _restore_materials_for_plan(plan, now, user):
             continue
 
         inventory_item, created = Inventory.objects.select_for_update().get_or_create(
-            part_number=alloc.material_code,
-            warehouse=alloc.warehouse,
+            part_number_rel_id=alloc.material_code,
+            warehouse_rel_id=alloc.warehouse,
             defaults={"quantity": 0, "reserved": 0, "is_active": True, "is_allocatable": True},
         )
 

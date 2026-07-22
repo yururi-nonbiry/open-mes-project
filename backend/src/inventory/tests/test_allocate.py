@@ -1,7 +1,7 @@
 from django.urls import reverse
 from rest_framework import status
 
-from inventory.models import SalesOrder
+from inventory.models import Inventory, SalesOrder
 
 from .test_helpers import InventoryAPITestBase
 
@@ -127,22 +127,21 @@ class AllocateTests(InventoryAPITestBase):
         self.inventory.refresh_from_db()
         self.assertEqual(self.inventory.reserved, 0, "1件目の引当もアトミックにロールバックされること")
 
-    def test_so_alloc_08_lookup_by_property_name_raises_field_error(self):
-        """重大な既知の不具合(自動テストで実際に検出): allocate アクションは対象在庫を
-        `Inventory.objects.get(part_number=..., warehouse=...)` で検索しているが、
-        `part_number`/`warehouse` は実際のDBフィールドではなく Python の @property
-        (実フィールドは `part_number_rel`/`warehouse_rel`)であるため、Djangoの
-        QuerySet.get()/filter() では解決できず django.core.exceptions.FieldError が送出される。
-        allocate は ValueError のみを捕捉しているため未処理のまま伝播し、通常の引当リクエストが
-        全て失敗する(在庫が正常に存在する成功パスも含む)。
-        当初は「同一品番/倉庫で棚番違いの在庫が複数存在する場合に限り MultipleObjectsReturned が
-        発生する」という懸念を想定していたが、実際に実行した結果、複数棚が無い単純なケースでも
-        get() の時点でこの FieldError が先に発生することが判明した
-        (docs/09_test_specifications/01_inventory.md の既知の懸念事項1を参照)。
+    def test_so_alloc_08_multiple_locations_same_part_warehouse_known_issue(self):
+        """既知の懸念事項(修正後も残る別の不具合): allocate アクションは対象在庫を
+        `part_number_rel_id`/`warehouse_rel_id` のみで検索しており、`location` は条件に含まれない。
+        そのため同一品番+倉庫で棚番違いの在庫が複数存在する場合、`Inventory.objects.get(...)` が
+        `MultipleObjectsReturned` を送出し、`ValueError` のみを捕捉する現行の `except` 節では
+        処理されず未処理のまま伝播する。
+        (以前はこの箇所で `part_number`/`warehouse` が @property であることに起因する
+        `FieldError` が先に発生して隠れていたが、そちらは修正済み。本テストが検出するのは
+        その修正後に露見した、より根本的な仕様上の懸念点である。
+        docs/09_test_specifications/01_inventory.md の既知の懸念事項を参照。)
         """
-        from django.core.exceptions import FieldError
-
-        with self.assertRaises(FieldError):
+        self.create_inventory(
+            part_number=self.item1.code, warehouse=self.warehouse_a.warehouse_number, location="A-99", quantity=10
+        )
+        with self.assertRaises(Inventory.MultipleObjectsReturned):
             self._allocate()
 
     def test_so_alloc_09_empty_allocations_rejected(self):
