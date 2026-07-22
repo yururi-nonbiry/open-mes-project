@@ -169,7 +169,10 @@
 | SO-ALLOC-05 | 異常系 | 在庫 `is_active=False` または `is_allocatable=False` | 引当リクエスト | 400 | |
 | SO-ALLOC-06 | 異常系 | 既存 `SalesOrder`（品目Aまたは倉庫X） | 同一 `sales_order_reference` で品目/倉庫が異なる引当 | 400「既に異なる品目/倉庫で存在します」 | |
 | SO-ALLOC-07 | 異常系 | 2件の allocations（1件目正常、2件目が在庫不足） | 一括リクエスト | 400。トランザクションロールバックにより1件目の `reserved` 加算も取り消される（DBの`reserved`が変化していないことを確認） | `transaction.atomic()` のアトミック性確認 |
-| SO-ALLOC-08 | 異常系（要検証） | 同一 `part_number`+`warehouse` で棚番違いの `Inventory` が複数存在 | 引当リクエスト | `get()` が `MultipleObjectsReturned` を送出し、`ValueError`で捕捉されないため500になる可能性が高い | **既知の懸念事項**。実装バグの疑いがあるため、テストで実際の挙動を確認し、要修正であれば別途起票 |
+| SO-ALLOC-08 | 正常系 | 同一 `part_number`+`warehouse` で棚番違いの `Inventory` が複数存在（例: A-01 `quantity=3`, A-02 `quantity=10`） | `quantity_to_reserve=6` | 200。棚番の昇順で消費され、A-01が使い切られてから残りがA-02に割り当てられる（A-01 `reserved=3`, A-02 `reserved=3`）。レスポンスの `locations_consumed` に消費内訳が含まれる | 2026-07-22 複数ロケーション対応実装済み（[7. 既知の懸念事項](#7-既知の懸念事項)参照） |
+| SO-ALLOC-08b | 異常系 | 複数ロケーションの合計`available_quantity`でも要求数量に届かない | 引当リクエスト | 400「在庫不足」。いずれのロケーションも`reserved`は変更されない | |
+| SO-ALLOC-08c | 正常系 | 一部ロケーションが `is_allocatable=False` | 引当リクエスト | 200。無効なロケーションは対象外とし、有効なロケーションのみから引き当てる | |
+| SO-ALLOC-08d | 異常系 | 全ロケーションが `is_active=False`（在庫自体は存在） | 引当リクエスト | 400「在庫が有効または引当可能ではありません」 | |
 | SO-ALLOC-09 | 異常系 | `allocations` が空リストまたは未指定 | 引当リクエスト | 400 | |
 | SO-ALLOC-10 | 異常系 | `sales_order_reference` 未指定 | 引当リクエスト | 400 | |
 
@@ -184,7 +187,9 @@
 | SO-ISSUE-05 | 異常系 | `SalesOrder status="canceled"` | 出庫リクエスト | 400（キャンセル済み） | |
 | SO-ISSUE-06 | 異常系 | `remaining_quantity=5` | `quantity_to_ship=10` | 400（残数量超過） | |
 | SO-ISSUE-07 | 異常系 | 対応する在庫（`part_number`+`warehouse`）が存在しない | 出庫リクエスト | 404 | |
-| SO-ISSUE-08 | 異常系（要検証） | 同一 `part_number`+`warehouse` で棚番違いの `Inventory` が複数存在 | 出庫リクエスト | `MultipleObjectsReturned` により500になる可能性 | **既知の懸念事項**（SO-ALLOC-08と同種の問題） |
+| SO-ISSUE-08 | 正常系 | 同一 `part_number`+`warehouse` で棚番違いの `Inventory` が複数存在（例: A-01 `quantity=4`, A-02 `quantity=10`） | `quantity_to_ship=6` | 200。棚番の昇順で消費され、A-01が使い切られてから残りがA-02から出庫される（A-01 `quantity=0`, A-02 `quantity=8`）。消費したロケーションごとに`StockMovement`(`location`付き)が作成される | 2026-07-22 複数ロケーション対応実装済み（[7. 既知の懸念事項](#7-既知の懸念事項)参照） |
+| SO-ISSUE-08b | 異常系 | 複数ロケーションの合計`quantity`でも要求数量に届かない | 出庫リクエスト | 400（実在庫不足）。いずれのロケーションも変更されない | |
+| SO-ISSUE-08c | 正常系 | 一部ロケーションが `is_active=False` | 出庫リクエスト | 200。無効なロケーションは対象外とし、有効なロケーションのみから出庫する | |
 | SO-ISSUE-09 | 異常系 | 在庫 `is_active=False` | 出庫リクエスト | 400 | |
 | SO-ISSUE-10 | 異常系 | 在庫 `quantity=3`（`quantity_to_ship=5`） | 出庫リクエスト | 400（実在庫不足。`available_quantity`ではなく生の`quantity`で判定している点を確認） | |
 | SO-ISSUE-11 | 境界値 | 在庫 `quantity=10, reserved=2`、`quantity_to_ship=5`（reservedより多い） | 出庫リクエスト | 200。`reserved` は `min(reserved, quantity_to_ship)` 分のみ減算されマイナスにならない（`reserved=0`になる） | `min()`保護ロジックの確認 |
@@ -212,8 +217,8 @@
 
 ## 7. 既知の懸念事項
 
-コード調査およびテスト実行の過程で判明した実装上の懸念点。項目1は自動テストで実際の失敗として
-再現され、**2026-07-22に修正済み**。項目2以降はコードレビューによる推測または軽微な仕様上の
+コード調査およびテスト実行の過程で判明した実装上の懸念点。項目1・2は自動テストで実際の失敗として
+再現され、**2026-07-22に修正済み**。項目3以降はコードレビューによる推測または軽微な仕様上の
 非対称性であり、現時点では未修正。
 
 1. **【修正済み・2026-07-22】`move`/`process-receipt`/`allocate`/`issue` が対象在庫の検索で常に失敗していた**:
@@ -238,25 +243,51 @@
      副次的な不具合(PO-RECV-07)もあわせて修正した(`except (PurchaseOrder.DoesNotExist, Http404):`)。
    - 修正後、`script/run_tests.sh inventory` で全99件成功を確認済み
      ([reports/inventory_20260722_122925.md](./reports/inventory_20260722_122925.md))。
-   - **修正後に判明した派生の懸念事項(未修正)**: `move`/`process-receipt`/`allocate`/`issue` は
-     いずれも対象在庫を `part_number_rel_id` + `warehouse_rel_id` のみで検索しており、`location`
-     (棚番)は条件に含まれない。同一品番・倉庫で棚番違いの在庫が複数存在する場合、
-     `Inventory.objects.get(...)` が `MultipleObjectsReturned` を送出する。`move`/`process-receipt`/`issue`
-     は広い `except Exception` で捕捉するため500エラーになる(SO-ISSUE-08で確認)。`allocate` は
-     `ValueError` のみを捕捉するため未処理のまま伝播する(SO-ALLOC-08で確認)。意図した仕様
-     (例: 常に単一の棚に集約する運用を前提とする等)かどうか、製品担当に確認が必要。
-2. **`allocate`/`issue` でのチェック項目の非対称性**（SO-ISSUE-13）:
+   - **訂正**: `move`/`process-receipt` は移動先/入庫先の検索に `location` を含めて `.get()` するため
+     （一意制約の3項目全てを指定）、実際には複数ロケーションが存在しても曖昧にはならない。
+     `part_number_rel_id`/`warehouse_rel_id` のみで検索しており実際に影響があったのは
+     `allocate`/`issue` の2アクションのみだった（当初のレポートでは範囲を誤って広く記載していた）。
+
+2. **【修正済み・2026-07-22】`allocate`/`issue` が複数ロケーションに分散した在庫を扱えなかった
+   (`MultipleObjectsReturned`)**:
+   `allocate`/`issue` はSalesOrder単位（品目+倉庫のみ）で在庫を扱うAPIで、棚番という概念をリクエストに
+   持たない。修正1の適用直後は `part_number_rel_id`+`warehouse_rel_id` の `.get()` のみで検索していたため、
+   同一品番・倉庫で棚番違いの `Inventory` 行が複数存在すると `MultipleObjectsReturned` が発生していた
+   (`allocate` は `ValueError` のみ捕捉のため未処理のまま伝播、`issue` は広い `except Exception` で捕捉
+   するため500)。
+   - **対応方針: 複数ロケーションにまたがる引当・出庫に正式対応**（3つの代替案を比較検討し、
+     ユーザーの意思決定によりこの案を採用。「locationを必須パラメータにする」案や「品番+倉庫につき
+     1棚のみという業務ルールを課す」案は、既存の `location-map`/`move` が複数棚への分散を前提に
+     作られていることと矛盾するため見送り）。
+   - 実装: `.get()` を `.filter(...).order_by("location")` に変更し、`is_active`(+ `allocate`のみ
+     `is_allocatable`)なロケーションを棚番の昇順で列挙。必要数量に達するまで複数ロケーションから
+     順に消費する。
+     - `allocate`: 各ロケーションの`available_quantity`を使い切ってから次のロケーションへ。
+       レスポンスの `allocations_summary[].locations_consumed` に消費内訳（ロケーション・数量）を含む。
+     - `issue`: 各ロケーションの`quantity`を使い切ってから次のロケーションへ。消費したロケーションごとに
+       個別の `StockMovement`(`location`付き)を作成し、追跡可能にした。
+     - 対象ロケーションの合計が要求数量に満たない場合、どのロケーションも変更せずに400を返す
+       (在庫の一部だけ引き当てて残りを失敗させることはしない)。
+     - 全ロケーションが `is_active=False`(または`allocate`では`is_allocatable=False`)の場合は、
+       物理的な在庫行自体は存在していても専用のエラーメッセージを返す。
+   - 消費順序は棚番(location)の昇順に固定（先入れ先出し等の日付情報を`Inventory`が持たないため、
+     最も単純で予測可能な規則として採用）。運用上、異なる消費順序（残数量が多い棚を優先する等）が
+     必要になった場合は本ロジックの調整が必要。
+   - テストケース: SO-ALLOC-08/08b/08c/08d、SO-ISSUE-08/08b/08c で検証済み
+     （`script/run_tests.sh inventory` で全104件成功、
+     [reports/inventory_20260722_124729.md](./reports/inventory_20260722_124729.md)）。
+3. **`allocate`/`issue` でのチェック項目の非対称性**（SO-ISSUE-13）:
    `allocate` は `is_active` と `is_allocatable` の両方を確認するが、`issue` は `is_active` のみで
    `is_allocatable` を確認しない。意図的な仕様か要確認。
-3. **`location-map` の在庫集計**（SO-MAP-04）:
+4. **`location-map` の在庫集計**（SO-MAP-04）:
    `quantity__gt=0` の `Inventory` 行のみを対象に `Sum(quantity - reserved)` を集計しているため、
    全数引当済み（`reserved>=quantity`）でも集計対象に含まれ、結果が0以下になり得る。UI表示への影響を要確認。
-4. **`production` アプリからの直接更新**:
+5. **`production` アプリからの直接更新**:
    `production/services/allocation.py`・`progress.py` が `inventory.Inventory` の `reserved`/`quantity` を
    直接 `select_for_update()` で更新する。inventory側のロック粒度・整合性に影響するため、production側の
    テスト仕様書作成時に本アプリとの結合テスト（資材引当と受注引当が同一在庫行を競合する場合の挙動）を
    追加検討する。
-5. **既存テストデータの不整合**（`inventory/tests.py` の `po2`、現在は`inventory/tests/`パッケージに
+6. **既存テストデータの不整合**（`inventory/tests.py` の `po2`、現在は`inventory/tests/`パッケージに
    置き換え済み）:
    `status="received"` は現行モデルのchoicesに存在しない値。新規テスト作成時は
    `partially_received`/`fully_received` を使用する。

@@ -613,26 +613,42 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
                     if quantity_to_reserve <= 0:
                         raise ValueError(f"引当数量は1以上である必要があります: {alloc_item_data}")
 
-                    try:
-                        inventory_item = Inventory.objects.select_for_update().get(
-                            part_number_rel_id=part_number, warehouse_rel_id=warehouse
-                        )
-                    except Inventory.DoesNotExist:
+                    # 同一品番+倉庫内で棚番(location)をまたいで在庫が分散しているケースに対応するため、
+                    # 単一行の get() ではなく該当する全ロケーションを取得し、棚番の昇順で
+                    # 必要数量に達するまで複数ロケーションから引き当てる。
+                    inventory_rows = list(
+                        Inventory.objects.select_for_update()
+                        .filter(part_number_rel_id=part_number, warehouse_rel_id=warehouse)
+                        .order_by("location")
+                    )
+                    if not inventory_rows:
                         raise ValueError(f"在庫が見つかりません: 品番'{part_number}' 倉庫'{warehouse}'。")
 
-                    if not inventory_item.is_active or not inventory_item.is_allocatable:
+                    eligible_rows = [row for row in inventory_rows if row.is_active and row.is_allocatable]
+                    if not eligible_rows:
                         raise ValueError(
                             f"在庫が有効または引当可能ではありません: 品番'{part_number}' 倉庫'{warehouse}'。"
                         )
 
-                    if inventory_item.available_quantity < quantity_to_reserve:
+                    total_available = sum(row.available_quantity for row in eligible_rows)
+                    if total_available < quantity_to_reserve:
                         raise ValueError(
                             f"利用可能在庫が不足しています: 品番'{part_number}' 倉庫'{warehouse}'。"
-                            f"必要数: {quantity_to_reserve}, 利用可能: {inventory_item.available_quantity}"
+                            f"必要数: {quantity_to_reserve}, 利用可能: {total_available}"
                         )
 
-                    inventory_item.reserved += quantity_to_reserve
-                    inventory_item.save()
+                    remaining_to_reserve = quantity_to_reserve
+                    locations_consumed = []
+                    for row in eligible_rows:
+                        if remaining_to_reserve <= 0:
+                            break
+                        take = min(row.available_quantity, remaining_to_reserve)
+                        if take <= 0:
+                            continue
+                        row.reserved += take
+                        row.save()
+                        remaining_to_reserve -= take
+                        locations_consumed.append({"location": row.location, "reserved_quantity": take})
 
                     sales_order, so_created = SalesOrder.objects.get_or_create(
                         order_number=sales_order_ref,
@@ -657,8 +673,9 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
                             "warehouse": warehouse,
                             "reserved_quantity": quantity_to_reserve,
                             "sales_order_created": so_created,
-                            "new_total_reserved": inventory_item.reserved,
-                            "new_available_quantity": inventory_item.available_quantity,
+                            "locations_consumed": locations_consumed,
+                            "new_total_reserved": sum(row.reserved for row in inventory_rows),
+                            "new_available_quantity": sum(row.available_quantity for row in inventory_rows),
                         }
                     )
 
@@ -744,11 +761,15 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
-                try:
-                    inventory_item = Inventory.objects.select_for_update().get(
-                        part_number_rel_id=sales_order.item, warehouse_rel_id=sales_order.warehouse
-                    )
-                except Inventory.DoesNotExist:
+                # 同一品番+倉庫内で棚番(location)をまたいで在庫が分散しているケースに対応するため、
+                # 単一行の get() ではなく該当する全ロケーションを取得し、棚番の昇順で
+                # 出庫数量に達するまで複数ロケーションから出庫する。
+                inventory_rows = list(
+                    Inventory.objects.select_for_update()
+                    .filter(part_number_rel_id=sales_order.item, warehouse_rel_id=sales_order.warehouse)
+                    .order_by("location")
+                )
+                if not inventory_rows:
                     return Response(
                         {
                             "success": False,
@@ -760,7 +781,10 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
                         status=status.HTTP_404_NOT_FOUND,
                     )
 
-                if not inventory_item.is_active:
+                # issue は allocate と異なり is_allocatable は確認しない(意図的な非対称性、
+                # docs/09_test_specifications/01_inventory.md の既知の懸念事項2を参照)。
+                eligible_rows = [row for row in inventory_rows if row.is_active]
+                if not eligible_rows:
                     return Response(
                         {
                             "success": False,
@@ -769,36 +793,47 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
-                if inventory_item.quantity < quantity_to_ship:
+                total_quantity = sum(row.quantity for row in eligible_rows)
+                if total_quantity < quantity_to_ship:
                     return Response(
                         {
                             "success": False,
                             "error": (
                                 f"在庫不足: {sales_order.item} (倉庫: {sales_order.warehouse})。"
-                                f"実在庫: {inventory_item.quantity}, 要求: {quantity_to_ship}。"
+                                f"実在庫: {total_quantity}, 要求: {quantity_to_ship}。"
                             ),
                         },
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
-                inventory_item.quantity -= quantity_to_ship
-                inventory_item.reserved -= min(inventory_item.reserved, quantity_to_ship)
-                inventory_item.save()
+                remaining_to_ship = quantity_to_ship
+                operator = request.user if request.user.is_authenticated else None
+                for row in eligible_rows:
+                    if remaining_to_ship <= 0:
+                        break
+                    take = min(row.quantity, remaining_to_ship)
+                    if take <= 0:
+                        continue
+                    row.quantity -= take
+                    row.reserved -= min(row.reserved, take)
+                    row.save()
+                    remaining_to_ship -= take
+
+                    StockMovement.objects.create(
+                        part_number=sales_order.item,
+                        movement_type="outgoing",
+                        quantity=take,
+                        warehouse=sales_order.warehouse,
+                        location=row.location,
+                        reference_document=f"SO: {sales_order.order_number}",
+                        description=f"受注 {sales_order.order_number} による出庫",
+                        operator=operator,
+                    )
 
                 sales_order.shipped_quantity += quantity_to_ship
                 if sales_order.remaining_quantity <= 0:
                     sales_order.status = "shipped"
                 sales_order.save()
-
-                StockMovement.objects.create(
-                    part_number=sales_order.item,
-                    movement_type="outgoing",
-                    quantity=quantity_to_ship,
-                    warehouse=sales_order.warehouse,
-                    reference_document=f"SO: {sales_order.order_number}",
-                    description=f"受注 {sales_order.order_number} による出庫",
-                    operator=request.user if request.user.is_authenticated else None,
-                )
 
                 return Response(
                     {

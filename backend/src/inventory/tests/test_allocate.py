@@ -1,7 +1,7 @@
 from django.urls import reverse
 from rest_framework import status
 
-from inventory.models import Inventory, SalesOrder
+from inventory.models import SalesOrder
 
 from .test_helpers import InventoryAPITestBase
 
@@ -127,22 +127,80 @@ class AllocateTests(InventoryAPITestBase):
         self.inventory.refresh_from_db()
         self.assertEqual(self.inventory.reserved, 0, "1件目の引当もアトミックにロールバックされること")
 
-    def test_so_alloc_08_multiple_locations_same_part_warehouse_known_issue(self):
-        """既知の懸念事項(修正後も残る別の不具合): allocate アクションは対象在庫を
-        `part_number_rel_id`/`warehouse_rel_id` のみで検索しており、`location` は条件に含まれない。
-        そのため同一品番+倉庫で棚番違いの在庫が複数存在する場合、`Inventory.objects.get(...)` が
-        `MultipleObjectsReturned` を送出し、`ValueError` のみを捕捉する現行の `except` 節では
-        処理されず未処理のまま伝播する。
-        (以前はこの箇所で `part_number`/`warehouse` が @property であることに起因する
-        `FieldError` が先に発生して隠れていたが、そちらは修正済み。本テストが検出するのは
-        その修正後に露見した、より根本的な仕様上の懸念点である。
-        docs/09_test_specifications/01_inventory.md の既知の懸念事項を参照。)
+    def test_so_alloc_08_multi_location_consumes_in_location_order(self):
+        """同一品番+倉庫で棚番違いの在庫が複数存在する場合、棚番(location)の昇順で
+        必要数量に達するまで複数ロケーションから引き当てられることを確認する。
         """
-        self.create_inventory(
-            part_number=self.item1.code, warehouse=self.warehouse_a.warehouse_number, location="A-99", quantity=10
+        self.inventory.quantity = 3
+        self.inventory.save()
+        second = self.create_inventory(
+            part_number=self.item1.code, warehouse=self.warehouse_a.warehouse_number, location="A-02", quantity=10
         )
-        with self.assertRaises(Inventory.MultipleObjectsReturned):
-            self._allocate()
+        response = self._allocate(
+            allocations=[
+                {
+                    "part_number": self.item1.code,
+                    "warehouse": self.warehouse_a.warehouse_number,
+                    "quantity_to_reserve": 6,
+                }
+            ]
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.inventory.refresh_from_db()
+        second.refresh_from_db()
+        # A-01(quantity=3)を使い切り、残り3をA-02から引き当てる
+        self.assertEqual(self.inventory.reserved, 3)
+        self.assertEqual(second.reserved, 3)
+        locations_consumed = response.data["allocations_summary"][0]["locations_consumed"]
+        self.assertEqual(
+            locations_consumed,
+            [{"location": "A-01", "reserved_quantity": 3}, {"location": "A-02", "reserved_quantity": 3}],
+        )
+
+    def test_so_alloc_08b_multi_location_total_insufficient_rejected(self):
+        self.inventory.quantity = 2
+        self.inventory.save()
+        self.create_inventory(
+            part_number=self.item1.code, warehouse=self.warehouse_a.warehouse_number, location="A-02", quantity=1
+        )
+        response = self._allocate(
+            allocations=[
+                {
+                    "part_number": self.item1.code,
+                    "warehouse": self.warehouse_a.warehouse_number,
+                    "quantity_to_reserve": 10,
+                }
+            ]
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.inventory.refresh_from_db()
+        self.assertEqual(self.inventory.reserved, 0, "在庫不足の場合はどのロケーションも変更されないこと")
+
+    def test_so_alloc_08c_ineligible_location_skipped(self):
+        self.inventory.is_allocatable = False
+        self.inventory.save()
+        second = self.create_inventory(
+            part_number=self.item1.code, warehouse=self.warehouse_a.warehouse_number, location="A-02", quantity=10
+        )
+        response = self._allocate()
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.inventory.refresh_from_db()
+        second.refresh_from_db()
+        self.assertEqual(self.inventory.reserved, 0, "引当不可ロケーションは対象外のまま")
+        self.assertEqual(second.reserved, 5)
+
+    def test_so_alloc_08d_all_locations_ineligible_rejected(self):
+        self.inventory.is_active = False
+        self.inventory.save()
+        self.create_inventory(
+            part_number=self.item1.code,
+            warehouse=self.warehouse_a.warehouse_number,
+            location="A-02",
+            quantity=10,
+            is_active=False,
+        )
+        response = self._allocate()
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_so_alloc_09_empty_allocations_rejected(self):
         response = self._allocate(allocations=[])

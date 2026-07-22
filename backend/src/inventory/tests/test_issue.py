@@ -80,19 +80,54 @@ class IssueTests(InventoryAPITestBase):
         response = self._issue(order_id=str(so2.id), quantity_to_ship=1)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
-    def test_so_issue_08_multiple_locations_same_part_warehouse_returns_500(self):
-        """既知の懸念事項(修正後も残る別の不具合): issue アクションも allocate と同様に
-        対象在庫を `part_number_rel_id`/`warehouse_rel_id` のみで検索しており、`location` は
-        条件に含まれない。同一品番+倉庫で棚番違いの在庫が複数存在すると
-        `Inventory.objects.get(...)` が `MultipleObjectsReturned` を送出する。issue は
-        `except Exception` で包括的に捕捉するため、ここでは500としてレスポンスが返ることを確認する
-        (docs/09_test_specifications/01_inventory.md の既知の懸念事項を参照)。
+    def test_so_issue_08_multi_location_consumes_in_location_order(self):
+        """同一品番+倉庫で棚番違いの在庫が複数存在する場合、棚番(location)の昇順で
+        出庫数量に達するまで複数ロケーションから出庫され、ロケーションごとに
+        StockMovementが記録されることを確認する。
         """
-        self.create_inventory(
-            part_number=self.item1.code, warehouse=self.warehouse_a.warehouse_number, location="A-99", quantity=10
+        self.inventory.quantity = 4
+        self.inventory.reserved = 0
+        self.inventory.save()
+        second = self.create_inventory(
+            part_number=self.item1.code, warehouse=self.warehouse_a.warehouse_number, location="A-02", quantity=10
         )
-        response = self._issue(quantity_to_ship=1)
-        self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+        response = self._issue(quantity_to_ship=6)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.inventory.refresh_from_db()
+        second.refresh_from_db()
+        # A-01(quantity=4)を使い切り、残り2をA-02から出庫する
+        self.assertEqual(self.inventory.quantity, 0)
+        self.assertEqual(second.quantity, 8)
+        self.assertTrue(
+            StockMovement.objects.filter(movement_type="outgoing", location="A-01", quantity=4).exists()
+        )
+        self.assertTrue(
+            StockMovement.objects.filter(movement_type="outgoing", location="A-02", quantity=2).exists()
+        )
+
+    def test_so_issue_08b_multi_location_total_insufficient_rejected(self):
+        self.inventory.quantity = 2
+        self.inventory.save()
+        self.create_inventory(
+            part_number=self.item1.code, warehouse=self.warehouse_a.warehouse_number, location="A-02", quantity=1
+        )
+        response = self._issue(quantity_to_ship=10)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.inventory.refresh_from_db()
+        self.assertEqual(self.inventory.quantity, 2, "在庫不足の場合はどのロケーションも変更されないこと")
+
+    def test_so_issue_08c_inactive_location_skipped(self):
+        self.inventory.is_active = False
+        self.inventory.save()
+        second = self.create_inventory(
+            part_number=self.item1.code, warehouse=self.warehouse_a.warehouse_number, location="A-02", quantity=10
+        )
+        response = self._issue(quantity_to_ship=5)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.inventory.refresh_from_db()
+        second.refresh_from_db()
+        self.assertEqual(self.inventory.quantity, 10, "無効化されたロケーションは対象外のまま")
+        self.assertEqual(second.quantity, 5)
 
     def test_so_issue_09_inactive_inventory_rejected(self):
         self.inventory.is_active = False
