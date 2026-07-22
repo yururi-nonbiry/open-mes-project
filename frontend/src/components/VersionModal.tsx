@@ -35,7 +35,7 @@ const VersionModal: React.FC<VersionModalProps> = ({ isOpen, onClose }) => {
     <Modal isOpen={isOpen} onClose={onClose}>
       <div className="version-modal-content">
         <h2>バージョン情報</h2>
-        <p><strong>現場Navi</strong></p>
+        <p><strong>生産ナビ</strong></p>
         <p>Version: {version}</p>
         <hr />
         <p className="credit">{credit}</p>

@@ -20,7 +20,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isMenuOpen, isAuthenticate
           <span></span>
         </div>
       )}
-      <h1 id="title">現場Navi</h1>
+      <h1 id="title">生産ナビ</h1>
     </header>
   );
 };

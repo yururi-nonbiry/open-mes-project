@@ -72,7 +72,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, isAuthenticated }
   return (
     <div className="login-page-container">
       <div className="login-card">
-        <h2 className="login-title">現場Navi</h2>
+        <h2 className="login-title">生産ナビ</h2>
         {error && <div className="alert alert-danger">{error}</div>}
         <form onSubmit={handleLogin} className="login-form">
           <div className="form-group">
