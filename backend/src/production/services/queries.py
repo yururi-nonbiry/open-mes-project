@@ -18,7 +18,7 @@ def get_production_plan_required_parts(production_plan_instance):
     if not parts_used_queryset.exists():
         return []
 
-    part_codes = list(parts_used_queryset.values_list("part_code", flat=True).distinct())
+    part_codes = list(parts_used_queryset.values_list("part_id", flat=True).distinct())
 
     # 1.5. マスタから部品名を取得してマッピング
     items_map = {item.code: item.name for item in Item.objects.filter(code__in=part_codes)}
@@ -37,11 +37,11 @@ def get_production_plan_required_parts(production_plan_instance):
 
     # 3. 引当済情報を一括取得
     allocations = (
-        MaterialAllocation.objects.filter(production_plan=production_plan_instance, material_code__in=part_codes)
-        .values("material_code")
+        MaterialAllocation.objects.filter(production_plan=production_plan_instance, material_id__in=part_codes)
+        .values("material_id")
         .annotate(total_allocated=Sum("allocated_quantity"))
     )
-    allocation_map = {a["material_code"]: a["total_allocated"] for a in allocations}
+    allocation_map = {a["material_id"]: a["total_allocated"] for a in allocations}
 
     # 4. 結果の組み立て
     results = []

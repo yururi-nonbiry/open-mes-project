@@ -42,8 +42,8 @@ def allocate_materials_service(production_plan, allocations_data):
     # 既に引き当て済みの数量を取得
     existing_allocations = MaterialAllocation.objects.filter(
         production_plan=production_plan
-    ).values('material_code').annotate(total=Sum('allocated_quantity'))
-    allocated_map = {a['material_code']: a['total'] for a in existing_allocations}
+    ).values('material_id').annotate(total=Sum('allocated_quantity'))
+    allocated_map = {a['material_id']: a['total'] for a in existing_allocations}
 
     with transaction.atomic():
         for alloc_item_data in allocations_data:

@@ -31,7 +31,7 @@
 | モジュール | ステータス | ドキュメント |
 |---|---|---|
 | 在庫管理 (inventory) | 作成済み・自動テスト実装済み | [01_inventory.md](./01_inventory.md) |
-| 生産管理 (production) | 未着手 | - |
+| 生産管理 (production) | 作成済み・自動テスト実装済み | [03_production.md](./03_production.md) |
 | 品質管理 (quality) | 未着手 | - |
 | 設備管理 (machine) | 未着手 | - |
 | マスタ管理 (master) | 未着手 | - |

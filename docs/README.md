@@ -31,6 +31,7 @@
 - [総則（対象モジュール一覧・方針）](./09_test_specifications/00_overview.md)
 - [在庫管理 (inventory)](./09_test_specifications/01_inventory.md)
 - [テストの実行方法とレポートの残し方](./09_test_specifications/02_running_tests.md)
+- [生産管理 (production)](./09_test_specifications/03_production.md)
 
 ---
 詳細な情報については、各ドキュメントを参照してください。

@@ -17,7 +17,8 @@
       "Bash(git diff *)",
       "Bash(awk 'NR==27{print length\\($0\\), $0}' /home/yururi/git/open-mes-project/backend/src/production/services/queries.py)",
       "Bash(sed -i -e 's/part_number=self\\\\.item1\\\\.code, warehouse=self\\\\.warehouse_b\\\\.warehouse_number/part_number_rel_id=self.item1.code, warehouse_rel_id=self.warehouse_b.warehouse_number/g' test_inventory_move.py)",
-      "Bash(sed -i -e 's/part_number=self\\\\.item1\\\\.code, warehouse=self\\\\.warehouse_a\\\\.warehouse_number/part_number_rel_id=self.item1.code, warehouse_rel_id=self.warehouse_a.warehouse_number/g' -e 's/part_number=self\\\\.item1\\\\.code, warehouse=self\\\\.warehouse_b\\\\.warehouse_number/part_number_rel_id=self.item1.code, warehouse_rel_id=self.warehouse_b.warehouse_number/g' test_process_receipt.py)"
+      "Bash(sed -i -e 's/part_number=self\\\\.item1\\\\.code, warehouse=self\\\\.warehouse_a\\\\.warehouse_number/part_number_rel_id=self.item1.code, warehouse_rel_id=self.warehouse_a.warehouse_number/g' -e 's/part_number=self\\\\.item1\\\\.code, warehouse=self\\\\.warehouse_b\\\\.warehouse_number/part_number_rel_id=self.item1.code, warehouse_rel_id=self.warehouse_b.warehouse_number/g' test_process_receipt.py)",
+      "Bash(./script/run_tests.sh production *)"
     ]
   }
 }

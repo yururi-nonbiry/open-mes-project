@@ -98,9 +98,11 @@ class ProductionPlanViewSet(viewsets.ModelViewSet):
         # Translate sorting by product_code to product
         ordering = self.request.query_params.get("ordering", "")
         if "product_code" in ordering:
+            # request.query_params は読み取り専用プロパティ(内部のrequest._request.GETを返すだけ)
+            # のため、直接代入はできない。元となる request._request.GET を書き換える。
             params = self.request.query_params.copy()
             params["ordering"] = ordering.replace("product_code", "product")
-            self.request.query_params = params
+            self.request._request.GET = params
         return super().filter_queryset(queryset)
 
     def get_queryset(self):

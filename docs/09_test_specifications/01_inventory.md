@@ -297,6 +297,11 @@
    直接 `select_for_update()` で更新する。inventory側のロック粒度・整合性に影響するため、production側の
    テスト仕様書作成時に本アプリとの結合テスト（資材引当と受注引当が同一在庫行を競合する場合の挙動）を
    追加検討する。
+   - `production`アプリのテスト仕様書は[03_production.md](./03_production.md)として作成済み。ただし
+     結合テスト（inventory/productionの両アクションが同一`Inventory`行を同時に更新する場合の挙動）は
+     未着手。また`production`側の`.get()`は単一ロケーション前提のままであり、本書の`allocate`/`issue`で
+     対応した複数ロケーション対応（Option B）は`production`側には未適用（詳細は
+     [03_production.md 既知の懸念事項2](./03_production.md#7-既知の懸念事項)を参照）。
 6. **既存テストデータの不整合**（`inventory/tests.py` の `po2`、現在は`inventory/tests/`パッケージに
    置き換え済み）:
    `status="received"` は現行モデルのchoicesに存在しない値。新規テスト作成時は
