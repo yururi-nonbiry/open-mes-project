@@ -27,5 +27,9 @@
 - [機能拡張の指針](./07_developer_guide/05_extension_guide.md)
 - [クラス構造](./08_class_structure.md)
 
+### 5. テスト仕様書
+- [総則（対象モジュール一覧・方針）](./09_test_specifications/00_overview.md)
+- [在庫管理 (inventory)](./09_test_specifications/01_inventory.md)
+
 ---
 詳細な情報については、各ドキュメントを参照してください。
