@@ -174,6 +174,10 @@ class APITokenView(APIView):
 
     permission_classes = [IsAuthenticated]
 
+    def get(self, request, *args, **kwargs):
+        token, _ = Token.objects.get_or_create(user=request.user)
+        return Response({"api_token": token.key})
+
     def post(self, request, *args, **kwargs):
         token, _ = Token.objects.get_or_create(user=request.user)
         token.delete()

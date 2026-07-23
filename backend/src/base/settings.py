@@ -80,6 +80,7 @@ INSTALLED_APPS = [
     "django_vite",
     "debug_toolbar",
     "rest_framework",
+    "rest_framework.authtoken",
     "django_static_md5url",
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
@@ -213,6 +214,8 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         # 'rest_framework.authentication.SessionAuthentication', # APIではJWT認証を主とするため無効化
         "rest_framework_simplejwt.authentication.JWTAuthentication",
+        # QRリーダー等のデバイスや外部連携アプリ向けの長期固定トークン認証。
+        "rest_framework.authentication.TokenAuthentication",
     ]
 }
 

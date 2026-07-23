@@ -132,7 +132,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     def is_password_expired(self):
         """
         パスワードが有効期限切れかどうかを判定します。
-        settings.PASSWORD_EXPIRATION_DAYS で日数を指定します（デフォルト90日）。
+        settings.PASSWORD_EXPIRATION_DAYS で日数を指定します（デフォルト180日）。
         """
         expiration_days = getattr(settings, "PASSWORD_EXPIRATION_DAYS", 180)  # settings.pyとデフォルト値を合わせる
 
