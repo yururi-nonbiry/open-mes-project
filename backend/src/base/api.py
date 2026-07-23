@@ -8,7 +8,7 @@ import django_filters
 from django.apps import apps
 from django.conf import settings
 from django.core.files.storage import FileSystemStorage
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.http import HttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import permissions, status, viewsets
@@ -114,7 +114,32 @@ class ModelFieldsView(APIView):
         return Response(fields_data)
 
 
-class CsvColumnMappingViewSet(viewsets.ModelViewSet):
+class IntegrityErrorAsBadRequestMixin:
+    """
+    シリアライザのMeta.validators=[]によりUniqueTogetherValidatorが無効化されているモデル向けに、
+    DBのユニーク制約違反(IntegrityError)を未処理の500ではなく400のバリデーションエラーとして返す。
+    """
+
+    def create(self, request, *args, **kwargs):
+        try:
+            return super().create(request, *args, **kwargs)
+        except IntegrityError:
+            return Response(
+                {"status": "error", "message": "指定されたデータは既に登録されています。"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    def update(self, request, *args, **kwargs):
+        try:
+            return super().update(request, *args, **kwargs)
+        except IntegrityError:
+            return Response(
+                {"status": "error", "message": "指定されたデータは既に登録されています。"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+
+class CsvColumnMappingViewSet(IntegrityErrorAsBadRequestMixin, viewsets.ModelViewSet):
     """
     CSV列マッピング設定を管理するためのAPIビューセット。
     """
@@ -343,7 +368,7 @@ class QrCodeActionViewSet(viewsets.ModelViewSet):
         )
 
 
-class ModelDisplaySettingViewSet(viewsets.ModelViewSet):
+class ModelDisplaySettingViewSet(IntegrityErrorAsBadRequestMixin, viewsets.ModelViewSet):
     """
     モデル項目表示設定を管理するためのAPIビューセット。
     """

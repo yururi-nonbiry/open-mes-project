@@ -34,9 +34,9 @@
 | 生産管理 (production) | 作成済み・自動テスト実装済み | [03_production.md](./03_production.md) |
 | ユーザー管理 (users) | 作成済み・自動テスト実装済み | [04_users.md](./04_users.md) |
 | マスタ管理 (master) | 作成済み・自動テスト実装済み | [05_master.md](./05_master.md) |
-| 品質管理 (quality) | 未着手 | - |
-| 設備管理 (machine) | 未着手 | - |
-| ベース機能 (base) | 未着手 | - |
+| 品質管理 (quality) | 作成済み・自動テスト実装済み | [06_quality.md](./06_quality.md) |
+| 設備管理 (machine) | 作成済み・自動テスト実装済み | [07_machine.md](./07_machine.md) |
+| ベース機能 (base) | 作成済み・自動テスト実装済み | [08_base.md](./08_base.md) |
 
 在庫管理モジュールを最初の対象としたのは、直近の開発（倉庫レイアウト機能追加、受注引当・出庫ロジック実装等）が
 集中しており、かつ既存の自動テスト（`inventory/tests.py`）のカバレッジが薄いため。
