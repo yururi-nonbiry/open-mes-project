@@ -1,13 +1,26 @@
 # システムアーキテクチャ概要
 
-サーバーサイドは Python 言語と Djangoフレームワーク によって実装されており、WebインターフェースはDjangoのテンプレートを用いたHTML/JavaScriptで提供されます。GitHub上のソースコード比率を見ると、HTMLテンプレートが約55%、Pythonコードが約45%を占めており、バックエンドとフロントエンドの双方から構成されていることがわかります
-([github.com](https://github.com/mihatama/open-mes-project))。アプリケーションはDockerコンテナ上で動作し、データベースには PostgreSQL を採用しています
-([github.com](https://github.com/mihatama/open-mes-project))。システム全体はクライアント-サーバ構成になっており、クライアント（ブラウザ）からのリクエストをDjangoベースのWebサーバが処理し、必要に応じてPostgreSQLデータベースにアクセスします。
+open-mes-project（生産ナビ）は、バックエンドとフロントエンドが分離された構成のWebアプリケーションです。
 
-このプロジェクトではマイクロサービスではなく、DjangoによるモノリシックなWebアプリケーション構造を採っています。ただし内部はドメインごとに複数のモジュール（Djangoアプリ）に分割されており、機能単位で管理しやすいよう工夫されています（詳細は後述の[コード構成](./07_developer_guide/01_codebase_structure.md)を参照）。コンテナ構成としては、少なくとも以下のサービスがDocker Composeで定義されます：
+- **バックエンド**（`backend/`）: Python / Django 5.1 + Django REST Framework によるREST API サーバです。画面のHTMLは返さず、JSONを返すAPIとして動作します。
+- **フロントエンド**（`frontend/`）: React 19 + TypeScript + Vite によるSPA（Single Page Application）です。バックエンドのREST APIをJWTで認証しながら呼び出し、画面を描画します。
+- **非同期処理**: Celery ワーカーがバックエンドと同じコードベース（`backend/src`）を使って非同期タスクを実行し、Redisをブローカー兼結果バックエンドとして利用します。
+- **データベース**: PostgreSQLを使用します。DjangoのORMを通じてモデルとテーブルのマッピングが行われます。
 
-- Webアプリケーションコンテナ（サービス名: open_mes）：Djangoアプリを実行。Pythonランタイムとアプリケーションコードを含み、内部でDjangoの開発サーバまたはGunicornなどのWSGIサーバが動作します。
-- データベースコンテナ（サービス名: postgres）：PostgreSQLデータベース。アプリコンテナから接続され、アプリケーションデータを永続化します。
+クライアント（ブラウザ）はReactアプリを読み込み、バックエンドのREST API（`/api/<app>/...`）にHTTP経由でアクセスします。認証は主にJWT（`djangorestframework-simplejwt`）で行われ、QRリーダーなどの外部デバイス向けには固定トークン認証（`TokenAuthentication`）も別途用意されています。
 
-上記2コンテナ間はDocker Composeネットワークで連携し、データベースホスト名はpostgresとしてアプリから参照されます（.envで設定
-[github.com](https://github.com/mihatama/open-mes-project/blob/main/README.md?plain=1#L103-L112)）。なお、開発者は必要に応じてローカル環境でアプリケーションを直接実行することも可能ですが、基本的にはDocker上での動作を前提としています。
+## Docker Compose 構成
+
+`compose.yml`（開発用）では、以下のサービスが定義されています。
+
+- **db**: PostgreSQL（`db/image`でビルド）。ヘルスチェック付き。
+- **redis**: Celeryのブローカー/結果バックエンドとして使用するRedis。
+- **backend**: Djangoアプリケーション本体。コンテナ起動時に `python manage.py migrate` を実行した後、Gunicornで `base.wsgi:application` を起動します（ヘルスチェックは `/api/base/health/`）。
+- **worker**: `celery -A base worker` を実行するCeleryワーカー。backendと同じイメージ・ソースを使用します。
+- **frontend**: Vite開発サーバー（本番相当の構成は `compose.prod.yml` / `compose.https.yml` を参照。Nginx経由でビルド済み静的ファイルを配信します）。
+
+サービス間はDocker Composeのネットワークで連携し、DB接続は `.env` の `DATABASE_URL`（例: `postgres://django:django@db:5432/open_mes`）で設定されます。
+
+本番相当の構成（`compose.prod.yml` や `compose.https.yml`、`reverse-proxy*`ディレクトリ）では、Nginxのリバースプロキシやcertbotによる証明書取得（Let's Encrypt）も組み合わせて使用されます。
+
+なお、開発者はWindows環境向けに `start.bat` を使ってDockerを使わずローカルにPython仮想環境を構築し、バックエンドを直接起動することも可能です（詳細は[セットアップ手順](./06_installation_guide/02_setup.md)を参照）。

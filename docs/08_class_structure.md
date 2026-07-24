@@ -1,20 +1,23 @@
 # オープンMESプロジェクトのクラス構造
 
-以下に、open-mes-projectリポジトリ全体のクラス図と各クラスの説明を示します。プロジェクトはDjangoフレームワークを用いており、ユーザー認証用のカスタムユーザーモデルや、製造業務に関するドメインモデル（在庫、購買、生産計画など）が定義されています。クラス図には主要なクラス名、プロパティ（フィールド）およびメソッド、そしてクラス間の継承・関連関係（例えば外部キーによる関連）を示しています。パッケージ（Djangoアプリ）ごとにクラスを整理してあり、継承関係は実線の三角矢印、関連（アソシエーション）は実線でカードinality（多重度）付きの線で表現しています。
+以下に、open-mes-projectのバックエンド（`backend/src/`）で定義されている主要なDjangoモデルのクラス図と各クラスの説明を示します。パッケージ（Djangoアプリ）ごとにクラスを整理してあり、継承関係は実線の三角矢印、関連（アソシエーション）は実線でカーディナリティ（多重度）付きの線で表現しています。
 
 ## クラス図
-
 
 ```mermaid
 classDiagram
 %% Users module
 class CustomUser {
-    +user_id: string
+    +id: UUID
+    +custom_id: string
+    +username: string
     +email: string
     +is_staff: bool
     +is_active: bool
     +date_joined: datetime
+    +password_last_changed: datetime
     +objects: UserManager
+    +is_password_expired: bool
 }
 class UserManager {
     +create_user(...)
@@ -23,16 +26,20 @@ class UserManager {
 CustomUser --|> AbstractBaseUser
 CustomUser --|> PermissionsMixin
 
-%% Master (Master data) module
+%% Master module
 class Item {
     +name: string
     +code: string
     +item_type: string
     +unit: string
     +description: text
+    +default_warehouse: string
+    +default_location: string
+    +provision_type: string
     +created_at: datetime
 }
 class Supplier {
+    +supplier_number: string
     +name: string
     +contact_person: string
     +phone: string
@@ -45,6 +52,36 @@ class Warehouse {
     +warehouse_number: string
     +name: string
     +location: string
+    +layout_cols: int
+    +layout_rows: int
+}
+class WarehouseLocation {
+    +id: UUID
+    +code: string
+    +name: string
+    +pos_x: int
+    +pos_y: int
+    +width: int
+    +height: int
+    +created_at: datetime
+}
+class Customer {
+    +id: UUID
+    +code: string
+    +name: string
+    +created_at: datetime
+}
+class WorkCenter {
+    +id: UUID
+    +code: string
+    +name: string
+    +created_at: datetime
+}
+class UnitCost {
+    +id: UUID
+    +cost: decimal
+    +created_at: datetime
+    +updated_at: datetime
 }
 
 %% Inventory module
@@ -53,6 +90,7 @@ class Inventory {
     +quantity: int
     +reserved: int
     +location: string
+    +first_received_at: datetime
     +last_updated: datetime
     +is_active: bool
     +is_allocatable: bool
@@ -60,10 +98,12 @@ class Inventory {
 }
 class StockMovement {
     +id: UUID
+    +location: string
     +movement_type: string
     +quantity: int
-    +timestamp: datetime
+    +movement_date: datetime
     +description: text
+    +reference_document: string
 }
 class PurchaseOrder {
     +id: UUID
@@ -72,19 +112,31 @@ class PurchaseOrder {
     +received_quantity: int
     +order_date: datetime
     +expected_arrival: datetime
+    +status: string
+    +remaining_quantity(): int
 }
-%% SalesOrder is in Production module but represents customer orders
+class Receipt {
+    +id: UUID
+    +received_quantity: int
+    +received_date: datetime
+    +location: string
+    +remarks: text
+}
 class SalesOrder {
-    +item: Item
-    +warehouse: Warehouse
-    +order_date: datetime
+    +id: UUID
+    +order_number: string
     +quantity: int
+    +shipped_quantity: int
+    +order_date: datetime
+    +expected_shipment: datetime
+    +status: string
+    +remaining_quantity(): int
 }
+
 %% Production module
 class ProductionPlan {
     +id: UUID
     +plan_name: string
-    +product_code: string
     +planned_quantity: int
     +planned_start_datetime: datetime
     +planned_end_datetime: datetime
@@ -97,7 +149,7 @@ class ProductionPlan {
 }
 class PartsUsed {
     +id: UUID
-    +part_code: string
+    +production_plan: string
     +quantity_used: int
     +used_datetime: datetime
     +remarks: text
@@ -106,7 +158,6 @@ class PartsUsed {
 }
 class MaterialAllocation {
     +id: UUID
-    +material_code: string
     +allocated_quantity: int
     +allocation_datetime: datetime
     +status: string
@@ -120,78 +171,183 @@ class WorkProgress {
     +start_datetime: datetime
     +end_datetime: datetime
     +quantity_completed: int
+    +actual_reported_quantity: int
+    +defective_reported_quantity: int
     +status: string
     +remarks: text
     +created_at: datetime
     +updated_at: datetime
 }
+
+%% Quality module
+class InspectionItem {
+    +id: UUID
+    +code: string
+    +name: string
+    +inspection_type: string
+    +target_object_type: string
+    +is_active: bool
+}
+class MeasurementDetail {
+    +id: UUID
+    +name: string
+    +measurement_type: string
+    +specification_nominal: float
+    +specification_upper_limit: float
+    +specification_lower_limit: float
+    +expected_qualitative_result: string
+    +order: int
+}
+class InspectionResult {
+    +id: UUID
+    +inspected_at: datetime
+    +part_number: string
+    +lot_number: string
+    +serial_number: string
+    +quantity_inspected: int
+    +judgment: string
+    +remarks: text
+}
+class InspectionResultDetail {
+    +id: UUID
+    +measured_value_numeric: float
+    +result_qualitative: string
+}
+
+%% Machine module
+class Machine {
+    +id: UUID
+    +machine_number: string
+    +name: string
+    +location: string
+    +description: text
+    +created_at: datetime
+}
+
+%% Base module
+class BaseSetting {
+    +id: UUID
+    +name: string
+    +value: text
+    +is_active: bool
+}
+class AsyncTask {
+    +id: UUID
+    +task_id: string
+    +task_name: string
+    +status: string
+    +progress: int
+    +total: int
+    +result: json
+}
+
 %% Relationships (associations)
-Item "1" -- "0..*" Inventory : item
-Warehouse "1" -- "0..*" Inventory : warehouse
-Item "1" -- "0..*" StockMovement : item
-Item "1" -- "0..*" PurchaseOrder : item
-Supplier "1" -- "0..*" PurchaseOrder : supplier
-Warehouse "1" -- "0..*" PurchaseOrder : warehouse
-Item "1" -- "0..*" SalesOrder : item
-Warehouse "1" -- "0..*" SalesOrder : warehouse
-ProductionPlan "1" -- "0..*" PartsUsed : production_plan
+Item "1" -- "0..*" Inventory : part_number_rel
+Warehouse "1" -- "0..*" Inventory : warehouse_rel
+Item "1" -- "0..*" StockMovement : part_number_rel
+Warehouse "1" -- "0..*" StockMovement : warehouse_rel
+CustomUser "1" -- "0..*" StockMovement : operator
+Supplier "1" -- "0..*" PurchaseOrder : supplier_rel
+Item "1" -- "0..*" PurchaseOrder : part_number_rel
+Warehouse "1" -- "0..*" PurchaseOrder : warehouse_rel
+PurchaseOrder "1" -- "0..*" Receipt : purchase_order
+Warehouse "1" -- "0..*" Receipt : warehouse_rel
+CustomUser "1" -- "0..*" Receipt : operator
+Item "1" -- "0..*" SalesOrder : item_rel
+Warehouse "1" -- "0..*" SalesOrder : warehouse_rel
+Warehouse "1" -- "0..*" WarehouseLocation : warehouse
+Item "1" -- "0..*" UnitCost : item
+Item "1" -- "0..*" ProductionPlan : product
+Item "1" -- "0..*" MaterialAllocation : material
+Warehouse "1" -- "0..*" MaterialAllocation : warehouse_rel
 ProductionPlan "1" -- "0..*" MaterialAllocation : production_plan
 ProductionPlan "1" -- "0..*" WorkProgress : production_plan
 CustomUser "1" -- "0..*" WorkProgress : operator
+Item "1" -- "0..*" PartsUsed : part
+Warehouse "1" -- "0..*" PartsUsed : warehouse_rel
+InspectionItem "1" -- "0..*" MeasurementDetail : inspection_item
+InspectionItem "1" -- "0..*" InspectionResult : inspection_item
+CustomUser "1" -- "0..*" InspectionResult : inspected_by
+InspectionResult "1" -- "0..*" InspectionResultDetail : inspection_result
+MeasurementDetail "1" -- "0..*" InspectionResultDetail : measurement_detail
 ```
 
 上記クラス図に基づき、各クラスの役割と主要な関係について以下に説明します。
 
 ## Users（ユーザー）モジュール
 
-**CustomUser** – Django組み込みの認証用`AbstractBaseUser`および`PermissionsMixin`を継承したカスタムユーザークラスです (github.com)。このクラスはユーザーIDやメールアドレス、スタッフフラグ、アクティブフラグ、登録日時などのフィールドを持ちます。特に`user_id`（ユーザーID）を認証に用いるよう設計されており（当初はメールアドレスでのログインでしたがユーザーIDに変更されています）、`is_staff`や`is_active`でユーザーの権限状態を管理します。またDjangoの標準に従い、`objects`にカスタムマネージャとして`UserManager`を割り当てています (github.com)。`UserManager`では`create_user()`や`create_superuser()`メソッドを実装し、ユーザー作成処理を提供します。
+**CustomUser** – Django組み込みの認証用`AbstractBaseUser`および`PermissionsMixin`を継承したカスタムユーザークラスです。主キーはUUID（`uuid.uuid4`）です。ログインには`custom_id`（専用ID、ユニーク）を用いるよう設計されており（`USERNAME_FIELD = "custom_id"`）、`email`は必須項目ではありません。`is_staff`や`is_active`でユーザーの権限状態を管理し、`password_last_changed`と`is_password_expired`プロパティによりパスワード有効期限（デフォルト180日、`settings.PASSWORD_EXPIRATION_DAYS`）を管理します。`objects`にカスタムマネージャ`UserManager`を割り当てており、`create_user()`・`create_superuser()`メソッドでユーザー作成処理を提供します。
 
 ## Master（マスターデータ）モジュール
 
-**Item（品目）** – 製品や原材料を表すマスターデータのクラスです。`name`（名称）、`code`（コード）はユニーク制約付きで、それぞれ品目名と品目コードを表します (github.com)。`item_type`フィールドで「product（製品）」か「material（材料）」かを区別しており、その選択肢が定義されています (github.com github.com)。また、`unit`（単位）や`description`（説明）、作成日時`created_at`を持ちます。Itemは在庫や注文など他の多くのクラスから参照される中心的存在です。
+**Item（品目）** – 製品や原材料を表すマスターデータのクラスです。`name`（名称）・`code`（コード）はユニーク制約付きです。`item_type`フィールドで「product（製品）」か「material（材料）」かを区別します。`unit`（単位、デフォルト`kg`）、`description`（説明）に加え、`default_warehouse`/`default_location`（デフォルトの入庫先倉庫・棚番）、`provision_type`（有償支給/無償支給/支給なし）を持ちます。Itemは`Inventory`、`StockMovement`、`PurchaseOrder`、`SalesOrder`、`ProductionPlan`、`PartsUsed`、`MaterialAllocation`、`UnitCost`など、他の多くのクラスから外部キー（`to_field="code"`で品目コードを参照）で参照される中心的存在です。
 
-**Supplier（仕入先）** – サプライヤー（部品・材料の供給元）を表すマスタークラスです。`name`（名前）、`contact_person`（担当者）、`phone`（電話番号）、`email`（メールアドレス）、`address`（住所）といった連絡先情報のフィールドを持ちます (github.com github.com)。加えて`created_at`（登録日時）を保持します。Supplierは`PurchaseOrder`（発注）から参照され、発注先企業の情報として使われます。
+**Supplier（サプライヤー）** – サプライヤー（部品・材料の供給元）を表すマスタークラスです。`supplier_number`（サプライヤー番号）がユニークキーで、`name`（名前）、`contact_person`（担当者）、`phone`、`email`、`address`といった連絡先情報を持ちます。`PurchaseOrder`から参照されます。
 
-**Warehouse（倉庫）** – 製品や材料の保管場所を表すマスタークラスです。`warehouse_number`（倉庫番号）と`name`（名称）で倉庫を識別し、`location`（所在地等任意情報）を持ちます (github.com github.com)。主キー`id`にはUUIDが使用されます (github.com)。Warehouseは`Inventory`や`PurchaseOrder`、`SalesOrder`から参照され、在庫や入出庫の拠点を示します。
+**Warehouse（倉庫）** – 製品や材料の保管場所を表すマスタークラスです。主キーはUUIDv7（`uuid7`）。`warehouse_number`（倉庫番号）と`name`で倉庫を識別し、`location`（所在地）に加え、倉庫レイアウトマップの列数・行数を表す`layout_cols`/`layout_rows`を持ちます。`Inventory`、`StockMovement`、`PurchaseOrder`、`Receipt`、`SalesOrder`、`MaterialAllocation`、`PartsUsed`、`WarehouseLocation`から参照されます。
+
+**WarehouseLocation（倉庫ロケーション）** – 倉庫レイアウト上の棚配置を表すクラスです。`Warehouse`へのFK（`related_name="locations"`）を持ち、`code`（棚番、`Inventory.location`の文字列と対応させる）、`name`、レイアウトマップ上の座標（`pos_x`, `pos_y`）とサイズ（`width`, `height`）を保持します。`warehouse`と`code`の組み合わせでユニーク制約があります。
+
+**Customer（顧客）** – 顧客マスターです。UUIDv7主キー、`code`（顧客コード、ユニーク）、`name`を持ちます。
+
+**WorkCenter（ワークセンター）** – 生産の作業区・工程拠点を表すマスターです。UUIDv7主キー、`code`（ユニーク）、`name`を持ちます。
+
+**UnitCost（標準単価）** – `Item`に対する標準単価を保持するクラスです。`item`への1対1相当のFK（ユニーク制約あり）と`cost`（数値、小数2桁）を持ちます。
 
 ## Inventory（在庫）モジュール
 
-**Inventory（在庫）** – 各品目の在庫状況を表すクラスです。特定の`Item`と`Warehouse`の組み合わせごとにレコードが存在し、`quantity`（現在庫数量）と`reserved`（引当済み数量）を持ちます (github.com github.com)。在庫の保管場所詳細として`location`（棚番など任意文字列）も保持します (github.com)。`last_updated`で最終更新日時を記録し、`is_active`（有効な在庫か）および`is_allocatable`（引当可能か）のフラグがあります (github.com github.com)。これらにより、在庫が無効化されている場合や引当禁止の場合を管理します。さらに`available_quantity`というプロパティが定義されており、`quantity - reserved`の計算結果を返すことで「実際に利用可能な在庫数」を取得できます（在庫が無効または非引当の場合は0を返します） (github.com github.com)。Inventoryは`Item`と`Warehouse`への外部キーを持ち（それぞれnull許可、削除時はSET_NULLとCASCADE） (github.com)、品目ごとの各倉庫在庫を管理します。
+**Inventory（在庫）** – 各品目・倉庫・棚番ごとの在庫状況を表すクラスです。`part_number_rel`（`master.Item`へのFK、DBカラム名`part_number`）と`warehouse_rel`（`master.Warehouse`へのFK、DBカラム名`warehouse`）を持ち、いずれも`on_delete=models.PROTECT`（参照中の品目・倉庫は削除不可）です。`quantity`（在庫数量）と`reserved`（引当済み数量）、保管場所の`location`（棚番文字列）を持ちます。`first_received_at`はこの棚にこの品番が初めて入庫した日時で、複数ロケーションにまたがるFIFO順の引当・出庫処理の判定に使用されます（初回入庫以降の補充では更新されません）。`last_updated`は更新日時、`is_active`・`is_allocatable`フラグで在庫の有効性・引当可否を管理します。`available_quantity`プロパティは、在庫が有効かつ引当可能な場合に`quantity - reserved`（0未満にはならない）を返します。`part_number_rel`・`warehouse_rel`・`location`の組み合わせにユニーク制約があります。
 
-**StockMovement（在庫移動）** – 在庫の入出庫や使用履歴を記録するクラスです。在庫変動のタイプとして`MOVEMENT_TYPE_CHOICES`に「incoming（入庫）」「outgoing（出庫）」「used（生産で使用）」の選択肢が定義されており (github.com github.com)、`movement_type`フィールドでその種別を表します (github.com)。また、対象の`item`（品目） (github.com)、数量`quantity`、発生時刻`timestamp`（自動登録）を持ち、`description`に任意の備考を記録できます (github.com github.com)。`StockMovement`は`Item`に外部キーで紐づき、どの品目の在庫が増減したかを示します。ただし関連する`Warehouse`情報はこのモデルに直接は保持されていないため、倉庫ごとの入出庫履歴は必要に応じて他情報と突合せて管理します。
+**StockMovement（入出庫履歴）** – 在庫の入出庫や使用履歴を記録するクラスです。`movement_type`は「incoming（入庫）」「outgoing（出庫）」「used（生産使用）」「PRODUCTION_OUTPUT（生産完了入庫）」「PRODUCTION_REVERSAL（生産完了取消）」「adjustment（在庫調整）」から選択します。`Item`・`Warehouse`へのFK、`location`、`quantity`、`movement_date`、`description`、`reference_document`（例: PO番号やSO番号）、記録者`operator`（`CustomUser`へのFK、`on_delete=SET_NULL`）を持ちます。
 
-**PurchaseOrder（発注）** – サプライヤーへの発注情報を表すクラスです。`order_number`（発注番号）がユニークキーとして設定され (github.com)、発注先の`supplier`（`Supplier`へのFK）と発注対象の`item`（`Item`へのFK）を持ちます (github.com)。`quantity`（発注数量）および実際に受け入れた数量`received_quantity`を保持し、発注日`order_date`（自動現在日時）と期待納期`expected_arrival`（任意）があります (github.com github.com)。さらに、どの倉庫に入庫する予定かを示す`warehouse`（`Warehouse`へのFK）も持ちます (github.com)。`PurchaseOrder`は`Supplier`と`Item`に対する多対一の関連を持ち、`Warehouse`とも紐づいて、「ある仕入先への特定品目の発注」と「入庫予定先倉庫」を関連付けています。
+**PurchaseOrder（入庫予定）** – サプライヤーへの発注・入庫予定を表すクラスです。`order_number`（発注番号、ユニーク）、`supplier_rel`（`Supplier`へのFK）、`part_number_rel`（`Item`へのFK）を持ち、`quantity`（発注数量）・`received_quantity`（入庫済数量）・`remaining_quantity`プロパティ（残数量）で入庫進捗を管理します。`status`は「pending（未入庫）」「partially_received（一部入庫）」「fully_received（全量入庫済み）」「canceled（キャンセル）」です。指示書番号、便番号、機種、色情報、納入先/納入元、備考欄（`remarks1`〜`5`）等、現場運用に合わせた多数の付帯項目も持ちます。`warehouse_rel`で入庫予定倉庫を示します。
+
+**Receipt（入庫実績）** – 実際に行われた入庫の実績を記録するクラスです。`purchase_order`（`PurchaseOrder`へのFK、`related_name="receipts"`）、`received_quantity`、`received_date`、`warehouse_rel`、`location`、作業者`operator`（`CustomUser`へのFK）、`remarks`を持ちます。
+
+**SalesOrder（出庫予定）** – 出庫予定（受注に基づく出庫指示）を表すクラスです。実装上は`inventory`アプリに定義されています。`order_number`（受注番号、ユニーク）、`item_rel`（`Item`へのFK）、`warehouse_rel`（出庫元倉庫）、`quantity`（出庫予定数量）、`shipped_quantity`（出庫済数量）、`remaining_quantity`プロパティを持ちます。`status`は「pending」「shipped」「canceled」です。複数ロケーションからのFIFO順（`Inventory.first_received_at`が古い順）の引当・出庫処理は、`SalesOrderViewSet`のカスタムアクション（`allocate`等）として実装されています。
 
 ## Production（生産）モジュール
 
-**SalesOrder（受注）** – 顧客からの受注（生産すべき製品の注文）を表すクラスです。実装上はProductionアプリ内に定義されています。`SalesOrder`には`item`（受注製品、`Item`へのFK）および`warehouse`（出荷元倉庫、`Warehouse`へのFK）を持ちます (github.com)。これにより「どの製品をどの倉庫から出荷するか」が決まります。ただし現段階では数量や顧客情報といった詳細は保持していません。受注数量については後述の`ProductionPlan`側で管理され、`SalesOrder`自体は主に製品と出荷拠点の情報に留まっています。また、設計上は`Product`という別モデルを作成して製品情報を管理する計画があり、コード中に「master.Productモデルが定義されたらForeignKeyに変更する」とのコメントがあります (github.com)。現状では`Product`モデルが未実装のため、`SalesOrder`や`ProductionPlan`では製品を直接`Item`で参照する形になっています。
+**ProductionPlan（生産計画）** – 製造指示・生産計画を表すクラスです。UUIDv7の`id`で識別されます。`plan_name`（計画名）、`product`（`master.Item`へのFK、`item_type="product"`に限定、DBカラム名`product_code`）、`planned_quantity`（計画数量）、計画開始・終了日時、実績の開始・終了日時を持ち、進捗ステータス`status`は「未着手(PENDING)」「進行中(IN_PROGRESS)」「完了(COMPLETED)」「保留(ON_HOLD)」「中止(CANCELLED)」です。`production_plan`という文字列フィールドも別途あり、参照する他の生産計画の名称等を自由記述で記録できます。
 
-**ProductionPlan（生産計画）** – 製造指示・生産計画を表すクラスです。生産計画ごとにレコードがあり、UUIDの`id`で識別されます。`plan_name`（計画名）や製造する製品を示す`product_code`（製品コード）があり、製品コードについては先述のとおり本来は`Product`モデルへのFKにする予定で現在は文字列で仮置きされています (github.com)。`planned_quantity`（計画数量）、計画開始・終了日時（`planned_start_datetime`, `planned_end_datetime`）、実績の開始・終了日時（`actual_start_datetime`, `actual_end_datetime`）を持ち、進捗ステータス`status`も管理します (github.com github.com)。ステータスは「未着手(PENDING)」「進行中(IN_PROGRESS)」「完了(COMPLETED)」「保留(ON_HOLD)」「中止(CANCELLED)」などの選択肢から設定されます (github.com github.com)。備考`remarks`欄もあり、各種日時や数量、ステータス、備考から生産の計画と実績を詳細に記録します (github.com github.com)。`ProductionPlan`は`SalesOrder`と一対一対応（コード上は直接のFKは無いものの、通常は各受注に対して一つの生産計画が紐づく想定）で、`ProductionPlan`の`planned_quantity`等に受注量が反映されます。
+**PartsUsed（使用部品）** – 生産計画において使用された部品の記録を表すクラスです。`part`（`master.Item`へのFK、`item_type="material"`に限定、DBカラム名`part_code`）、`warehouse_rel`（使用倉庫）、`quantity_used`、`used_datetime`を持ちます。**`production_plan`フィールドは`ProductionPlan`へのFKではなく、生産計画の名前やIDを保存する単なる文字列（CharField）です**（コード中のコメントによれば、以前はFKでしたが現在は文字列識別子に変更されています）。そのため`ProductionPlan`側から`PartsUsed`を直接たどる`related_name`は存在しません。
 
-**PartsUsed（使用部品）** – 生産計画において使用された部品の記録を表すクラスです。ある`ProductionPlan`に対し、使用した部品ごとにレコードが作られます。`production_plan`フィールドでどの生産計画に属するかを示し（`ProductionPlan`へのFK、関連名`parts_used`） (github.com)、`part_code`で部品コード（こちらも将来的には`master.Part`モデルへのFKに置き換える予定）を保持します (github.com)。また`quantity_used`（使用数量）と`used_datetime`（使用日時）を記録し、備考`remarks`も残せます (github.com github.com)。作成・更新日時（`created_at`, `updated_at`）も含め、生産で消費された部品の履歴管理に用いられます。`PartsUsed`からは`ProductionPlan`に多対一で関連し、`ProductionPlan`側から関連名`parts_used`で複数の`PartsUsed`を参照できます。
+**MaterialAllocation（材料引当）** – 生産計画に対して原材料を引き当てた情報を表すクラスです。`production_plan`（`ProductionPlan`へのFK、`related_name="material_allocations"`）、`material`（`master.Item`へのFK、材料限定、DBカラム名`material_code`）、`warehouse_rel`（引当倉庫）、`allocated_quantity`、`allocation_datetime`を持ちます。`status`は「引当済(ALLOCATED)」「出庫済(ISSUED)」「返却済(RETURNED)」です。
 
-**MaterialAllocation（材料引当）** – 生産計画に対して原材料を引き当てた（取り置きした）情報を表すクラスです。`production_plan`フィールド（`ProductionPlan`へのFK、関連名`material_allocations`）でどの生産計画向けかを示します (github.com)。`material_code`に引当材料のコード（将来的には`master.Material`モデルへのFK予定）を保持し (github.com)、`allocated_quantity`（引当数量）と`allocation_datetime`（引当日時）を記録します (github.com github.com)。さらに`status`で「引当済(ALLOCATED)」「出庫済(ISSUED)」「返却済(RETURNED)」といった状態を管理します (github.com github.com)。`remarks`欄や作成・更新日時も備え、生産に必要な材料がどれだけ確保され、その後出庫されたか等のライフサイクルを追跡できます。`MaterialAllocation`も`ProductionPlan`に対し多対一の関連で、`ProductionPlan`側から`material_allocations`として参照されます。
-
-**WorkProgress（作業進捗）** – 現場の作業進行状況を記録するクラスです。`ProductionPlan`に対する実行中の工程ステップを表し、`production_plan`フィールドで紐づく生産計画（FK、関連名`work_progresses`）を持ちます (github.com)。`process_step`（工程名/ステップ名）には例として「組立」「塗装」「検査」など工程を示す文字列を入れます (github.com)。`operator`フィールドは作業担当者で、これはカスタムユーザー（`CustomUser`）へのFKになっており、作業者が削除された場合はNULLとなるよう設定されています（`on_delete=models.SET_NULL`） (github.com)。また開始・終了日時（`start_datetime`, `end_datetime`）、完了数量`quantity_completed`、ステータス`status`（進捗状態。「未開始(NOT_STARTED)」「進行中(IN_PROGRESS)」「完了(COMPLETED)」「一時停止(PAUSED)」から選択）を持ちます (github.com github.com github.com)。備考`remarks`や自動記録の作成・更新日時も含め、作業の実績データを詳細に保存します。`WorkProgress`は`ProductionPlan`に対して多対一で複数存在しうる他、`Operator`（`CustomUser`）とも多対一の関係です。一人のユーザーが複数の作業進捗を担当しうることになります。
-
-## Machine（機械）モジュール
-
-Machineモジュールは製造設備や機械に関する管理を行う目的で用意されていますが、2025年5月時点でこのモジュールに実装されたモデルクラスはありません（`MachineConfig`のみが存在）。将来的には機械情報（例えば機械ID、稼働状態、メンテナンス記録等）を扱うクラスが追加される予定です。
+**WorkProgress（作業進捗）** – 現場の作業進行状況を記録するクラスです。`production_plan`（`ProductionPlan`へのFK、`related_name="work_progresses"`）、`process_step`（工程名、例:「組立」「塗装」「検査」）、`operator`（`CustomUser`へのFK、`on_delete=SET_NULL`）、開始・終了日時、`quantity_completed`（良品数）、`actual_reported_quantity`（総生産数）、`defective_reported_quantity`（不良数）、`status`（「未開始(NOT_STARTED)」「進行中(IN_PROGRESS)」「完了(COMPLETED)」「一時停止(PAUSED)」）を持ちます。`production_plan`と`process_step`の組み合わせにユニーク制約があります。
 
 ## Quality（品質）モジュール
 
-Qualityモジュールもまた現在のところモデルクラスが未実装の状態です（`QualityConfig`のみ定義）。品質検査や不良管理などを行うためのモジュールで、今後品質チェック結果や検査項目を扱うクラスが追加される計画と思われます。実際、プロジェクト開始時にQualityアプリは作成されておりマイグレーションも実行可能ですが（READMEの手順に含まれる）、2025年5月時点で対応するモデルは用意されていません。
+**InspectionItem（検査項目マスター）** – どのような検査をどのような基準で行うかを定義するマスターです。`code`（ユニーク）、`name`、`inspection_type`（受入/工程内/最終/出荷/巡回検査）、`target_object_type`（原材料/部品/仕掛品/完成品/設備/工程）、`is_active`を持ちます。
+
+**MeasurementDetail（測定・判定詳細）** – `InspectionItem`に紐づく個別の測定・判定基準です（`related_name="measurement_details"`）。`measurement_type`が「定量測定」の場合は規格値（`specification_nominal`/`upper_limit`/`lower_limit`/`unit`）、「定性判定」の場合は`expected_qualitative_result`を用います。
+
+**InspectionResult（検査実績）** – 実際に行われた検査の結果を記録します。`inspection_item`（FK、`on_delete=PROTECT`）、`inspected_at`、検査員`inspected_by`（`CustomUser`へのFK、`on_delete=SET_NULL`）、検査対象を識別する`part_number`/`lot_number`/`serial_number`、`related_order_type`/`related_order_number`（関連する製造指示・発注等）、`quantity_inspected`、`judgment`（合格/不合格/保留/条件付き合格）、添付ファイル`attachment`等を持ちます。
+
+**InspectionResultDetail（検査実績詳細）** – `InspectionResult`（`related_name="details"`）と`MeasurementDetail`に紐づく個々の測定・判定結果を記録します。
+
+## Machine（設備）モジュール
+
+**Machine（設備マスター）** – 製造設備・機械のマスターデータです。UUIDv7主キー、`machine_number`（設備番号、ユニーク）、`name`、`location`（設置場所）、`description`を持ちます。稼働ログやメンテナンス履歴を扱うモデルは、2026年7月時点では未実装です。
+
+## Base（基盤）モジュール
+
+**BaseSetting** – システム全体のキーバリュー設定を管理します。`name`（ユニークキー）、`value`、`is_active`、論理削除フラグ`is_deleted`を持ちます。
+
+**CsvColumnMapping** / **ModelDisplaySetting** – CSVインポート時の列⇔モデルフィールド対応や、管理画面での表示項目・表示順・検索/フィルタ設定を管理します。対象データ種別は`DATA_TYPE_CHOICES`（品番マスター、在庫、サプライヤー、倉庫、入庫予定、出庫予定、入庫実績、生産計画、使用部品、基本設定、CSV列マッピング、モデル項目表示設定、QRコードアクション、入出庫履歴、顧客、ワークセンター、標準単価）で定義されます。
+
+**QrCodeAction** – QRコード読み取り時に実行するアクションを定義します。正規表現パターン（`qr_code_pattern`）にマッチした場合に、指定のアクション（`mark_as_received`＝入庫としてマーク、`update_inventory`＝在庫更新）を実行します。
+
+**AsyncTask** – Celeryタスクと連携し、非同期処理の進捗（`progress`/`total`）や結果（`result`、JSON）、ステータス（待機中/実行中/成功/失敗/キャンセル済み）を管理します。CSVインポート等の重い処理をフロントエンドからポーリングで進捗確認する際に使用されます。
 
 ## その他補足
 
-**継承関係**: 全てのモデルクラス（Djangoアプリのモデル）は暗黙的に`django.db.models.Model`を継承しています。図では煩雑さを避けるため`Model`基底クラスとの継承関係は省略していますが、例えば`Inventory`や`Item`などは`Model`のサブクラスです。また`CustomUser`は前述の通りDjangoの`AbstractBaseUser`と`PermissionsMixin`を継承しており (github.com)、これによってパスワード管理や権限管理の機能を利用しています。
+**継承関係**: 全てのモデルクラスは暗黙的に`django.db.models.Model`を継承しています。図では煩雑さを避けるため`Model`基底クラスとの継承関係は省略しています。`CustomUser`のみ、Djangoの`AbstractBaseUser`と`PermissionsMixin`を明示的に継承しています。
 
-**関連関係**: モデル間の主な関連は上図の通りです。Masterデータ（`Item`, `Supplier`, `Warehouse`）は他モジュールから参照される側として“一対多”の関連を持ちます。例えば`Item`は在庫`Inventory`、在庫履歴`StockMovement`、発注`PurchaseOrder`、受注`SalesOrder`など複数のクラスから参照されます (github.com github.com)。また`ProductionPlan`を中心に、生産計画と各種リソース（使用部品、材料引当、作業進捗）が一対多で関連付けられています (github.com github.com github.com)。`WorkProgress`と`CustomUser`（Operator）は「ユーザー1人に対し複数の作業進捗」という関係です (github.com)。これら関連により、オープンMESは「マスターデータ – 在庫/発注 – 生産計画 – 実績」という階層構造でデータを組み合わせ、製造実行システムとして機能しています。
+**FK先の指定方法**: `inventory`・`production`アプリの多くのモデルは、`master.Item`や`master.Warehouse`に対して主キー（UUID）ではなく`code`/`warehouse_number`といった業務キーを`to_field`に指定した外部キーを張っています（例: `Inventory.part_number_rel`）。また、Python側では後方互換のため`part_number`・`warehouse`・`item`のような読み書き可能な`@property`が定義されており、旧来の文字列ベースのAPIと同じ名前でアクセスできるようになっています。
+
+**関連関係**: モデル間の主な関連は上図の通りです。Masterデータ（`Item`, `Supplier`, `Warehouse`）は他モジュールから参照される側として"一対多"の関連を持ちます。`ProductionPlan`を中心に、材料引当・作業進捗が一対多で関連付けられていますが、`PartsUsed`だけは`ProductionPlan`への直接のFKを持たず文字列で紐づけている点に注意してください。これら関連により、open-mesは「マスターデータ – 在庫/発注/出荷 – 生産計画 – 実績/品質」という階層構造でデータを組み合わせ、製造実行システムとして機能しています。
 
 ---
 
-## Sources
-
-本クラス図および説明はGitHubリポジトリ上の公開ソースコードに基づいており、各クラスの定義やフィールドは実装時点のコードに準拠しています (github.com github.com github.com)。今後の開発により変更される可能性もありますが、2025年5月現在の最新版におけるクラス構造を網羅的に示しました。
-
-- open-mes-project リポジトリのソースコード（GitHub）(github.com, github.com, github.com, github.com など) (2025年5月30日参照)
+本ドキュメントはソースコード（`backend/src/{base,users,master,inventory,production,quality,machine}/models.py`、2026年7月時点）に基づいて作成されています。モデル定義が変更された場合は、本ドキュメントもあわせて更新してください。

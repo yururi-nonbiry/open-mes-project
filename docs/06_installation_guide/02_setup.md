@@ -3,58 +3,90 @@
 以下では、Dockerを利用したセットアップ手順を中心に説明します。コマンドは基本的にLinuxシェル想定です。
 
 ## 1. コードの入手
-GitHubのopen-mes-projectリポジトリからソースコードを取得します。gitが使える場合は以下のコマンドでクローンできます。
+
+GitHubのopen-mes-projectリポジトリからソースコードを取得します。
+
 ```bash
 git clone https://github.com/mihatama/open-mes-project.git
+cd open-mes-project
 ```
-あるいはGitHub上からZIPアーカイブをダウンロードして任意のディレクトリに展開してください。
 
 ## 2. 環境変数ファイルの設定
-前述した `.env` ファイルをプロジェクトのルートディレクトリ（`open-mes-project/` 内）に作成します。READMEに記載のサンプルを参考に、`SECRET_KEY`やデータベース情報を正しく設定してください
-(github.com
-github.com)。特に、`SECRET_KEY`はDjangoのセキュリティ上重要なキーです。未設定の場合アプリケーションが起動しないため、必ず一意のランダム値を設定します（キー生成コマンドで取得可能
-github.com)。デバッグ目的で開発中は`DEBUG=True`のままで構いませんが、本番環境にデプロイする際は`DEBUG=False`に変更し、`ALLOWED_HOSTS`に適切なドメインやIPを設定してください。
 
-## 3. Dockerイメージのビルドとコンテナ起動
-プロジェクトディレクトリに移動し、Docker Composeでサービスを起動します。
+リポジトリに含まれる `.env.example` をコピーして `.env` ファイルを作成します。
+
 ```bash
-cd open-mes-project
+cp .env.example .env
+```
+
+`SECRET_KEY`、`DATABASE_URL`、`ALLOWED_HOSTS`、`CSRF_TRUSTED_ORIGINS`、`CORS_ALLOWED_ORIGINS` など、必要な項目を編集してください（各項目の意味は[データベース構成](../04_database.md)を参照）。`SECRET_KEY`は以下のコマンドで生成できます。
+
+```bash
+docker compose exec -it backend python3 -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+```
+
+開発中は`DEBUG=True`のままで構いませんが、本番環境にデプロイする際は`DEBUG=False`に変更し、`ALLOWED_HOSTS`に適切なドメインやIPを設定してください。
+
+## 3. Dockerコンテナの起動
+
+プロジェクトディレクトリで、Docker Composeでサービスを起動します。
+
+```bash
 docker compose up -d
 ```
-初回はアプリケーション用Dockerイメージのビルドが行われます。Dockerfile内ではPythonランタイムのセットアップや必要ライブラリのインストール（`requirements.txt`経由
-github.com）が自動実行されます。`docker compose up -d`コマンドにより、バックグラウンドで**open_mes（アプリケーション）コンテナとpostgres（データベース）**コンテナの2つが起動します。コンテナの状態は`docker compose ps`で確認できます。どちらもStateが`running`になっていればOKです。
 
-**補足:** 開発用途でDockerを使わず直接ホストOS上で実行したい場合は、システムにPythonとPostgreSQLを直接セットアップする必要があります。その際は、まず`sudo apt install libpq-dev`でPostgreSQLのクライアントライブラリを導入し、`python3 -m venv venv`で仮想環境を作成・有効化してから、`pip install -r open_mes/image/requirements.txt`を実行します
-(github.com
-github.com)。さらにPostgreSQLをローカルに用意し、`.env`の`DB_HOST`を`localhost`に変えるなどの調整が必要です。基本的にはDocker利用を推奨します。
+初回はDockerイメージのビルドが行われます。これにより以下のコンテナが起動します（詳細は[アーキテクチャ概要](../01_architecture.md)を参照）。
 
-## 4. データベースのマイグレーション
-コンテナ起動後、Djangoのモデルに対応するテーブルをデータベースに作成します。以下のマイグレーションコマンドを順に実行してください（※Dockerコンテナ内でコマンドを実行します）
-(github.com)。
+- `db`（PostgreSQL）
+- `redis`（Celeryのブローカー）
+- `backend`（Djangoアプリ。起動時に自動で `manage.py migrate` を実行してからGunicornを起動）
+- `worker`（Celeryワーカー）
+- `frontend`（React/Viteアプリ。開発サーバーはポート5173）
+
+コンテナの状態は`docker compose ps`で確認できます。すべて`running`（`db`と`redis`は`healthy`）になっていればOKです。マイグレーションは`backend`コンテナの起動コマンドに含まれているため、個別に`makemigrations`/`migrate`を実行する必要はありません。
+
+## 4. フロントエンドの依存関係インストール（初回のみ）
+
+`frontend`コンテナの起動時にコンテナ内で自動的に依存パッケージがインストールされますが、うまく反映されない場合は以下で明示的にインストールできます。
 
 ```bash
-docker compose exec -it open_mes python3 manage.py makemigrations base
-docker compose exec -it open_mes python3 manage.py makemigrations inventory
-docker compose exec -it open_mes python3 manage.py makemigrations machine
-docker compose exec -it open_mes python3 manage.py makemigrations master
-docker compose exec -it open_mes python3 manage.py makemigrations production
-docker compose exec -it open_mes python3 manage.py makemigrations quality
-docker compose exec -it open_mes python3 manage.py makemigrations users
-docker compose exec -it open_mes python3 manage.py migrate
+docker compose run --rm frontend npm install
 ```
-上記により、各アプリケーション（base, inventory, machine, master, production, quality, users）のマイグレーションファイルが適用され、テーブル作成やスキーマ変更が行われます
-(github.com)。`migrate`コマンドまで正常に完了したら、データベース準備は完了です。エラーが出る場合は`.env`のDB設定誤りやPostgreSQLコンテナの起動失敗が考えられますので、設定を見直してください。
+
+本番相当のビルド済み静的ファイル（`frontend/dist`）が必要な場合は、以下でビルドします（ホストにNode.jsは不要）。
+
+```bash
+docker compose run --rm frontend npm run build
+```
 
 ## 5. 管理者ユーザーの作成
-アプリケーションにログインし管理操作を行うため、スーパーユーザー（管理者）のアカウントを作成します。以下のコマンドで対話的にユーザー名・メールアドレス・パスワードを設定してください
-(github.com)。
+
+アプリケーションにログインし管理操作を行うため、スーパーユーザー（管理者）のアカウントを作成します。ログインIDは`custom_id`フィールドが使われます。
 
 ```bash
-docker compose exec -it open_mes python3 manage.py createsuperuser
+docker compose exec -it backend python3 manage.py createsuperuser
 ```
-このユーザーはシステム内で最高権限を持ち、各種マスタ登録や他ユーザー管理、設定変更が可能になります。メールアドレスはダミーでも構いませんが、ユーザー名とパスワードは忘れないよう控えておきます（パスワードは入力しても画面に表示されません）。
 
 ## 6. アプリケーションへのアクセス
-以上で初期セットアップは完了です。ブラウザを開き、アプリケーションにアクセスしてみましょう。デフォルトではコンテナ内のDjango開発サーバがポート8000で起動しているため、ホストの`http://localhost:8000/` にアクセスします。ログイン画面が表示されたら、先ほど作成した管理者ユーザーの資格情報でログインしてください。無事ログインできればセットアップ成功です。初期画面としてはダッシュボードやメニュー画面が表示され、各機能（在庫管理・生産管理等）へ遷移できるようになっているはずです。
 
-**メモ:** Docker Composeの設定によってはポートをホストに公開していない場合があります。その際は`docker compose logs -f open_mes`でログを確認し、「Starting development server at http://0.0.0.0:8000」等のメッセージを探してください。もし見当たらない場合、Dockerfile/ComposeでデフォルトのCMDが実行されていない可能性があります。必要に応じて`docker compose exec -it open_mes python3 manage.py runserver 0.0.0.0:8000`で開発サーバを手動起動してポートフォワードを確認してください。
+開発環境では、ブラウザで `http://localhost:5173/` にアクセスするとReactフロントエンドが表示されます（Viteの開発サーバーが `/api`, `/admin`, `/static`, `/__debug__` 宛のリクエストをバックエンドにプロキシします）。ログイン画面が表示されたら、先ほど作成した管理者ユーザーの資格情報でログインしてください。
+
+Django管理サイト（`/admin/`）には `http://localhost:5173/admin/` からアクセスできます。
+
+**メモ:** ログが確認したい場合は`docker compose logs -f backend`や`docker compose logs -f frontend`を実行してください。
+
+## 7. 本番/HTTPS環境での起動
+
+本番相当の構成には、Nginxリバースプロキシを含む `compose.prod.yml`（HTTP、ポート80）や、Let's EncryptによるHTTPS対応を含む `compose.https.yml`（`certbot`コンテナ、`DOMAIN`/`EMAIL`/`CERTBOT_USE_STAGING`の`.env`設定が必要）を使用します。
+
+```bash
+docker compose -f compose.prod.yml up -d
+# または
+docker compose -f compose.https.yml up -d
+```
+
+これらの構成では、ホスト側で事前にビルドしたフロントエンド静的ファイル（`frontend/dist`）を使用するため、起動前に手順4のビルドコマンドを実行しておく必要があります。
+
+## 8. （参考）Windows上でのDockerを使わないセットアップ
+
+`start.bat` を使うと、Windows上でDockerを使わずPython仮想環境（`venv`）とSQLite（デフォルト）で開発・テスト環境を構築できます。手順の詳細はリポジトリルートの[README.md](../../README.md)を参照してください。

@@ -1,23 +1,41 @@
 # テスト方法
 
-品質を維持するため、自動テストの整備が推奨されます。Djangoには標準でテストフレームワークが組み込まれており、各アプリケーション内に`tests.py`もしくは`tests/`パッケージを作成してユニットテストや機能テストを実装できます。開発者は新しいモデルやビューを追加した際、それらの振る舞いを検証するテストコードを書くことが望ましいです。
+バックエンド（`backend/src/`）は、Django標準のテストフレームワーク（`unittest`ベース）でユニットテスト・APIテストを実装しています。各アプリの`tests/`ディレクトリ（例: `inventory/tests/`）にテストモジュールが分割されています。
 
 ## テストの種類
 
-- **ユニットテスト**: 個々のモデルメソッドやユーティリティ関数、ビューの挙動を最小単位で検証します。例えば、在庫引当のロジックが正しく在庫数を減らすか、品質判定関数が仕様通りに合否を返すか、といったテストを実装します。Djangoの`TestCase`クラスを継承し、セットアップでモデルのインスタンスを作成し、メソッド呼び出し結果を`assert`で確認します。
+- **モデル/ロジックのユニットテスト**: 在庫引当のFIFOロジックや在庫数の増減計算など、モデルメソッドやサービス関数の振る舞いを検証します。
+- **APIテスト**: DRFの`APITestCase`（`rest_framework.test`）を使い、`/api/<app>/...`エンドポイントへのリクエストとレスポンスを検証します。認証が必要なエンドポイントは`force_authenticate`等でユーザーを設定してテストします。
+- **フロントエンド**: `frontend/`側には現時点で自動テストの仕組みは整備されておらず、`npm run lint`（ESLint）と`npm run type-check`（`tsc --noEmit`）による静的チェックが中心です。
 
-- **統合テスト（機能テスト）**: 複数のコンポーネントが協調して正しく動くかを検証します。Djangoの場合、`Client`クラスを使ってHTTPリクエストをシミュレートし、ビューの応答やテンプレート内容、リダイレクトを確認するテストが典型です。ログインが必要なページへのアクセス制御や、フォーム入力からデータベースへの反映まで通しで確認するテストケースを作成します。
+## テストの実行
 
-- **エンドツーエンドテスト（E2E）**: 必要に応じてSeleniumやPlaywrightといったツールでブラウザ上での挙動をテストできます。ただし開発初期段階ではユニットテスト・統合テストを中心に据え、E2Eは手動検証でカバーしても良いでしょう。
+データベースはPostgreSQL（`.env`の`DATABASE_URL`）を使用するため、テスト実行時にはDBコンテナが起動している必要があります。Djangoが自動的にテスト用の一時データベースを作成・破棄します。
 
-## テストデータベース
-テスト実行時、Djangoは自動的に一時的なSQLiteや設定によってはPostgreSQL上にテスト用データベースを作成します。基本設定ではSQLiteメモリDBが使われ高速に動作しますが、PostgreSQL特有の挙動をテストしたい場合は`settings.py`内でTEST用のDB設定をPostgreSQLに向けても構いません。
-
-テスト実行コマンドは以下の通りです。
 ```bash
-docker compose exec -it open_mes python3 manage.py test
+docker compose exec -it backend python3 manage.py test
 ```
-またはDockerを使わずローカルで動かしている場合は単に`python manage.py test`です。テスト全件実行に時間がかかる場合、モジュール単位で`manage.py test inventory`のように指定も可能です。
 
-## カバレッジとCI
-テストカバレッジ（網羅率）を測定するには、Pythonの`coverage`ツールを利用します。例えばGitHub Actions等のCI上で`coverage run -m pytest`（またはDjangoテスト）を実行し、カバレッジレポートを生成・バッジ表示する運用も考えられます。現時点でCI設定は導入されていないようですが、プロジェクトが成長した際にはCIでの自動テスト実行・ステータスチェックを取り入れることで品質保証とリリースの信頼性向上に繋がります。
+アプリ単位で絞り込む場合:
+
+```bash
+docker compose exec -it backend python3 manage.py test inventory
+```
+
+## テストレポートの生成（推奨）
+
+本プロジェクトでは、テスト結果をMarkdownレポートとして`docs/09_test_specifications/reports/`配下に保存する仕組み（`script/run_tests.sh` + `testutils.report_runner.JsonReportDiscoverRunner`）が用意されています。新しいテストを追加・実行する際は、こちらのスクリプト経由での実行が推奨されます。
+
+```bash
+script/run_tests.sh inventory
+```
+
+詳しい仕組みや、モジュール別のテスト仕様書との対応付けについては[テスト仕様書 - テストの実行方法とレポートの残し方](../09_test_specifications/02_running_tests.md)を参照してください。各モジュールのテストケース一覧・既知の懸念事項は`docs/09_test_specifications/0X_<モジュール名>.md`にまとめられています。
+
+## リンター
+
+Pythonコードは`ruff`でリントします。
+
+```bash
+docker compose exec -it backend ruff check .
+```

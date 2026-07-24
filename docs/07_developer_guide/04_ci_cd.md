@@ -1,28 +1,29 @@
 # CI/CD パイプライン
 
-継続的インテグレーション/デプロイ (CI/CD) の仕組みは、プロジェクトに自動化と一貫性をもたらします。open-mes-projectでは現状、GitHubのActions等によるCI設定は公開されていませんが、開発者向けには今後以下のようなCI/CDを構築することが推奨されます。
+継続的インテグレーション/デプロイ (CI/CD) の仕組みは、プロジェクトに自動化と一貫性をもたらします。2026年7月時点、open-mes-projectには`.github/workflows`等によるCI設定は導入されておらず、テストやビルドの実行は開発者が手動（または[テスト方法](./03_testing.md)で紹介した`script/run_tests.sh`）で行っています。将来的には以下のようなCI/CDの構築が考えられます。
 
-## CI（継続的インテグレーション）
-コードがリポジトリにプッシュされるたびに、自動でテストとビルドが走るようにします。GitHub Actionsを例にすると、YAMLワークフローを定義して、`push`や`pull_request`トリガーで以下を実行できます:
+## CI（継続的インテグレーション）候補
 
-1.  Python実行環境をセットアップ（適切なバージョンのPythonを使用）。
-2.  プロジェクト依存関係をインストール（`pip install -r open_mes/image/requirements.txt`）。
-3.  データベースサービス（PostgreSQL）のセットアップ。Actionsのサービス機能でPostgreSQLコンテナを立ち上げるか、SQLiteを使う場合は不要。
-4.  テストスイートの実行（`manage.py test`）。
-5.  カバレッジやリンター（flake8やpylint）も実行し、コード品質もチェック。
+GitHub Actionsを例にすると、`push`や`pull_request`トリガーで以下を実行できます:
 
-このプロセスにより、マージ前にコードが正常に動作するかを自動検証できます。仮にテスト失敗やコンパイルエラーがあれば、PRに✕マークが付き、修正が促されます。
+1.  バックエンド: Python実行環境をセットアップし、依存関係をインストール（`pip install -r backend/image/requirements.txt`）。
+2.  データベースサービス（PostgreSQL）とRedisをActionsのservicesとして起動。
+3.  バックエンドのテストスイートを実行（`python manage.py test`、または既存の`testutils.report_runner.JsonReportDiscoverRunner`を利用）。
+4.  `ruff check .`によるリント。
+5.  フロントエンド: Node.js環境をセットアップし、`npm ci`、`npm run lint`、`npm run type-check`、`npm run build`を実行。
 
-## CD（継続的デプロイ/デリバリ）
-安定版をリリースする際にデプロイを自動化します。例えば新しいリリースタグをPushしたら:
+このプロセスにより、マージ前にコードが正常に動作するかを自動検証できます。
+
+## CD（継続的デプロイ/デリバリ）候補
+
+安定版をリリースする際にデプロイを自動化する場合、例えば以下のような流れが考えられます。
 
 1.  上記CIと同様にビルド・テストを実施。
-2.  Dockerイメージをビルドし、コンテナレジストリ（Docker HubやGitHub Packages等）にプッシュ。
-3.  （自動デプロイするなら）サーバにデプロイスクリプトを走らせ、新イメージをpullしてコンテナを更新、あるいはKubernetesクラスタの場合はイメージのローリングアップデートを行う。
+2.  `docker compose -f compose.prod.yml build`（または`compose.https.yml`）でDockerイメージをビルドし、コンテナレジストリにプッシュ。
+3.  本番サーバにデプロイスクリプトを走らせ、新イメージをpullしてコンテナを更新する。
 
-簡易的には、開発者がリリース用に`docker compose`でイメージをビルドし、手動でサーバに配備する方法もあります。しかし、将来的に利用者が増えれば、公式のDockerイメージを提供し`docker pull mihatama/open-mes:latest`で誰でも環境構築できるようになると利便性が高まります。
+現状は開発者が`docker compose -f compose.prod.yml up -d --build`のような形で手動デプロイすることを想定した構成になっています。
 
 ## バージョニング
-リリースにはSemantic Versioning（セマンティックバージョニング）を採用し、例えば`v1.0.0`, `v1.1.0`, `v2.0.0`のようにタグ付けすると良いでしょう。GitHubのReleasesページで変更ログを記載し、ユーザーがバージョンアップ内容を追えるようにします。
 
-現在はまだ初期公開段階（スター数もまだ少なく、コミット数66程度 github.com）ですが、CI/CD基盤を早めに整えておくことで、開発効率と信頼性を向上させることができます。
+リリースにはSemantic Versioning（例: `v1.0.0`）の採用が考えられます。`backend/src/base/settings.py`には`VERSION`変数（本ドキュメント作成時点では`"0.0.0"`）が定義されており、今後リリース管理に利用できます。

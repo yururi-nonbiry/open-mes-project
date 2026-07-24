@@ -1,9 +1,38 @@
 # 使用言語・フレームワーク・ライブラリ
 
-本プロジェクトの主な実装言語はPython 3系です。Webアプリケーションフレームワークとして Django (Python) を採用しており、MTVアーキテクチャ（Model-Template-View）に従って開発されています。フロントエンドはDjangoのテンプレートエンジンを用いたHTMLおよびCSS/JavaScriptで構築されています。スタイルやレイアウトには必要に応じてBootstrap等のCSSフレームワークが利用されている可能性があります（※GitHub上でHTMLコードが約半数を占めることから、テンプレートや静的ファイルが多く含まれていると推測されます
-[github.com](https://github.com/mihatama/open-mes-project))。JavaScriptについては大規模なSPAフレームワーク（React/Vue等）ではなく、必要最低限のスクリプトでフォーム操作や簡易的な動的処理を実現しているものと思われます。
+## バックエンド（`backend/`）
 
-主要な依存ライブラリとしては、Django本体のほかpsycopg2（PostgreSQL用のPythonドライバ）が含まれます。Django REST FrameworkなどのAPIフレームワークについては、将来的なIoT連携や外部システム連携のために導入が検討される可能性がありますが（リアルタイムなデータ収集・分析機能を実現するため
-[prtimes.jp](https://prtimes.jp/main/html/rd/p/000000002.000134589.html))、現時点で具体的に使用しているかは不明です。その他、日付処理や数値計算が必要な箇所ではPython標準ライブラリやユーティリティライブラリ（例えば Pandas や NumPy 等）が使われる可能性がありますが、プロジェクト開始当初の段階では基本的なDjango機能と組み込み機能で実装されていると考えられます。
+主な実装言語はPython 3系です。主要な依存パッケージ（`backend/image/requirements.txt`）は以下の通りです。
 
-フロントエンド側では、HTMLテンプレート内でDjangoのタグを用いて動的にコンテンツを生成し、必要に応じてjQueryなどの軽量なJSライブラリを用いてフォームの検証やUIの動的更新を行っている可能性があります。また、グラフ表示やダッシュボードの実現には、例えば Chart.js や D3.js といったライブラリの導入も考えられますが、現行リリースでは実装範囲は限定的かもしれません。UIデザインは製造現場での使用を意識してシンプルで視認性の高いものになっており、PCのブラウザからの利用が主眼ですが、将来的にはタブレット等からの利用も想定したレスポンシブ対応も視野に入れているでしょう。
+- **Django 5.1.7**: Webアプリケーションフレームワーク。今回はテンプレートレンダリングではなくREST APIサーバーとして使用しています。
+- **djangorestframework 3.15**: REST APIの実装に使用。
+- **djangorestframework-simplejwt 5.3**: JWTによる認証（アクセストークン/リフレッシュトークン、ブラックリスト機能）。
+- **django-filter**: APIのクエリパラメータによる絞り込み。
+- **django-cors-headers**: フロントエンド（Vite開発サーバーや別オリジン）からのCORSリクエストを許可。
+- **django-vite**: フロントエンドのビルド成果物（`frontend/dist`）をDjango側のテンプレートから参照するための連携。
+- **django-debug-toolbar**: 開発時のデバッグツールバー。
+- **whitenoise**: 本番環境での静的ファイル配信。
+- **celery 5.4** / **redis 5.0**: 非同期タスクの実行（`worker`コンテナ）。
+- **psycopg2-binary**: PostgreSQL用のPythonドライバ。
+- **uuid6**: モデルの主キーにUUIDv7を採番するために使用（`Inventory`, `Warehouse`, `ProductionPlan`など多くのモデルで採用）。
+- **gunicorn**: 本番環境のWSGIサーバー。
+- **ruff**: リンター。
+
+## フロントエンド（`frontend/`）
+
+- **React 19** + **TypeScript** によるSPA。ビルドツールは**Vite 7**。
+- **react-router-dom 7**: クライアントサイドルーティング。
+- **react-bootstrap** / **bootstrap 5**: UIコンポーネントとスタイリング。
+- **@zxing/browser** / **@zxing/library** / **html5-qrcode**: バーコード・QRコードの読み取り機能（現場でのスキャン作業を想定）。
+- **qrcode.react**: QRコードの生成・表示。
+- **@hello-pangea/dnd** / **sortablejs**: ドラッグ&ドロップ（倉庫レイアウト編集などで使用）。
+- **react-dropzone**: ファイル（CSVインポート等）のドラッグ&ドロップアップロード。
+- **ESLint** + **typescript-eslint**: Lintツール。
+
+フロントエンドは開発時はViteの開発サーバー（`npm run dev`、ポート5173）で動作し、本番ビルド（`npm run build`）した静的ファイルはNginx（またはdjango-vite経由）で配信されます。Django側にHTMLテンプレートを描画する画面はほぼ存在せず、UIはReact側で完結しています。
+
+## その他
+
+- **データベース**: PostgreSQL。
+- **キャッシュ/メッセージブローカー**: Redis（Celery用）。
+- **言語**: システムの表示言語はデフォルトで日本語（`LANGUAGE_CODE = "ja"`）、タイムゾーンは `Asia/Tokyo` です。
