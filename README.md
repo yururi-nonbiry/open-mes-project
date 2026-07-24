@@ -1,216 +1,241 @@
-# open-mes-project
+# open-mes-project (生産ナビ)
+
+Django (Backend / REST API) と React + TypeScript (Frontend) を組み合わせた、製造実行システム (MES) のWebアプリケーションです。
+生産管理・在庫管理・品質管理・設備管理・マスタ管理・ユーザー管理といった、中小規模工場の製造現場DX化に必要な機能をオールインワンで提供します。オープンソースで公開されており、自社ニーズに合わせて自由に改変・拡張できます。
 
 ## 詳細ドキュメント
 
-Open MES Project (生産ナビ) の詳細な技術ドキュメントやガイドラインは、[こちら (`docs/README.md`)](./docs/README.md) を参照してください。
-これらのドキュメントは `docs` ディレクトリに格納されています。
-
-### 目次
-
-#### 1. プロジェクト概要とアーキテクチャ
-- プロジェクト紹介
-- システムアーキテクチャ
-
-#### 2. 機能と技術スタック
-- 主要機能とモジュール
-- 使用言語・フレームワーク・ライブラリ
-- データベース構成
-- API構造と言語インタフェース
-
-#### 3. 導入ガイド
-- 開発・実行環境の前提条件
-- セットアップ手順
-- トラブルシューティング
-
-#### 4. 開発者向けドキュメント
-- コードベースの構成
-- 開発フローとブランチ戦略
-- テスト方法
-- CI/CD パイプライン
-- 機能拡張の指針
-- クラス構造
+より詳細な技術ドキュメントやガイドラインは、[こちら (`docs/README.md`)](./docs/README.md) を参照してください。アーキテクチャ、データベース構成、API構造、クラス構造、開発フロー、テスト仕様書などが `docs` ディレクトリに格納されています。
 
 ---
 
-## 動作推奨環境
+## 技術スタック
 
-**推奨OS:** Ubuntu
+### バックエンド (`backend/`)
+- **Django 5.1 / Django REST Framework**: REST APIサーバー（画面のHTMLは返さない）
+- **djangorestframework-simplejwt**: JWT認証
+- **Celery / Redis**: 非同期タスク処理（`worker`コンテナ）
+- **PostgreSQL (psycopg2-binary)**: データベース
+- **gunicorn / whitenoise**: 本番環境でのアプリケーションサーバー・静的ファイル配信
 
-**推奨環境:**
+### フロントエンド (`frontend/`)
+- **React 19 + TypeScript**: SPA
+- **Vite 7**: ビルドツール・開発サーバー
+- **react-router-dom / react-bootstrap**: ルーティング・UIコンポーネント
+- **@zxing/browser, html5-qrcode, qrcode.react**: バーコード・QRコードの読み取り/生成
 
-1.  **Ubuntu Server 24.04 LTS (最新版):** 本番環境での運用に最適です。安定性とセキュリティに優れており、サーバー用途に特化した機能が充実しています。
-2.  **Ubuntu Desktop 24.04 LTS (最新版):** 開発環境やテスト環境として利用できます。デスクトップ環境が必要な場合に適しています。
+### インフラ・開発環境
+- **Docker / Docker Compose**: コンテナ化環境（開発用・本番用・HTTPS用の構成を用意）
+- **Nginx / certbot**: 本番環境でのリバースプロキシ・Let's Encrypt証明書取得
 
-**必須ソフトウェア:**
-
-*   **Docker:** コンテナ化された環境でアプリケーションを実行するために必要です。
-*   **Docker Compose:** 複数のDockerコンテナを定義し、管理するためのツールです。
-*   **PostgreSQL:** データベースとして使用します。
-
-**備考:** 上記以外のOSでも動作する可能性がありますが、検証は行っておりません。
-
-## テスト実行環境の構築(windows)
-`start.bat` は、Windows上で開発・テスト環境を簡単にセットアップし、アプリケーションを起動するためのバッチスクリプトです。
-
-**前提条件:**
-*   Windows OS。
-*   Python 3.11 がインストールされ、システムのPATHに追加されていること (Pipも同様に利用可能であること)。
-*   プロジェクトファイルがローカルに展開されていること (例: Gitクローン)。
-
-**実行方法:**
-1.  コマンドプロンプトまたはPowerShellを開きます。
-2.  プロジェクトのルートディレクトリ (<code>start.bat</code> ファイルがあるディレクトリ) に移動します。
-3.  以下のコマンドを実行します:
-    ```bat
-    start.bat
-    ```
-
-**初回実行時の主な動作:**
-スクリプトは対話形式で進行し、以下の処理を自動または確認を求めながら行います。
-*   PythonおよびPipのバージョンを確認します。
-*   プロジェクトルートに `venv` という名前でPython仮想環境を作成し、有効化します。
-*   <code>image/requirements.txt</code> に基づいて必要なライブラリをインストールします。
-    *   これにはPostgreSQL用の `psycopg2` も含まれます。もし `psycopg2` のインストールでエラーが発生した場合、PostgreSQLクライアントライブラリのインストールや、Microsoft Visual C++ Build Toolsが必要になることがあります。スクリプト内の指示や、<code>requirements.txt</code> を編集して `psycopg2-binary` を使用することも検討してください。
-*   <code>scr</code> ディレクトリに <code>.env</code> ファイルが存在しない場合、SQLiteをデフォルトのデータベースとして設定し、一意の `SECRET_KEY` を自動生成してファイルを作成します。
-*   作成された <code>.env</code> ファイルの内容 (特に `SECRET_KEY` やデータベース設定) を確認し、必要に応じて修正するよう促されます (スクリプトが一時停止します)。
-*   Djangoのデータベースマイグレーションを実行します (デフォルトのSQLiteの場合、<code>scr</code> ディレクトリ近辺に `db.sqlite3` ファイルが生成されることがあります)。
-*   Django管理サイトにアクセスするためのスーパーユーザーを作成するかどうかを尋ねられます。
-*   セットアップが完了したことを示すフラグファイル (<code>venv\.setup_complete</code>) を作成し、次回以降の起動時に初期セットアップ手順をスキップします。
-
-**2回目以降の実行時の主な動作:**
-*   仮想環境を有効化します。
-*   Djangoのデータベースマイグレーションを実行します。
-*   Django開発サーバーを起動します (通常、ブラウザで <code>http://127.0.0.1:8000</code> からアクセスできます)。
-
-**重要な注意点:**
-*   スクリプトの指示に従って操作してください。特に <code>.env</code> ファイルの設定確認は重要です。
-*   デフォルトはSQLiteですが、PostgreSQLを使用したい場合は、<code>start.bat</code> が <code>.env</code> ファイルを作成した後 (またはスクリプトの一時停止中に)、<code>scr/.env</code> ファイル内のデータベース関連の設定 (<code>DB_ENGINE</code>, <code>DB_NAME</code>, <code>DB_USER</code>, <code>DB_PASSWORD</code>, <code>DB_HOST</code>, <code>DB_PORT</code>) を適切に変更してください。PostgreSQLサーバーが稼働していることも確認が必要です。
-*   開発サーバーを停止するには、<code>start.bat</code> を実行しているコンソールウィンドウで `Ctrl+C` を押してください。
-*   このスクリプトは、プロジェクトのルートディレクトリから実行されることを想定しています。
+詳細な依存パッケージの一覧は [使用言語・フレームワーク・ライブラリ](./docs/03_tech_stack.md) を参照してください。
 
 ---
 
-## 開発環境の構築
-venvで使用するライブラリを入れることをおすすめします。
-使用するコマンド
+## 主要機能
+
+### 1. 生産管理・在庫管理
+- 作業指示・製造オーダーの発行と進捗管理
+- 原材料・部品・製品の入庫、保管、出庫、FIFO順での在庫引当
+
+### 2. 品質管理・設備管理
+- 検査記録の管理・分析、不良率や品質傾向の可視化
+- 工作機械・生産設備のマスタ情報管理
+
+### 3. マスタ管理・ユーザー管理
+- 品目、サプライヤー、倉庫・ロケーション、顧客、ワークセンター等の基本データ管理
+- JWTによるログイン認証、権限ロール、パスワード有効期限管理
+
+### 4. デザイン・UI
+- **メッセージ表示**: 通知・確認・エラーメッセージなどはモーダルウインドウで表示する。
+
+各機能の詳細は [主要機能とモジュール](./docs/02_features_modules.md) を参照してください。
+
+---
+
+## ディレクトリ構造
+
+```text
+.
+├── backend/                # Django (REST API) バックエンド
+│   ├── image/               # Dockerイメージ定義・requirements.txt
+│   └── src/                 # アプリケーション本体（各業務モジュール）
+├── frontend/                # React + TypeScript (Vite) フロントエンド
+│   └── src/                 # 画面・コンポーネント（pages/配下が機能モジュール単位）
+├── db/                      # PostgreSQL 用 Dockerイメージ定義
+├── reverse-proxy*/          # Nginx リバースプロキシ設定（開発/本番/HTTPS）
+├── certbot/                 # Let's Encrypt 証明書取得用コンテナ定義
+├── script/                  # テストデータ作成・テスト実行等の運用スクリプト
+├── docs/                    # 詳細な技術ドキュメント・テスト仕様書
+├── compose.yml              # 開発用 Docker Compose
+├── compose.prod.yml         # 本番用 Docker Compose（HTTP）
+├── compose.https.yml        # 本番用 Docker Compose（HTTPS/certbot）
+└── start.bat                # Windows上でDockerを使わず起動するスクリプト
 ```
 
-sudo apt update
-sudo apt install libpq-dev
+---
 
+## 前提条件・動作環境
 
-# venvが入っていない場合
-sudo apt install python3-venv
+**推奨OS**: Ubuntu 24.04 LTS（Server版/Desktop版）。Docker経由であればWindows/macOSでも動作可能です。
 
-# 仮想環境に入る
-source venv/bin/activate
+以下がインストールされていることを確認してください。
 
-# ライブラリインストール
-pip install -r ./open_mes/image/requirements.txt
+- **Docker**
+- **Docker Compose**（`docker compose`プラグインまたはDocker Desktop同梱のCompose）
 
-```
-## buildコマンド
-```
-docker compose run --rm frontend npm run build
-docker compose -f compose.yml run --rm frontend npm run build
-```
+> 本プロジェクトはDocker Compose上での実行を前提としており、PostgreSQL・Redisを含めホスト側に個別のランタイムを直接インストールする必要はありません。
 
-## 初回は下記コマンドを実行
-```
-docker compose run -it --rm backend python3 manage.py migrate
-docker compose -f compose.yml run -it --rm backend python3 manage.py migrate
-```
-## 管理者を登録
-```
-docker compose exec -it backend python3 manage.py createsuperuser
-docker compose run -it --rm backend python3 manage.py createsuperuser
-docker compose -f compose.yml run -it --rm backend python3 manage.py createsuperuser
-```
+Windows上でDockerを使わずローカル実行する場合のみ、以下が必要です（後述の [Windows(start.bat)でのセットアップ](#windows上でdockerを使わないセットアップstartbat) を参照）。
 
-## 環境変数の設定 (.env)
+- **Python 3.11 以上**（PATHに追加済み、pip利用可能）
 
-プロジェクトには `.env.example` ファイルが含まれています。これをコピーして `.env` ファイルを作成し、必要な設定を行ってください。
+より詳細な要件（ハードウェア要件等）は [開発・実行環境の前提条件](./docs/06_installation_guide/01_prerequisites.md) を参照してください。
 
+---
+
+## セットアップ手順
+
+### 1. 環境変数の設定
 ```bash
 cp .env.example .env
 ```
+必要に応じて `.env` 内の値を編集してください（各項目の意味は [環境変数一覧](#環境変数一覧) を参照）。
 
-### 設定項目説明
+### 2. Dockerコンテナの起動
+```bash
+docker compose up --build -d
+```
+初回はDockerイメージのビルドが行われ、`db` (PostgreSQL) / `redis` / `backend` (Django) / `worker` (Celery) / `frontend` (React/Vite) の各コンテナが起動します。マイグレーションは`backend`コンテナの起動コマンドに含まれているため、個別に実行する必要はありません。
 
-*   **SECRET_KEY**: Djangoのセキュリティキーです。本番環境では必ず推測不可能な値に変更してください。
-    *   キーの生成コマンド例:
-        ```bash
-        docker compose exec -it backend python3 -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
-        ```
-*   **DEBUG**: デバッグモードの有効化。本番環境では `False` に設定します。
-*   **ALLOWED_HOSTS**: アクセスを許可するホスト名（ドメイン）を設定します。
-*   **CSRF_TRUSTED_ORIGINS**: CSRF検証で信頼するオリジンを設定します（`https://your-domain.com` など）。
-*   **DOMAIN**: SSL証明書を取得するドメイン名。
-*   **EMAIL**: SSL証明書取得に使用するメールアドレス。
-*   **CERTBOT_USE_STAGING**: Let's Encryptのテスト環境を使用するかどうか。
-    *   `true`: テスト用証明書を取得します（発行制限が緩い）。動作確認用。
-    *   `false`: 本番用証明書を取得します。**本番運用の際は必ず `false` に設定してください。**
+### 3. 管理者ユーザーの作成
+```bash
+docker compose exec -it backend python3 manage.py createsuperuser
+```
+ログインIDは`custom_id`フィールドが使われます。
 
-詳細の設定値については、`.env.example` 内のコメントを参照してください。
+### 4. アプリケーションへのアクセス
+- **Frontend**: [http://localhost:5173/](http://localhost:5173/)（Viteの開発サーバーが `/api`, `/admin` 等をバックエンドにプロキシします）
+- **Django管理サイト**: [http://localhost:5173/admin/](http://localhost:5173/admin/)
 
-### SSL証明書の切り替え（テスト→本番）
+詳細な手順（本番/HTTPS環境での起動を含む）は [セットアップ手順](./docs/06_installation_guide/02_setup.md) を参照してください。
 
-`.env` の `CERTBOT_USE_STAGING` を `true` (テスト用) から `false` (本番用) に変更しても、既存の証明書が残っている場合は新しい証明書は取得されません。
-本番用証明書へ切り替える場合は、以下の手順で既存の証明書を削除する必要があります。
+---
 
-1. コンテナを停止します。
-   ```bash
-   docker compose -f compose.https.yml down
-   ```
-2. 証明書の実体があるディレクトリを削除します（**注意: 全ての証明書が削除されます**）。
-   ```bash
-   sudo rm -rf ./certbot/conf
-   ```
-3. `.env` を修正し (`CERTBOT_USE_STAGING=false`)、コンテナを再起動します。
-   ```bash
-   docker compose -f compose.https.yml up -d
-   ```
+## 環境変数一覧
 
-## フロントエンドのビルド (本番環境用)
+`.env.example` をコピーして作成する `.env` で使用する主な変数です。
 
-本番環境 (`compose.https.yml`) では、ホスト側でビルドされたフロントエンドの静的ファイル (`frontend/dist`) を使用します。
-以下のコマンドを使用して、Dockerコンテナ経由でビルドを行うことができます（ホスト環境に Node.js は不要です）。
+| 変数名 | 説明 | 必須/任意 | デフォルト値・例 |
+| --- | --- | --- | --- |
+| `SECRET_KEY` | Djangoのシークレットキー。本番環境では必ず推測不可能な値に変更する | 必須 | `django-insecure-change-me` |
+| `DEBUG` | デバッグモード。本番環境では`False`にする | 必須 | `False` |
+| `ALLOWED_HOSTS` | アクセスを許可するホスト名（カンマ区切り） | 必須 | `your-domain.com,localhost,127.0.0.1,frontend` |
+| `CSRF_TRUSTED_ORIGINS` | CSRF検証で信頼するオリジン（カンマ区切り） | 必須 | `https://your-domain.com,http://localhost:8000` |
+| `CORS_ALLOWED_ORIGINS` | CORSで許可するオリジン（カンマ区切り） | 必須 | `https://your-domain.com,http://localhost` |
+| `DATABASE_URL` | Djangoが接続するDBのURL | 必須 | `postgres://django:django@db:5432/open_mes` |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | PostgreSQLコンテナの初期設定 | 必須 | `django` / `django` / `open_mes` |
+| `DOMAIN` | SSL証明書を取得するドメイン名（HTTPS構成のみ） | 任意 | `your-domain.com` |
+| `EMAIL` | SSL証明書取得に使用するメールアドレス（HTTPS構成のみ） | 任意 | `your-email@example.com` |
+| `CERTBOT_USE_STAGING` | Let's Encryptのテスト証明書を使用するか（HTTPS構成のみ） | 任意 | `true` |
 
+> 機密性の高い変数（パスワード・シークレットキー等）は、本番用の実際の値を `.env.example` やドキュメントに記載しない。
+
+`SECRET_KEY`は以下のコマンドで生成できます。
+```bash
+docker compose exec -it backend python3 -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+```
+
+---
+
+## 運用のためのコマンド
+
+### フロントエンドのビルド（本番環境用の静的ファイル生成）
+```bash
+docker compose run --rm frontend npm run build
+```
+
+### テストの実行
+```bash
+script/run_tests.sh              # デフォルト(inventoryアプリ)を実行
+script/run_tests.sh inventory production   # 複数アプリをまとめて実行
+```
+
+### コンテナの停止
+```bash
+docker compose down
+```
+
+### 本番環境の起動
+```bash
+docker compose -f compose.prod.yml up --build -d
+# HTTPS対応（Let's Encrypt）の場合
+docker compose -f compose.https.yml up --build -d
+```
+
+### テストデータの作成
+開発・動作確認用に、API経由でテストデータ（生産計画・使用部品・発注データ等）を一括作成するスクリプトが用意されています。
+```bash
+pip install requests Faker
+python script/create_comprehensive_test_data.py
+```
+事前に `script/config.ini` にAPIアクセストークンを設定する必要があります。取得方法・設定方法は [使用例](./docs/06_installation_guide/02_setup.md) や `script/create_comprehensive_test_data.py` 内のコメントを参照してください。
+
+---
+
+## 環境別設定（任意）
+
+### 開発環境（`compose.yml`）
+Viteの開発サーバー（ポート5173）でフロントエンドを配信し、コード変更がホットリロードされます。
+
+### 本番環境（`compose.prod.yml` / `compose.https.yml`）
+ホスト側でビルド済みのフロントエンド静的ファイル（`frontend/dist`）をNginx経由で配信します。起動前に以下でビルドしてください。
 ```bash
 docker compose -f compose.yml run --rm frontend npm run build
 ```
 
-上記コマンド実行後、`frontend/dist` ディレクトリが生成（または更新）されていることを確認してから、本番用コンテナを起動してください。
+### SSL証明書の切り替え（テスト→本番）
+`.env` の `CERTBOT_USE_STAGING` を `true`（テスト用）から `false`（本番用）に変更しても、既存の証明書が残っている場合は新しい証明書は取得されません。切り替える場合は以下の手順で既存の証明書を削除する必要があります。
+
+```bash
+# 1. コンテナを停止
+docker compose -f compose.https.yml down
+
+# 2. 証明書の実体があるディレクトリを削除（注意: 全ての証明書が削除されます）
+sudo rm -rf ./certbot/conf
+
+# 3. .env を修正 (CERTBOT_USE_STAGING=false) し、コンテナを再起動
+docker compose -f compose.https.yml up -d
+```
+
+### Windows上でDockerを使わないセットアップ（`start.bat`）
+`start.bat` は、Windows上でPython仮想環境（`venv`）とSQLite（デフォルト）を使い、Dockerなしで開発・テスト環境を構築するバッチスクリプトです。
+
+**前提条件**: Windows OS、Python 3.11（PATH追加済み、pip利用可能）。
+
+**実行方法**: プロジェクトルートで `start.bat` を実行します。初回実行時は対話形式で仮想環境の作成・依存ライブラリのインストール（`backend/image/requirements.txt`）・`.env`ファイルの自動生成（SQLite設定＋`SECRET_KEY`自動生成）・マイグレーション・スーパーユーザー作成を行います。2回目以降は仮想環境の有効化・マイグレーション・開発サーバー起動（`http://127.0.0.1:8000`）のみを行います。
+
+PostgreSQLを使いたい場合は、`.env`内のDB関連設定（`DB_ENGINE`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`）を変更し、PostgreSQLサーバーを別途稼働させてください。開発サーバーの停止は `Ctrl+C` です。
 
 ---
 
-## テストデータの作成
+## API 仕様書
 
-開発や動作確認のために、API経由でテストデータを一括作成するスクリプトが用意されています。
+詳細なAPI仕様（URLルーティング、認証方式、各モジュールのエンドポイント構成など）は以下のドキュメントを参照してください。
 
-### 準備
+- [API構造と言語インタフェース](./docs/05_api.md)
 
-1. **必要なライブラリのインストール**:
-   ```bash
-   pip install requests Faker
-   ```
+---
 
-2. **APIアクセストークンの取得**:
-   JWTアクセストークンを取得します。以下のコマンドで取得可能です（`your_id` は自身のユーザーIDに置き換えてください）。
-   ```bash
-   docker compose exec backend python3 manage.py shell -c "from users.models import CustomUser; from rest_framework_simplejwt.tokens import RefreshToken; user = CustomUser.objects.get(custom_id='your_id'); print(str(RefreshToken.for_user(user).access_token))"
-   ```
+## テスト仕様書
 
-3. **設定ファイルの作成**:
-   `script/` ディレクトリ内に `config.ini` ファイルを作成し、取得したトークンを設定します。
-   ```ini
-   [API]
-   TOKEN = <取得したアクセストークン>
-   ```
+テスト方針・テストシナリオと実行コマンドの対応・レポートの残し方などの詳細は以下のドキュメントを参照してください。テストは全てスクリプト化されており、`script/run_tests.sh` で繰り返し検証できます（実行結果は `docs/09_test_specifications/reports/` にMarkdownレポートとして保存されます）。
 
-### 実行
+- [総則（対象モジュール一覧・方針）](./docs/09_test_specifications/00_overview.md)
+- [テストの実行方法とレポートの残し方](./docs/09_test_specifications/02_running_tests.md)
 
-以下のコマンドを実行すると、生産計画、使用部品、発注データが作成されます。
-```bash
-python script/create_comprehensive_test_data.py
-```
+---
+
+## ライセンス
+
+本プロジェクトのライセンスは [LICENSE](./LICENSE) を参照してください。
