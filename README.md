@@ -48,6 +48,7 @@ Django (Backend / REST API) と React + TypeScript (Frontend) を組み合わせ
 
 ### 4. デザイン・UI
 - **メッセージ表示**: 通知・確認・エラーメッセージなどはモーダルウインドウで表示する。
+- **レスポンシブ対応**: スマートフォン向け画面はPC向け画面の縮小表示ではなく、別途専用の画面として作成する。
 
 各機能の詳細は [主要機能とモジュール](./docs/02_features_modules.md) を参照してください。
 
@@ -157,8 +158,9 @@ docker compose run --rm frontend npm run build
 
 ### テストの実行
 ```bash
-script/run_tests.sh              # デフォルト(inventoryアプリ)を実行
-script/run_tests.sh inventory production   # 複数アプリをまとめて実行
+script/run_tests.sh              # バックエンド: デフォルト(inventoryアプリ)を実行
+script/run_tests.sh inventory production   # バックエンド: 複数アプリをまとめて実行
+cd frontend && npm run test:e2e  # フロントエンド: レスポンシブ表示確認(Playwright、要Node.js)
 ```
 
 ### コンテナの停止
@@ -229,10 +231,11 @@ PostgreSQLを使いたい場合は、`.env`内のDB関連設定（`DB_ENGINE`, `
 
 ## テスト仕様書
 
-テスト方針・テストシナリオと実行コマンドの対応・レポートの残し方などの詳細は以下のドキュメントを参照してください。テストは全てスクリプト化されており、`script/run_tests.sh` で繰り返し検証できます（実行結果は `docs/09_test_specifications/reports/` にMarkdownレポートとして保存されます）。
+テスト方針・テストシナリオと実行コマンドの対応・レポートの残し方などの詳細は以下のドキュメントを参照してください。テストは全てスクリプト化されており、`script/run_tests.sh`（バックエンド）や `npm run test:e2e`（フロントエンドのレスポンシブ表示確認）で繰り返し検証できます（実行結果は `docs/09_test_specifications/reports/` にMarkdownレポートとして固定ファイル名で保存されます）。
 
 - [総則（対象モジュール一覧・方針）](./docs/09_test_specifications/00_overview.md)
-- [テストの実行方法とレポートの残し方](./docs/09_test_specifications/02_running_tests.md)
+- [テストの実行方法とレポートの残し方（バックエンド）](./docs/09_test_specifications/02_running_tests.md)
+- [フロントエンドE2E（レスポンシブ表示確認）](./docs/09_test_specifications/10_frontend_e2e.md)
 
 ---
 

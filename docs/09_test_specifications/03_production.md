@@ -164,9 +164,9 @@
      `self.request.query_params = params`と読み取り専用プロパティへ直接代入しており、
      `ordering=product_code`（または`-product_code`）を指定すると`AttributeError`で500になっていた
      （PP-CRUD-08）。`self.request._request.GET = params`（内部のQueryDictを直接書き換え）に修正。
-   - 修正後、`script/run_tests.sh production`で全59件成功を確認済み
-     （[reports/production_20260722_215907.md](./reports/production_20260722_215907.md)、
-     修正前の失敗内容は[reports/production_20260722_214309.md](./reports/production_20260722_214309.md)に記録）。
+   - 修正後、`script/run_tests.sh production`で全59件成功を確認済み（[reports/production.md](./reports/production.md)）。
+     レポートは実行のたびに同一ファイルへ上書きされる方式のため、修正前の失敗内容の個別スナップショットは
+     現在は保持していない。
 2. **`inventory.Inventory`に対する`.get()`が単一ロケーション前提**:
    `production/services/allocation.py`（`allocate_materials_service`, `release_material_allocation_service`,
    `update_material_allocation_status_service`）と`progress.py`（`_reverse_inventory`,

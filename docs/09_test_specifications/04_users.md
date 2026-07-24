@@ -170,7 +170,7 @@
      - `base/settings.py`: `REST_FRAMEWORK["DEFAULT_AUTHENTICATION_CLASSES"]`に
        `"rest_framework.authentication.TokenAuthentication"`を追加（JWTと併用、Web側はJWT・デバイス/外部連携は
        固定トークンという使い分けを想定）。
-   - 修正後、`script/run_tests.sh users`で全49件成功（[reports/users_20260723_031040.md](./reports/users_20260723_031040.md)）、
+   - 修正後、`script/run_tests.sh users`で全49件成功（[reports/users.md](./reports/users.md)）、
      既存の`inventory`/`production`テスト（計164件）も引き続き成功することを確認済み（設定変更による回帰なし）。
 2. **【修正済み・2026-07-23】`APITokenView`に`GET`が未実装で、既存トークンの参照が常に405だった**:
    フロントエンドは画面初期表示時に`GET settings/token/`で既存トークンを取得しようとするが、

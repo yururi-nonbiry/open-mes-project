@@ -243,7 +243,8 @@
      発注ID不正時の404判定が `get_object_or_404` の送出する `Http404` を捕捉しておらず500になっていた
      副次的な不具合(PO-RECV-07)もあわせて修正した(`except (PurchaseOrder.DoesNotExist, Http404):`)。
    - 修正後、`script/run_tests.sh inventory` で全99件成功を確認済み
-     ([reports/inventory_20260722_122925.md](./reports/inventory_20260722_122925.md))。
+     （[reports/inventory.md](./reports/inventory.md)。レポートは実行のたびに同一ファイルへ上書きされる
+     方式のため、当時の個別スナップショットは現在は保持していない）。
    - **訂正**: `move`/`process-receipt` は移動先/入庫先の検索に `location` を含めて `.get()` するため
      （一意制約の3項目全てを指定）、実際には複数ロケーションが存在しても曖昧にはならない。
      `part_number_rel_id`/`warehouse_rel_id` のみで検索しており実際に影響があったのは
@@ -285,7 +286,7 @@
        `reserved`が正しく解放される。
    - テストケース: SO-ALLOC-08/08b/08c/08d、SO-ISSUE-08/08b/08c/14 で検証済み
      （`script/run_tests.sh inventory` で全105件成功、
-     [reports/inventory_20260722_131423.md](./reports/inventory_20260722_131423.md)）。
+     [reports/inventory.md](./reports/inventory.md)）。
 3. **`allocate`/`issue` でのチェック項目の非対称性**（SO-ISSUE-13）:
    `allocate` は `is_active` と `is_allocatable` の両方を確認するが、`issue` は `is_active` のみで
    `is_allocatable` を確認しない。意図的な仕様か要確認。

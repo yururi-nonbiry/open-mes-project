@@ -19,3 +19,10 @@ __pycache__/
 # テスト実行スクリプト(script/run_tests.sh)が一時的に書き出す構造化レポート
 /backend/src/.test_report.json
 GEMINI.md
+
+# Playwright (frontend E2E)
+# 実行結果(失敗時スクリーンショット等)。Markdownレポートは
+# docs/09_test_specifications/reports/frontend_responsive.md にgit管理下で出力する。
+/frontend/test-results/
+/frontend/playwright-report/
+/frontend/playwright/.cache/

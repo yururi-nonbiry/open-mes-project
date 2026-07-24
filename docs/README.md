@@ -37,6 +37,7 @@
 - [品質管理 (quality)](./09_test_specifications/06_quality.md)
 - [設備管理 (machine)](./09_test_specifications/07_machine.md)
 - [ベース機能 (base)](./09_test_specifications/08_base.md)
+- [フロントエンドE2E（レスポンシブ表示確認）](./09_test_specifications/10_frontend_e2e.md)
 
 ---
 詳細な情報については、各ドキュメントを参照してください。

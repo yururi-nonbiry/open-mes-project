@@ -35,8 +35,7 @@ until [ "$(docker inspect --format='{{.State.Health.Status}}' db 2>/dev/null)" =
 done
 
 TEST_LABEL_SAFE="$(echo "${TARGETS[0]}" | tr '.' '_' | tr '/' '_')"
-TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
-REPORT_FILE="$REPORT_DIR/${TEST_LABEL_SAFE}_${TIMESTAMP}.md"
+REPORT_FILE="$REPORT_DIR/${TEST_LABEL_SAFE}.md"
 DJANGO_TEST_CMD="python manage.py test ${TARGETS[*]} --testrunner=testutils.report_runner.JsonReportDiscoverRunner --verbosity 2"
 
 echo "==> テストを実行しています: ${TARGETS[*]}"
