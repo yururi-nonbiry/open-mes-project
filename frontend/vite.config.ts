@@ -19,7 +19,9 @@ export default defineConfig({
       // Djangoバックエンドへのリクエストをプロキシする設定
       // API, Admin, Static, Debug Toolbarのリクエストをバックエンドに転送する
       '^/(api|admin|static|__debug__)/.*': {
-        target: 'http://localhost:8000',
+        // Docker Compose上ではfrontendとbackendが別コンテナのため、'localhost'ではなく
+        // サービス名'backend'で名前解決する必要がある。
+        target: 'http://backend:8000',
         changeOrigin: true,
       },
     },

@@ -26,3 +26,5 @@ GEMINI.md
 /frontend/test-results/
 /frontend/playwright-report/
 /frontend/playwright/.cache/
+# ログイン済みセッション(アクセストークン等)を含むため、gitで管理しない。
+/frontend/e2e/.auth/
