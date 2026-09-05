@@ -3,8 +3,19 @@ from rest_framework import status, viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Customer, Item, Supplier, UnitCost, Warehouse, WarehouseLocation, WorkCenter  # master.models を直接参照
+from .models import (  # master.models を直接参照
+    BillOfMaterial,
+    Customer,
+    Item,
+    Supplier,
+    UnitCost,
+    Warehouse,
+    WarehouseLocation,
+    WorkCenter,
+)
 from .serializers import (
+    BillOfMaterialCreateUpdateSerializer,
+    BillOfMaterialSerializer,
     CustomerCreateUpdateSerializer,
     CustomerSerializer,
     ItemCreateUpdateSerializer,
@@ -159,3 +170,15 @@ class UnitCostViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
         if self.action in ["list"]:
             return UnitCostSerializer
         return UnitCostCreateUpdateSerializer
+
+
+class BillOfMaterialViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
+    queryset = BillOfMaterial.objects.all().select_related("product", "material").order_by(
+        "product__code", "material__code"
+    )
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.action in ["list"]:
+            return BillOfMaterialSerializer
+        return BillOfMaterialCreateUpdateSerializer

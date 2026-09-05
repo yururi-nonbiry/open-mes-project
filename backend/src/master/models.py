@@ -138,3 +138,39 @@ class UnitCost(models.Model):
 
     def __str__(self):
         return f"{self.item_id} - {self.cost}"
+
+
+# 使用部品構成マスター（BOM: 製品ごとの使用部品構成）
+class BillOfMaterial(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)  # UUIDv7 を使用
+    product = models.ForeignKey(
+        Item,
+        to_field="code",
+        db_column="product",
+        on_delete=models.PROTECT,
+        verbose_name="製品",
+        related_name="bom_as_product",
+    )
+    material = models.ForeignKey(
+        Item,
+        to_field="code",
+        db_column="material",
+        on_delete=models.PROTECT,
+        verbose_name="使用部品",
+        related_name="bom_as_material",
+    )
+    quantity = models.DecimalField(max_digits=12, decimal_places=3, verbose_name="所要数量（製品1個あたり）")
+    remarks = models.TextField(blank=True, null=True, verbose_name="備考")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "使用部品構成"
+        verbose_name_plural = "使用部品構成"
+        constraints = [
+            models.UniqueConstraint(fields=["product", "material"], name="unique_bom_product_material"),
+        ]
+        ordering = ["product__code", "material__code"]
+
+    def __str__(self):
+        return f"{self.product_id} - {self.material_id} ({self.quantity})"

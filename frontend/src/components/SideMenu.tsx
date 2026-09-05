@@ -30,6 +30,7 @@ const SideMenu: React.FC<SideMenuProps> = ({ isOpen, isStaffOrSuperuser, onVersi
       <div className="menu-category-title">生産管理</div>
       <Link to="/production/plan" className="menu-subcategory-link" onClick={onLinkClick}>生産計画</Link>
       <Link to="/production/parts-used" className="menu-subcategory-link" onClick={onLinkClick}>使用部品</Link>
+      <Link to="/production/bom-master" className="menu-subcategory-link" onClick={onLinkClick}>使用部品マスター</Link>
       <Link to="/production/material-allocation" className="menu-subcategory-link" onClick={onLinkClick}>材料引当</Link>
       <Link to="/production/parts-supply-simulation" className="menu-subcategory-link" onClick={onLinkClick}>部品供給シミュレーション</Link>
       <Link to="/production/work-progress" className="menu-subcategory-link" onClick={onLinkClick}>作業進捗</Link>

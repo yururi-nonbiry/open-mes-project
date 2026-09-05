@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from rest_framework.test import APITestCase
 
-from ..models import Customer, Item, Supplier, UnitCost, Warehouse, WarehouseLocation, WorkCenter
+from ..models import BillOfMaterial, Customer, Item, Supplier, UnitCost, Warehouse, WarehouseLocation, WorkCenter
 
 User = get_user_model()
 
@@ -69,3 +69,12 @@ class MasterAPITestBase(APITestCase):
         }
         defaults.update(kwargs)
         return UnitCost.objects.create(**defaults)
+
+    def create_bill_of_material(self, product=None, material=None, **kwargs):
+        defaults = {
+            "product": product or self.create_item(code="PROD-001", item_type="product", name="テスト製品"),
+            "material": material or self.create_item(code="MAT-001", item_type="material", name="テスト部品"),
+            "quantity": "2.000",
+        }
+        defaults.update(kwargs)
+        return BillOfMaterial.objects.create(**defaults)

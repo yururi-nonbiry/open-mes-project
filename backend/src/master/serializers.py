@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator, UniqueValidator
 
-from .models import Customer, Item, Supplier, UnitCost, Warehouse, WarehouseLocation, WorkCenter
+from .models import BillOfMaterial, Customer, Item, Supplier, UnitCost, Warehouse, WarehouseLocation, WorkCenter
 
 
 class ItemSerializer(serializers.ModelSerializer):
@@ -236,3 +236,55 @@ class UnitCostCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = UnitCost
         fields = ["id", "item", "cost"]
+
+
+class BillOfMaterialSerializer(serializers.ModelSerializer):
+    product = serializers.SlugRelatedField(slug_field="code", read_only=True)
+    material = serializers.SlugRelatedField(slug_field="code", read_only=True)
+    product_name = serializers.CharField(source="product.name", read_only=True)
+    material_name = serializers.CharField(source="material.name", read_only=True)
+    material_unit = serializers.CharField(source="material.unit", read_only=True)
+
+    class Meta:
+        model = BillOfMaterial
+        fields = [
+            "id",
+            "product",
+            "product_name",
+            "material",
+            "material_name",
+            "material_unit",
+            "quantity",
+            "remarks",
+            "created_at",
+            "updated_at",
+        ]
+
+
+class BillOfMaterialCreateUpdateSerializer(serializers.ModelSerializer):
+    product = serializers.SlugRelatedField(
+        slug_field="code",
+        queryset=Item.objects.filter(item_type="product"),
+        error_messages={"does_not_exist": "指定された製品コードは存在しないか、製品として登録されていません。"},
+    )
+    material = serializers.SlugRelatedField(
+        slug_field="code",
+        queryset=Item.objects.filter(item_type="material"),
+        error_messages={"does_not_exist": "指定された部品コードは存在しないか、材料として登録されていません。"},
+    )
+
+    class Meta:
+        model = BillOfMaterial
+        fields = ["id", "product", "material", "quantity", "remarks"]
+        validators = [
+            UniqueTogetherValidator(
+                queryset=BillOfMaterial.objects.all(),
+                fields=["product", "material"],
+                message="この製品には、この使用部品が既に登録されています。",
+            )
+        ]
+
+    def validate_quantity(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("所要数量は0より大きい値を入力してください。")
+        return value

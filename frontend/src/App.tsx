@@ -24,6 +24,7 @@ import QualityMasterCreation from './pages/QualityMasterCreation';
 import StartInspection from './pages/StartInspection';
 import InspectionHistory from './pages/InspectionHistory';
 import MachineMasterCreation from './pages/MachineMasterCreation';
+import BomMasterCreation from './pages/BomMasterCreation';
 import DataImport from './pages/DataImport';
 import UserSettings from './pages/UserSettings';
 import UserManagement from './pages/UserManagement';
@@ -148,6 +149,7 @@ function AppContent() {
           <Route path="/inventory/issue" element={<GoodsIssue />} />
           <Route path="/production/plan" element={<ProductionPlan />} />
           <Route path="/production/parts-used" element={<PartsUsed />} />
+          <Route path="/production/bom-master" element={<BomMasterCreation />} />
           <Route path="/production/material-allocation" element={<MaterialAllocation />} />
           <Route path="/production/parts-supply-simulation" element={<PartsSupplySimulationPage />} />
           <Route path="/production/work-progress" element={<WorkProgress />} />

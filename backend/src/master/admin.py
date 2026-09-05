@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Customer, Item, Supplier, UnitCost, Warehouse, WarehouseLocation, WorkCenter
+from .models import BillOfMaterial, Customer, Item, Supplier, UnitCost, Warehouse, WarehouseLocation, WorkCenter
 
 # Register your models here.
 
@@ -53,3 +53,10 @@ class WorkCenterAdmin(admin.ModelAdmin):
 class UnitCostAdmin(admin.ModelAdmin):
     list_display = ("item", "cost", "updated_at")
     search_fields = ("item__code", "item__name")
+
+
+@admin.register(BillOfMaterial)
+class BillOfMaterialAdmin(admin.ModelAdmin):
+    list_display = ("product", "material", "quantity", "updated_at")
+    list_filter = ("product",)
+    search_fields = ("product__code", "product__name", "material__code", "material__name")
