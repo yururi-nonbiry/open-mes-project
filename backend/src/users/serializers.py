@@ -1,7 +1,11 @@
+import ipaddress
+
 from django.contrib.auth import authenticate, get_user_model
 from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
+from .models import API_SCOPE_CHOICES, ApiTokenPolicy
 
 CustomUser = get_user_model()
 
@@ -85,6 +89,7 @@ class AdminUserSerializer(serializers.ModelSerializer):
             "username",
             "email",
             "password",
+            "account_type",
             "is_staff",
             "is_superuser",
             "is_active",
@@ -139,3 +144,30 @@ class PasswordChangeSerializer(serializers.Serializer):
         # from django.contrib.auth import password_validation
         # password_validation.validate_password(data['new_password1'], self.context['request'].user)
         return data
+
+
+class ApiTokenPolicySerializer(serializers.ModelSerializer):
+    """管理者による外部連携用APIトークンのアクセス制御ポリシー編集用シリアライザー"""
+
+    class Meta:
+        model = ApiTokenPolicy
+        fields = ["is_active", "allowed_ips", "scopes", "updated_at"]
+        read_only_fields = ["updated_at"]
+
+    def validate_allowed_ips(self, value):
+        for line in value.replace(",", "\n").splitlines():
+            entry = line.strip()
+            if not entry:
+                continue
+            try:
+                ipaddress.ip_network(entry, strict=False)
+            except ValueError:
+                raise serializers.ValidationError(f"'{entry}' はIPアドレスまたはCIDR表記として不正です。") from None
+        return value
+
+    def validate_scopes(self, value):
+        valid_keys = {key for key, _label in API_SCOPE_CHOICES}
+        invalid = sorted(set(value) - valid_keys)
+        if invalid:
+            raise serializers.ValidationError(f"不正なスコープが含まれています: {', '.join(invalid)}")
+        return value

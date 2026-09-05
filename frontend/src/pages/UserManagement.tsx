@@ -93,6 +93,7 @@ const UserManagement = () => {
                         <th>専用ID</th>
                         <th>ユーザー名</th>
                         <th>メールアドレス</th>
+                        <th className="text-center">区分</th>
                         <th className="text-center">スタッフ権限</th>
                         <th className="text-center">有効</th>
                         <th>登録日時</th>
@@ -101,13 +102,18 @@ const UserManagement = () => {
                 </thead>
                 <tbody>
                     {loading ? (
-                        <tr><td colSpan="7" className="text-center">読み込み中...</td></tr>
+                        <tr><td colSpan="8" className="text-center">読み込み中...</td></tr>
                     ) : users.length > 0 ? (
                         users.map(user => (
                             <tr key={user.id}>
                                 <td>{user.custom_id}</td>
                                 <td>{user.username || '-'}</td>
                                 <td>{user.email || '-'}</td>
+                                <td className="text-center">
+                                    {user.account_type === 'system'
+                                        ? <span className="badge bg-info text-dark">システム連携用</span>
+                                        : <span className="badge bg-light text-dark">通常ユーザー</span>}
+                                </td>
                                 <td className="text-center">
                                     {user.is_staff ? <span className="badge bg-success">Yes</span> : <span className="badge bg-secondary">No</span>}
                                 </td>
@@ -122,7 +128,7 @@ const UserManagement = () => {
                             </tr>
                         ))
                     ) : (
-                        <tr><td colSpan="7" className="text-center">該当するユーザーがいません。</td></tr>
+                        <tr><td colSpan="8" className="text-center">該当するユーザーがいません。</td></tr>
                     )}
                 </tbody>
             </table>

@@ -215,7 +215,8 @@ REST_FRAMEWORK = {
         # 'rest_framework.authentication.SessionAuthentication', # APIではJWT認証を主とするため無効化
         "rest_framework_simplejwt.authentication.JWTAuthentication",
         # QRリーダー等のデバイスや外部連携アプリ向けの長期固定トークン認証。
-        "rest_framework.authentication.TokenAuthentication",
+        # ApiTokenPolicyによるIP制限・スコープ制限に対応したサブクラスを使用する。
+        "users.authentication.ScopedTokenAuthentication",
     ]
 }
 

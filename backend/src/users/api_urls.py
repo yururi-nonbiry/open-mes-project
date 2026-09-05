@@ -30,4 +30,9 @@ urlpatterns = [
         ),
         name="user-detail",
     ),
+    path(
+        "<uuid:pk>/token/",
+        rest_views.UserViewSet.as_view({"get": "token", "post": "token", "patch": "token"}),
+        name="user-token",
+    ),
 ]

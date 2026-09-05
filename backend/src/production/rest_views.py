@@ -3,14 +3,14 @@ from django.db.models import Q  # Qオブジェクトをインポート
 from django.utils import timezone  # timezoneをインポート
 from django.utils.dateparse import parse_datetime  # 日時文字列のパース用
 from rest_framework import (
+    permissions,
     status,  # HTTPステータスコードをインポート
     viewsets,
 )
 from rest_framework.decorators import action  # actionデコレータをインポート
 from rest_framework.filters import OrderingFilter  # OrderingFilterをインポート
-
-# from rest_framework import permissions # Uncomment if you want to add permissions
 from rest_framework.pagination import PageNumberPagination  # Import PageNumberPagination
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response  # Responseをインポート
 from rest_framework.views import APIView  # APIViewをインポート
 from django_filters import rest_framework as filters  # django-filterをインポート
@@ -84,7 +84,7 @@ class ProductionPlanViewSet(viewsets.ModelViewSet):
 
     serializer_class = ProductionPlanSerializer
     pagination_class = ProductionPlanApiPagination  # Use the custom pagination class for Production Plans
-    # permission_classes = [permissions.IsAuthenticated] # Example: Add authentication
+    permission_classes = [permissions.IsAuthenticated]
     filter_backends = [filters.DjangoFilterBackend, OrderingFilter]  # DjangoFilterBackendを追加
     filterset_class = ProductionPlanFilter  # フィルタークラスを指定
     ordering_fields = [
@@ -193,6 +193,8 @@ class PartsSupplySimulationView(APIView):
       - status: 対象とするステータスのカンマ区切りリスト（省略時は PENDING, IN_PROGRESS）
     """
 
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
         plan_ids_param = request.query_params.get("plan_ids")
         queryset = ProductionPlan.objects.select_related("product")
@@ -218,7 +220,7 @@ class PartsUsedViewSet(viewsets.ModelViewSet):
     queryset = PartsUsed.objects.all().select_related("part", "warehouse_rel").order_by("-used_datetime")
     serializer_class = PartsUsedSerializer
     pagination_class = StandardResultsSetPagination  # ページネーションクラスを指定
-    # permission_classes = [permissions.IsAuthenticated] # Example: Add authentication
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -241,7 +243,7 @@ class MaterialAllocationViewSet(viewsets.ModelViewSet):
     queryset = MaterialAllocation.objects.all().select_related("production_plan").order_by("-allocation_datetime")
     serializer_class = MaterialAllocationSerializer
     pagination_class = StandardResultsSetPagination
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
     filter_backends = [OrderingFilter]
     ordering_fields = ["material", "allocated_quantity", "allocation_datetime", "status"]
     ordering = ["-allocation_datetime"]
@@ -296,7 +298,7 @@ class WorkProgressViewSet(viewsets.ModelViewSet):
     )
     serializer_class = WorkProgressSerializer
     pagination_class = StandardResultsSetPagination
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
     filter_backends = [OrderingFilter]
     ordering_fields = ["process_step", "status", "start_datetime", "end_datetime", "quantity_completed"]
     ordering = ["start_datetime"]

@@ -44,6 +44,10 @@ class UserManager(BaseUserManager):
 
 # カスタムユーザー
 class CustomUser(AbstractBaseUser, PermissionsMixin):
+    class AccountType(models.TextChoices):
+        HUMAN = "human", _("通常ユーザー")
+        SYSTEM = "system", _("システム連携用")
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
     # 専用IDフィールド
@@ -67,6 +71,14 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     )
     is_active = models.BooleanField(_("active"), default=True, help_text=_("アクティブなユーザーかどうか。"))
     date_joined = models.DateTimeField(_("date joined"), default=timezone.now)
+
+    account_type = models.CharField(
+        _("account type"),
+        max_length=10,
+        choices=AccountType.choices,
+        default=AccountType.HUMAN,
+        help_text=_("通常ユーザーか、外部システム連携専用アカウントかの区分。"),
+    )
 
     # --- パスワード有効期限関連の追加 ---
     password_last_changed = models.DateTimeField(
@@ -150,3 +162,46 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         return expired
 
     # --- ここまで ---
+
+
+# 外部連携用APIトークンに設定できるアクセススコープ。各APIアプリの app_name と一致させる。
+API_SCOPE_CHOICES = [
+    ("base_api", "基本設定"),
+    ("inventory_api", "在庫管理"),
+    ("machine_api", "設備管理"),
+    ("master_api", "マスタ管理"),
+    ("production_api", "生産管理"),
+    ("quality_api", "品質管理"),
+    ("users_api", "ユーザー管理"),
+]
+
+
+# ユーザーのAPIトークン（rest_framework.authtoken.Token）に付随するアクセス制御ポリシー
+class ApiTokenPolicy(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="api_token_policy",
+        verbose_name=_("対象ユーザー"),
+    )
+    is_active = models.BooleanField(_("トークン有効"), default=True)
+    allowed_ips = models.TextField(
+        _("接続許可IP"),
+        blank=True,
+        help_text=_("カンマまたは改行区切りでIPアドレスかCIDRを指定します。空欄の場合は制限しません。"),
+    )
+    scopes = models.JSONField(
+        _("許可するAPIアプリ"),
+        default=list,
+        blank=True,
+        help_text=_("空リストの場合は全アプリにアクセス可能です。"),
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("APIトークンポリシー")
+        verbose_name_plural = _("APIトークンポリシー")
+
+    def __str__(self):
+        return f"{self.user_id} のAPIトークンポリシー"

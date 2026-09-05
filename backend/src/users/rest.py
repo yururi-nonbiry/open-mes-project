@@ -6,15 +6,16 @@ from django.views.decorators.csrf import ensure_csrf_cookie, requires_csrf_token
 from rest_framework import permissions, status, viewsets
 from rest_framework.authtoken.models import Token
 from rest_framework.authtoken.views import ObtainAuthToken as DefaultObtainAuthToken
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
 
-from .models import CustomUser
+from .models import ApiTokenPolicy, CustomUser
 from .serializers import (
     AdminUserSerializer,
+    ApiTokenPolicySerializer,
     CustomAuthTokenSerializer,
     CustomTokenObtainPairSerializer,
     CustomUserSerializer,
@@ -211,3 +212,30 @@ class UserViewSet(viewsets.ModelViewSet):
     queryset = CustomUser.objects.all().order_by("-date_joined")
     serializer_class = AdminUserSerializer
     permission_classes = [permissions.IsAuthenticated, IsStaffOrSuperuser]
+
+    @action(detail=True, methods=["get", "post", "patch"], url_path="token")
+    def token(self, request, pk=None):
+        """
+        管理者が対象ユーザーのAPIトークンとアクセス制御ポリシーを発行・確認・更新するエンドポイント。
+        GET: トークン(なければ発行)とポリシーを返す。
+        POST: トークンを再発行する。
+        PATCH: アクセス制御ポリシー(有効フラグ/許可IP/スコープ)を更新する。
+        """
+        target_user = self.get_object()
+        token, _created = Token.objects.get_or_create(user=target_user)
+        policy, _created = ApiTokenPolicy.objects.get_or_create(user=target_user)
+
+        if request.method == "POST":
+            token.delete()
+            token = Token.objects.create(user=target_user)
+        elif request.method == "PATCH":
+            serializer = ApiTokenPolicySerializer(policy, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            policy = serializer.save()
+
+        return Response(
+            {
+                "api_token": token.key,
+                "policy": ApiTokenPolicySerializer(policy).data,
+            }
+        )
