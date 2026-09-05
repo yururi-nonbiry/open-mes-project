@@ -80,7 +80,8 @@ const PartsUsedPage = () => {
         if (itemsRes.ok) {
           const data = await itemsRes.json();
           const list = data.data || data;
-          setItems(list.filter((item: MasterItem) => item.item_type === 'material'));
+          // item_type は表示名 ("Material"/"Product") で返るため大文字小文字を無視して判定する
+          setItems(list.filter((item: MasterItem) => item.item_type?.toLowerCase() === 'material'));
         }
 
         if (whsRes.ok) {
