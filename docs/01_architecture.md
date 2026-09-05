@@ -7,7 +7,7 @@ open-mes-project（生産ナビ）は、バックエンドとフロントエン�
 - **非同期処理**: Celery ワーカーがバックエンドと同じコードベース（`backend/src`）を使って非同期タスクを実行し、Redisをブローカー兼結果バックエンドとして利用します。
 - **データベース**: PostgreSQLを使用します。DjangoのORMを通じてモデルとテーブルのマッピングが行われます。
 
-クライアント（ブラウザ）はReactアプリを読み込み、バックエンドのREST API（`/api/<app>/...`）にHTTP経由でアクセスします。認証は主にJWT（`djangorestframework-simplejwt`）で行われ、QRリーダーなどの外部デバイス向けには固定トークン認証（`TokenAuthentication`）も別途用意されています。
+クライアント（ブラウザ）はReactアプリを読み込み、バックエンドのREST API（`/api/<app>/...`）にHTTP経由でアクセスします。認証は主にJWT（`djangorestframework-simplejwt`）で行われ、QRリーダーなどの外部デバイス向けには固定トークン認証（DRFの`TokenAuthentication`を拡張した独自の`ScopedTokenAuthentication`）も別途用意されています。ユーザーに`ApiTokenPolicy`（有効/無効フラグ、接続元IP許可リスト、アクセス可能なAPIスコープ）を設定することで、トークンごとにアクセス制御を行えます。
 
 ## Docker Compose 構成
 
@@ -23,4 +23,4 @@ open-mes-project（生産ナビ）は、バックエンドとフロントエン�
 
 本番相当の構成（`compose.prod.yml` や `compose.https.yml`、`reverse-proxy*`ディレクトリ）では、Nginxのリバースプロキシやcertbotによる証明書取得（Let's Encrypt）も組み合わせて使用されます。
 
-なお、開発者はWindows環境向けに `start.bat` を使ってDockerを使わずローカルにPython仮想環境を構築し、バックエンドを直接起動することも可能です（詳細は[セットアップ手順](./06_installation_guide/02_setup.md)を参照）。
+なお、`start.bat`（Windows向けセットアップスクリプト）は現在のディレクトリ構成（`backend/src`、`backend/image`）に追随できておらず、旧パス（`open_mes\scr`等）を参照したままのため現状では動作しません。Dockerを使わないセットアップが必要な場合は[セットアップ手順](./06_installation_guide/02_setup.md)を参照してください。

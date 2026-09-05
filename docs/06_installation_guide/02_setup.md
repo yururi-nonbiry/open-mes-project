@@ -25,7 +25,7 @@ cp .env.example .env
 docker compose exec -it backend python3 -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
 ```
 
-開発中は`DEBUG=True`のままで構いませんが、本番環境にデプロイする際は`DEBUG=False`に変更し、`ALLOWED_HOSTS`に適切なドメインやIPを設定してください。
+`.env.example`では`DEBUG=False`が既定値です。開発中に詳細なエラー画面が必要な場合は`.env`で`DEBUG=True`に変更してください。本番環境では`DEBUG=False`のまま運用し、`ALLOWED_HOSTS`に適切なドメインやIPを設定してください。
 
 ## 3. Dockerコンテナの起動
 
@@ -77,7 +77,7 @@ Django管理サイト（`/admin/`）には `http://localhost:5173/admin/` から
 
 ## 7. 本番/HTTPS環境での起動
 
-本番相当の構成には、Nginxリバースプロキシを含む `compose.prod.yml`（HTTP、ポート80）や、Let's EncryptによるHTTPS対応を含む `compose.https.yml`（`certbot`コンテナ、`DOMAIN`/`EMAIL`/`CERTBOT_USE_STAGING`の`.env`設定が必要）を使用します。
+本番相当の構成には、Nginxリバースプロキシを含む `compose.prod.yml`（HTTP、ポート80）や、Let's EncryptによるHTTPS対応を含む `compose.https.yml`（`certbot`コンテナ、`DOMAIN`/`EMAIL`/`CERTBOT_USE_STAGING`の`.env`設定が必要）を使用します。なお、`compose.prod.yml`は`.env`ではなく`.env.prod`を読み込む設定になっているため（`compose.https.yml`は`.env`を使用）、本番構成で起動する前に`.env.prod`を別途作成してください（`.env.prod`は`.gitignore`対象です）。
 
 ```bash
 docker compose -f compose.prod.yml up -d
@@ -89,4 +89,4 @@ docker compose -f compose.https.yml up -d
 
 ## 8. （参考）Windows上でのDockerを使わないセットアップ
 
-`start.bat` を使うと、Windows上でDockerを使わずPython仮想環境（`venv`）とSQLite（デフォルト）で開発・テスト環境を構築できます。手順の詳細はリポジトリルートの[README.md](../../README.md)を参照してください。
+`start.bat` は、Windows上でDockerを使わずPython仮想環境（`venv`）とSQLite（デフォルト）で開発・テスト環境を構築することを意図したスクリプトですが、現在のディレクトリ構成（`backend/src`、`backend/image`）に追随できておらず、旧パス（`open_mes\scr`等）を参照したままのため現状では動作しません。Dockerを使わないセットアップが必要な場合は、`backend/image/requirements.txt`を使ってご自身でPython仮想環境を構築してください。

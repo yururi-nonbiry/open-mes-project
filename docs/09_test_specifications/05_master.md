@@ -5,8 +5,8 @@
 `backend/src/master` アプリが提供するAPI（DRF `ModelViewSet`、`master/rest_views.py`）を対象とする。
 
 - 対象: 品目 (`Item`)、サプライヤー (`Supplier`)、倉庫 (`Warehouse`)、倉庫ロケーション (`WarehouseLocation`)、
-  顧客 (`Customer`)、ワークセンター (`WorkCenter`)、標準単価 (`UnitCost`) の各エンドポイントと、
-  共通の応答整形・削除時のエラーハンドリングを行う `CustomSuccessMessageMixin`。
+  顧客 (`Customer`)、ワークセンター (`WorkCenter`)、標準単価 (`UnitCost`)、使用部品構成 (`BillOfMaterial`) の
+  各エンドポイントと、共通の応答整形・削除時のエラーハンドリングを行う `CustomSuccessMessageMixin`。
 - **範囲外（他アプリの責務）**:
   - `master`の各モデルは`code`/`warehouse_number`/`supplier_number`等の業務キーを`to_field`とする文字列FKで
     `inventory`/`production`から広く参照されているが、その参照側の整合性・カスケード挙動は各アプリの範囲
@@ -41,12 +41,14 @@
 | `Customer` | `models.py:98-105` | `code`は`unique=True`。 |
 | `WorkCenter` | `models.py:109-116` | `code`は`unique=True`。 |
 | `UnitCost` | `models.py:120-140` | `item`は`Item`へ`to_field="code"`のFK、`on_delete=PROTECT`。`(item)`に`UniqueConstraint`（1品目1単価）。 |
+| `BillOfMaterial` | `models.py:144-177` | UUIDv7主キー。`product`（`Item`、`item_type="product"`限定）・`material`（`Item`、`item_type="material"`限定）はいずれも`to_field="code"`、`on_delete=PROTECT`のFK。`(product, material)`に`UniqueConstraint`。`quantity`は正数のみ許容（小数3桁）。 |
 
 ## 4. 既存自動テストの状況
 
-`master/tests.py`は空（コメントのみ）だった。7モデル全てのCRUD・バリデーション・削除時の
+`master/tests.py`は空（コメントのみ）だった。8モデル全てのCRUD・バリデーション・削除時の
 `ProtectedError`ハンドリングについて自動テストが**存在しなかった**。本書はこのギャップを埋めることを
-主目的とする。
+主目的とする（`BillOfMaterial`は2026-09-05のBOM機能追加時に`master/tests/test_bill_of_material.py`として
+後から追加）。
 
 ## 5. テストケース一覧
 
@@ -126,6 +128,20 @@
 | MST-UC-04 | 正常系 | `PATCH unit-costs/{id}/` | 既存UnitCostが存在 | `cost`を更新 | 200、DBに反映 | |
 | MST-UC-05 | 正常系 | `GET unit-costs/` | UnitCostが存在 | 一覧取得 | 200、`item`は品目コード文字列で表示 | |
 | MST-UC-06 | 正常系 | `DELETE unit-costs/{id}/` | 既存UnitCostが存在 | 削除 | 200、DBから削除 | |
+
+### 5.8 使用部品構成／BOM CRUD（`BillOfMaterialViewSet`、`master/tests/test_bill_of_material.py`）
+
+| ケースID | 分類 | 対象 | 前提条件 | 手順・入力 | 期待結果 | 備考 |
+|---|---|---|---|---|---|---|
+| MST-BOM-01 | 正常系 | `POST bill-of-materials/` | 対象の`product`/`material`が存在 | 有効なデータで作成 | 201 | |
+| MST-BOM-02 | 異常系 | `POST bill-of-materials/` | 同一`(product, material)`の組が既存 | 作成 | 400（`UniqueValidator`） | |
+| MST-BOM-03 | 異常系 | `POST bill-of-materials/` | `product`に`item_type="material"`の品目を指定 | 作成 | 400 | |
+| MST-BOM-04 | 異常系 | `POST bill-of-materials/` | `material`に`item_type="product"`の品目を指定 | 作成 | 400 | |
+| MST-BOM-05 | 異常系 | `POST bill-of-materials/` | - | `quantity=0` | 400（正数のみ許容） | |
+| MST-BOM-06 | 正常系 | `PATCH bill-of-materials/{id}/` | 既存BOM行が存在 | `quantity`を更新 | 200、DBに反映 | |
+| MST-BOM-07 | 正常系 | `GET bill-of-materials/` | BOM行が存在 | 一覧取得 | 200、`product`/`material`は品目コード、`product_name`/`material_name`/`material_unit`も含む | |
+| MST-BOM-08 | 正常系 | `DELETE bill-of-materials/{id}/` | 既存BOM行が存在 | 削除 | 200、DBから削除 | |
+| MST-BOM-09 | 異常系 | `DELETE items/{id}/` | `BillOfMaterial`から`material`として参照されているItem | 削除 | 400、BOM行は残存 | `on_delete=PROTECT`（MST-ITEM-08と同様のパターン） |
 
 ## 6. シリアライザの read_only_fields 確認
 

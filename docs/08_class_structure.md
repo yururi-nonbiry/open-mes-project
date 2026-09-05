@@ -16,6 +16,7 @@ class CustomUser {
     +is_active: bool
     +date_joined: datetime
     +password_last_changed: datetime
+    +account_type: string
     +objects: UserManager
     +is_password_expired: bool
 }
@@ -23,8 +24,17 @@ class UserManager {
     +create_user(...)
     +create_superuser(...)
 }
+class ApiTokenPolicy {
+    +id: int
+    +is_active: bool
+    +allowed_ips: text
+    +scopes: json
+    +created_at: datetime
+    +updated_at: datetime
+}
 CustomUser --|> AbstractBaseUser
 CustomUser --|> PermissionsMixin
+CustomUser "1" -- "0..1" ApiTokenPolicy : api_token_policy
 
 %% Master module
 class Item {
@@ -80,6 +90,13 @@ class WorkCenter {
 class UnitCost {
     +id: UUID
     +cost: decimal
+    +created_at: datetime
+    +updated_at: datetime
+}
+class BillOfMaterial {
+    +id: UUID
+    +quantity: decimal
+    +remarks: text
     +created_at: datetime
     +updated_at: datetime
 }
@@ -257,6 +274,8 @@ Item "1" -- "0..*" SalesOrder : item_rel
 Warehouse "1" -- "0..*" SalesOrder : warehouse_rel
 Warehouse "1" -- "0..*" WarehouseLocation : warehouse
 Item "1" -- "0..*" UnitCost : item
+Item "1" -- "0..*" BillOfMaterial : product_rel
+Item "1" -- "0..*" BillOfMaterial : material_rel
 Item "1" -- "0..*" ProductionPlan : product
 Item "1" -- "0..*" MaterialAllocation : material
 Warehouse "1" -- "0..*" MaterialAllocation : warehouse_rel
@@ -276,11 +295,13 @@ MeasurementDetail "1" -- "0..*" InspectionResultDetail : measurement_detail
 
 ## Users（ユーザー）モジュール
 
-**CustomUser** – Django組み込みの認証用`AbstractBaseUser`および`PermissionsMixin`を継承したカスタムユーザークラスです。主キーはUUID（`uuid.uuid4`）です。ログインには`custom_id`（専用ID、ユニーク）を用いるよう設計されており（`USERNAME_FIELD = "custom_id"`）、`email`は必須項目ではありません。`is_staff`や`is_active`でユーザーの権限状態を管理し、`password_last_changed`と`is_password_expired`プロパティによりパスワード有効期限（デフォルト180日、`settings.PASSWORD_EXPIRATION_DAYS`）を管理します。`objects`にカスタムマネージャ`UserManager`を割り当てており、`create_user()`・`create_superuser()`メソッドでユーザー作成処理を提供します。
+**CustomUser** – Django組み込みの認証用`AbstractBaseUser`および`PermissionsMixin`を継承したカスタムユーザークラスです。主キーはUUID（`uuid.uuid4`）です。ログインには`custom_id`（専用ID、ユニーク）を用いるよう設計されており（`USERNAME_FIELD = "custom_id"`）、`email`は必須項目ではありません。`is_staff`や`is_active`でユーザーの権限状態を管理し、`password_last_changed`と`is_password_expired`プロパティによりパスワード有効期限（デフォルト180日、`settings.PASSWORD_EXPIRATION_DAYS`）を管理します。`objects`にカスタムマネージャ`UserManager`を割り当てており、`create_user()`・`create_superuser()`メソッドでユーザー作成処理を提供します。また、`account_type`フィールド（`human`＝通常ユーザー／`system`＝外部システム連携用、デフォルト`human`）により、人が使うアカウントか外部連携専用アカウントかを区別します。
+
+**ApiTokenPolicy** – 外部連携用アカウントのAPIトークンに対するアクセス制御を管理するクラスです。`CustomUser`への1対1FK（`related_name="api_token_policy"`）を持ち、`is_active`（トークン有効フラグ）、`allowed_ips`（接続許可IP、CIDR/カンマ・改行区切り）、`scopes`（アクセス可能なAPIアプリ名のJSON配列、空リストの場合は全アプリ許可）を保持します。認証には`users/authentication.py`で定義された`ScopedTokenAuthentication`（DRFの`TokenAuthentication`のサブクラス）が用いられ、`ApiTokenPolicy`が設定されているユーザーについてはトークン有効フラグ・接続元IP・アクセス可能スコープを検証します（ポリシー未設定ユーザーは後方互換のため無制限にアクセス可能です）。
 
 ## Master（マスターデータ）モジュール
 
-**Item（品目）** – 製品や原材料を表すマスターデータのクラスです。`name`（名称）・`code`（コード）はユニーク制約付きです。`item_type`フィールドで「product（製品）」か「material（材料）」かを区別します。`unit`（単位、デフォルト`kg`）、`description`（説明）に加え、`default_warehouse`/`default_location`（デフォルトの入庫先倉庫・棚番）、`provision_type`（有償支給/無償支給/支給なし）を持ちます。Itemは`Inventory`、`StockMovement`、`PurchaseOrder`、`SalesOrder`、`ProductionPlan`、`PartsUsed`、`MaterialAllocation`、`UnitCost`など、他の多くのクラスから外部キー（`to_field="code"`で品目コードを参照）で参照される中心的存在です。
+**Item（品目）** – 製品や原材料を表すマスターデータのクラスです。`name`（名称）・`code`（コード）はユニーク制約付きです。`item_type`フィールドで「product（製品）」か「material（材料）」かを区別します。`unit`（単位、デフォルト`kg`）、`description`（説明）に加え、`default_warehouse`/`default_location`（デフォルトの入庫先倉庫・棚番）、`provision_type`（有償支給/無償支給/支給なし）を持ちます。Itemは`Inventory`、`StockMovement`、`PurchaseOrder`、`SalesOrder`、`ProductionPlan`、`PartsUsed`、`MaterialAllocation`、`UnitCost`、`BillOfMaterial`（製品・使用部品の双方として2回参照）など、他の多くのクラスから外部キー（`to_field="code"`で品目コードを参照）で参照される中心的存在です。
 
 **Supplier（サプライヤー）** – サプライヤー（部品・材料の供給元）を表すマスタークラスです。`supplier_number`（サプライヤー番号）がユニークキーで、`name`（名前）、`contact_person`（担当者）、`phone`、`email`、`address`といった連絡先情報を持ちます。`PurchaseOrder`から参照されます。
 
@@ -293,6 +314,8 @@ MeasurementDetail "1" -- "0..*" InspectionResultDetail : measurement_detail
 **WorkCenter（ワークセンター）** – 生産の作業区・工程拠点を表すマスターです。UUIDv7主キー、`code`（ユニーク）、`name`を持ちます。
 
 **UnitCost（標準単価）** – `Item`に対する標準単価を保持するクラスです。`item`への1対1相当のFK（ユニーク制約あり）と`cost`（数値、小数2桁）を持ちます。
+
+**BillOfMaterial（使用部品構成／BOM）** – 製品ごとの使用部品構成（部品表）を表すマスタークラスです。UUIDv7主キー。`product`（`master.Item`へのFK、`item_type="product"`の品目に限定、DBカラム名`product`、`related_name="bom_as_product"`）と`material`（`master.Item`へのFK、`item_type="material"`の品目に限定、DBカラム名`material`、`related_name="bom_as_material"`）を持ち、`quantity`（製品1個あたりの所要数量、小数3桁）、`remarks`（備考）、`created_at`/`updated_at`を保持します。`product`と`material`の組み合わせにユニーク制約があります。
 
 ## Inventory（在庫）モジュール
 
@@ -315,6 +338,8 @@ MeasurementDetail "1" -- "0..*" InspectionResultDetail : measurement_detail
 **MaterialAllocation（材料引当）** – 生産計画に対して原材料を引き当てた情報を表すクラスです。`production_plan`（`ProductionPlan`へのFK、`related_name="material_allocations"`）、`material`（`master.Item`へのFK、材料限定、DBカラム名`material_code`）、`warehouse_rel`（引当倉庫）、`allocated_quantity`、`allocation_datetime`を持ちます。`status`は「引当済(ALLOCATED)」「出庫済(ISSUED)」「返却済(RETURNED)」です。
 
 **WorkProgress（作業進捗）** – 現場の作業進行状況を記録するクラスです。`production_plan`（`ProductionPlan`へのFK、`related_name="work_progresses"`）、`process_step`（工程名、例:「組立」「塗装」「検査」）、`operator`（`CustomUser`へのFK、`on_delete=SET_NULL`）、開始・終了日時、`quantity_completed`（良品数）、`actual_reported_quantity`（総生産数）、`defective_reported_quantity`（不良数）、`status`（「未開始(NOT_STARTED)」「進行中(IN_PROGRESS)」「完了(COMPLETED)」「一時停止(PAUSED)」）を持ちます。`production_plan`と`process_step`の組み合わせにユニーク制約があります。
+
+**部品供給シミュレーション（`production/services/simulation.py`）** – 複数の生産計画にまたがり、`PartsUsed.production_plan`（生産計画識別子の文字列）が共通する部品の需給を横断的にシミュレーションするサービスです。独立したモデルクラスは持たず、既存の`ProductionPlan`・`PartsUsed`・`Inventory`の情報を集計して算出するため、本クラス図には表示されていません。
 
 ## Quality（品質）モジュール
 
@@ -350,4 +375,4 @@ MeasurementDetail "1" -- "0..*" InspectionResultDetail : measurement_detail
 
 ---
 
-本ドキュメントはソースコード（`backend/src/{base,users,master,inventory,production,quality,machine}/models.py`、2026年7月時点）に基づいて作成されています。モデル定義が変更された場合は、本ドキュメントもあわせて更新してください。
+本ドキュメントはソースコード（`backend/src/{base,users,master,inventory,production,quality,machine}/models.py`および`users/authentication.py`、2026年9月時点）に基づいて作成されています。モデル定義が変更された場合は、本ドキュメントもあわせて更新してください。

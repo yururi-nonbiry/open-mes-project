@@ -30,11 +30,12 @@ Chromiumに固定）。`frontend/src/App.tsx` の `MobileRedirector` はUser-Age
 | 種別 | テストファイル | 対象プロジェクト |
 |---|---|---|
 | ログイン画面（未認証） | `frontend/e2e/login.spec.ts` | login-smartphone / login-hd / login-fullhd |
-| ログイン後のデスクトップ画面（28画面） | `frontend/e2e/desktop-pages.spec.ts` | hd / fullhd |
+| ログイン後のデスクトップ画面（27画面） | `frontend/e2e/desktop-pages.spec.ts` | hd / fullhd |
 | ログイン後のモバイル専用画面（4画面） | `frontend/e2e/mobile-pages.spec.ts` | smartphone |
 
 デスクトップ画面は、`frontend/src/App.tsx`のルーティング定義にある保護ルートをほぼ全て網羅している
-（動的パラメータを持つ`/user/management/edit/:id`のみ対象外）。モバイル専用画面を持たないページ
+（動的パラメータを持つ`/user/management/edit/:id`、および`desktop-pages.spec.ts`未追加の
+`/production/bom-master`・`/production/parts-supply-simulation`は対象外）。モバイル専用画面を持たないページ
 （在庫照会・生産計画等）は、スマホUAでアクセスすると`MobileRedirector`により`/mobile`（モバイルトップ）
 へ強制的にリダイレクトされる仕様のため、smartphoneプロジェクトでの検証対象に含めていない
 （レスポンシブ規約の帰結であり、不具合ではない）。

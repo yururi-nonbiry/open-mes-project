@@ -22,12 +22,12 @@ POSTGRES_DB=open_mes
 
 各アプリケーションのモデル定義に基づき、たとえば以下のようなテーブルがデータベース上に構築されます（詳細は[クラス構造](./08_class_structure.md)を参照）。
 
-- `master`: 品目（Item）、サプライヤー（Supplier）、倉庫（Warehouse）、倉庫ロケーション（WarehouseLocation）、顧客（Customer）、ワークセンター（WorkCenter）、標準単価（UnitCost）
+- `master`: 品目（Item）、サプライヤー（Supplier）、倉庫（Warehouse）、倉庫ロケーション（WarehouseLocation）、顧客（Customer）、ワークセンター（WorkCenter）、標準単価（UnitCost）、使用部品構成（BillOfMaterial）
 - `inventory`: 在庫（Inventory）、入出庫履歴（StockMovement）、入庫予定（PurchaseOrder）、入庫実績（Receipt）、出庫予定（SalesOrder）
 - `production`: 生産計画（ProductionPlan）、使用部品（PartsUsed）、材料引当（MaterialAllocation）、作業進捗（WorkProgress）
 - `quality`: 検査項目マスター（InspectionItem）、測定・判定詳細（MeasurementDetail）、検査実績（InspectionResult）、検査実績詳細（InspectionResultDetail）
 - `machine`: 設備マスター（Machine）
-- `users`: カスタムユーザー（CustomUser、`custom_id`でログイン）
+- `users`: カスタムユーザー（CustomUser、`custom_id`でログイン、`account_type`で通常ユーザー/システム連携用アカウントを区別）、APIトークンポリシー（ApiTokenPolicy、トークンの有効/無効・接続元IP許可リスト・アクセス可能なAPIスコープを管理）
 - `base`: 基本設定（BaseSetting）、CSV列マッピング（CsvColumnMapping）、モデル項目表示設定（ModelDisplaySetting）、QRコードアクション（QrCodeAction）、非同期タスク（AsyncTask、Celeryと連携）
 
 それらは外部キーで相互参照され、モジュール間のデータ連携を実現します。データベースの初期スキーマ構築後、`createsuperuser`コマンドで管理者ユーザーを作成することで基本的なデータが投入されます。その後は、ユーザーがReactフロントエンドから入力する各種情報（生産計画、在庫登録、検査結果入力など）がREST API経由でリアルタイムにデータベースへ保存され、必要に応じて参照・更新されます。

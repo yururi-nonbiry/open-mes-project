@@ -42,7 +42,7 @@ router.register(r"stock-movements", rest_views.StockMovementViewSet, basename="s
   - `POST /api/users/token/blacklist/`: リフレッシュトークンの失効（ログアウト）
   - `GET /api/users/session/`: セッション（ログイン中ユーザー）情報の取得
   - アクセストークンの有効期限は60分、リフレッシュトークンは14日間（`ROTATE_REFRESH_TOKENS=True`）です。
-- **固定トークン認証**（サブ）: `rest_framework.authentication.TokenAuthentication` も有効になっており、QRリーダーなど画面を持たないデバイスや外部連携アプリ向けに、`POST /api/token-auth/` で取得できる固定トークンを使った認証が可能です。ユーザー自身のトークンは `GET/POST /api/users/settings/token/` で確認・再発行できます。
+- **固定トークン認証**（サブ）: `users.authentication.ScopedTokenAuthentication`（`rest_framework.authentication.TokenAuthentication` のサブクラス）が有効になっており、QRリーダーなど画面を持たないデバイスや外部連携アプリ向けに、`POST /api/token-auth/` で取得できる固定トークンを使った認証が可能です。ユーザー自身のトークンは `GET/POST /api/users/settings/token/` で確認・再発行できます。加えて、管理者は `GET/POST/PATCH /api/users/<uuid:pk>/token/`（`UserViewSet` の `token` アクション）から対象ユーザーのトークン発行・再発行と、`ApiTokenPolicy`（有効フラグ・接続許可IP・アクセス可能APIスコープ）の設定を行えます。ポリシー未設定のユーザーは従来通り無制限にアクセスできます（後方互換）。
 
 CORS設定（`django-cors-headers`）により、Vite開発サーバー（別オリジン）からのAPIリクエストも許可されています。
 

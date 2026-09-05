@@ -211,13 +211,7 @@ docker compose -f compose.https.yml up -d
 ```
 
 ### Windows上でDockerを使わないセットアップ（`start.bat`）
-`start.bat` は、Windows上でPython仮想環境（`venv`）とSQLite（デフォルト）を使い、Dockerなしで開発・テスト環境を構築するバッチスクリプトです。
-
-**前提条件**: Windows OS、Python 3.11（PATH追加済み、pip利用可能）。
-
-**実行方法**: プロジェクトルートで `start.bat` を実行します。初回実行時は対話形式で仮想環境の作成・依存ライブラリのインストール（`backend/image/requirements.txt`）・`.env`ファイルの自動生成（SQLite設定＋`SECRET_KEY`自動生成）・マイグレーション・スーパーユーザー作成を行います。2回目以降は仮想環境の有効化・マイグレーション・開発サーバー起動（`http://127.0.0.1:8000`）のみを行います。
-
-PostgreSQLを使いたい場合は、`.env`内のDB関連設定（`DB_ENGINE`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`）を変更し、PostgreSQLサーバーを別途稼働させてください。開発サーバーの停止は `Ctrl+C` です。
+`start.bat` は、Windows上でPython仮想環境（`venv`）とSQLite（デフォルト）を使い、Dockerなしで開発・テスト環境を構築することを意図したバッチスクリプトですが、現在のディレクトリ構成（`backend/src`、`backend/image`）に追随できておらず、旧パス（`open_mes\scr`、リポジトリルート直下の`requirements.txt`等）を参照したままのため**現状では動作しません**。Dockerを使わないセットアップが必要な場合は、`backend/image/requirements.txt`を使ってご自身でPython仮想環境を構築してください。
 
 ---
 

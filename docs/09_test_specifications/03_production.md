@@ -7,6 +7,8 @@
 - 対象: 生産計画 (`ProductionPlan`)、使用部品 (`PartsUsed`)、材料引当 (`MaterialAllocation`)、
   作業進捗 (`WorkProgress`) の各エンドポイントおよび付随するカスタムアクション（`production/rest_views.py`）と、
   それらが委譲するサービス層（`production/services/allocation.py`, `progress.py`, `queries.py`）。
+  複数の生産計画を横断する部品供給シミュレーション (`PartsSupplySimulationView`, `GET parts-supply-simulation/`)
+  および委譲先の`production/services/simulation.py`も対象に含む。
 - **範囲外（他アプリの責務）**:
   - 在庫 (`inventory.Inventory`) 自体のCRUD・`move`/`adjust`/`allocate`/`issue` アクションは `inventory` アプリの範囲
     （[01_inventory.md](./01_inventory.md)参照）。本アプリのサービス層は `inventory.Inventory` を直接
@@ -19,8 +21,9 @@
 
 - 実行コマンド: `script/run_tests.sh production`
 - テストクラスは `rest_framework.test.APITestCase` を使用し、`reverse("production_api:<url_name>")` でURL解決する。
-- 認証: 全ViewSetで明示的な `permission_classes` 指定はコメントアウトされており、実質認証不要（`AllowAny`）。
-  テストでは既存の慣例に合わせて `force_authenticate` を使用しつつ、未認証でもアクセスできることを前提に書く。
+- 認証: 全ViewSetが `permission_classes = [IsAuthenticated]`。2026-09-05以前は認証設定がコメントアウトされ
+  実質`AllowAny`になっていたが、修正済み（[7. 既知の懸念事項](#7-既知の懸念事項)参照）。テストでは
+  `force_authenticate`を使用する。
 - 関連モデル（`master.Item`, `master.Warehouse`, `inventory.Inventory`, `inventory.SalesOrder`）のテストデータ作成が前提となる。
 - `settings.DEFAULT_FINISHED_GOODS_WAREHOUSE`（デフォルト `"FG-MAIN"`）を完成品入庫先として使用するため、
   テストではこの倉庫番号で `Warehouse`/`Inventory` を用意する。
@@ -134,6 +137,14 @@
 | WP-CRUD-05 | 異常系 | `POST work-progress/` | - | `start_datetime >= end_datetime` | 400（シリアライザ`validate`） | |
 | WP-CRUD-06 | 正常系 | `PATCH work-progress/{id}/` | 既存レコードが存在 | `status`/`quantity_completed`を直接書き換え | `read_only_fields`のため無視され変化しない | `update-progress`経由でのみ変更可能という設計 |
 
+### 5.8 部品供給シミュレーション（`PartsSupplySimulationView`、`production/tests/test_parts_supply_simulation.py`）
+
+| ケースID | 分類 | 対象 | 前提条件 | 手順・入力 | 期待結果 | 備考 |
+|---|---|---|---|---|---|---|
+| PSS-01 | 正常系 | `GET parts-supply-simulation/` | 単独計画で必要数量が在庫内に収まる | `plan_ids=<id>` | 200、当該計画の`feasible=True`、`shortage_quantity=0` | |
+| PSS-02 | 異常系 | `GET parts-supply-simulation/` | 共通部品を必要とする2計画があり、在庫が両方を賄えない | `plan_ids=<id1>,<id2>` | 200、開始日時が後の計画が`feasible=False`、`limiting_parts`に不足部品・不足数量、`parts`側にも`shortage_quantity`/`shortage_plan_id`が記録される | 開始日時が早い計画が優先的に充足される |
+| PSS-03 | 正常系 | `GET parts-supply-simulation/` | 対象部品に`MaterialAllocation`（引当済み）が既に存在 | `plan_ids=<id>` | 200、`feasible=True`（引当済み分は`Inventory.reserved`側で加味され、不足として扱われない） | |
+
 ## 6. シリアライザの read_only_fields 確認
 
 | ケースID | 分類 | 対象 | 内容 |
@@ -144,8 +155,8 @@
 
 ## 7. 既知の懸念事項
 
-コードレビューおよび自動テスト作成の過程で判明した実装上の懸念点。項目1は自動テストで実際の失敗として
-再現され、**2026-07-22に修正済み**。項目2以降はコードレビューによる推測または軽微な仕様上の
+コードレビューおよび自動テスト作成の過程で判明した実装上の懸念点。項目1・7は自動テストで実際の失敗として
+再現され、**2026-07-22に修正済み**。項目2〜6はコードレビューによる推測または軽微な仕様上の
 非対称性であり、現時点では未修正。
 
 1. **【修正済み・2026-07-22】`PartsUsed`/`MaterialAllocation`に対するクエリで`@property`名を使用しており
@@ -194,3 +205,8 @@
    は`logger.error`のみでスキップして処理を継続する（＝一部の材料が消費されないまま`status=COMPLETED`が
    確定しうる）。一方、在庫不足時は`ValueError`を送出しトランザクション全体がロールバックされる、という
    挙動の非対称性がある。意図的な設計か要確認。
+7. **【修正済み・2026-09-05】`ProductionPlanViewSet`/`PartsUsedViewSet`/`MaterialAllocationViewSet`/`WorkProgressViewSet`の
+   `permission_classes`がコメントアウトされ、未認証でアクセス可能だった**:
+   4つのViewSet全てで認証設定が無効化されており、DRFのデフォルト（`AllowAny`）が適用された結果、
+   未認証のリクエストでも生産計画・使用部品・材料引当・作業進捗のCRUDおよびカスタムアクションが
+   実行できてしまっていた。`permission_classes = [IsAuthenticated]`を有効化して修正済み。

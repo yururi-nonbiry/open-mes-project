@@ -6,7 +6,7 @@
 
 - **モデル/ロジックのユニットテスト**: 在庫引当のFIFOロジックや在庫数の増減計算など、モデルメソッドやサービス関数の振る舞いを検証します。
 - **APIテスト**: DRFの`APITestCase`（`rest_framework.test`）を使い、`/api/<app>/...`エンドポイントへのリクエストとレスポンスを検証します。認証が必要なエンドポイントは`force_authenticate`等でユーザーを設定してテストします。
-- **フロントエンド**: `frontend/`側には現時点で自動テストの仕組みは整備されておらず、`npm run lint`（ESLint）と`npm run type-check`（`tsc --noEmit`）による静的チェックが中心です。
+- **フロントエンド**: `frontend/`側では、`npm run lint`（ESLint）と`npm run type-check`（`tsc --noEmit`）による静的チェックに加え、Playwrightによるレスポンシブ表示確認のE2Eテスト（`frontend/e2e/`、`frontend/playwright.config.ts`）が整備されています。`npm run test:e2e`（内部で`e2e/run-and-report.mjs`を実行）でテストを実行でき、結果は`docs/09_test_specifications/reports/frontend_responsive.md`にレポートとして出力されます。詳細は[テスト仕様書 - フロントエンドE2Eテスト](../09_test_specifications/10_frontend_e2e.md)を参照してください。
 
 ## テストの実行
 
