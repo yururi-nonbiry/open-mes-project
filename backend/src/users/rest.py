@@ -10,11 +10,13 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .models import CustomUser
 from .serializers import (
     AdminUserSerializer,
     CustomAuthTokenSerializer,
+    CustomTokenObtainPairSerializer,
     CustomUserSerializer,
     PasswordChangeSerializer,
     UserProfileUpdateSerializer,
@@ -70,6 +72,12 @@ class CustomObtainAuthToken(DefaultObtainAuthToken):
             user_data = CustomUserSerializer(user).data
             return Response({"token": token.key, "user": user_data})
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    """認証失敗時のエラーメッセージを日本語化したJWT取得ビュー"""
+
+    serializer_class = CustomTokenObtainPairSerializer
 
 
 class APILogoutView(APIView):

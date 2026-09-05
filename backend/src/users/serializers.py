@@ -1,6 +1,7 @@
 from django.contrib.auth import authenticate, get_user_model
 from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 CustomUser = get_user_model()
 
@@ -61,6 +62,14 @@ class CustomAuthTokenSerializer(serializers.Serializer):
 
         attrs["user"] = user
         return attrs
+
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    """認証失敗時のエラーメッセージを日本語化するJWT取得用シリアライザー"""
+
+    default_error_messages = {
+        "no_active_account": _("指定されたIDまたはパスワードが正しくありません。"),
+    }
 
 
 class AdminUserSerializer(serializers.ModelSerializer):

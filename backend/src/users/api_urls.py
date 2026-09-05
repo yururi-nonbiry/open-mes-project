@@ -1,7 +1,6 @@
 from django.urls import path
 from rest_framework_simplejwt.views import (
     TokenBlacklistView,
-    TokenObtainPairView,
     TokenRefreshView,
 )
 
@@ -13,7 +12,7 @@ app_name = "users_api"
 # The API URLs are now determined automatically by the router.
 urlpatterns = [
     # JWT認証
-    path("token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
+    path("token/", rest_views.CustomTokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("token/blacklist/", TokenBlacklistView.as_view(), name="token_blacklist"),
     path("logout/", rest_views.APILogoutView.as_view(), name="api_logout"),
