@@ -41,7 +41,6 @@ const pages: { name: string; path: string }[] = [
   { name: 'QRコードアクション設定', path: '/system/qr-code-actions' },
   { name: '棚QRコード作成', path: '/system/shelf-qr-code' },
   { name: '倉庫レイアウト作成', path: '/master/warehouse-layout' },
-  { name: 'ヘルプ', path: '/help' },
 ];
 
 for (const { name, path } of pages) {

@@ -42,7 +42,6 @@ import MobileGoodsReceiptPage from './pages/mobile/MobileGoodsReceiptPage';
 import MobileGoodsIssuePage from './pages/mobile/MobileGoodsIssuePage';
 import MobileLocationTransferPage from './pages/mobile/MobileLocationTransferPage';
 import MobileLoginPage from './pages/mobile/MobileLoginPage';
-import Help from './pages/Help';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './hooks/useAuth';
 
@@ -171,7 +170,6 @@ function AppContent() {
           <Route path="/system/qr-code-actions" element={<StaffRoute><QrCodeActionSettings /></StaffRoute>} />
           <Route path="/system/shelf-qr-code" element={<StaffRoute><ShelfQrCodeCreation /></StaffRoute>} />
           <Route path="/master/warehouse-layout" element={<StaffRoute><WarehouseLayoutCreation /></StaffRoute>} />
-          <Route path="/help" element={<Help />} />
         </Route>
 
         {/* Mobile Protected Routes */}
