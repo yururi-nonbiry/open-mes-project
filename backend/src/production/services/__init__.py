@@ -5,6 +5,7 @@ from .allocation import (
 )
 from .progress import update_production_progress_service
 from .queries import get_production_plan_required_parts
+from .simulation import simulate_parts_supply
 
 __all__ = [
     'allocate_materials_service',
@@ -12,4 +13,5 @@ __all__ = [
     'update_material_allocation_status_service',
     'update_production_progress_service',
     'get_production_plan_required_parts',
+    'simulate_parts_supply',
 ]

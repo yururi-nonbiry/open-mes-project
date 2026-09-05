@@ -12,6 +12,7 @@ from rest_framework.filters import OrderingFilter  # OrderingFilterをインポ�
 # from rest_framework import permissions # Uncomment if you want to add permissions
 from rest_framework.pagination import PageNumberPagination  # Import PageNumberPagination
 from rest_framework.response import Response  # Responseをインポート
+from rest_framework.views import APIView  # APIViewをインポート
 from django_filters import rest_framework as filters  # django-filterをインポート
 
 from inventory.models import Inventory, SalesOrder, StockMovement  # Add StockMovement and SalesOrder
@@ -29,6 +30,7 @@ from .services import (
     allocate_materials_service,
     get_production_plan_required_parts,
     release_material_allocation_service,
+    simulate_parts_supply,
     update_material_allocation_status_service,
     update_production_progress_service,
 )
@@ -180,6 +182,32 @@ class ProductionPlanViewSet(viewsets.ModelViewSet):
                 {"error": "Failed to save progress due to an unexpected error. Please check logs."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+
+class PartsSupplySimulationView(APIView):
+    """
+    複数の生産計画（納入品番）を横断して、共通部品の供給可否をシミュレーションするビュー。
+
+    クエリパラメータ:
+      - plan_ids: 対象とする生産計画IDのカンマ区切りリスト（指定時はstatus指定を無視）
+      - status: 対象とするステータスのカンマ区切りリスト（省略時は PENDING, IN_PROGRESS）
+    """
+
+    def get(self, request):
+        plan_ids_param = request.query_params.get("plan_ids")
+        queryset = ProductionPlan.objects.select_related("product")
+
+        if plan_ids_param:
+            plan_ids = [pid for pid in plan_ids_param.split(",") if pid]
+            queryset = queryset.filter(id__in=plan_ids)
+        else:
+            status_param = request.query_params.get("status")
+            status_list = [s for s in status_param.split(",") if s] if status_param else ["PENDING", "IN_PROGRESS"]
+            queryset = queryset.filter(status__in=status_list)
+
+        plans = queryset.order_by("planned_start_datetime")
+        result = simulate_parts_supply(plans)
+        return Response(result)
 
 
 class PartsUsedViewSet(viewsets.ModelViewSet):

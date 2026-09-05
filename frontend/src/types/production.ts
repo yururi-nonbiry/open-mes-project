@@ -111,3 +111,38 @@ export interface MaterialAllocation {
     warehouse?: string;
 }
 
+export interface LimitingPart {
+    part_code: string;
+    part_name: string;
+    warehouse: string | null;
+    shortage_quantity: number;
+}
+
+export interface PartsSupplySimulationPlanResult {
+    plan_id: string;
+    plan_name: string;
+    product_code: string | null;
+    planned_start_datetime: string;
+    planned_quantity: number;
+    status: string;
+    feasible: boolean;
+    limiting_parts: LimitingPart[];
+}
+
+export interface PartsSupplySimulationPartResult {
+    part_code: string;
+    part_name: string;
+    warehouse: string | null;
+    available_quantity: number;
+    total_required_quantity: number;
+    shortage_quantity: number;
+    shortage_plan_id: string | null;
+    shortage_plan_name: string | null;
+    shortage_date: string | null;
+}
+
+export interface PartsSupplySimulationResult {
+    plans: PartsSupplySimulationPlanResult[];
+    parts: PartsSupplySimulationPartResult[];
+}
+

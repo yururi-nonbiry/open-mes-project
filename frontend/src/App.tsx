@@ -16,6 +16,7 @@ import GoodsIssue from './pages/GoodsIssue';
 import ProductionPlan from './pages/ProductionPlan';
 import PartsUsed from './pages/PartsUsed';
 import MaterialAllocation from './pages/MaterialAllocation';
+import PartsSupplySimulationPage from './pages/production/PartsSupplySimulationPage';
 import WorkProgress from './pages/WorkProgress';
 import ProcessInspection from './pages/ProcessInspection';
 import AcceptanceInspection from './pages/AcceptanceInspection';
@@ -148,6 +149,7 @@ function AppContent() {
           <Route path="/production/plan" element={<ProductionPlan />} />
           <Route path="/production/parts-used" element={<PartsUsed />} />
           <Route path="/production/material-allocation" element={<MaterialAllocation />} />
+          <Route path="/production/parts-supply-simulation" element={<PartsSupplySimulationPage />} />
           <Route path="/production/work-progress" element={<WorkProgress />} />
           <Route path="/quality/process-inspection" element={<ProcessInspection />} />
           <Route path="/quality/acceptance-inspection" element={<AcceptanceInspection />} />

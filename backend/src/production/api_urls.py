@@ -12,5 +12,6 @@ router.register(r"work-progress", rest_views.WorkProgressViewSet, basename="work
 app_name = "production_api"
 
 urlpatterns = [
+    path("parts-supply-simulation/", rest_views.PartsSupplySimulationView.as_view(), name="parts-supply-simulation"),
     path("", include(router.urls)),
 ]

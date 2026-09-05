@@ -8,7 +8,8 @@ import {
     UpdateProgressResponse,
     MaterialAllocationPayload,
     AllocateMaterialsResponse,
-    WorkProgress
+    WorkProgress,
+    PartsSupplySimulationResult
 } from '../types/production';
 
 /**
@@ -95,6 +96,19 @@ const productionService = {
         await handleError(response, 'Failed to fetch work progress');
         const data = await response.json() as PaginationData<WorkProgress>;
         return data.results;
+    },
+
+    getPartsSupplySimulation: async (params: { planIds?: string[]; statuses?: string[] }) => {
+        const queryParams: Record<string, string> = {};
+        if (params.planIds && params.planIds.length > 0) {
+            queryParams.plan_ids = params.planIds.join(',');
+        } else if (params.statuses && params.statuses.length > 0) {
+            queryParams.status = params.statuses.join(',');
+        }
+        const queryString = buildQueryString(queryParams);
+        const response = await authFetch(`/api/production/parts-supply-simulation/${queryString}`);
+        await handleError(response, '部品供給シミュレーションの取得に失敗しました');
+        return await response.json() as PartsSupplySimulationResult;
     }
 };
 
