@@ -15,6 +15,7 @@ class ItemAdmin(admin.ModelAdmin):
         "default_warehouse",
         "default_location",
         "provision_type",
+        "lead_time_days",
         "created_at",
     )
     list_filter = ("item_type", "provision_type", "created_at")

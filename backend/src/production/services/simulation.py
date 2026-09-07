@@ -1,6 +1,8 @@
 from collections import defaultdict
+from datetime import timedelta
 
 from django.db.models import Sum
+from django.utils import timezone
 
 from inventory.models import Inventory
 from master.models import Item
@@ -34,11 +36,18 @@ def simulate_parts_supply(plans):
                     "part_code", "part_name", "warehouse", "available_quantity",
                     "total_required_quantity", "shortage_quantity",
                     "shortage_plan_id", "shortage_plan_name", "shortage_date",
+                    "lead_time_days", "order_by_date", "order_overdue",
                 }, ...
             ]
         }
+
+    不足発生日（shortage_date）は在庫が尽きる＝生産に着手できなくなる日付です。部品ごとの
+    調達リードタイム（Item.lead_time_days）をさかのぼった `order_by_date` が「支給元へ発注・
+    連絡すべき期限」であり、現在時刻がこれを過ぎている場合は `order_overdue=True` として
+    緊急度を示します。
     """
     plans = list(plans)
+    now = timezone.now()
 
     bom_keys = [p.production_plan for p in plans if p.production_plan]
     parts_used_by_bom_key = defaultdict(list)
@@ -46,7 +55,7 @@ def simulate_parts_supply(plans):
         parts_used_by_bom_key[parts_used.production_plan].append(parts_used)
 
     part_codes = {pu.part_id for values in parts_used_by_bom_key.values() for pu in values if pu.part_id}
-    items_map = {item.code: item.name for item in Item.objects.filter(code__in=part_codes)}
+    items_map = {item.code: item for item in Item.objects.filter(code__in=part_codes)}
 
     # (part_code, warehouse) -> 利用可能数量。warehouse指定が無いPartsUsed用に、
     # part_codeのみをキーにした全倉庫合計も別途保持する。
@@ -86,11 +95,13 @@ def simulate_parts_supply(plans):
             cumulative_required[key] += remaining_required
 
             available = resolve_available(part_code, warehouse)
+            item = items_map.get(part_code)
+            lead_time_days = item.lead_time_days if item else 0
             summary = part_summary.setdefault(
                 key,
                 {
                     "part_code": part_code,
-                    "part_name": items_map.get(part_code, f"{part_code} (名称未登録)"),
+                    "part_name": item.name if item else f"{part_code} (名称未登録)",
                     "warehouse": warehouse,
                     "available_quantity": available,
                     "total_required_quantity": 0,
@@ -98,6 +109,9 @@ def simulate_parts_supply(plans):
                     "shortage_plan_id": None,
                     "shortage_plan_name": None,
                     "shortage_date": None,
+                    "lead_time_days": lead_time_days,
+                    "order_by_date": None,
+                    "order_overdue": False,
                 },
             )
             summary["total_required_quantity"] = cumulative_required[key]
@@ -110,6 +124,10 @@ def simulate_parts_supply(plans):
                     summary["shortage_plan_id"] = plan.id
                     summary["shortage_plan_name"] = plan.plan_name
                     summary["shortage_date"] = plan.planned_start_datetime
+                    # 調達リードタイム分をさかのぼった「発注・支給依頼の期限」
+                    order_by_date = plan.planned_start_datetime - timedelta(days=lead_time_days)
+                    summary["order_by_date"] = order_by_date
+                    summary["order_overdue"] = order_by_date <= now
                 limiting_parts.append(
                     {
                         "part_code": part_code,
@@ -134,5 +152,9 @@ def simulate_parts_supply(plans):
 
     return {
         "plans": plan_results,
-        "parts": sorted(part_summary.values(), key=lambda p: (p["shortage_date"] is None, p["shortage_date"])),
+        "parts": sorted(
+            part_summary.values(),
+            # 発注期限が近い（または既に超過している）部品を優先的に上位表示する
+            key=lambda p: (p["order_by_date"] is None, p["order_by_date"]),
+        ),
     }

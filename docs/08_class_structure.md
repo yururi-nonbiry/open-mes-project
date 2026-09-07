@@ -301,7 +301,7 @@ MeasurementDetail "1" -- "0..*" InspectionResultDetail : measurement_detail
 
 ## Master（マスターデータ）モジュール
 
-**Item（品目）** – 製品や原材料を表すマスターデータのクラスです。`name`（名称）・`code`（コード）はユニーク制約付きです。`item_type`フィールドで「product（製品）」か「material（材料）」かを区別します。`unit`（単位、デフォルト`kg`）、`description`（説明）に加え、`default_warehouse`/`default_location`（デフォルトの入庫先倉庫・棚番）、`provision_type`（有償支給/無償支給/支給なし）を持ちます。Itemは`Inventory`、`StockMovement`、`PurchaseOrder`、`SalesOrder`、`ProductionPlan`、`PartsUsed`、`MaterialAllocation`、`UnitCost`、`BillOfMaterial`（製品・使用部品の双方として2回参照）など、他の多くのクラスから外部キー（`to_field="code"`で品目コードを参照）で参照される中心的存在です。
+**Item（品目）** – 製品や原材料を表すマスターデータのクラスです。`name`（名称）・`code`（コード）はユニーク制約付きです。`item_type`フィールドで「product（製品）」か「material（材料）」かを区別します。`unit`（単位、デフォルト`kg`）、`description`（説明）に加え、`default_warehouse`/`default_location`（デフォルトの入庫先倉庫・棚番）、`provision_type`（有償支給/無償支給/支給なし）、`lead_time_days`（調達リードタイム日数、デフォルト0。発注・支給依頼から入庫までにかかる日数で、部品供給シミュレーションの発注要否期限算出に使用）を持ちます。Itemは`Inventory`、`StockMovement`、`PurchaseOrder`、`SalesOrder`、`ProductionPlan`、`PartsUsed`、`MaterialAllocation`、`UnitCost`、`BillOfMaterial`（製品・使用部品の双方として2回参照）など、他の多くのクラスから外部キー（`to_field="code"`で品目コードを参照）で参照される中心的存在です。
 
 **Supplier（サプライヤー）** – サプライヤー（部品・材料の供給元）を表すマスタークラスです。`supplier_number`（サプライヤー番号）がユニークキーで、`name`（名前）、`contact_person`（担当者）、`phone`、`email`、`address`といった連絡先情報を持ちます。`PurchaseOrder`から参照されます。
 
@@ -339,7 +339,7 @@ MeasurementDetail "1" -- "0..*" InspectionResultDetail : measurement_detail
 
 **WorkProgress（作業進捗）** – 現場の作業進行状況を記録するクラスです。`production_plan`（`ProductionPlan`へのFK、`related_name="work_progresses"`）、`process_step`（工程名、例:「組立」「塗装」「検査」）、`operator`（`CustomUser`へのFK、`on_delete=SET_NULL`）、開始・終了日時、`quantity_completed`（良品数）、`actual_reported_quantity`（総生産数）、`defective_reported_quantity`（不良数）、`status`（「未開始(NOT_STARTED)」「進行中(IN_PROGRESS)」「完了(COMPLETED)」「一時停止(PAUSED)」）を持ちます。`production_plan`と`process_step`の組み合わせにユニーク制約があります。
 
-**部品供給シミュレーション（`production/services/simulation.py`）** – 複数の生産計画にまたがり、`PartsUsed.production_plan`（生産計画識別子の文字列）が共通する部品の需給を横断的にシミュレーションするサービスです。独立したモデルクラスは持たず、既存の`ProductionPlan`・`PartsUsed`・`Inventory`の情報を集計して算出するため、本クラス図には表示されていません。
+**部品供給シミュレーション（`production/services/simulation.py`）** – 複数の生産計画にまたがり、`PartsUsed.production_plan`（生産計画識別子の文字列）が共通する部品の需給を横断的にシミュレーションするサービスです。独立したモデルクラスは持たず、既存の`ProductionPlan`・`PartsUsed`・`Inventory`・`Item`の情報を集計して算出するため、本クラス図には表示されていません。部品ごとに不足が発生する計画・日付（`shortage_date`）を求めたうえで、`Item.lead_time_days`（調達リードタイム）を遡った`order_by_date`（発注・支給依頼をすべき期限）を算出し、現在時刻がこれを過ぎている場合は`order_overdue=True`として警告します。
 
 ## Quality（品質）モジュール
 

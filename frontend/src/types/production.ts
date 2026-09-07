@@ -139,6 +139,9 @@ export interface PartsSupplySimulationPartResult {
     shortage_plan_id: string | null;
     shortage_plan_name: string | null;
     shortage_date: string | null;
+    lead_time_days: number;
+    order_by_date: string | null;
+    order_overdue: boolean;
 }
 
 export interface PartsSupplySimulationResult {

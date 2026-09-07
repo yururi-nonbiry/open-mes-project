@@ -144,6 +144,8 @@
 | PSS-01 | 正常系 | `GET parts-supply-simulation/` | 単独計画で必要数量が在庫内に収まる | `plan_ids=<id>` | 200、当該計画の`feasible=True`、`shortage_quantity=0` | |
 | PSS-02 | 異常系 | `GET parts-supply-simulation/` | 共通部品を必要とする2計画があり、在庫が両方を賄えない | `plan_ids=<id1>,<id2>` | 200、開始日時が後の計画が`feasible=False`、`limiting_parts`に不足部品・不足数量、`parts`側にも`shortage_quantity`/`shortage_plan_id`が記録される | 開始日時が早い計画が優先的に充足される |
 | PSS-03 | 正常系 | `GET parts-supply-simulation/` | 対象部品に`MaterialAllocation`（引当済み）が既に存在 | `plan_ids=<id>` | 200、`feasible=True`（引当済み分は`Inventory.reserved`側で加味され、不足として扱われない） | |
+| PSS-04 | 正常系 | `GET parts-supply-simulation/` | 不足部品の`Item.lead_time_days`に7を設定し、計画開始日時を現在時刻とする | `plan_ids=<id>` | 200、`parts`側の`lead_time_days=7`、`order_by_date`=`shortage_date - 7日`、期限が既に過去のため`order_overdue=True` | 不足発生日からリードタイム分を遡った「発注要否期限」を算出する |
+| PSS-05 | 正常系 | `GET parts-supply-simulation/` | `lead_time_days`未設定（デフォルト0）の部品が、計画開始日時30日後の計画で不足 | `plan_ids=<id>` | 200、`lead_time_days=0`、`order_by_date`が`shortage_date`と一致、`order_overdue=False` | リードタイム0日の場合は不足発生日＝発注要否期限になる |
 
 ## 6. シリアライザの read_only_fields 確認
 

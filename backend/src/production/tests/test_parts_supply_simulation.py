@@ -83,3 +83,52 @@ class PartsSupplySimulationTests(ProductionAPITestBase):
         response = self.client.get(self.url, {"plan_ids": str(plan_a.id)})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(response.data["plans"][0]["feasible"])
+
+    def test_pss_04_shortage_order_by_date_accounts_for_lead_time(self):
+        """PSS-04: 不足発生日からリードタイム分をさかのぼった発注要否期限が算出される。"""
+        common_part = self.material_item1.code
+        warehouse = self.warehouse_a.warehouse_number
+        self.material_item1.lead_time_days = 7
+        self.material_item1.save(update_fields=["lead_time_days"])
+        self.create_inventory(part_number=common_part, quantity=3, reserved=0)
+
+        plan = self.create_plan(
+            production_plan="BOM-A", planned_start_datetime=self.now, status="PENDING",
+        )
+        self.create_parts_used(
+            production_plan="BOM-A", part_code=common_part, warehouse=warehouse, quantity_used=5,
+        )
+
+        response = self.client.get(self.url, {"plan_ids": str(plan.id)})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        part_summary = response.data["parts"][0]
+        self.assertEqual(part_summary["shortage_quantity"], 2)
+        self.assertEqual(part_summary["lead_time_days"], 7)
+        expected_order_by_date = self.now - timezone.timedelta(days=7)
+        self.assertEqual(part_summary["order_by_date"], expected_order_by_date)
+        # 計画開始日(now)から7日さかのぼった期限は既に過ぎているため、超過扱いになる。
+        self.assertTrue(part_summary["order_overdue"])
+
+    def test_pss_05_zero_lead_time_order_by_date_equals_shortage_date(self):
+        """PSS-05: リードタイム未設定（0日）の場合、発注要否期限は不足発生日と一致する。"""
+        common_part = self.material_item1.code
+        warehouse = self.warehouse_a.warehouse_number
+        self.create_inventory(part_number=common_part, quantity=3, reserved=0)
+
+        plan = self.create_plan(
+            production_plan="BOM-A",
+            planned_start_datetime=self.now + timezone.timedelta(days=30),
+            status="PENDING",
+        )
+        self.create_parts_used(
+            production_plan="BOM-A", part_code=common_part, warehouse=warehouse, quantity_used=5,
+        )
+
+        response = self.client.get(self.url, {"plan_ids": str(plan.id)})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        part_summary = response.data["parts"][0]
+        self.assertEqual(part_summary["lead_time_days"], 0)
+        self.assertEqual(part_summary["order_by_date"], part_summary["shortage_date"])
+        self.assertFalse(part_summary["order_overdue"])

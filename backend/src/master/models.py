@@ -33,6 +33,9 @@ class Item(models.Model):
         null=True,
         verbose_name="支給種別",
     )  # 有償支給、無償支給等
+    lead_time_days = models.PositiveIntegerField(
+        default=0, verbose_name="調達リードタイム（日）"
+    )  # 発注・支給依頼から入庫までにかかる日数
     created_at = models.DateTimeField(auto_now_add=True)  # 登録日時
 
     def __str__(self):

@@ -74,7 +74,8 @@ export const getFormFields = (type: string): FormField[] => {
             { name: 'description', label: '説明' },
             { name: 'default_warehouse', label: 'デフォルト入庫倉庫' },
             { name: 'default_location', label: 'デフォルト入庫棚番' },
-            { name: 'provision_type', label: '支給種別 (paid/free/none)' }
+            { name: 'provision_type', label: '支給種別 (paid/free/none)' },
+            { name: 'lead_time_days', label: '調達リードタイム（日）' }
         ],
         supplier: [
             { name: 'supplier_number', label: 'サプライヤー番号' },

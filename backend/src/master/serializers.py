@@ -21,6 +21,7 @@ class ItemSerializer(serializers.ModelSerializer):
             "default_warehouse",
             "default_location",
             "provision_type",
+            "lead_time_days",
             "created_at",
         )
         # For create/update, we might not want to expose all fields or handle choices differently.
@@ -40,6 +41,7 @@ class ItemCreateUpdateSerializer(serializers.ModelSerializer):
             "default_warehouse",
             "default_location",
             "provision_type",
+            "lead_time_days",
         ]
         # Add custom error messages for unique fields
         extra_kwargs = {

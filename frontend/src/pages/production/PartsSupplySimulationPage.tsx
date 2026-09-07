@@ -51,6 +51,7 @@ const PartsSupplySimulationPage = () => {
     };
 
     const shortageParts = result?.parts.filter(p => p.shortage_quantity > 0) ?? [];
+    const overdueParts = shortageParts.filter(p => p.order_overdue);
 
     return (
         <div className="container mt-4">
@@ -154,7 +155,8 @@ const PartsSupplySimulationPage = () => {
                         <div className="card-body p-0">
                             <h5 className="p-3 mb-0 border-bottom">部品別 供給状況（支給元連絡用）</h5>
                             <p className="px-3 text-muted small mb-2">
-                                不足が見込まれる部品は、対象生産計画の納期までに支給元へ必要数の連絡が必要です。
+                                不足が見込まれる部品は、不足発生日から部品マスターの調達リードタイム分をさかのぼった
+                                「発注要否期限」までに支給元へ必要数の連絡が必要です。期限を過ぎている行は赤色で表示されます。
                             </p>
                             <div className="table-responsive">
                                 <table className="table table-hover align-middle mb-0">
@@ -167,14 +169,19 @@ const PartsSupplySimulationPage = () => {
                                             <th className="text-end">対象期間の累計必要数</th>
                                             <th className="text-end">不足数量</th>
                                             <th>不足が発生する計画</th>
-                                            <th>不足発生日（連絡期限の目安）</th>
+                                            <th>不足発生日</th>
+                                            <th className="text-end">調達リードタイム</th>
+                                            <th>発注要否期限</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {result.parts.length === 0 ? (
-                                            <tr><td colSpan={8} className="text-center py-4 text-muted">対象の部品データがありません。</td></tr>
+                                            <tr><td colSpan={10} className="text-center py-4 text-muted">対象の部品データがありません。</td></tr>
                                         ) : result.parts.map(part => (
-                                            <tr key={`${part.part_code}-${part.warehouse ?? 'ALL'}`} className={part.shortage_quantity > 0 ? 'table-warning' : undefined}>
+                                            <tr
+                                                key={`${part.part_code}-${part.warehouse ?? 'ALL'}`}
+                                                className={part.order_overdue ? 'table-danger' : part.shortage_quantity > 0 ? 'table-warning' : undefined}
+                                            >
                                                 <td className="ps-3 font-monospace">{part.part_code}</td>
                                                 <td>{part.part_name}</td>
                                                 <td>{part.warehouse || '(全倉庫合計)'}</td>
@@ -183,6 +190,15 @@ const PartsSupplySimulationPage = () => {
                                                 <td className="text-end fw-bold">{part.shortage_quantity > 0 ? part.shortage_quantity : '-'}</td>
                                                 <td>{part.shortage_plan_name || '-'}</td>
                                                 <td>{formatDate(part.shortage_date)}</td>
+                                                <td className="text-end">{part.shortage_quantity > 0 ? `${part.lead_time_days}日` : '-'}</td>
+                                                <td>
+                                                    {part.order_by_date ? (
+                                                        <span className={part.order_overdue ? 'fw-bold text-danger' : undefined}>
+                                                            {formatDate(part.order_by_date)}
+                                                            {part.order_overdue && <span className="badge bg-danger ms-2">期限超過</span>}
+                                                        </span>
+                                                    ) : '-'}
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -191,10 +207,16 @@ const PartsSupplySimulationPage = () => {
                         </div>
                     </div>
 
+                    {overdueParts.length > 0 && (
+                        <div className="alert alert-danger mt-4">
+                            <strong>{overdueParts.length}件の部品で、リードタイムを考慮した発注要否期限を既に過ぎています。</strong>
+                            至急、支給元へ連絡してください。
+                        </div>
+                    )}
                     {shortageParts.length > 0 && (
                         <div className="alert alert-warning mt-4">
                             <strong>{shortageParts.length}件の部品で供給不足が見込まれます。</strong>
-                            対象の生産計画の納期に間に合うよう、上表の「不足数量」「不足発生日」を目安に支給元へ連絡してください。
+                            対象の生産計画の納期に間に合うよう、上表の「不足数量」「発注要否期限」を目安に支給元へ連絡してください。
                         </div>
                     )}
                 </>
