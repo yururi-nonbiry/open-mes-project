@@ -53,7 +53,7 @@ services:
     build:
       context: ./backend/image
       dockerfile: Dockerfile
-    command: celery -A base worker -l info
+    command: celery -A base worker -l info --concurrency=1
     volumes:
       - ./backend/src:/open_mes
     env_file:

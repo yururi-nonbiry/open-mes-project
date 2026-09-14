@@ -13,6 +13,16 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: prod_redis
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
     container_name: prod_backend
     build:
@@ -30,12 +40,31 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: always
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/base/health/"]
       interval: 30s
       timeout: 10s
       retries: 5
+
+  worker:
+    container_name: prod_worker
+    build:
+      context: ./backend/image
+      dockerfile: Dockerfile
+    command: celery -A base worker -l info --concurrency=1
+    volumes:
+      - ./backend/src:/open_mes
+    env_file:
+      - .env.prod # Django設定はこちらを参照
+    depends_on:
+      backend:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    restart: always
 
   reverse-proxy:
     build: ./reverse-proxy_prod
