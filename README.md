@@ -153,8 +153,11 @@ docker compose exec -it backend python3 -c "from django.core.management.utils im
 
 ### フロントエンドのビルド（本番環境用の静的ファイル生成）
 ```bash
-docker compose run --rm frontend npm run build
+script/build_frontend_prod.sh
+# 型チェック・lintを省略して素早くビルドしたい場合
+script/build_frontend_prod.sh --skip-checks
 ```
+内部で `docker compose run --rm frontend npm ci && npm run build` を実行し、`frontend/dist` を生成します（ホストにNode.jsは不要）。
 
 ### テストの実行
 ```bash
@@ -193,7 +196,7 @@ Viteの開発サーバー（ポート5173）でフロントエンドを配信し
 ### 本番環境（`compose.prod.yml` / `compose.https.yml`）
 ホスト側でビルド済みのフロントエンド静的ファイル（`frontend/dist`）をNginx経由で配信します。起動前に以下でビルドしてください。
 ```bash
-docker compose -f compose.yml run --rm frontend npm run build
+script/build_frontend_prod.sh
 ```
 
 ### SSL証明書の切り替え（テスト→本番）

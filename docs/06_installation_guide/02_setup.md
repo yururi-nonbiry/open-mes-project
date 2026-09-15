@@ -56,8 +56,10 @@ docker compose run --rm frontend npm install
 本番相当のビルド済み静的ファイル（`frontend/dist`）が必要な場合は、以下でビルドします（ホストにNode.jsは不要）。
 
 ```bash
-docker compose run --rm frontend npm run build
+script/build_frontend_prod.sh
 ```
+
+内部で `docker compose run --rm frontend npm ci && npm run build` を実行し、型チェック（失敗するとビルドを中断）とlint（結果は参考情報としてのみ表示）も行います。型チェック・lintを省略して素早くビルドしたい場合は `script/build_frontend_prod.sh --skip-checks` を使用してください。
 
 ## 5. 管理者ユーザーの作成
 
