@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import type { ReactNode } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation, Outlet } from 'react-router-dom';
 import './App.css';
@@ -7,43 +7,45 @@ import SideMenu from './components/SideMenu';
 import ProtectedRoute from './components/ProtectedRoute';
 import LoginPage from './pages/LoginPage';
 import VersionModal from './components/VersionModal';
-import TopPage from './pages/TopPage';
-import InventoryInquiry from './pages/InventoryInquiry';
-import StockMovementHistory from './pages/StockMovementHistory';
-import ShipmentSchedule from './pages/ShipmentSchedule';
-import GoodsReceipt from './pages/GoodsReceipt';
-import GoodsIssue from './pages/GoodsIssue';
-import ProductionPlan from './pages/ProductionPlan';
-import PartsUsed from './pages/PartsUsed';
-import MaterialAllocation from './pages/MaterialAllocation';
-import PartsSupplySimulationPage from './pages/production/PartsSupplySimulationPage';
-import WorkProgress from './pages/WorkProgress';
-import ProcessInspection from './pages/ProcessInspection';
-import AcceptanceInspection from './pages/AcceptanceInspection';
-import QualityMasterCreation from './pages/QualityMasterCreation';
-import StartInspection from './pages/StartInspection';
-import InspectionHistory from './pages/InspectionHistory';
-import MachineMasterCreation from './pages/MachineMasterCreation';
-import BomMasterCreation from './pages/BomMasterCreation';
-import DataImport from './pages/DataImport';
-import UserSettings from './pages/UserSettings';
-import UserManagement from './pages/UserManagement';
-import UserForm from './pages/UserForm';
-import SystemSettings from './pages/SystemSettings';
-import CsvMappingSettings from './pages/CsvMappingSettings';
-import ModelDisplaySettings from './pages/ModelDisplaySettings';
-import PageDisplaySettings from './pages/PageDisplaySettings';
-import QrCodeActionSettings from './pages/QrCodeActionSettings';
-import ShelfQrCodeCreation from './pages/ShelfQrCodeCreation';
-import WarehouseLayoutCreation from './pages/WarehouseLayoutCreation';
 import MobileLayout from './layouts/MobileLayout';
-import MobileTopPage from './pages/MobileTopPage';
-import MobileGoodsReceiptPage from './pages/mobile/MobileGoodsReceiptPage';
-import MobileGoodsIssuePage from './pages/mobile/MobileGoodsIssuePage';
-import MobileLocationTransferPage from './pages/mobile/MobileLocationTransferPage';
 import MobileLoginPage from './pages/mobile/MobileLoginPage';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './hooks/useAuth';
+
+// ルートごとに遅延読み込みし、初期バンドルサイズを抑える
+const TopPage = lazy(() => import('./pages/TopPage'));
+const InventoryInquiry = lazy(() => import('./pages/InventoryInquiry'));
+const StockMovementHistory = lazy(() => import('./pages/StockMovementHistory'));
+const ShipmentSchedule = lazy(() => import('./pages/ShipmentSchedule'));
+const GoodsReceipt = lazy(() => import('./pages/GoodsReceipt'));
+const GoodsIssue = lazy(() => import('./pages/GoodsIssue'));
+const ProductionPlan = lazy(() => import('./pages/ProductionPlan'));
+const PartsUsed = lazy(() => import('./pages/PartsUsed'));
+const MaterialAllocation = lazy(() => import('./pages/MaterialAllocation'));
+const PartsSupplySimulationPage = lazy(() => import('./pages/production/PartsSupplySimulationPage'));
+const WorkProgress = lazy(() => import('./pages/WorkProgress'));
+const ProcessInspection = lazy(() => import('./pages/ProcessInspection'));
+const AcceptanceInspection = lazy(() => import('./pages/AcceptanceInspection'));
+const QualityMasterCreation = lazy(() => import('./pages/QualityMasterCreation'));
+const StartInspection = lazy(() => import('./pages/StartInspection'));
+const InspectionHistory = lazy(() => import('./pages/InspectionHistory'));
+const MachineMasterCreation = lazy(() => import('./pages/MachineMasterCreation'));
+const BomMasterCreation = lazy(() => import('./pages/BomMasterCreation'));
+const DataImport = lazy(() => import('./pages/DataImport'));
+const UserSettings = lazy(() => import('./pages/UserSettings'));
+const UserManagement = lazy(() => import('./pages/UserManagement'));
+const UserForm = lazy(() => import('./pages/UserForm'));
+const SystemSettings = lazy(() => import('./pages/SystemSettings'));
+const CsvMappingSettings = lazy(() => import('./pages/CsvMappingSettings'));
+const ModelDisplaySettings = lazy(() => import('./pages/ModelDisplaySettings'));
+const PageDisplaySettings = lazy(() => import('./pages/PageDisplaySettings'));
+const QrCodeActionSettings = lazy(() => import('./pages/QrCodeActionSettings'));
+const ShelfQrCodeCreation = lazy(() => import('./pages/ShelfQrCodeCreation'));
+const WarehouseLayoutCreation = lazy(() => import('./pages/WarehouseLayoutCreation'));
+const MobileTopPage = lazy(() => import('./pages/MobileTopPage'));
+const MobileGoodsReceiptPage = lazy(() => import('./pages/mobile/MobileGoodsReceiptPage'));
+const MobileGoodsIssuePage = lazy(() => import('./pages/mobile/MobileGoodsIssuePage'));
+const MobileLocationTransferPage = lazy(() => import('./pages/mobile/MobileLocationTransferPage'));
 
 // モバイル専用リダイレクト処理
 const MobileRedirector = () => {
@@ -106,6 +108,7 @@ function AppContent() {
     <>      
       <MobileRedirector />
 
+      <Suspense fallback={<div className="p-4">読み込み中...</div>}>
       <Routes>
         {/* Public Login Routes */}
         <Route
@@ -180,6 +183,7 @@ function AppContent() {
           <Route path="/mobile/location-transfer" element={<MobileLocationTransferPage />} />
         </Route>
       </Routes>
+      </Suspense>
 
       <VersionModal isOpen={versionModalOpen} onClose={() => setVersionModalOpen(false)} />
     </>
