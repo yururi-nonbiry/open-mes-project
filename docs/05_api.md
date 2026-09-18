@@ -8,7 +8,6 @@ open-mes-projectは、Django REST Framework (DRF) によるREST APIをバック�
 
 ```python
 urlpatterns = [
-    path("admin/", admin.site.urls),
     path("api/token-auth/", authtoken_views.obtain_auth_token, name="api_token_auth"),
     path("api/base/", include("base.api_urls", namespace="base_api")),
     path("api/inventory/", include("inventory.api_urls", namespace="inventory_api")),

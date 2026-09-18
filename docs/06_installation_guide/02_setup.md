@@ -71,9 +71,7 @@ docker compose exec -it backend python3 manage.py createsuperuser
 
 ## 6. アプリケーションへのアクセス
 
-開発環境では、ブラウザで `http://localhost:5173/` にアクセスするとReactフロントエンドが表示されます（Viteの開発サーバーが `/api`, `/admin`, `/static`, `/__debug__` 宛のリクエストをバックエンドにプロキシします）。ログイン画面が表示されたら、先ほど作成した管理者ユーザーの資格情報でログインしてください。
-
-Django管理サイト（`/admin/`）には `http://localhost:5173/admin/` からアクセスできます。
+開発環境では、ブラウザで `http://localhost:5173/` にアクセスするとReactフロントエンドが表示されます（Viteの開発サーバーが `/api`, `/static`, `/__debug__` 宛のリクエストをバックエンドにプロキシします）。ログイン画面が表示されたら、先ほど作成した管理者ユーザーの資格情報でログインしてください。
 
 **メモ:** ログが確認したい場合は`docker compose logs -f backend`や`docker compose logs -f frontend`を実行してください。
 

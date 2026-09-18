@@ -24,15 +24,9 @@ class PasswordExpirationMiddleware(MiddlewareMixin):
             "users_api:api_logout",
             "users_api:api_user_password_change",
             "users_api:api_session_info",  # フロントエンドが常にセッション状態を確認できるように除外
-            # Django管理サイトのログアウト
-            "admin:logout",
         }
 
         if request.resolver_match.view_name in exempt_view_names:
-            return False
-
-        # 他のすべての管理サイトのパスを除外する。これは広範だが安全なルールです。
-        if request.resolver_match.app_name == "admin":
             return False
 
         return True

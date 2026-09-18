@@ -15,7 +15,7 @@ from pathlib import Path
 
 import environ
 
-VERSION = "0.0.0"
+VERSION = "0.1.0"
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -69,7 +69,6 @@ CSRF_COOKIE_HTTPONLY = False
 # Application definition
 
 INSTALLED_APPS = [
-    "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",

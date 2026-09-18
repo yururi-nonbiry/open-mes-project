@@ -17,8 +17,8 @@ export default defineConfig({
     allowedHosts: ['*', ...allowedHostsFromEnv],
     proxy: {
       // Djangoバックエンドへのリクエストをプロキシする設定
-      // API, Admin, Static, Debug Toolbarのリクエストをバックエンドに転送する
-      '^/(api|admin|static|__debug__)/.*': {
+      // API, Static, Debug Toolbarのリクエストをバックエンドに転送する
+      '^/(api|static|__debug__)/.*': {
         // Docker Compose上ではfrontendとbackendが別コンテナのため、'localhost'ではなく
         // サービス名'backend'で名前解決する必要がある。
         target: 'http://backend:8000',
