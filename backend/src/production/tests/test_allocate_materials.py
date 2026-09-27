@@ -53,6 +53,31 @@ class AllocateMaterialsTests(ProductionAPITestBase):
         self.inventory.refresh_from_db()
         self.assertEqual(self.inventory.reserved, 0)
 
+    def test_pp_alloc_03b_duplicate_rows_in_one_request_exceed_bom_rejected(self):
+        """同一リクエスト内で同じ部品を複数行に分けてもBOM必要数を超えて引き当てられない。"""
+        self.plan.production_plan = "BOM-1"
+        self.plan.save()
+        self.create_parts_used(production_plan="BOM-1", part_code=self.material_item1.code, quantity_used=5)
+        response = self._allocate([self._item(3), self._item(3)])
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.inventory.refresh_from_db()
+        self.assertEqual(self.inventory.reserved, 0)
+
+    def test_pp_alloc_03c_returned_allocation_not_counted(self):
+        """返却済み(RETURNED)の引当はBOM必要数の消化に数えず、再引当できる。"""
+        self.plan.production_plan = "BOM-1"
+        self.plan.save()
+        self.create_parts_used(production_plan="BOM-1", part_code=self.material_item1.code, quantity_used=5)
+        MaterialAllocation.objects.create(
+            production_plan=self.plan,
+            material_code=self.material_item1.code,
+            warehouse=self.inventory.warehouse,
+            allocated_quantity=5,
+            status="RETURNED",
+        )
+        response = self._allocate([self._item(5)])
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
     def test_pp_alloc_04_inventory_not_found_rejected(self):
         response = self._allocate([self._item(1, part_number="NO-SUCH-PART")])
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

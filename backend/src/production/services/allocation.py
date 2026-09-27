@@ -39,10 +39,13 @@ def allocate_materials_service(production_plan, allocations_data):
         for p in parts_used:
             required_parts[p.part_code] = required_parts.get(p.part_code, 0) + p.quantity_used
 
-    # 既に引き当て済みの数量を取得
-    existing_allocations = MaterialAllocation.objects.filter(
-        production_plan=production_plan
-    ).values('material_id').annotate(total=Sum('allocated_quantity'))
+    # 既に引き当て済みの数量を取得(返却済み(RETURNED)は使われなかった分のため必要数から差し引かない)
+    existing_allocations = (
+        MaterialAllocation.objects.filter(production_plan=production_plan)
+        .exclude(status="RETURNED")
+        .values('material_id')
+        .annotate(total=Sum('allocated_quantity'))
+    )
     allocated_map = {a['material_id']: a['total'] for a in existing_allocations}
 
     with transaction.atomic():
@@ -63,7 +66,7 @@ def allocate_materials_service(production_plan, allocations_data):
                     if quantity_to_allocate < 0:
                         errors.append(f"Quantity to allocate must be non-negative for {part_number}.")
                     continue
-            except ValueError:
+            except (TypeError, ValueError):
                 errors.append(f"Invalid quantity for {part_number}.")
                 continue
 
@@ -104,6 +107,8 @@ def allocate_materials_service(production_plan, allocations_data):
             # 在庫の引き当て（予約）
             inventory_item.reserved += quantity_to_allocate
             inventory_item.save()
+            # 同一リクエスト内で同じ部品が複数行ある場合もBOM必要数を超えないよう、引当済数量を累積する
+            allocated_map[part_number] = allocated_map.get(part_number, 0) + quantity_to_allocate
 
             # MaterialAllocationレコードの作成
             material_allocation = MaterialAllocation.objects.create(
