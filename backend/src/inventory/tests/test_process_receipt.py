@@ -181,3 +181,30 @@ class ProcessReceiptTests(InventoryAPITestBase):
             self.url, {"purchase_order_id": str(po_no_wh.id), "received_quantity": 5}, format="json"
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_po_recv_12_canceled_order_rejected(self):
+        self.po.status = "canceled"
+        self.po.save()
+        response = self.client.post(
+            self.url,
+            {"purchase_order_id": str(self.po.id), "received_quantity": 1, "warehouse": self.warehouse_a.warehouse_number},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(Receipt.objects.exists())
+
+    def test_po_recv_13_null_location_and_unknown_warehouse(self):
+        """location/warehouse に null を送っても500にならず、存在しない倉庫は400になる。"""
+        response = self.client.post(
+            self.url,
+            {"purchase_order_id": str(self.po.id), "received_quantity": 1, "warehouse": None, "location": None},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        response = self.client.post(
+            self.url,
+            {"purchase_order_id": str(self.po.id), "received_quantity": 1, "warehouse": "NO-SUCH-WH"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(Receipt.objects.exists())

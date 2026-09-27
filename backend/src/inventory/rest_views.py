@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from django.db import (  # トランザクションのためにインポート # Qオブジェクトをインポートして複雑なクエリを構築
     IntegrityError,
     models,
@@ -13,7 +11,8 @@ from django.db.models import (
 )
 from django.http import Http404
 from django.shortcuts import get_object_or_404  # オブジェクト取得のためにインポート
-from master.models import WarehouseLocation
+from django.utils import timezone
+from master.models import Warehouse, WarehouseLocation
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.pagination import (
@@ -174,6 +173,11 @@ class InventoryViewSet(viewsets.ModelViewSet):
 
         if not target_warehouse:
             return Response({"success": False, "error": "移動先倉庫は必須です。"}, status=status.HTTP_400_BAD_REQUEST)
+        if not Warehouse.objects.filter(warehouse_number=target_warehouse).exists():
+            return Response(
+                {"success": False, "error": f"移動先倉庫 '{target_warehouse}' が存在しません。"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         if quantity_to_move <= 0:
             return Response(
@@ -268,7 +272,7 @@ class InventoryViewSet(viewsets.ModelViewSet):
 
         try:
             new_quantity = int(new_quantity)
-        except ValueError:
+        except (TypeError, ValueError):
             return Response({"error": "数量は数値である必要があります。"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
@@ -403,8 +407,8 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
         """
         purchase_order_id = request.data.get("purchase_order_id")
         received_quantity_str = request.data.get("received_quantity")
-        location = request.data.get("location", "").strip()
-        warehouse = request.data.get("warehouse", "").strip()
+        location = str(request.data.get("location") or "").strip()
+        warehouse = str(request.data.get("warehouse") or "").strip()
         operator = request.user
 
         if not all([purchase_order_id, received_quantity_str]):
@@ -420,6 +424,17 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
         try:
             with transaction.atomic():
                 po = get_object_or_404(PurchaseOrder.objects.select_for_update(), pk=purchase_order_id)
+
+                if po.status == "canceled":
+                    return Response(
+                        {"error": f"発注 {po.order_number} はキャンセルされているため入庫できません。"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                if po.quantity is None:
+                    return Response(
+                        {"error": "この発注には発注数量が設定されていないため、入庫処理ができません。"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
 
                 # 在庫計上には品番が必須なため、存在をチェックする
                 if not po.part_number:
@@ -441,12 +456,16 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
                     location = po.location
                 if not warehouse:
                     return Response({"error": "入庫倉庫が指定されていません。"}, status=status.HTTP_400_BAD_REQUEST)
+                if not Warehouse.objects.filter(warehouse_number=warehouse).exists():
+                    return Response(
+                        {"error": f"入庫倉庫 '{warehouse}' が存在しません。"}, status=status.HTTP_400_BAD_REQUEST
+                    )
 
                 # 1. Create Receipt
                 Receipt.objects.create(
                     purchase_order=po,
                     received_quantity=received_quantity,
-                    received_date=datetime.now(),
+                    received_date=timezone.now(),
                     warehouse=warehouse,
                     location=location,
                     operator=operator,
@@ -481,9 +500,6 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
 
                 # 4. Update Purchase Order status
                 po.received_quantity += received_quantity
-                po.save()
-                po.refresh_from_db()
-
                 if po.received_quantity >= po.quantity:
                     po.status = "fully_received"
                 else:
@@ -621,6 +637,11 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
         """
         order = self.get_object()
         warehouse = order.warehouse_rel
+        if warehouse is None:
+            return Response(
+                {"status": "error", "message": f"受注 {order.order_number} に出庫倉庫が設定されていません。"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         qty_by_location = {
             row["location"]: row["total_qty"]

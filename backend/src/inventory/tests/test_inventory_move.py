@@ -81,6 +81,14 @@ class InventoryMoveTests(InventoryAPITestBase):
         response = self.client.post(self.url, {"quantity_to_move": 1}, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_inv_move_05b_unknown_target_warehouse(self):
+        response = self.client.post(
+            self.url, {"quantity_to_move": 1, "target_warehouse": "NO-SUCH-WH"}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.source.refresh_from_db()
+        self.assertEqual(self.source.quantity, 10)
+
     def test_inv_move_06_non_positive_quantity(self):
         response = self.client.post(
             self.url,
