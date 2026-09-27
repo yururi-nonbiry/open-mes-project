@@ -50,6 +50,14 @@ class SalesOrderCrudTests(InventoryAPITestBase):
         self.assertEqual(response.data["results"][0]["order_number"], "SO-002")
 
 
+    def test_so_crud_05b_search_q_cross_field(self):
+        """search_q(モバイル出庫画面)で受注番号・品番を横断検索できる。"""
+        url = reverse("inventory_api:salesorder-list")
+        response = self.client.get(url, {"search_q": self.so1.order_number})
+        numbers = [r["order_number"] for r in response.data["results"]]
+        self.assertEqual(numbers, [self.so1.order_number])
+
+
 class SalesOrderReservationCrudTests(InventoryAPITestBase):
     """SO-CRUD-06〜: 引当を持つ受注の更新・削除。"""
 

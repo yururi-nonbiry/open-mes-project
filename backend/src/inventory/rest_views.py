@@ -328,6 +328,15 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
         if search_status:
             filters &= Q(status=search_status)
 
+        # モバイル出庫画面の横断検索
+        search_q = self.request.query_params.get("search_q")
+        if search_q:
+            filters &= (
+                Q(order_number__icontains=search_q)
+                | Q(item_rel__code__icontains=search_q)
+                | Q(item_rel__name__icontains=search_q)
+            )
+
         queryset = SalesOrder.objects.filter(filters)
         # 出庫画面向け: 材料引当用の内部受注は出庫APIの対象外のため一覧から除外できるようにする
         if self.request.query_params.get("exclude_internal", "false").lower() == "true":
