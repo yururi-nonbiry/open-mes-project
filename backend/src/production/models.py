@@ -3,6 +3,8 @@ from django.db import models
 from django.utils import timezone
 from uuid6 import uuid7
 
+from base.model_utils import fk_id_alias
+
 # Create your models here.
 
 
@@ -33,13 +35,7 @@ class ProductionPlan(models.Model):
         limit_choices_to={"item_type": "product"}
     )
 
-    @property
-    def product_code(self):
-        return self.product_id
-
-    @product_code.setter
-    def product_code(self, value):
-        self.product_id = value
+    product_code = fk_id_alias("product")
 
     production_plan = models.CharField(
         max_length=255,  # 参照する計画名などを想定
@@ -103,21 +99,9 @@ class PartsUsed(models.Model):
         verbose_name="使用倉庫"
     )
 
-    @property
-    def part_code(self):
-        return self.part_id
+    part_code = fk_id_alias("part")
 
-    @part_code.setter
-    def part_code(self, value):
-        self.part_id = value
-
-    @property
-    def warehouse(self):
-        return self.warehouse_rel_id
-
-    @warehouse.setter
-    def warehouse(self, value):
-        self.warehouse_rel_id = value
+    warehouse = fk_id_alias("warehouse_rel")
 
     quantity_used = models.PositiveIntegerField(verbose_name="使用数量")
     used_datetime = models.DateTimeField(default=timezone.now, verbose_name="使用日時")
@@ -175,21 +159,9 @@ class MaterialAllocation(models.Model):
         verbose_name="引当倉庫"
     )
 
-    @property
-    def material_code(self):
-        return self.material_id
+    material_code = fk_id_alias("material")
 
-    @material_code.setter
-    def material_code(self, value):
-        self.material_id = value
-
-    @property
-    def warehouse(self):
-        return self.warehouse_rel_id
-
-    @warehouse.setter
-    def warehouse(self, value):
-        self.warehouse_rel_id = value
+    warehouse = fk_id_alias("warehouse_rel")
     allocated_quantity = models.PositiveIntegerField(verbose_name="引当数量")
     allocation_datetime = models.DateTimeField(default=timezone.now, verbose_name="引当日時")
     status = models.CharField(

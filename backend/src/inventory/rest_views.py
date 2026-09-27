@@ -7,12 +7,10 @@ from django.db.models import (
 )
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.pagination import (
-    PageNumberPagination,  # PageNumberPagination は StandardResultsSetPagination で使用
-)
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from base.pagination import StandardResultsSetPagination
 from master.models import WarehouseLocation
 
 from . import services
@@ -30,27 +28,6 @@ from .serializers import (
     SalesOrderSerializer,
     StockMovementSerializer,
 )
-
-
-# DRFのページネーションクラスを定義 (共通で利用可能)
-class StandardResultsSetPagination(PageNumberPagination):
-    page_size = 25  # 1ページあたりのデフォルト件数を25に変更（適宜調整してください）
-    page_size_query_param = "page_size"  # クライアントが1ページあたりの件数を指定するためのクエリパラメータ
-    max_page_size = 1000  # クライアントが指定できる1ページあたりの最大件数
-
-    def get_paginated_response(self, data):
-        return Response(
-            {
-                "next": self.get_next_link(),
-                "previous": self.get_previous_link(),
-                "count": self.page.paginator.count,
-                "total_pages": self.page.paginator.num_pages,
-                "current_page": self.page.number,
-                "page_size": self.get_page_size(self.request),
-                "results": data,
-            }
-        )
-
 
 # --- ViewSets ---
 

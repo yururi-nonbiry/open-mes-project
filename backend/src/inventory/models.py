@@ -5,6 +5,8 @@ from django.db import models
 from django.utils import timezone
 from uuid6 import uuid7
 
+from base.model_utils import fk_id_alias
+
 
 # 在庫情報
 class Inventory(models.Model):
@@ -28,21 +30,9 @@ class Inventory(models.Model):
         verbose_name="倉庫"
     )
 
-    @property
-    def part_number(self):
-        return self.part_number_rel_id
+    part_number = fk_id_alias("part_number_rel")
 
-    @part_number.setter
-    def part_number(self, value):
-        self.part_number_rel_id = value
-
-    @property
-    def warehouse(self):
-        return self.warehouse_rel_id
-
-    @warehouse.setter
-    def warehouse(self, value):
-        self.warehouse_rel_id = value
+    warehouse = fk_id_alias("warehouse_rel")
     quantity = models.IntegerField(default=0, verbose_name="在庫数量")  # 在庫
     reserved = models.IntegerField(default=0, verbose_name="引当済数量")  # 引当在庫
     # 棚番なしは空文字で表す(NULLを許すと一意制約がNULL同士を区別せず、同じ品番・倉庫の
@@ -119,21 +109,9 @@ class StockMovement(models.Model):
         verbose_name="倉庫"
     )
 
-    @property
-    def part_number(self):
-        return self.part_number_rel_id
+    part_number = fk_id_alias("part_number_rel")
 
-    @part_number.setter
-    def part_number(self, value):
-        self.part_number_rel_id = value
-
-    @property
-    def warehouse(self):
-        return self.warehouse_rel_id
-
-    @warehouse.setter
-    def warehouse(self, value):
-        self.warehouse_rel_id = value
+    warehouse = fk_id_alias("warehouse_rel")
     location = models.CharField(max_length=255, blank=True, null=True, verbose_name="棚番")  # どの棚番に関連する移動か
     movement_type = models.CharField(
         max_length=20, choices=MOVEMENT_TYPE_CHOICES, verbose_name="移動タイプ"
@@ -205,29 +183,11 @@ class PurchaseOrder(models.Model):
         verbose_name="入庫倉庫"
     )
 
-    @property
-    def supplier(self):
-        return self.supplier_rel_id
+    supplier = fk_id_alias("supplier_rel")
 
-    @supplier.setter
-    def supplier(self, value):
-        self.supplier_rel_id = value
+    part_number = fk_id_alias("part_number_rel")
 
-    @property
-    def part_number(self):
-        return self.part_number_rel_id
-
-    @part_number.setter
-    def part_number(self, value):
-        self.part_number_rel_id = value
-
-    @property
-    def warehouse(self):
-        return self.warehouse_rel_id
-
-    @warehouse.setter
-    def warehouse(self, value):
-        self.warehouse_rel_id = value
+    warehouse = fk_id_alias("warehouse_rel")
 
     location = models.CharField(
         max_length=255, blank=True, null=True, verbose_name="入庫棚番"
@@ -275,13 +235,7 @@ class Receipt(models.Model):
         verbose_name="入庫倉庫"
     )
 
-    @property
-    def warehouse(self):
-        return self.warehouse_rel_id
-
-    @warehouse.setter
-    def warehouse(self, value):
-        self.warehouse_rel_id = value
+    warehouse = fk_id_alias("warehouse_rel")
 
     location = models.CharField(max_length=255, blank=True, null=True, verbose_name="入庫棚番")
     operator = models.ForeignKey(
@@ -332,21 +286,9 @@ class SalesOrder(models.Model):
         verbose_name="出庫倉庫"
     )
 
-    @property
-    def item(self):
-        return self.item_rel_id
+    item = fk_id_alias("item_rel")
 
-    @item.setter
-    def item(self, value):
-        self.item_rel_id = value
-
-    @property
-    def warehouse(self):
-        return self.warehouse_rel_id
-
-    @warehouse.setter
-    def warehouse(self, value):
-        self.warehouse_rel_id = value
+    warehouse = fk_id_alias("warehouse_rel")
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"  # 未出庫
         SHIPPED = "shipped", "Shipped"  # 出庫済み

@@ -13,7 +13,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response  # Responseをインポート
 from rest_framework.views import APIView  # APIViewをインポート
 
-from inventory.rest_views import StandardResultsSetPagination  # inventoryアプリのページネーションクラスをインポート
+from base.pagination import StandardResultsSetPagination
 
 from .models import MaterialAllocation, PartsUsed, ProductionPlan, WorkProgress
 from .serializers import (
