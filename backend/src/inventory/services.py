@@ -135,6 +135,49 @@ def save_rows(rows):
         row.save()
 
 
+def consume_stock(rows, quantity, own_reserved=0):
+    """
+    品番+倉庫の棚(rows、行ロック済み・FIFO順)から quantity を出庫する。
+
+    - 出庫可能数は「物理在庫 - 他者の引当(= 引当合計 - own_reserved)」。不足時は
+      InventoryServiceError を送出し、どの棚も変更しない。
+    - 物理在庫は入庫が古い順に消費し、自身の引当分(own_reserved と quantity の小さい方)を解放した上で、
+      棚間で引当を付け替えて各棚で quantity >= reserved を保ち、保存する。
+
+    棚ごとの (row, 出庫数) のリストと、解放した引当数を返す。
+    """
+    total_quantity = sum(row.quantity for row in rows)
+    total_reserved = sum(row.reserved for row in rows)
+    own_reserved = min(own_reserved, total_reserved)
+    others_reserved = total_reserved - own_reserved
+    shippable_quantity = max(0, total_quantity - others_reserved)
+    if shippable_quantity < quantity:
+        raise InventoryServiceError(
+            f"実在庫: {total_quantity}, 他の引当: {others_reserved}, "
+            f"出庫可能: {shippable_quantity}, 要求: {quantity}。"
+        )
+    consumed = consume_fifo(rows, quantity)
+    released = release_reserved_fifo(rows, min(own_reserved, quantity))
+    rebalance_reserved(rows)
+    save_rows(rows)
+    return consumed, released
+
+
+def add_stock(part_number, warehouse, quantity, reserved=0):
+    """
+    品番+倉庫に在庫(と引当)を戻す・追加する。棚の指定が無い処理(生産完了入庫・材料の戻し等)向けで、
+    棚番なし("")の在庫があればそこへ、無ければ入庫が古い棚へ、棚が1つも無ければ棚番なしで作成して加算する。
+    """
+    rows = lock_inventory_rows(part_number, warehouse)
+    target = next((row for row in rows if row.location == ""), None) or (rows[0] if rows else None)
+    if target is None:
+        target = get_or_create_locked_inventory(part_number, warehouse, "")
+    target.quantity += quantity
+    target.reserved += reserved
+    target.save()
+    return target
+
+
 def _operator_or_none(user):
     return user if user is not None and user.is_authenticated else None
 
@@ -443,23 +486,17 @@ def issue_sales_order(order_id, quantity_to_ship, user):
                 f"在庫品目 {sales_order.item} (倉庫: {sales_order.warehouse}) は有効ではありません。"
             )
 
-        # 出庫可能数は「物理在庫 - 他者の引当(= 引当合計 - この受注自身の引当)」
-        total_quantity = sum(row.quantity for row in eligible_rows)
-        total_reserved = sum(row.reserved for row in eligible_rows)
-        own_reserved = min(sales_order.reserved_quantity, total_reserved)
-        others_reserved = total_reserved - own_reserved
-        shippable_quantity = max(0, total_quantity - others_reserved)
-        if shippable_quantity < quantity_to_ship:
+        # 他の受注・材料引当が確保している在庫は出庫できない。出庫する棚(物理在庫の消費元)と
+        # 引当を解放する棚は必ずしも一致しないため、consume_stock が棚間で引当を付け替える。
+        try:
+            consumed, released = consume_stock(eligible_rows, quantity_to_ship, sales_order.reserved_quantity)
+        except InventoryServiceError as e:
             raise InventoryServiceError(
-                f"在庫不足: {sales_order.item} (倉庫: {sales_order.warehouse})。"
-                f"実在庫: {total_quantity}, 他の引当: {others_reserved}, "
-                f"出庫可能: {shippable_quantity}, 要求: {quantity_to_ship}。"
-            )
+                f"在庫不足: {sales_order.item} (倉庫: {sales_order.warehouse})。{e.message}"
+            ) from None
 
-        # 出庫する棚(物理在庫の消費元)と引当を解放する棚は必ずしも一致しないため、
-        # 入庫が古い順に物理在庫を消費した後、この受注自身の引当分を別途解放し、棚間で付け替える。
         operator = _operator_or_none(user)
-        for row, take in consume_fifo(eligible_rows, quantity_to_ship):
+        for row, take in consumed:
             StockMovement.objects.create(
                 part_number=sales_order.item,
                 movement_type=StockMovement.MovementType.OUTGOING,
@@ -470,9 +507,6 @@ def issue_sales_order(order_id, quantity_to_ship, user):
                 description=f"受注 {sales_order.order_number} による出庫",
                 operator=operator,
             )
-        released = release_reserved_fifo(eligible_rows, min(own_reserved, quantity_to_ship))
-        rebalance_reserved(eligible_rows)
-        save_rows(eligible_rows)
 
         sales_order.reserved_quantity -= released
         sales_order.shipped_quantity += quantity_to_ship

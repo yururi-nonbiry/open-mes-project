@@ -2,7 +2,9 @@ from django.db.models import Sum
 
 from inventory.models import Inventory
 from master.models import Item
+
 from ..models import MaterialAllocation, PartsUsed
+
 
 def get_production_plan_required_parts(production_plan_instance):
     """

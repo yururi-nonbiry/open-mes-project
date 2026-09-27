@@ -1,9 +1,20 @@
+import logging
+
 from django.db import transaction
 from django.db.models import Sum
 from django.utils import timezone
-import logging
 
-from inventory.models import Inventory, SalesOrder, StockMovement
+from inventory.models import SalesOrder, StockMovement
+from inventory.services import (
+    InventoryServiceError,
+    add_stock,
+    consume_stock,
+    lock_inventory_rows,
+    release_reserved_fifo,
+    reserve_fifo,
+    save_rows,
+)
+
 from ..models import MaterialAllocation, PartsUsed
 
 logger = logging.getLogger(__name__)
@@ -56,7 +67,8 @@ def allocate_materials_service(production_plan, allocations_data):
 
             if not all([part_number, warehouse, quantity_to_allocate is not None]):
                 errors.append(
-                    f"Missing data for allocation item (part_number, warehouse, or quantity_to_allocate): {alloc_item_data}"
+                    "Missing data for allocation item (part_number, warehouse, or quantity_to_allocate): "
+                    f"{alloc_item_data}"
                 )
                 continue
 
@@ -83,30 +95,29 @@ def allocate_materials_service(production_plan, allocations_data):
             elif plan_identifier:
                 logger.warning(f"Allocating part {part_number} not found in BOM for plan {plan_identifier}")
 
-            try:
-                inventory_item = Inventory.objects.select_for_update().get(
-                    part_number_rel_id=part_number, warehouse_rel_id=warehouse
-                )
-            except Inventory.DoesNotExist:
+            # 同一品番+倉庫で棚をまたいで在庫が分散している場合は、入庫が古い順に複数の棚から引き当てる
+            inventory_rows = lock_inventory_rows(part_number, warehouse)
+            if not inventory_rows:
                 errors.append(f"Inventory not found for part '{part_number}' in warehouse '{warehouse}'.")
                 continue
 
-            if not inventory_item.is_active or not inventory_item.is_allocatable:
+            eligible_rows = [row for row in inventory_rows if row.is_active and row.is_allocatable]
+            if not eligible_rows:
                 errors.append(
                     f"Inventory for part '{part_number}' in warehouse '{warehouse}' is not active or allocatable."
                 )
                 continue
 
-            if inventory_item.available_quantity < quantity_to_allocate:
+            total_available = sum(row.available_quantity for row in eligible_rows)
+            if total_available < quantity_to_allocate:
                 errors.append(
                     f"Insufficient available stock for part '{part_number}' in warehouse '{warehouse}'. "
-                    f"Required: {quantity_to_allocate}, Available: {inventory_item.available_quantity}"
+                    f"Required: {quantity_to_allocate}, Available: {total_available}"
                 )
                 continue
 
             # 在庫の引き当て（予約）
-            inventory_item.reserved += quantity_to_allocate
-            inventory_item.save()
+            reserve_fifo(eligible_rows, quantity_to_allocate)
             # 同一リクエスト内で同じ部品が複数行ある場合もBOM必要数を超えないよう、引当済数量を累積する
             allocated_map[part_number] = allocated_map.get(part_number, 0) + quantity_to_allocate
 
@@ -138,8 +149,8 @@ def allocate_materials_service(production_plan, allocations_data):
                     "warehouse": warehouse,
                     "allocated_quantity": quantity_to_allocate,
                     "material_allocation_id": material_allocation.id,
-                    "new_inventory_reserved": inventory_item.reserved,
-                    "new_inventory_available": inventory_item.available_quantity,
+                    "new_inventory_reserved": sum(row.reserved for row in inventory_rows),
+                    "new_inventory_available": sum(row.available_quantity for row in inventory_rows),
                     "sales_order_id": sales_order.id,
                     "sales_order_number": sales_order.order_number,
                 }
@@ -165,13 +176,11 @@ def release_material_allocation_service(allocation):
 
     with transaction.atomic():
         if allocation.warehouse:
-            try:
-                inventory_item = Inventory.objects.select_for_update().get(
-                    part_number_rel_id=allocation.material_code, warehouse_rel_id=allocation.warehouse
-                )
-                inventory_item.reserved = max(0, inventory_item.reserved - allocation.allocated_quantity)
-                inventory_item.save()
-            except Inventory.DoesNotExist:
+            rows = lock_inventory_rows(allocation.material_code, allocation.warehouse)
+            if rows:
+                release_reserved_fifo(rows, allocation.allocated_quantity)
+                save_rows(rows)
+            else:
                 logger.error(
                     f"Inventory not found while releasing allocation {allocation.id}: "
                     f"{allocation.material_code} in {allocation.warehouse}"
@@ -203,53 +212,56 @@ def update_material_allocation_status_service(allocation, new_status, user, now=
 
     so_order_number = build_internal_so_order_number(allocation.id)
 
-    with transaction.atomic():
-        try:
-            inventory_item = Inventory.objects.select_for_update().get(
-                part_number_rel_id=allocation.material_code, warehouse_rel_id=allocation.warehouse
-            )
-        except Inventory.DoesNotExist:
-            raise ValueError(
-                f"Inventory not found for '{allocation.material_code}' in '{allocation.warehouse}'."
-            )
+    operator = user if user and user.is_authenticated else None
 
+    with transaction.atomic():
         if new_status == MaterialAllocation.Status.ISSUED:
-            if inventory_item.quantity < allocation.allocated_quantity:
+            rows = [
+                row for row in lock_inventory_rows(allocation.material_code, allocation.warehouse) if row.is_active
+            ]
+            if not rows:
+                raise ValueError(
+                    f"Inventory not found for '{allocation.material_code}' in '{allocation.warehouse}'."
+                )
+            try:
+                consumed, _ = consume_stock(
+                    rows, allocation.allocated_quantity, own_reserved=allocation.allocated_quantity
+                )
+            except InventoryServiceError as e:
                 raise ValueError(
                     f"Insufficient stock to issue '{allocation.material_code}' in '{allocation.warehouse}'. "
-                    f"Required: {allocation.allocated_quantity}, Available: {inventory_item.quantity}."
-                )
-            inventory_item.quantity -= allocation.allocated_quantity
-            inventory_item.reserved = max(0, inventory_item.reserved - allocation.allocated_quantity)
-            inventory_item.save()
+                    f"{e.message}"
+                ) from None
 
-            StockMovement.objects.create(
-                part_number=allocation.material_code,
-                quantity=allocation.allocated_quantity,
-                warehouse=allocation.warehouse,
-                movement_type=StockMovement.MovementType.USED,
-                movement_date=now,
-                reference_document=f"MaterialAllocation-{allocation.id}",
-                description=f"Issued for allocation {allocation.id}.",
-                operator=user if user and user.is_authenticated else None,
-            )
+            for row, take in consumed:
+                StockMovement.objects.create(
+                    part_number=allocation.material_code,
+                    quantity=take,
+                    warehouse=allocation.warehouse,
+                    location=row.location,
+                    movement_type=StockMovement.MovementType.USED,
+                    movement_date=now,
+                    reference_document=f"MaterialAllocation-{allocation.id}",
+                    description=f"Issued for allocation {allocation.id}.",
+                    operator=operator,
+                )
             SalesOrder.objects.filter(order_number=so_order_number).update(
                 status=SalesOrder.Status.SHIPPED, shipped_quantity=allocation.allocated_quantity
             )
 
         elif new_status == MaterialAllocation.Status.RETURNED:
-            inventory_item.quantity += allocation.allocated_quantity
-            inventory_item.save()
+            row = add_stock(allocation.material_code, allocation.warehouse, allocation.allocated_quantity)
 
             StockMovement.objects.create(
                 part_number=allocation.material_code,
                 quantity=allocation.allocated_quantity,
                 warehouse=allocation.warehouse,
+                location=row.location,
                 movement_type=StockMovement.MovementType.INCOMING,
                 movement_date=now,
                 reference_document=f"MaterialAllocation-{allocation.id}",
                 description=f"Returned unused from allocation {allocation.id}.",
-                operator=user if user and user.is_authenticated else None,
+                operator=operator,
             )
             SalesOrder.objects.filter(order_number=so_order_number).update(status=SalesOrder.Status.CANCELED)
 

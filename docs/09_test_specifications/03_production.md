@@ -180,7 +180,12 @@
    - 修正後、`script/run_tests.sh production`で全59件成功を確認済み（[reports/production.md](./reports/production.md)）。
      レポートは実行のたびに同一ファイルへ上書きされる方式のため、修正前の失敗内容の個別スナップショットは
      現在は保持していない。
-2. **`inventory.Inventory`に対する`.get()`が単一ロケーション前提**:
+2. **【修正済み・2026-09-27】`inventory.Inventory`に対する`.get()`が単一ロケーション前提**（PP-MLOC-01〜04）:
+   `inventory/services.py`に切り出した共通ヘルパー(`lock_inventory_rows`/`reserve_fifo`/`consume_stock`/
+   `add_stock`)を使い、引当・引当解除・出庫(change-status)・生産完了時の材料消費/復元・完成品の計上/取消の
+   すべてで、同一品番+倉庫の複数棚を入庫が古い順に扱うよう修正した。完成品の減算(完了取消・完了数量の減少)は
+   受注が引き当てている分を減らさない。以下は修正前の記述。
+
    `production/services/allocation.py`（`allocate_materials_service`, `release_material_allocation_service`,
    `update_material_allocation_status_service`）と`progress.py`（`_reverse_inventory`,
    `_adjust_inventory_for_completion`, `_consume_materials_for_plan`, `_restore_materials_for_plan`）は、いずれも

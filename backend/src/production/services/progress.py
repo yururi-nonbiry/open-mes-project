@@ -1,12 +1,14 @@
-from django.db import transaction
-from django.utils import timezone
 import logging
 
-from inventory.models import Inventory, SalesOrder, StockMovement
+from django.conf import settings
+from django.db import transaction
+from django.utils import timezone
+
+from inventory.models import SalesOrder, StockMovement
+from inventory.services import InventoryServiceError, add_stock, consume_stock, lock_inventory_rows
+
 from ..models import MaterialAllocation, ProductionPlan, WorkProgress
 from .allocation import build_internal_so_order_number
-
-from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
@@ -74,10 +76,10 @@ def update_production_progress_service(plan, data, user):
             adjustment = newly_reported_completed_quantity
             if old_plan_status == ProductionPlan.Status.COMPLETED:
                 adjustment = newly_reported_completed_quantity - previous_wp_completed_quantity
-            
+
             if adjustment != 0:
                 _adjust_inventory_for_completion(plan, adjustment, newly_reported_completed_quantity, now, user)
-            
+
             # 初めて完了になった場合に部材を消費
             if old_plan_status != ProductionPlan.Status.COMPLETED:
                 _consume_materials_for_plan(plan, now, user)
@@ -114,7 +116,7 @@ def _handle_completed_status(plan, work_progress, data, now):
             raise ValueError("good_quantity must be non-negative.")
         work_progress.quantity_completed = good_val
     except (ValueError, TypeError):
-        raise ValueError("Invalid value for good_quantity.")
+        raise ValueError("Invalid value for good_quantity.") from None
 
     actual_quantity_str = data.get("actual_quantity")
     if actual_quantity_str is not None:
@@ -124,7 +126,7 @@ def _handle_completed_status(plan, work_progress, data, now):
                 raise ValueError("actual_quantity must be non-negative.")
             work_progress.actual_reported_quantity = actual_val
         except (ValueError, TypeError):
-            raise ValueError("Invalid value for actual_quantity.")
+            raise ValueError("Invalid value for actual_quantity.") from None
     else:
         work_progress.actual_reported_quantity = None
 
@@ -136,7 +138,7 @@ def _handle_completed_status(plan, work_progress, data, now):
                 raise ValueError("defective_quantity must be non-negative.")
             work_progress.defective_reported_quantity = defective_val
         except (ValueError, TypeError):
-            raise ValueError("Invalid value for defective_quantity.")
+            raise ValueError("Invalid value for defective_quantity.") from None
     else:
         work_progress.defective_reported_quantity = None
 
@@ -167,67 +169,72 @@ def _handle_pending_status(work_progress):
     work_progress.status = WorkProgress.Status.NOT_STARTED
 
 
-def _reverse_inventory(plan, quantity, now, user):
+def _remove_finished_goods(plan, quantity, now, user, reference_document, description):
+    """完成品倉庫から完成品を減らす(完了の取消・完了数量の減少)。他の受注が引き当てている分は減らせない。"""
     product_code = plan.product_code
     warehouse = DEFAULT_FINISHED_GOODS_WAREHOUSE
+    rows = [row for row in lock_inventory_rows(product_code, warehouse) if row.is_active]
+    if not rows:
+        raise ValueError(f"Inventory for product {product_code} not found for reversal.")
     try:
-        inventory_item = Inventory.objects.select_for_update().get(
-            part_number_rel_id=product_code, warehouse_rel_id=warehouse
-        )
-        if inventory_item.quantity < quantity:
-            raise ValueError(f"Cannot reverse production: insufficient stock for {product_code}.")
-        inventory_item.quantity -= quantity
-        inventory_item.save()
+        consumed, _ = consume_stock(rows, quantity)
+    except InventoryServiceError as e:
+        raise ValueError(f"Cannot reverse production: insufficient stock for {product_code}. {e.message}") from None
 
+    for row, take in consumed:
         StockMovement.objects.create(
             part_number=product_code,
-            quantity=quantity,
+            quantity=take,
             warehouse=warehouse,
+            location=row.location,
             movement_type=StockMovement.MovementType.PRODUCTION_REVERSAL,
             movement_date=now,
-            reference_document=f"Reversal for PPlan-{plan.id}",
-            description=f"Prod. completion reversed for plan {plan.id}.",
-            operator=user if user and user.is_authenticated else None,
+            reference_document=reference_document,
+            description=description,
+            operator=_operator_or_none(user),
         )
-    except Inventory.DoesNotExist:
-        raise ValueError(f"Inventory for product {product_code} not found for reversal.")
+
+
+def _reverse_inventory(plan, quantity, now, user):
+    _remove_finished_goods(
+        plan,
+        quantity,
+        now,
+        user,
+        reference_document=f"Reversal for PPlan-{plan.id}",
+        description=f"Prod. completion reversed for plan {plan.id}.",
+    )
 
 
 def _adjust_inventory_for_completion(plan, adjustment, total_completed, now, user):
     product_code = plan.product_code
     target_warehouse = DEFAULT_FINISHED_GOODS_WAREHOUSE
-    inventory_item, created = Inventory.objects.select_for_update().get_or_create(
-        part_number_rel_id=product_code,
-        warehouse_rel_id=target_warehouse,
-        defaults={"quantity": 0, "reserved": 0, "is_active": True, "is_allocatable": True},
-    )
+    description = f"Plan {plan.id} completion. Qty changed by: {adjustment}. New total: {total_completed}."
 
-    if adjustment < 0 and inventory_item.quantity < abs(adjustment):
-        raise ValueError(f"Cannot reduce completed quantity: insufficient stock for {product_code}.")
+    if adjustment < 0:
+        _remove_finished_goods(
+            plan, abs(adjustment), now, user, reference_document=f"ProductionPlan-{plan.id}", description=description
+        )
+        return
 
-    inventory_item.quantity += adjustment
-    inventory_item.save()
-
+    row = add_stock(product_code, target_warehouse, adjustment)
     StockMovement.objects.create(
         part_number=product_code,
-        quantity=abs(adjustment),
+        quantity=adjustment,
         warehouse=target_warehouse,
-        movement_type=(
-            StockMovement.MovementType.PRODUCTION_OUTPUT
-            if adjustment > 0
-            else StockMovement.MovementType.PRODUCTION_REVERSAL
-        ),
+        location=row.location,
+        movement_type=StockMovement.MovementType.PRODUCTION_OUTPUT,
         movement_date=now,
         reference_document=f"ProductionPlan-{plan.id}",
-        description=f"Plan {plan.id} completion. Qty changed by: {adjustment}. New total: {total_completed}.",
-        operator=user if user and user.is_authenticated else None,
+        description=description,
+        operator=_operator_or_none(user),
     )
 
 
 def _consume_materials_for_plan(plan, now, user):
     """
     生産計画に関連付けられた材料を消費（出庫）処理します。
-    在庫の quantity と reserved を両方減らします。
+    在庫の quantity と、その材料引当自身の reserved を減らします。
     """
     allocations = MaterialAllocation.objects.filter(
         production_plan=plan, status=MaterialAllocation.Status.ALLOCATED
@@ -237,47 +244,40 @@ def _consume_materials_for_plan(plan, now, user):
         if not alloc.warehouse:
             continue
 
+        rows = [row for row in lock_inventory_rows(alloc.material_code, alloc.warehouse) if row.is_active]
+        if not rows:
+            logger.error(f"Inventory not found for consumption: {alloc.material_code} in {alloc.warehouse}")
+            continue
+
+        quantity_to_consume = alloc.allocated_quantity
         try:
-            inventory_item = Inventory.objects.select_for_update().get(
-                part_number_rel_id=alloc.material_code, warehouse_rel_id=alloc.warehouse
-            )
+            consumed, _ = consume_stock(rows, quantity_to_consume, own_reserved=quantity_to_consume)
+        except InventoryServiceError as e:
+            raise ValueError(
+                f"Cannot consume materials for plan {plan.id}: insufficient stock for "
+                f"'{alloc.material_code}' in '{alloc.warehouse}'. {e.message}"
+            ) from None
 
-            # 在庫と引当の減少
-            quantity_to_consume = alloc.allocated_quantity
-            if inventory_item.quantity < quantity_to_consume:
-                raise ValueError(
-                    f"Cannot consume materials for plan {plan.id}: insufficient stock for "
-                    f"'{alloc.material_code}' in '{alloc.warehouse}'. "
-                    f"Required: {quantity_to_consume}, Available: {inventory_item.quantity}."
-                )
-            inventory_item.quantity -= quantity_to_consume
-            inventory_item.reserved = max(0, inventory_item.reserved - quantity_to_consume)
-            inventory_item.save()
+        alloc.status = MaterialAllocation.Status.ISSUED
+        alloc.save()
 
-            # ステータス更新
-            alloc.status = MaterialAllocation.Status.ISSUED
-            alloc.save()
-
-            # 在庫移動履歴の作成
+        for row, take in consumed:
             StockMovement.objects.create(
                 part_number=alloc.material_code,
-                quantity=quantity_to_consume,
+                quantity=take,
                 warehouse=alloc.warehouse,
+                location=row.location,
                 movement_type=StockMovement.MovementType.USED,
                 movement_date=now,
                 reference_document=f"ProductionPlan-{plan.id}",
                 description=f"Consumed for plan {plan.id} completion.",
-                operator=user if user and user.is_authenticated else None,
+                operator=_operator_or_none(user),
             )
 
-            # 関連する SalesOrder があれば完了（shipped）にする
-            so_order_number = build_internal_so_order_number(alloc.id)
-            SalesOrder.objects.filter(order_number=so_order_number).update(
-                status=SalesOrder.Status.SHIPPED, shipped_quantity=quantity_to_consume
-            )
-
-        except Inventory.DoesNotExist:
-            logger.error(f"Inventory not found for consumption: {alloc.material_code} in {alloc.warehouse}")
+        # 関連する内部受注を完了（shipped）にする
+        SalesOrder.objects.filter(order_number=build_internal_so_order_number(alloc.id)).update(
+            status=SalesOrder.Status.SHIPPED, shipped_quantity=quantity_to_consume
+        )
 
 
 def _restore_materials_for_plan(plan, now, user):
@@ -292,36 +292,30 @@ def _restore_materials_for_plan(plan, now, user):
         if not alloc.warehouse:
             continue
 
-        inventory_item, created = Inventory.objects.select_for_update().get_or_create(
-            part_number_rel_id=alloc.material_code,
-            warehouse_rel_id=alloc.warehouse,
-            defaults={"quantity": 0, "reserved": 0, "is_active": True, "is_allocatable": True},
-        )
-
         # 在庫と引当を戻す
         quantity_to_restore = alloc.allocated_quantity
-        inventory_item.quantity += quantity_to_restore
-        inventory_item.reserved += quantity_to_restore
-        inventory_item.save()
+        row = add_stock(alloc.material_code, alloc.warehouse, quantity_to_restore, reserved=quantity_to_restore)
 
-        # ステータス戻し
         alloc.status = MaterialAllocation.Status.ALLOCATED
         alloc.save()
 
-        # 在庫移動履歴（取消）の作成
         StockMovement.objects.create(
             part_number=alloc.material_code,
             quantity=quantity_to_restore,
             warehouse=alloc.warehouse,
+            location=row.location,
             movement_type=StockMovement.MovementType.INCOMING,
             movement_date=now,
             reference_document=f"Reversal for PPlan-{plan.id}",
             description=f"Restored from plan {plan.id} reversal.",
-            operator=user if user and user.is_authenticated else None,
+            operator=_operator_or_none(user),
         )
 
-        # 関連する SalesOrder を pending に戻す
-        so_order_number = build_internal_so_order_number(alloc.id)
-        SalesOrder.objects.filter(order_number=so_order_number).update(
+        # 関連する内部受注を pending に戻す
+        SalesOrder.objects.filter(order_number=build_internal_so_order_number(alloc.id)).update(
             status=SalesOrder.Status.PENDING, shipped_quantity=0
         )
+
+
+def _operator_or_none(user):
+    return user if user and user.is_authenticated else None
