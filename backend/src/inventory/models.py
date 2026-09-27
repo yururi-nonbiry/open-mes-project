@@ -45,7 +45,9 @@ class Inventory(models.Model):
         self.warehouse_rel_id = value
     quantity = models.IntegerField(default=0, verbose_name="在庫数量")  # 在庫
     reserved = models.IntegerField(default=0, verbose_name="引当済数量")  # 引当在庫
-    location = models.CharField(max_length=255, blank=True, null=True, verbose_name="棚番")  # 倉庫や棚の場所
+    # 棚番なしは空文字で表す(NULLを許すと一意制約がNULL同士を区別せず、同じ品番・倉庫の
+    # 「棚番なし」在庫が重複登録されてしまうため)。
+    location = models.CharField(max_length=255, blank=True, default="", verbose_name="棚番")  # 倉庫や棚の場所
     first_received_at = models.DateTimeField(
         auto_now_add=True, null=True, verbose_name="初回入庫日時"
     )  # この棚にこの品番が初めて入庫した日時（引当・出庫のFIFO順序判定に使用、以降の補充では更新しない）
@@ -59,6 +61,11 @@ class Inventory(models.Model):
         if not self.is_active or not self.is_allocatable:
             return 0  # 在庫が無効または引き当て不可なら利用不可
         return max(0, self.quantity - self.reserved)
+
+    def save(self, *args, **kwargs):
+        if self.location is None:
+            self.location = ""
+        super().save(*args, **kwargs)
 
     def __str__(self):
         status = "Active" if self.is_active else "Inactive"

@@ -165,7 +165,7 @@ class InventoryViewSet(viewsets.ModelViewSet):
         try:
             quantity_to_move = int(request.data.get("quantity_to_move"))
             target_warehouse = request.data.get("target_warehouse")
-            target_location = request.data.get("target_location", "")  # location can be blank
+            target_location = request.data.get("target_location") or ""  # 棚番なしは空文字で扱う
         except (TypeError, ValueError):
             return Response(
                 {"success": False, "error": "無効なリクエストデータです。"}, status=status.HTTP_400_BAD_REQUEST
@@ -453,7 +453,7 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
                 if not warehouse:
                     warehouse = po.warehouse
                 if not location:
-                    location = po.location
+                    location = po.location or ""
                 if not warehouse:
                     return Response({"error": "入庫倉庫が指定されていません。"}, status=status.HTTP_400_BAD_REQUEST)
                 if not Warehouse.objects.filter(warehouse_number=warehouse).exists():

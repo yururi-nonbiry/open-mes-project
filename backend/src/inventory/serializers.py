@@ -156,6 +156,10 @@ class InventorySerializer(serializers.ModelSerializer):
     available_quantity = serializers.IntegerField(read_only=True)
     part_number = serializers.SlugRelatedField(source="part_number_rel", slug_field="code", queryset=Item.objects.all(), allow_null=True, required=False)
     warehouse = serializers.SlugRelatedField(source="warehouse_rel", slug_field="warehouse_number", queryset=Warehouse.objects.all(), allow_null=True, required=False)
+    location = serializers.CharField(max_length=255, allow_blank=True, allow_null=True, required=False)
+
+    def validate_location(self, value):
+        return value or ""
 
     class Meta:
         model = Inventory
