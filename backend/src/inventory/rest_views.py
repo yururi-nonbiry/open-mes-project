@@ -523,7 +523,36 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
         if search_status:
             filters &= Q(status=search_status)
 
-        return SalesOrder.objects.filter(filters).select_related("item_rel", "warehouse_rel").order_by("expected_shipment", "order_number")
+        queryset = SalesOrder.objects.filter(filters)
+        # 出庫画面向け: 材料引当用の内部受注は出庫APIの対象外のため一覧から除外できるようにする
+        if self.request.query_params.get("exclude_internal", "false").lower() == "true":
+            queryset = queryset.exclude(order_number__startswith=SalesOrder.INTERNAL_ORDER_PREFIX)
+
+        return queryset.select_related("item_rel", "warehouse_rel").order_by("expected_shipment", "order_number")
+
+    def _reject_internal_order(self, sales_order):
+        return Response(
+            {
+                "success": False,
+                "error": (
+                    f"受注 {sales_order.order_number} は生産計画の材料引当用の内部受注のため、"
+                    "ここでは変更・出庫できません。材料引当画面から操作してください。"
+                ),
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.is_internal:
+            return self._reject_internal_order(instance)
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.is_internal:
+            return self._reject_internal_order(instance)
+        return super().destroy(request, *args, **kwargs)
 
     @action(detail=True, methods=["get"], url_path="location-map")
     def location_map(self, request, pk=None):
@@ -591,6 +620,14 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
         if not sales_order_ref or not isinstance(allocations_data, list) or not allocations_data:
             return Response(
                 {"success": False, "error": "sales_order_reference と allocations(1件以上)は必須です。"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if str(sales_order_ref).startswith(SalesOrder.INTERNAL_ORDER_PREFIX):
+            return Response(
+                {
+                    "success": False,
+                    "error": f"'{SalesOrder.INTERNAL_ORDER_PREFIX}' で始まる受注番号は生産計画の材料引当用に予約されています。",
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -731,6 +768,8 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
                         status=status.HTTP_404_NOT_FOUND,
                     )
 
+                if sales_order.is_internal:
+                    return self._reject_internal_order(sales_order)
                 if sales_order.status == "shipped":
                     return Response(
                         {"success": False, "error": f"受注 {sales_order.order_number} は既に出庫済みです。"},

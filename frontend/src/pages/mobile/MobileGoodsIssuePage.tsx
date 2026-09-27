@@ -48,6 +48,7 @@ const MobileGoodsIssuePage = () => {
         const params = new URLSearchParams({
             page: page,
             page_size: pageSize,
+            exclude_internal: 'true',
         });
         if (query) params.append('search_q', query);
         if (status) params.append('search_status', status);

@@ -22,7 +22,7 @@ const GoodsIssue = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await authFetch('/api/inventory/sales-orders/?search_status=pending');
+      const response = await authFetch('/api/inventory/sales-orders/?search_status=pending&exclude_internal=true');
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }

@@ -212,6 +212,7 @@ class SalesOrderSerializer(serializers.ModelSerializer):
 
     status_display = serializers.CharField(source="get_status_display", read_only=True)
     remaining_quantity = serializers.IntegerField(read_only=True)  # プロパティを読み取り専用フィールドとして追加
+    is_internal = serializers.BooleanField(read_only=True)
     item = serializers.SlugRelatedField(source="item_rel", slug_field="code", queryset=Item.objects.all(), allow_null=True, required=False)
     warehouse = serializers.SlugRelatedField(source="warehouse_rel", slug_field="warehouse_number", queryset=Warehouse.objects.all(), allow_null=True, required=False)
 
@@ -229,8 +230,24 @@ class SalesOrderSerializer(serializers.ModelSerializer):
             "warehouse",
             "status",
             "status_display",  # 表示用のステータス名
+            "is_internal",
         ]
-        read_only_fields = ["id", "order_date", "shipped_quantity", "remaining_quantity", "status", "status_display"]
+        read_only_fields = [
+            "id",
+            "order_date",
+            "shipped_quantity",
+            "remaining_quantity",
+            "status",
+            "status_display",
+            "is_internal",
+        ]
+
+    def validate_order_number(self, value):
+        if value and value.startswith(SalesOrder.INTERNAL_ORDER_PREFIX):
+            raise serializers.ValidationError(
+                f"'{SalesOrder.INTERNAL_ORDER_PREFIX}' で始まる受注番号は生産計画の材料引当用に予約されています。"
+            )
+        return value
 
     def validate_allocations(self, value):
         if not value:

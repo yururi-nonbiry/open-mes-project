@@ -290,6 +290,10 @@ class Receipt(models.Model):
 
 # 出庫予定
 class SalesOrder(models.Model):
+    # 生産計画の材料引当(production.MaterialAllocation)に連動して自動作成される内部受注の注文番号接頭辞。
+    # 内部受注の在庫消費は材料引当側(生産完了・change-status)で行うため、出庫APIや直接編集の対象外とする。
+    INTERNAL_ORDER_PREFIX = "INT-"
+
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False, verbose_name="ID")
     order_number = models.CharField(max_length=20, unique=True, verbose_name="受注番号")  # 受注番号
     item_rel = models.ForeignKey(
@@ -348,3 +352,7 @@ class SalesOrder(models.Model):
     @property
     def remaining_quantity(self):
         return self.quantity - self.shipped_quantity
+
+    @property
+    def is_internal(self):
+        return bool(self.order_number) and self.order_number.startswith(self.INTERNAL_ORDER_PREFIX)

@@ -15,7 +15,7 @@ def build_internal_so_order_number(allocation_id):
     UUID7は先頭ビットがタイムスタンプで占められ同時刻生成レコード間の
     ランダム性が乏しいため、ランダム性の高い末尾を使用します。
     """
-    return f"INT-{allocation_id.hex[-15:]}"
+    return f"{SalesOrder.INTERNAL_ORDER_PREFIX}{allocation_id.hex[-15:]}"
 
 
 def allocate_materials_service(production_plan, allocations_data):
