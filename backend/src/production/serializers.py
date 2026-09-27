@@ -30,7 +30,17 @@ class ProductionPlanSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at", "status_display"]
+        # status/実績日時は完成品の在庫計上・材料消費を伴う update_production_progress_service
+        # (ProductionPlanViewSet.update_progress) 経由でのみ変更させ、直接のPATCHでは変更不可にする。
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "status",
+            "status_display",
+            "actual_start_datetime",
+            "actual_end_datetime",
+        ]
 
     def validate(self, data):
         """

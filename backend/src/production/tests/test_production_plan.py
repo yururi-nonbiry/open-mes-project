@@ -62,6 +62,18 @@ class ProductionPlanCrudTests(ProductionAPITestBase):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_pp_crud_10_status_not_writable_via_patch(self):
+        """status/実績日時は在庫連動のため update-progress 経由でのみ変更でき、PATCHでは無視される。"""
+        response = self.client.patch(
+            self._detail_url(self.plan.id),
+            {"status": "COMPLETED", "actual_end_datetime": timezone.now().isoformat()},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.plan.refresh_from_db()
+        self.assertEqual(self.plan.status, ProductionPlan.Status.PENDING)
+        self.assertIsNone(self.plan.actual_end_datetime)
+
     def test_pp_crud_06_search_plan_name(self):
         self.create_plan(plan_name="Beta Plan")
         response = self.client.get(self.list_url, {"plan_name": "Alpha"})
