@@ -98,13 +98,14 @@ class ImportCsvActionTests(BaseAPITestBase):
 
     @patch("base.api.import_csv_task")
     def test_base_importcsv_01_non_admin_authenticated_allowed(self, mock_task):
-        mock_task.delay.return_value = MagicMock(id="fake-task-id-1")
         self.client.force_authenticate(user=self.user)
         csv_file = SimpleUploadedFile("data.csv", b"code,name\nITEM-1,Test\n", content_type="text/csv")
         response = self.client.post(f"{self.url}?data_type=item", {"csv_file": csv_file}, format="multipart")
         self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
-        self.assertEqual(response.data["task_id"], "fake-task-id-1")
-        self.assertTrue(AsyncTask.objects.filter(task_id="fake-task-id-1").exists())
+        task_id = response.data["task_id"]
+        # AsyncTaskはタスク送信前に作成され、同じtask_idでCeleryへ送信される
+        self.assertTrue(AsyncTask.objects.filter(task_id=task_id, status="PENDING").exists())
+        self.assertEqual(mock_task.apply_async.call_args.kwargs["task_id"], task_id)
 
     def test_base_importcsv_02_missing_data_type_returns_400(self):
         self.client.force_authenticate(user=self.user)

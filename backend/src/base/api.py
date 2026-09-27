@@ -204,13 +204,13 @@ class CsvColumnMappingViewSet(IntegrityErrorAsBadRequestMixin, viewsets.ModelVie
         filename = fs.save(f"{uuid.uuid4()}.csv", csv_file)
         file_path = fs.path(filename)
 
-        # 非同期タスクを開始
-        task = import_csv_task.delay(data_type, file_path)
+        # タスク情報を先にDBへ保存してから非同期タスクを開始する
+        # (ワーカーが先に動き出すとAsyncTaskが見つからず状態を記録できないため)
+        task_id = str(uuid.uuid4())
+        AsyncTask.objects.create(task_id=task_id, task_name=f"CSV Import: {data_type}", status="PENDING")
+        import_csv_task.apply_async(args=(data_type, file_path), task_id=task_id)
 
-        # タスク情報をDBに保存
-        AsyncTask.objects.create(task_id=task.id, task_name=f"CSV Import: {data_type}", status="PENDING")
-
-        return Response({"status": "processing", "task_id": task.id}, status=status.HTTP_202_ACCEPTED)
+        return Response({"status": "processing", "task_id": task_id}, status=status.HTTP_202_ACCEPTED)
 
     @action(detail=True, methods=["get"], url_path="csv-import-status")
     def get_task_status(self, request, pk=None):
