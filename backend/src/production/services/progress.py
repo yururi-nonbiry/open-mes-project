@@ -183,7 +183,7 @@ def _reverse_inventory(plan, quantity, now, user):
             part_number=product_code,
             quantity=quantity,
             warehouse=warehouse,
-            movement_type="PRODUCTION_REVERSAL",
+            movement_type=StockMovement.MovementType.PRODUCTION_REVERSAL,
             movement_date=now,
             reference_document=f"Reversal for PPlan-{plan.id}",
             description=f"Prod. completion reversed for plan {plan.id}.",
@@ -212,7 +212,11 @@ def _adjust_inventory_for_completion(plan, adjustment, total_completed, now, use
         part_number=product_code,
         quantity=abs(adjustment),
         warehouse=target_warehouse,
-        movement_type="PRODUCTION_OUTPUT" if adjustment > 0 else "PRODUCTION_REVERSAL",
+        movement_type=(
+            StockMovement.MovementType.PRODUCTION_OUTPUT
+            if adjustment > 0
+            else StockMovement.MovementType.PRODUCTION_REVERSAL
+        ),
         movement_date=now,
         reference_document=f"ProductionPlan-{plan.id}",
         description=f"Plan {plan.id} completion. Qty changed by: {adjustment}. New total: {total_completed}.",
@@ -225,7 +229,9 @@ def _consume_materials_for_plan(plan, now, user):
     生産計画に関連付けられた材料を消費（出庫）処理します。
     在庫の quantity と reserved を両方減らします。
     """
-    allocations = MaterialAllocation.objects.filter(production_plan=plan, status="ALLOCATED").select_for_update()
+    allocations = MaterialAllocation.objects.filter(
+        production_plan=plan, status=MaterialAllocation.Status.ALLOCATED
+    ).select_for_update()
 
     for alloc in allocations:
         if not alloc.warehouse:
@@ -249,7 +255,7 @@ def _consume_materials_for_plan(plan, now, user):
             inventory_item.save()
 
             # ステータス更新
-            alloc.status = "ISSUED"
+            alloc.status = MaterialAllocation.Status.ISSUED
             alloc.save()
 
             # 在庫移動履歴の作成
@@ -257,7 +263,7 @@ def _consume_materials_for_plan(plan, now, user):
                 part_number=alloc.material_code,
                 quantity=quantity_to_consume,
                 warehouse=alloc.warehouse,
-                movement_type="used",
+                movement_type=StockMovement.MovementType.USED,
                 movement_date=now,
                 reference_document=f"ProductionPlan-{plan.id}",
                 description=f"Consumed for plan {plan.id} completion.",
@@ -267,7 +273,7 @@ def _consume_materials_for_plan(plan, now, user):
             # 関連する SalesOrder があれば完了（shipped）にする
             so_order_number = build_internal_so_order_number(alloc.id)
             SalesOrder.objects.filter(order_number=so_order_number).update(
-                status="shipped", shipped_quantity=quantity_to_consume
+                status=SalesOrder.Status.SHIPPED, shipped_quantity=quantity_to_consume
             )
 
         except Inventory.DoesNotExist:
@@ -278,7 +284,9 @@ def _restore_materials_for_plan(plan, now, user):
     """
     生産完了が取り消された際、消費された材料を引き当て状態（ALLOCATED）に戻します。
     """
-    allocations = MaterialAllocation.objects.filter(production_plan=plan, status="ISSUED").select_for_update()
+    allocations = MaterialAllocation.objects.filter(
+        production_plan=plan, status=MaterialAllocation.Status.ISSUED
+    ).select_for_update()
 
     for alloc in allocations:
         if not alloc.warehouse:
@@ -297,7 +305,7 @@ def _restore_materials_for_plan(plan, now, user):
         inventory_item.save()
 
         # ステータス戻し
-        alloc.status = "ALLOCATED"
+        alloc.status = MaterialAllocation.Status.ALLOCATED
         alloc.save()
 
         # 在庫移動履歴（取消）の作成
@@ -305,7 +313,7 @@ def _restore_materials_for_plan(plan, now, user):
             part_number=alloc.material_code,
             quantity=quantity_to_restore,
             warehouse=alloc.warehouse,
-            movement_type="incoming",
+            movement_type=StockMovement.MovementType.INCOMING,
             movement_date=now,
             reference_document=f"Reversal for PPlan-{plan.id}",
             description=f"Restored from plan {plan.id} reversal.",
@@ -315,5 +323,5 @@ def _restore_materials_for_plan(plan, now, user):
         # 関連する SalesOrder を pending に戻す
         so_order_number = build_internal_so_order_number(alloc.id)
         SalesOrder.objects.filter(order_number=so_order_number).update(
-            status="pending", shipped_quantity=0
+            status=SalesOrder.Status.PENDING, shipped_quantity=0
         )

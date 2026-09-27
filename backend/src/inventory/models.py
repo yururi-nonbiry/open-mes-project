@@ -89,14 +89,16 @@ class Inventory(models.Model):
 # 入出庫履歴
 class StockMovement(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False, verbose_name="ID")
-    MOVEMENT_TYPE_CHOICES = [
-        ("incoming", "入庫"),
-        ("outgoing", "出庫"),
-        ("used", "生産使用"),
-        ("PRODUCTION_OUTPUT", "生産完了入庫"),
-        ("PRODUCTION_REVERSAL", "生産完了取消"),
-        ("adjustment", "在庫調整"),
-    ]
+
+    class MovementType(models.TextChoices):
+        INCOMING = "incoming", "入庫"
+        OUTGOING = "outgoing", "出庫"
+        USED = "used", "生産使用"
+        PRODUCTION_OUTPUT = "PRODUCTION_OUTPUT", "生産完了入庫"
+        PRODUCTION_REVERSAL = "PRODUCTION_REVERSAL", "生産完了取消"
+        ADJUSTMENT = "adjustment", "在庫調整"
+
+    MOVEMENT_TYPE_CHOICES = MovementType.choices
 
     part_number_rel = models.ForeignKey(
         "master.Item",
@@ -230,15 +232,16 @@ class PurchaseOrder(models.Model):
     location = models.CharField(
         max_length=255, blank=True, null=True, verbose_name="入庫棚番"
     )  # どの棚番に入庫するかを追加
+    class Status(models.TextChoices):
+        PENDING = "pending", "未入庫"
+        PARTIALLY_RECEIVED = "partially_received", "一部入庫"
+        FULLY_RECEIVED = "fully_received", "全量入庫済み"
+        CANCELED = "canceled", "キャンセル"
+
     status = models.CharField(
         max_length=20,
-        choices=[
-            ("pending", "未入庫"),
-            ("partially_received", "一部入庫"),
-            ("fully_received", "全量入庫済み"),
-            ("canceled", "キャンセル"),
-        ],
-        default="pending",
+        choices=Status.choices,
+        default=Status.PENDING,
         verbose_name="ステータス",
         null=True,
         blank=True,
@@ -344,14 +347,15 @@ class SalesOrder(models.Model):
     @warehouse.setter
     def warehouse(self, value):
         self.warehouse_rel_id = value
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"  # 未出庫
+        SHIPPED = "shipped", "Shipped"  # 出庫済み
+        CANCELED = "canceled", "Canceled"  # キャンセル
+
     status = models.CharField(
         max_length=20,
-        choices=[
-            ("pending", "Pending"),  # 未出庫
-            ("shipped", "Shipped"),  # 出庫済み
-            ("canceled", "Canceled"),  # キャンセル
-        ],
-        default="pending",
+        choices=Status.choices,
+        default=Status.PENDING,
         verbose_name="ステータス",
     )
 

@@ -121,8 +121,15 @@ class PurchaseOrderSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         instance = super().update(instance, validated_data)
         # 発注数量の変更に合わせて入庫ステータスを再計算する(キャンセル済みは維持)
-        if "quantity" in validated_data and instance.status != "canceled" and instance.received_quantity > 0:
-            new_status = "fully_received" if instance.received_quantity >= instance.quantity else "partially_received"
+        if (
+            "quantity" in validated_data
+            and instance.status != PurchaseOrder.Status.CANCELED
+            and instance.received_quantity > 0
+        ):
+            if instance.received_quantity >= instance.quantity:
+                new_status = PurchaseOrder.Status.FULLY_RECEIVED
+            else:
+                new_status = PurchaseOrder.Status.PARTIALLY_RECEIVED
             if new_status != instance.status:
                 instance.status = new_status
                 instance.save(update_fields=["status"])

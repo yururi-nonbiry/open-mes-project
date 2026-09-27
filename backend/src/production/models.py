@@ -144,11 +144,13 @@ class MaterialAllocation(models.Model):
     """
 
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False)  # UUIDv7を使用
-    STATUS_CHOICES = [
-        ("ALLOCATED", "引当済"),
-        ("ISSUED", "出庫済"),
-        ("RETURNED", "返却済"),
-    ]
+
+    class Status(models.TextChoices):
+        ALLOCATED = "ALLOCATED", "引当済"
+        ISSUED = "ISSUED", "出庫済"
+        RETURNED = "RETURNED", "返却済"
+
+    STATUS_CHOICES = Status.choices
 
     production_plan = models.ForeignKey(
         ProductionPlan, on_delete=models.CASCADE, related_name="material_allocations", verbose_name="生産計画"
@@ -190,7 +192,9 @@ class MaterialAllocation(models.Model):
         self.warehouse_rel_id = value
     allocated_quantity = models.PositiveIntegerField(verbose_name="引当数量")
     allocation_datetime = models.DateTimeField(default=timezone.now, verbose_name="引当日時")
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="ALLOCATED", verbose_name="ステータス")
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default=Status.ALLOCATED, verbose_name="ステータス"
+    )
     remarks = models.TextField(blank=True, null=True, verbose_name="備考")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="作成日時")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新日時")

@@ -226,7 +226,7 @@ class InventoryViewSet(viewsets.ModelViewSet):
                 # 移動元の履歴 (出庫)
                 StockMovement.objects.create(
                     part_number=source_inventory.part_number,
-                    movement_type="outgoing",
+                    movement_type=StockMovement.MovementType.OUTGOING,
                     quantity=quantity_to_move,
                     warehouse=source_inventory.warehouse,
                     location=source_inventory.location,
@@ -237,7 +237,7 @@ class InventoryViewSet(viewsets.ModelViewSet):
                 # 移動先の履歴 (入庫)
                 StockMovement.objects.create(
                     part_number=source_inventory.part_number,
-                    movement_type="incoming",
+                    movement_type=StockMovement.MovementType.INCOMING,
                     quantity=quantity_to_move,
                     warehouse=target_warehouse,
                     location=target_location,
@@ -300,7 +300,7 @@ class InventoryViewSet(viewsets.ModelViewSet):
                 inventory.save()
 
                 if diff != 0:
-                    movement_type = "incoming" if diff > 0 else "outgoing"
+                    movement_type = StockMovement.MovementType.INCOMING if diff > 0 else StockMovement.MovementType.OUTGOING
                     StockMovement.objects.create(
                         part_number=inventory.part_number,
                         movement_type=movement_type,
@@ -377,7 +377,7 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
         if search_status:
             # フロントエンドから 'received' が来た場合、両方の入庫済みステータスを検索対象とする
             if search_status == "received":
-                filters &= Q(status__in=["partially_received", "fully_received"])
+                filters &= Q(status__in=[PurchaseOrder.Status.PARTIALLY_RECEIVED, PurchaseOrder.Status.FULLY_RECEIVED])
             else:
                 filters &= Q(status=search_status)
 
@@ -425,7 +425,7 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
             with transaction.atomic():
                 po = get_object_or_404(PurchaseOrder.objects.select_for_update(), pk=purchase_order_id)
 
-                if po.status == "canceled":
+                if po.status == PurchaseOrder.Status.CANCELED:
                     return Response(
                         {"error": f"発注 {po.order_number} はキャンセルされているため入庫できません。"},
                         status=status.HTTP_400_BAD_REQUEST,
@@ -489,7 +489,7 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
                 # 3. Create Stock Movement
                 StockMovement.objects.create(
                     part_number=po.part_number,
-                    movement_type="incoming",
+                    movement_type=StockMovement.MovementType.INCOMING,
                     quantity=received_quantity,
                     warehouse=warehouse,
                     location=location,
@@ -501,9 +501,9 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
                 # 4. Update Purchase Order status
                 po.received_quantity += received_quantity
                 if po.received_quantity >= po.quantity:
-                    po.status = "fully_received"
+                    po.status = PurchaseOrder.Status.FULLY_RECEIVED
                 else:
-                    po.status = "partially_received"
+                    po.status = PurchaseOrder.Status.PARTIALLY_RECEIVED
                 po.save()
 
                 return Response(
@@ -773,7 +773,7 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
                             "item": part_number,
                             "quantity": quantity_to_reserve,
                             "warehouse": warehouse,
-                            "status": "pending",
+                            "status": SalesOrder.Status.PENDING,
                         },
                     )
 
@@ -783,7 +783,7 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
                             f"既存: 品目='{sales_order.item}', 倉庫='{sales_order.warehouse}'。"
                             f"今回: 品目='{part_number}', 倉庫='{warehouse}'。"
                         )
-                    if sales_order.status != "pending":
+                    if sales_order.status != SalesOrder.Status.PENDING:
                         raise ValueError(f"受注 '{sales_order_ref}' は出庫済みまたはキャンセル済みのため引当できません。")
 
                     # 受注ごとの引当数量を記録する(出庫時に自身の引当分だけを解放するため)。
@@ -864,12 +864,12 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
 
                 if sales_order.is_internal:
                     return self._reject_internal_order(sales_order)
-                if sales_order.status == "shipped":
+                if sales_order.status == SalesOrder.Status.SHIPPED:
                     return Response(
                         {"success": False, "error": f"受注 {sales_order.order_number} は既に出庫済みです。"},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
-                if sales_order.status == "canceled":
+                if sales_order.status == SalesOrder.Status.CANCELED:
                     return Response(
                         {"success": False, "error": f"受注 {sales_order.order_number} はキャンセルされています。"},
                         status=status.HTTP_400_BAD_REQUEST,
@@ -963,7 +963,7 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
 
                     StockMovement.objects.create(
                         part_number=sales_order.item,
-                        movement_type="outgoing",
+                        movement_type=StockMovement.MovementType.OUTGOING,
                         quantity=take,
                         warehouse=sales_order.warehouse,
                         location=row.location,
@@ -990,7 +990,7 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
                 sales_order.reserved_quantity -= released_quantity
                 sales_order.shipped_quantity += quantity_to_ship
                 if sales_order.remaining_quantity <= 0:
-                    sales_order.status = "shipped"
+                    sales_order.status = SalesOrder.Status.SHIPPED
                 sales_order.save()
 
                 return Response(

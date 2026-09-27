@@ -42,7 +42,7 @@ def allocate_materials_service(production_plan, allocations_data):
     # 既に引き当て済みの数量を取得(返却済み(RETURNED)は使われなかった分のため必要数から差し引かない)
     existing_allocations = (
         MaterialAllocation.objects.filter(production_plan=production_plan)
-        .exclude(status="RETURNED")
+        .exclude(status=MaterialAllocation.Status.RETURNED)
         .values('material_id')
         .annotate(total=Sum('allocated_quantity'))
     )
@@ -116,7 +116,7 @@ def allocate_materials_service(production_plan, allocations_data):
                 material_code=part_number,
                 warehouse=warehouse,
                 allocated_quantity=quantity_to_allocate,
-                status="ALLOCATED",
+                status=MaterialAllocation.Status.ALLOCATED,
             )
 
             # 出庫予定（SalesOrder）の作成
@@ -128,7 +128,7 @@ def allocate_materials_service(production_plan, allocations_data):
                     "quantity": material_allocation.allocated_quantity,
                     "warehouse": warehouse,
                     "expected_shipment": production_plan.planned_start_datetime,
-                    "status": "pending",
+                    "status": SalesOrder.Status.PENDING,
                 },
             )
 
@@ -157,7 +157,7 @@ def release_material_allocation_service(allocation):
     在庫の reserved を解放し、関連する内部SalesOrderをキャンセルします。
     出庫済み(ISSUED)・返却済み(RETURNED)の引当は実在庫の増減を伴う履歴のため削除できません。
     """
-    if allocation.status != "ALLOCATED":
+    if allocation.status != MaterialAllocation.Status.ALLOCATED:
         raise ValueError(
             f"Cannot delete allocation with status '{allocation.status}'. "
             "Only 'ALLOCATED' allocations can be released."
@@ -178,7 +178,7 @@ def release_material_allocation_service(allocation):
                 )
 
         so_order_number = build_internal_so_order_number(allocation.id)
-        SalesOrder.objects.filter(order_number=so_order_number).update(status="canceled")
+        SalesOrder.objects.filter(order_number=so_order_number).update(status=SalesOrder.Status.CANCELED)
 
         allocation.delete()
 
@@ -191,8 +191,8 @@ def update_material_allocation_status_service(allocation, new_status, user, now=
     """
     now = now or timezone.now()
     allowed_transitions = {
-        "ALLOCATED": "ISSUED",
-        "ISSUED": "RETURNED",
+        MaterialAllocation.Status.ALLOCATED: MaterialAllocation.Status.ISSUED,
+        MaterialAllocation.Status.ISSUED: MaterialAllocation.Status.RETURNED,
     }
     if allowed_transitions.get(allocation.status) != new_status:
         raise ValueError(
@@ -213,7 +213,7 @@ def update_material_allocation_status_service(allocation, new_status, user, now=
                 f"Inventory not found for '{allocation.material_code}' in '{allocation.warehouse}'."
             )
 
-        if new_status == "ISSUED":
+        if new_status == MaterialAllocation.Status.ISSUED:
             if inventory_item.quantity < allocation.allocated_quantity:
                 raise ValueError(
                     f"Insufficient stock to issue '{allocation.material_code}' in '{allocation.warehouse}'. "
@@ -227,17 +227,17 @@ def update_material_allocation_status_service(allocation, new_status, user, now=
                 part_number=allocation.material_code,
                 quantity=allocation.allocated_quantity,
                 warehouse=allocation.warehouse,
-                movement_type="used",
+                movement_type=StockMovement.MovementType.USED,
                 movement_date=now,
                 reference_document=f"MaterialAllocation-{allocation.id}",
                 description=f"Issued for allocation {allocation.id}.",
                 operator=user if user and user.is_authenticated else None,
             )
             SalesOrder.objects.filter(order_number=so_order_number).update(
-                status="shipped", shipped_quantity=allocation.allocated_quantity
+                status=SalesOrder.Status.SHIPPED, shipped_quantity=allocation.allocated_quantity
             )
 
-        elif new_status == "RETURNED":
+        elif new_status == MaterialAllocation.Status.RETURNED:
             inventory_item.quantity += allocation.allocated_quantity
             inventory_item.save()
 
@@ -245,13 +245,13 @@ def update_material_allocation_status_service(allocation, new_status, user, now=
                 part_number=allocation.material_code,
                 quantity=allocation.allocated_quantity,
                 warehouse=allocation.warehouse,
-                movement_type="incoming",
+                movement_type=StockMovement.MovementType.INCOMING,
                 movement_date=now,
                 reference_document=f"MaterialAllocation-{allocation.id}",
                 description=f"Returned unused from allocation {allocation.id}.",
                 operator=user if user and user.is_authenticated else None,
             )
-            SalesOrder.objects.filter(order_number=so_order_number).update(status="canceled")
+            SalesOrder.objects.filter(order_number=so_order_number).update(status=SalesOrder.Status.CANCELED)
 
         allocation.status = new_status
         allocation.save()

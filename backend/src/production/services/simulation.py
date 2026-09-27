@@ -94,7 +94,11 @@ def simulate_parts_supply(plans):
         # 倉庫指定なしの需要は、残数の多い倉庫から順に消費する
         # (倉庫指定ありの後続需要のために、特定倉庫の在庫を使い切りにくくする)
         candidates = sorted(
-            (key for key in remaining_by_part_warehouse if key[0] == part_code and remaining_by_part_warehouse[key] > 0),
+            (
+                key
+                for key in remaining_by_part_warehouse
+                if key[0] == part_code and remaining_by_part_warehouse[key] > 0
+            ),
             key=lambda key: (-remaining_by_part_warehouse[key], str(key[1])),
         )
         unmet = quantity
