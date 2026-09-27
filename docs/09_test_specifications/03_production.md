@@ -203,7 +203,7 @@
 3. **`allocate_materials_service`の数量バリデーションの非対称性**（PP-ALLOC-09）:
    `quantity_to_allocate <= 0`は無条件で`continue`（無視）されるが、負数の場合のみ`errors`に追加されて
    最終的に400になる。0は「エラーにも成功にもならず単に無視される」という紛らわしい仕様。
-4. **`update_progress`の例外処理での`print`使用**:
+4. **【修正済み・2026-09-27】`update_progress`の例外処理での`print`使用**（`logger.exception`に置き換え済み）:
    `rest_views.py`の`update_progress`アクションは、想定外の例外を`print(traceback.format_exc())`で標準出力に
    出しているのみで、`logging`モジュールを使っていない（他のアクション・サービス層は`logger.error`等を使用）。
    本番環境でのログ収集の一貫性という観点で改善余地あり。

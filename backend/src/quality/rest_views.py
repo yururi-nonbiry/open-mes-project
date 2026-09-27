@@ -1,8 +1,10 @@
 import json
+import logging
 
 from django.db.models import ProtectedError
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 from .models import InspectionItem, InspectionResult
@@ -12,6 +14,8 @@ from .serializers import (
     InspectionResultSerializer,
     MeasurementDetailSerializer,
 )
+
+logger = logging.getLogger(__name__)
 
 # 検査結果登録フォームの動的な定義
 # フロントエンドの InspectionResultModal.jsx で使用されます
@@ -108,19 +112,16 @@ class InspectionItemViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
         """
         検査結果モーダルのためのフォーム定義と測定詳細を返す
         """
-        try:
-            inspection_item = self.get_object()
-            measurement_details = inspection_item.measurement_details.all().order_by("order")
-            details_serializer = MeasurementDetailSerializer(measurement_details, many=True)
-
-            response_data = {
+        inspection_item = self.get_object()
+        measurement_details = inspection_item.measurement_details.all().order_by("order")
+        details_serializer = MeasurementDetailSerializer(measurement_details, many=True)
+        return Response(
+            {
                 "success": True,
                 "result_form_fields": INSPECTION_RESULT_FORM_FIELDS,
                 "measurement_details": details_serializer.data,
             }
-            return Response(response_data)
-        except Exception as e:
-            return Response({"success": False, "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        )
 
     @action(detail=True, methods=["post"], url_path="record-result")
     def record_result(self, request, pk=None):
@@ -184,11 +185,16 @@ class InspectionItemViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
                 {"success": False, "message": "測定詳細のデータ形式が不正です。"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        except Exception as e:
-            errors = getattr(e, "detail", str(e))
+        except ValidationError as e:
             return Response(
-                {"success": False, "message": "検査結果の登録中にエラーが発生しました。", "errors": errors},
+                {"success": False, "message": "検査結果の登録中にエラーが発生しました。", "errors": e.detail},
                 status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception:
+            logger.exception("Unexpected error while recording inspection result for item %s", inspection_item.id)
+            return Response(
+                {"success": False, "message": "検査結果の登録中に予期せぬエラーが発生しました。"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 

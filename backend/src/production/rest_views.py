@@ -1,7 +1,6 @@
-from django.db import transaction  # トランザクションのためにインポート
-from django.db.models import Q  # Qオブジェクトをインポート
-from django.utils import timezone  # timezoneをインポート
-from django.utils.dateparse import parse_datetime  # 日時文字列のパース用
+import logging
+
+from django_filters import rest_framework as filters  # django-filterをインポート
 from rest_framework import (
     permissions,
     status,  # HTTPステータスコードをインポート
@@ -13,9 +12,7 @@ from rest_framework.pagination import PageNumberPagination  # Import PageNumberP
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response  # Responseをインポート
 from rest_framework.views import APIView  # APIViewをインポート
-from django_filters import rest_framework as filters  # django-filterをインポート
 
-from inventory.models import Inventory, SalesOrder, StockMovement  # Add StockMovement and SalesOrder
 from inventory.rest_views import StandardResultsSetPagination  # inventoryアプリのページネーションクラスをインポート
 
 from .models import MaterialAllocation, PartsUsed, ProductionPlan, WorkProgress
@@ -35,14 +32,7 @@ from .services import (
     update_production_progress_service,
 )
 
-# from .models import Product, BillOfMaterialItem
-# BOMに関連するモデル (仮のインポート、実際には適切なモデルを定義・インポートしてください)
-# from .serializers import RequiredPartSerializer # BOM部品用のシリアライザ (仮のインポート)
-
-from django.conf import settings
-
-# Define a constant for the default finished goods warehouse
-DEFAULT_FINISHED_GOODS_WAREHOUSE = settings.DEFAULT_FINISHED_GOODS_WAREHOUSE
+logger = logging.getLogger(__name__)
 
 
 # Define a pagination class specifically for Production Plans API
@@ -69,9 +59,9 @@ class ProductionPlanFilter(filters.FilterSet):
     class Meta:
         model = ProductionPlan
         fields = [
-            'plan_name', 
-            'product_code', 
-            'planned_start_datetime_after', 
+            'plan_name',
+            'product_code',
+            'planned_start_datetime_after',
             'planned_start_datetime_before',
             'status__in'
         ]
@@ -149,9 +139,10 @@ class ProductionPlanViewSet(viewsets.ModelViewSet):
             )
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
+        except Exception:
+            logger.exception("Unexpected error during material allocation for plan %s", production_plan.id)
             return Response(
-                {"error": "An unexpected error occurred during material allocation.", "detail": str(e)},
+                {"error": "An unexpected error occurred during material allocation."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -174,10 +165,8 @@ class ProductionPlanViewSet(viewsets.ModelViewSet):
             )
         except ValueError as ve:
             return Response({"error": f"Failed to save progress: {str(ve)}"}, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            import traceback
-            print(f"Error during progress update: {str(e)}")
-            print(traceback.format_exc())
+        except Exception:
+            logger.exception("Unexpected error during progress update for plan %s", plan.id)
             return Response(
                 {"error": "Failed to save progress due to an unexpected error. Please check logs."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,

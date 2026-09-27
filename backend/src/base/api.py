@@ -362,11 +362,12 @@ class QrCodeActionViewSet(viewsets.ModelViewSet):
                                     "result": result,
                                 }
                             )
-                        except Exception as e:
+                        except Exception:
+                            logger.exception("QRコードアクション '%s' の実行に失敗しました。", action_obj.name)
                             return Response(
                                 {
                                     "status": "error",
-                                    "message": f"An error occurred while executing action '{action_obj.name}': {e}",
+                                    "message": f"An error occurred while executing action '{action_obj.name}'.",
                                 },
                                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                             )
