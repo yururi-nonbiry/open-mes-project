@@ -38,20 +38,38 @@ def _intermediate_materials(plan):
     )
 
 
+def _remaining_need(plan_ids, codes):
+    """計画ごとの未引当の所要数 {(計画ID, 品目コード): 数量}。"""
+    required = defaultdict(int)
+    rows = ProductionPlanMaterial.objects.filter(production_plan_id__in=plan_ids, material_id__in=codes)
+    for row in rows.values("production_plan_id", "material_id", "required_quantity"):
+        required[(row["production_plan_id"], row["material_id"])] += row["required_quantity"]
+    allocated_rows = (
+        normal_allocations(MaterialAllocation.objects.filter(production_plan_id__in=plan_ids, material_id__in=codes))
+        .values("production_plan_id", "material_id")
+        .annotate(total=Sum("allocated_quantity"))
+    )
+    allocated = {(row["production_plan_id"], row["material_id"]): row["total"] for row in allocated_rows}
+    return {key: max(quantity - allocated.get(key, 0), 0) for key, quantity in required.items()}
+
+
 def _projected_available(plan, codes):
     """
     計画の開始時点で、この計画が使える中間品の見込み数 {品目コード: 数量}。
 
-    未引当の在庫 + 開始時点までに終わる他の生産計画の生産予定(この計画の子計画を除く)
-    - 開始時点までに始まる他の計画の未引当の所要数、で求める。
+    未引当の在庫 + 開始時点までに終わる他の生産計画の生産予定 - 開始時点までに始まる他の計画の未引当の所要数、で求める。
+    子計画の生産予定はその親計画の専用とみなし、親の所要数を子計画で賄う分は需要からも供給からも除く
+    (親の所要数を超える余りだけを供給に数える)。この計画自身の子計画は見込みに含めない。
     """
     start = plan.planned_start_datetime
     projected = defaultdict(int)
     for inv in Inventory.objects.filter(part_number_rel_id__in=codes, is_active=True, is_allocatable=True):
         projected[inv.part_number] += inv.available_quantity
 
+    # 子計画以外(親が手配の対象外になったものを含む)の生産予定
     supply = (
         ProductionPlan.objects.filter(product_id__in=codes, status__in=OPEN_STATUSES, planned_end_datetime__lte=start)
+        .exclude(parent_plan__status__in=OPEN_STATUSES)
         .exclude(parent_plan=plan)
         .exclude(pk=plan.pk)
         .values("product_id")
@@ -60,23 +78,37 @@ def _projected_available(plan, codes):
     for row in supply:
         projected[row["product_id"]] += row["total"]
 
-    demand_materials = ProductionPlanMaterial.objects.filter(
-        material_id__in=codes,
-        production_plan__status__in=OPEN_STATUSES,
-        production_plan__planned_start_datetime__lte=start,
-    ).exclude(production_plan=plan)
-    required = defaultdict(int)
-    for row in demand_materials.values("production_plan_id", "material_id", "required_quantity"):
-        required[(row["production_plan_id"], row["material_id"])] += row["required_quantity"]
-    allocated_rows = (
-        normal_allocations(MaterialAllocation.objects.filter(material_id__in=codes))
-        .filter(production_plan_id__in={key[0] for key in required})
-        .values("production_plan_id", "material_id")
-        .annotate(total=Sum("allocated_quantity"))
+    # 他の計画の子計画 {(親計画ID, 品目コード): [全体の数量, 開始時点までに終わる数量]}
+    children = defaultdict(lambda: [0, 0])
+    child_rows = (
+        ProductionPlan.objects.filter(
+            product_id__in=codes, status__in=OPEN_STATUSES, parent_plan__status__in=OPEN_STATUSES
+        )
+        .exclude(parent_plan=plan)
+        .exclude(pk=plan.pk)
+        .values("parent_plan_id", "product_id", "planned_quantity", "planned_end_datetime")
     )
-    allocated = {(row["production_plan_id"], row["material_id"]): row["total"] for row in allocated_rows}
-    for key, quantity in required.items():
-        projected[key[1]] -= max(quantity - allocated.get(key, 0), 0)
+    for row in child_rows:
+        entry = children[(row["parent_plan_id"], row["product_id"])]
+        entry[0] += row["planned_quantity"]
+        if row["planned_end_datetime"] and row["planned_end_datetime"] <= start:
+            entry[1] += row["planned_quantity"]
+
+    demand_plan_ids = set(
+        ProductionPlan.objects.filter(
+            status__in=OPEN_STATUSES, planned_start_datetime__lte=start, materials__material_id__in=codes
+        )
+        .exclude(pk=plan.pk)
+        .values_list("pk", flat=True)
+    )
+    need = _remaining_need(demand_plan_ids | {key[0] for key in children}, codes)
+
+    for key, (child_total, child_ready) in children.items():
+        surplus = max(child_total - need.get(key, 0), 0)
+        projected[key[1]] += min(surplus, child_ready)
+    for key, quantity in need.items():
+        if key[0] in demand_plan_ids:
+            projected[key[1]] -= max(quantity - children.get(key, (0, 0))[0], 0)
     return projected
 
 
@@ -249,3 +281,71 @@ def arrange_intermediates_service(plan, decisions):
             else:
                 raise ValueError("手配方法は CHILD_PLAN(子計画を立てる)か STOCK(在庫を使う)を指定してください。")
     return created
+
+
+def material_required_quantities(plan):
+    """計画の所要数 {品目コード: 数量}。所要部品を変える前に控えておき、trim_child_plans に渡す。"""
+    totals = defaultdict(int)
+    for code, quantity in plan.materials.values_list("material_id", "required_quantity"):
+        totals[code] += quantity
+    return totals
+
+
+def _cancel_child_plan(child):
+    child.status = ProductionPlan.Status.CANCELLED
+    child.save()  # 孫計画の中止は signals で連鎖する
+
+
+def trim_child_plans(plan, previous_required):
+    """
+    親の所要数が減った分だけ子計画を減らす(子計画の生産予定が親の未引当の所要数を超える分も減らす)。
+    未着手の子計画だけを、後から作ったものから減らし、0になれば中止する。着手済みの子計画は変えない。
+    子計画の数量を減らすと、孫計画も同じ仕組みで減る(signals)。変更した子計画のリストを返す。
+    """
+    current = material_required_quantities(plan)
+    allocated = allocated_quantity_by_material(plan)
+    children_by_code = defaultdict(list)
+    open_children = ProductionPlan.objects.filter(parent_plan=plan, status__in=OPEN_STATUSES)
+    for child in open_children.order_by("-created_at", "-pk"):
+        children_by_code[child.product_id].append(child)
+
+    changed = []
+    for code, children in children_by_code.items():
+        child_total = sum(c.planned_quantity for c in children)
+        remaining_need = max(current.get(code, 0) - allocated.get(code, 0), 0)
+        decrease = max(previous_required.get(code, 0) - current.get(code, 0), 0)
+        excess = min(child_total, max(decrease, child_total - remaining_need))
+        for child in children:
+            if excess <= 0:
+                break
+            if child.status != ProductionPlan.Status.PENDING:
+                continue
+            cut = min(excess, child.planned_quantity)
+            excess -= cut
+            if cut == child.planned_quantity:
+                _cancel_child_plan(child)
+            else:
+                child.planned_quantity -= cut
+                child.save()
+            changed.append(child)
+        if not any(c.status in OPEN_STATUSES for c in children):
+            # 子計画がなくなった中間品は、手配方法を選び直してもらう(不足すれば auto_arrange_intermediates が作る)
+            ProductionPlanMaterial.objects.filter(
+                production_plan=plan, material_id=code, supply_method=SupplyMethod.CHILD_PLAN
+            ).update(supply_method=SupplyMethod.UNDECIDED)
+    return changed
+
+
+def cancel_child_plans(plan):
+    """
+    親の中止に合わせて、未着手・保留の子計画を中止する(孫計画も signals で連鎖)。
+    着手済みの子計画は、作りかけの扱いを現場で判断するため残す(完成すれば在庫として他の計画で使える)。
+    """
+    children = list(
+        ProductionPlan.objects.filter(
+            parent_plan=plan, status__in=(ProductionPlan.Status.PENDING, ProductionPlan.Status.ON_HOLD)
+        )
+    )
+    for child in children:
+        _cancel_child_plan(child)
+    return children

@@ -187,3 +187,84 @@ class IntermediatePlanTests(ProductionAPITestBase):
         plan.save()
         response = self._arrange(plan, [{"material_code": code, "method": "STOCK"}])
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def _patch_plan(self, plan, data):
+        response = self.client.patch(reverse("production_api:production-plan-detail", args=[plan.id]), data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_pp_int_13_quantity_decrease_trims_child_plan(self):
+        """親の数量を減らすと、所要数の減った分だけ子計画(とその所要部品)も減る。"""
+        plan = self._plan(planned_quantity=10)
+        child = ProductionPlan.objects.get(parent_plan=plan)
+        self._patch_plan(plan, {"planned_quantity": 6})
+        child.refresh_from_db()
+        self.assertEqual((child.planned_quantity, child.status), (12, "PENDING"))
+        self.assertEqual(child.materials.get().required_quantity, 36)
+
+    def test_pp_int_14_quantity_decrease_cancels_unneeded_child_plan(self):
+        """在庫で足りるようになれば子計画は中止され、手配方法の選び直し待ちになる。"""
+        self._stock(15)
+        plan = self._plan(planned_quantity=10)
+        child = ProductionPlan.objects.get(parent_plan=plan)
+        self.assertEqual(child.planned_quantity, 5)
+        self._patch_plan(plan, {"planned_quantity": 8})
+        child.refresh_from_db()
+        self.assertEqual(child.planned_quantity, 1)
+        self._patch_plan(plan, {"planned_quantity": 5})
+        child.refresh_from_db()
+        self.assertEqual(child.status, "CANCELLED")
+        self.assertEqual(self._plan_material(plan).supply_method, "")
+        self.assertEqual(self._requirements(plan)[self.intermediate.code]["status"], "DECISION_REQUIRED")
+
+    def test_pp_int_15_cancel_parent_cancels_pending_child_plans(self):
+        """親を中止すると未着手・保留の子計画(孫計画も)は中止され、着手済みの子計画は残る。"""
+        sub = Item.objects.create(code="INT-002", name="Intermediate 2", item_type="intermediate")
+        BillOfMaterial.objects.create(product=self.intermediate, material=sub, quantity=1)
+        plan = self._plan(planned_quantity=10)
+        child = ProductionPlan.objects.get(parent_plan=plan)
+        grandchild = ProductionPlan.objects.get(parent_plan=child)
+        started = self._arrange(
+            plan, [{"material_code": self.intermediate.code, "method": "CHILD_PLAN", "quantity": 3}]
+        ).data["data"]["created_plans"][0]
+        started = ProductionPlan.objects.get(pk=started["id"])
+        started.status = "IN_PROGRESS"
+        started.save()
+
+        plan.status = "CANCELLED"
+        plan.save()
+        for p, expected in ((child, "CANCELLED"), (grandchild, "CANCELLED"), (started, "IN_PROGRESS")):
+            p.refresh_from_db()
+            self.assertEqual(p.status, expected, p.plan_name)
+
+    def test_pp_int_16_removing_intermediate_cancels_child_plan(self):
+        plan = self._plan(planned_quantity=10)
+        child = ProductionPlan.objects.get(parent_plan=plan)
+        response = self.client.delete(
+            reverse("production_api:plan-material-detail", args=[self._plan_material(plan).id])
+        )
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        child.refresh_from_db()
+        self.assertEqual(child.status, "CANCELLED")
+
+    def test_pp_int_17_other_plans_child_plan_is_dedicated(self):
+        """
+        他の計画の所要数のうち、その計画の子計画で賄う分は見込みから差し引かない
+        (子計画の生産予定も見込みに数えない)。
+        """
+        earlier = self._plan(plan_name="Earlier", planned_quantity=10)
+        earlier_child = ProductionPlan.objects.get(parent_plan=earlier)
+        # 子計画の終了が後ろにずれても、Earlier の所要数はその子計画で賄う予定のまま
+        earlier_child.planned_end_datetime = self.start + timedelta(days=2)
+        earlier_child.save()
+        self._stock(20)
+        later = self._plan(plan_name="Later", planned_quantity=10, planned_start_datetime=self.start + timedelta(days=1))
+        self.assertFalse(ProductionPlan.objects.filter(parent_plan=later).exists())
+        self.assertEqual(self._requirements(later)[self.intermediate.code]["projected_available_quantity"], 20)
+
+    def test_pp_int_18_surplus_of_other_child_plan_counts_as_supply(self):
+        """他の計画の子計画のうち、その計画の所要数を超える分は見込みに数える。"""
+        earlier = self._plan(plan_name="Earlier", planned_quantity=10)
+        self._arrange(earlier, [{"material_code": self.intermediate.code, "method": "CHILD_PLAN", "quantity": 5}])
+        later = self._plan(plan_name="Later", planned_quantity=10, planned_start_datetime=self.start + timedelta(days=1))
+        self.assertEqual(self._requirements(later)[self.intermediate.code]["projected_available_quantity"], 5)
+        self.assertEqual(ProductionPlan.objects.get(parent_plan=later).planned_quantity, 15)

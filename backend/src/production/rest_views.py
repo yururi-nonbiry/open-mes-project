@@ -40,6 +40,8 @@ from .services.intermediates import (
     arrange_intermediates_service,
     auto_arrange_intermediates,
     get_intermediate_requirements,
+    material_required_quantities,
+    trim_child_plans,
 )
 from .services.materials import allocated_quantity_by_material, normal_allocations
 
@@ -175,7 +177,9 @@ class ProductionPlanViewSet(viewsets.ModelViewSet):
         ensure_plan_materials_editable(plan)
         if normal_allocations(plan.material_allocations.all()).exists():
             return error_response("材料の引当がある生産計画の部品構成は初期化できません。先に引当を解除してください。")
+        previous_required = material_required_quantities(plan)
         snapshot_plan_materials(plan)
+        trim_child_plans(plan, previous_required)
         auto_arrange_intermediates(plan)
         materials = ProductionPlanMaterial.objects.filter(production_plan=plan).select_related("material")
         return Response(
@@ -317,14 +321,23 @@ class ProductionPlanMaterialViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(production_plan_id=plan_id)
         return queryset
 
-    # 中間品を追加・所要数を増やした結果、見込みが足りなくなった分は子計画を自動で作る
+    # 中間品を追加・所要数を増やした結果、見込みが足りなくなった分は子計画を自動で作り、
+    # 所要数を減らした・中間品を外した分は子計画を減らす
     def perform_create(self, serializer):
         material = serializer.save()
         auto_arrange_intermediates(material.production_plan)
 
     def perform_update(self, serializer):
+        previous_required = material_required_quantities(serializer.instance.production_plan)
         material = serializer.save()
+        trim_child_plans(material.production_plan, previous_required)
         auto_arrange_intermediates(material.production_plan)
+
+    def perform_destroy(self, instance):
+        plan = instance.production_plan
+        previous_required = material_required_quantities(plan)
+        instance.delete()
+        trim_child_plans(plan, previous_required)
 
     def destroy(self, request, *args, **kwargs):
         material = self.get_object()
