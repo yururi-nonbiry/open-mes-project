@@ -132,3 +132,32 @@ class PartsSupplySimulationTests(ProductionAPITestBase):
         self.assertEqual(part_summary["lead_time_days"], 0)
         self.assertEqual(part_summary["order_by_date"], part_summary["shortage_date"])
         self.assertFalse(part_summary["order_overdue"])
+
+    def test_pss_06_warehouse_specific_and_unspecified_share_stock(self):
+        """
+        PSS-06: 同じ部品に倉庫指定ありのBOMと倉庫指定なしのBOMがある場合、両者が同じ在庫を
+        二重に当てにせず、合計が在庫を超えた時点で不足と判定される。
+        """
+        common_part = self.material_item1.code
+        warehouse = self.warehouse_a.warehouse_number
+        self.create_inventory(part_number=common_part, quantity=8, reserved=0)
+
+        plan_a = self.create_plan(
+            plan_name="Plan A", production_plan="BOM-A",
+            planned_start_datetime=self.now, status="PENDING",
+        )
+        self.create_parts_used(
+            production_plan="BOM-A", part_code=common_part, warehouse=warehouse, quantity_used=5,
+        )
+        plan_b = self.create_plan(
+            plan_name="Plan B", production_plan="BOM-B",
+            planned_start_datetime=self.now + timezone.timedelta(days=5), status="PENDING",
+        )
+        self.create_parts_used(production_plan="BOM-B", part_code=common_part, warehouse=None, quantity_used=5)
+
+        response = self.client.get(self.url, {"plan_ids": f"{plan_a.id},{plan_b.id}"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        plans_by_name = {p["plan_name"]: p for p in response.data["plans"]}
+        self.assertTrue(plans_by_name["Plan A"]["feasible"])
+        self.assertFalse(plans_by_name["Plan B"]["feasible"])
+        self.assertEqual(plans_by_name["Plan B"]["limiting_parts"][0]["shortage_quantity"], 2)

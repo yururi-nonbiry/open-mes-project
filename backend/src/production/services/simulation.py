@@ -14,8 +14,9 @@ def simulate_parts_supply(plans):
     複数の生産計画（納入品番）を横断し、共通部品の供給可否を日付順にシミュレーションします。
 
     各部品の在庫は生産計画をまたいで共有されるため、`planned_start_datetime` の早い計画から
-    順に「未引当の必要数」を積み上げ、現在庫（available_quantity）を超過した時点をその部品の
-    供給限界とみなします。超過が発生した計画以降は、その部品を理由に生産不可（feasible=False）
+    順に「未引当の必要数」を現在庫（available_quantity）から消費していき、在庫が尽きた時点を
+    その部品の供給限界とみなします。倉庫指定ありの需要はその倉庫の在庫から、倉庫指定なしの需要は
+    全倉庫の残数から消費し、同じ在庫を二重に数えないようにしています。超過が発生した計画以降は、その部品を理由に生産不可（feasible=False）
     と判定します。
 
     Args:
@@ -58,12 +59,16 @@ def simulate_parts_supply(plans):
     items_map = {item.code: item for item in Item.objects.filter(code__in=part_codes)}
 
     # (part_code, warehouse) -> 利用可能数量。warehouse指定が無いPartsUsed用に、
-    # part_codeのみをキーにした全倉庫合計も別途保持する。
+    # part_codeのみをキーにした全倉庫合計も別途保持する(表示用)。
     available_by_part_warehouse = defaultdict(int)
     available_by_part_total = defaultdict(int)
     for inv in Inventory.objects.filter(part_number_rel_id__in=part_codes, is_active=True, is_allocatable=True):
         available_by_part_warehouse[(inv.part_number, inv.warehouse)] += inv.available_quantity
         available_by_part_total[inv.part_number] += inv.available_quantity
+
+    # 計画を日付順に処理しながら実際に在庫を減らしていく残数。倉庫指定ありの需要と倉庫指定なしの
+    # 需要が同じ在庫を二重に当てにしないよう、両者で共通の残数を消費する。
+    remaining_by_part_warehouse = defaultdict(int, available_by_part_warehouse)
 
     allocation_rows = (
         MaterialAllocation.objects.filter(production_plan__in=plans, material_id__in=part_codes)
@@ -77,7 +82,32 @@ def simulate_parts_supply(plans):
             return available_by_part_warehouse.get((part_code, warehouse), 0)
         return available_by_part_total.get(part_code, 0)
 
+    def consume(part_code, warehouse, quantity):
+        """在庫残数から quantity を消費し、不足した数量を返す。"""
+        if quantity <= 0:
+            return 0
+        if warehouse:
+            key = (part_code, warehouse)
+            take = min(remaining_by_part_warehouse[key], quantity)
+            remaining_by_part_warehouse[key] -= take
+            return quantity - take
+        # 倉庫指定なしの需要は、残数の多い倉庫から順に消費する
+        # (倉庫指定ありの後続需要のために、特定倉庫の在庫を使い切りにくくする)
+        candidates = sorted(
+            (key for key in remaining_by_part_warehouse if key[0] == part_code and remaining_by_part_warehouse[key] > 0),
+            key=lambda key: (-remaining_by_part_warehouse[key], str(key[1])),
+        )
+        unmet = quantity
+        for key in candidates:
+            if unmet <= 0:
+                break
+            take = min(remaining_by_part_warehouse[key], unmet)
+            remaining_by_part_warehouse[key] -= take
+            unmet -= take
+        return unmet
+
     cumulative_required = defaultdict(int)
+    cumulative_shortage = defaultdict(int)
     part_summary = {}
     plan_results = []
 
@@ -93,6 +123,7 @@ def simulate_parts_supply(plans):
             already_allocated = allocated_map.get((plan.id, part_code), 0)
             remaining_required = max(parts_used.quantity_used - already_allocated, 0)
             cumulative_required[key] += remaining_required
+            cumulative_shortage[key] += consume(part_code, warehouse, remaining_required)
 
             available = resolve_available(part_code, warehouse)
             item = items_map.get(part_code)
@@ -116,8 +147,8 @@ def simulate_parts_supply(plans):
             )
             summary["total_required_quantity"] = cumulative_required[key]
 
-            if cumulative_required[key] > available:
-                shortage_quantity = cumulative_required[key] - available
+            if cumulative_shortage[key] > 0:
+                shortage_quantity = cumulative_shortage[key]
                 summary["shortage_quantity"] = shortage_quantity
                 if summary["shortage_plan_id"] is None:
                     # この部品が初めて不足に転じた計画（＝支給元への連絡が必要になる納期）を記録
