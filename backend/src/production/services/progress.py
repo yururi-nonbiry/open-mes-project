@@ -20,11 +20,16 @@ def update_production_progress_service(plan, data, user):
     new_status = data.get("status")
     if not new_status:
         raise ValueError("New status is required.")
+    if new_status not in ProductionPlan.Status.values:
+        raise ValueError(f"Invalid status: {new_status}")
 
     now = timezone.now()
     PROCESS_STEP_OVERALL = "Overall Plan Progress"
 
     with transaction.atomic():
+        # 行ロックを取得した上で最新の状態を再取得する。ロックせずに旧ステータスを判定すると、
+        # 完了報告の二重送信時に両リクエストが「初回完了」と判定し完成品を二重計上してしまう。
+        plan = ProductionPlan.objects.select_for_update().get(pk=plan.pk)
         work_progress, _ = WorkProgress.objects.select_for_update().get_or_create(
             production_plan=plan,
             process_step=PROCESS_STEP_OVERALL,
@@ -240,7 +245,7 @@ def _consume_materials_for_plan(plan, now, user):
                     f"Required: {quantity_to_consume}, Available: {inventory_item.quantity}."
                 )
             inventory_item.quantity -= quantity_to_consume
-            inventory_item.reserved -= quantity_to_consume
+            inventory_item.reserved = max(0, inventory_item.reserved - quantity_to_consume)
             inventory_item.save()
 
             # ステータス更新

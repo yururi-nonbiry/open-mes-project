@@ -4,7 +4,8 @@ from rest_framework import status
 
 from inventory.models import Inventory, SalesOrder, StockMovement
 
-from ..models import WorkProgress
+from ..models import ProductionPlan, WorkProgress
+from ..services import update_production_progress_service
 from .test_helpers import ProductionAPITestBase
 
 PROCESS_STEP_OVERALL = "Overall Plan Progress"
@@ -193,3 +194,21 @@ class UpdateProgressTests(ProductionAPITestBase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         wp = WorkProgress.objects.get(production_plan=plan, process_step=PROCESS_STEP_OVERALL)
         self.assertEqual(wp.status, "NOT_STARTED")
+
+    def test_pp_prog_12_invalid_status_rejected(self):
+        plan = self.create_plan(status="PENDING")
+        response = self.client.post(self._url(plan), {"status": "DONE"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        plan.refresh_from_db()
+        self.assertEqual(plan.status, "PENDING")
+
+    def test_pp_prog_13_stale_plan_does_not_double_count_finished_goods(self):
+        """二重送信の再現: 完了前に取得した(古い)計画オブジェクトで再度完了報告しても差分のみ計上される。"""
+        plan = self.create_plan(status="IN_PROGRESS")
+        stale_plan = ProductionPlan.objects.get(pk=plan.pk)
+        update_production_progress_service(plan, {"status": "COMPLETED", "good_quantity": 10}, self.user)
+        update_production_progress_service(stale_plan, {"status": "COMPLETED", "good_quantity": 10}, self.user)
+        inventory = Inventory.objects.get(
+            part_number_rel_id=self.product_item.code, warehouse_rel_id=self.warehouse_fg.warehouse_number
+        )
+        self.assertEqual(inventory.quantity, 10)
