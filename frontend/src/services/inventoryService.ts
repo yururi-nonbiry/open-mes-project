@@ -16,6 +16,43 @@ export interface InventoryItem {
     [key: string]: string | number | boolean | undefined | null;
 }
 
+export interface SalesOrder {
+    id: string;
+    order_number: string;
+    item: string | null;
+    quantity: number;
+    shipped_quantity: number;
+    reserved_quantity: number;
+    remaining_quantity: number;
+    order_date: string;
+    expected_shipment: string | null;
+    warehouse: string | null;
+    status: string;
+    status_display: string;
+    is_internal: boolean;
+}
+
+export interface PaginatedResponse<T> {
+    count: number;
+    total_pages: number;
+    current_page: number;
+    page_size: number;
+    results: T[];
+}
+
+export interface IssueResult {
+    ok: boolean;
+    message: string;
+}
+
+/** 出庫数量の入力チェック。問題があればエラーメッセージ、なければ null を返す。 */
+export const validateIssueQuantity = (input: string, remainingQuantity: number): string | null => {
+    const quantity = parseInt(input, 10);
+    if (isNaN(quantity) || quantity <= 0) return '出庫数量は1以上の正の整数である必要があります。';
+    if (quantity > remainingQuantity) return '出庫数量が残数量を超えています。';
+    return null;
+};
+
 export interface DisplaySetting {
     model_field_name: string;
     display_name: string;
@@ -72,6 +109,34 @@ const inventoryService = {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || data.detail || 'Failed to move inventory');
         return data;
+    },
+
+    /**
+     * 出庫画面向けの受注一覧。材料引当用の内部受注(INT-)は出庫APIの対象外のため常に除外する。
+     */
+    getIssuableSalesOrders: async (
+        { page = 1, pageSize, q, status }: { page?: number; pageSize?: number; q?: string; status?: string } = {}
+    ) => {
+        const params = new URLSearchParams({ page: String(page), exclude_internal: 'true' });
+        if (pageSize) params.append('page_size', String(pageSize));
+        if (q) params.append('search_q', q);
+        if (status) params.append('search_status', status);
+        const response = await authFetch(`/api/inventory/sales-orders/?${params.toString()}`);
+        if (!response.ok) throw new Error('データの読み込みに失敗しました。');
+        return await response.json() as PaginatedResponse<SalesOrder>;
+    },
+
+    /** 受注の出庫。業務エラーは ok=false とサーバーのメッセージで返し、通信エラーは例外を送出する。 */
+    issueSalesOrder: async (orderId: string, quantityToShip: number): Promise<IssueResult> => {
+        const response = await authFetch('/api/inventory/sales-orders/issue/', {
+            method: 'POST',
+            body: JSON.stringify({ order_id: orderId, quantity_to_ship: quantityToShip }),
+        });
+        const data = await response.json();
+        if (response.ok && data.success) {
+            return { ok: true, message: data.message || '出庫処理が正常に完了しました。' };
+        }
+        return { ok: false, message: data.error || '出庫処理中にエラーが発生しました。' };
     },
 
     getSalesOrderLocationMap: async (orderId: string | number) => {

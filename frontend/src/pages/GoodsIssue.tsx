@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import authFetch from '../utils/api';
+import inventoryService, { SalesOrder, validateIssueQuantity } from '../services/inventoryService';
 import Modal from '../components/Modal';
 import WarehouseLocationMapModal from './inventory/WarehouseLocationMapModal';
 
 const GoodsIssue = () => {
-  const [salesOrders, setSalesOrders] = useState([]);
+  const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -22,11 +22,7 @@ const GoodsIssue = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await authFetch('/api/inventory/sales-orders/?search_status=pending&exclude_internal=true');
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data = await response.json();
+      const data = await inventoryService.getIssuableSalesOrders({ status: 'pending' });
       setSalesOrders(data.results || []);
     } catch (e) {
       setError('出庫待ち受注の読み込みに失敗しました。');
@@ -68,35 +64,22 @@ const GoodsIssue = () => {
     e.preventDefault();
     setModalMessage({ text: '', type: '' });
 
-    const quantityToShip = parseInt(issueQuantity, 10);
-    if (isNaN(quantityToShip) || quantityToShip <= 0) {
-      setModalMessage({ text: '出庫数量は1以上の正の整数である必要があります。', type: 'danger' });
-      return;
-    }
-    if (quantityToShip > selectedOrder.remaining_quantity) {
-      setModalMessage({ text: '出庫数量が残数量を超えています。', type: 'danger' });
+    const validationError = validateIssueQuantity(issueQuantity, selectedOrder.remaining_quantity);
+    if (validationError) {
+      setModalMessage({ text: validationError, type: 'danger' });
       return;
     }
 
     try {
-      const response = await authFetch('/api/inventory/sales-orders/issue/', {
-        method: 'POST',
-        body: JSON.stringify({
-          order_id: selectedOrder.id,
-          quantity_to_ship: quantityToShip,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        setModalMessage({ text: data.message || '出庫処理が正常に完了しました。', type: 'success' });
+      const result = await inventoryService.issueSalesOrder(selectedOrder.id, parseInt(issueQuantity, 10));
+      if (result.ok) {
+        setModalMessage({ text: result.message, type: 'success' });
         setTimeout(() => {
           closeModal();
           fetchSalesOrders(); // Refresh the list
         }, 1500);
       } else {
-        setModalMessage({ text: data.error || 'エラーが発生しました。', type: 'danger' });
+        setModalMessage({ text: result.message, type: 'danger' });
       }
     } catch (err) {
       console.error('Error:', err);

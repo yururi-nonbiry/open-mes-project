@@ -2,12 +2,13 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Container, Form, Button, Row, Col, Card, Badge, Modal, Spinner, Alert, Pagination as BootstrapPagination, InputGroup } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import authFetch from '../../utils/api';
+import inventoryService, { SalesOrder, validateIssueQuantity } from '../../services/inventoryService';
 import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library';
 import './MobileLocationTransferPage.css'; // スタイルを再利用
 
 const MobileGoodsIssuePage = () => {
     // State for data and UI
-    const [salesOrders, setSalesOrders] = useState([]);
+    const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
@@ -45,20 +46,8 @@ const MobileGoodsIssuePage = () => {
         setLoading(true);
         setError(null);
         
-        const params = new URLSearchParams({
-            page: page,
-            page_size: pageSize,
-            exclude_internal: 'true',
-        });
-        if (query) params.append('search_q', query);
-        if (status) params.append('search_status', status);
-
         try {
-            const response = await authFetch(`/api/inventory/sales-orders/?${params.toString()}`);
-            if (!response.ok) {
-                throw new Error('データの読み込みに失敗しました。');
-            }
-            const data = await response.json();
+            const data = await inventoryService.getIssuableSalesOrders({ page, pageSize, q: query, status });
             setSalesOrders(data.results || []);
             setTotalPages(data.total_pages || 0);
             setTotalCount(data.count || 0);
@@ -212,31 +201,18 @@ const MobileGoodsIssuePage = () => {
         if (!selectedOrder) return;
 
         setModalMessage({ text: '', type: '' });
-        const qty = parseInt(quantityToShip, 10);
-
-        if (isNaN(qty) || qty <= 0) {
-            setModalMessage({ text: '出庫数量は1以上の正の整数である必要があります。', type: 'danger' });
-            return;
-        }
-        if (qty > selectedOrder.remaining_quantity) {
-            setModalMessage({ text: '出庫数量が残数量を超えています。', type: 'danger' });
+        const validationError = validateIssueQuantity(quantityToShip, selectedOrder.remaining_quantity);
+        if (validationError) {
+            setModalMessage({ text: validationError, type: 'danger' });
             return;
         }
 
         setIsSubmitting(true);
 
         try {
-            const response = await authFetch('/api/inventory/sales-orders/issue/', {
-                method: 'POST',
-                body: JSON.stringify({
-                    order_id: selectedOrder.id,
-                    quantity_to_ship: qty,
-                }),
-            });
+            const result = await inventoryService.issueSalesOrder(selectedOrder.id, parseInt(quantityToShip, 10));
 
-            const result = await response.json();
-
-            if (response.ok && result.success) {
+            if (result.ok) {
                 setModalMessage({ text: result.message, type: 'success' });
                 setTimeout(() => {
                     handleCloseModal();
@@ -244,7 +220,7 @@ const MobileGoodsIssuePage = () => {
                     fetchSalesOrders(currentPage, committedSearchParams.q, committedSearchParams.status);
                 }, 1500);
             } else {
-                setModalMessage({ text: result.error || '出庫処理中にエラーが発生しました。', type: 'danger' });
+                setModalMessage({ text: result.message, type: 'danger' });
             }
         } catch (err) {
             console.error('Error processing issue:', err);
