@@ -4,7 +4,7 @@
 
 `backend/src/production` アプリが提供するAPI（DRF `ModelViewSet`）を対象とする。
 
-- 対象: 生産計画 (`ProductionPlan`)、使用部品 (`PartsUsed`)、材料引当 (`MaterialAllocation`)、
+- 対象: 生産計画 (`ProductionPlan`)、生産計画の所要部品 (`ProductionPlanMaterial`)、使用部品 (`PartsUsed`、旧来の部品構成)、材料引当 (`MaterialAllocation`)、
   作業進捗 (`WorkProgress`) の各エンドポイントおよび付随するカスタムアクション（`production/rest_views.py`）と、
   それらが委譲するサービス層（`production/services/allocation.py`, `progress.py`, `queries.py`）。
   複数の生産計画を横断する部品供給シミュレーション (`PartsSupplySimulationView`, `GET parts-supply-simulation/`)
@@ -32,9 +32,10 @@
 
 | モデル | 参照 | テスト上の要注意点 |
 |---|---|---|
-| `ProductionPlan` | `models.py:9-67` | `status` choices: `PENDING`/`IN_PROGRESS`/`COMPLETED`/`ON_HOLD`/`CANCELLED`。`product_code`はItem(`item_type="product"`)への疑似FK。`production_plan`(文字列)は`PartsUsed.production_plan`と紐付けるBOM識別子で、モデル自身の主キーとは別物（紛らわしい命名）。 |
-| `PartsUsed` | `models.py:70-138` | `production_plan`は`ProductionPlan`へのFKではなく**文字列**（BOM識別子）。`part`はItem(`item_type="material"`)。`warehouse_rel`は任意（null許容）。 |
-| `MaterialAllocation` | `models.py:141-204` | `status` choices: `ALLOCATED`/`ISSUED`/`RETURNED`。`production_plan`は`ProductionPlan`への実FK（`PartsUsed`とは異なる）。`material`/`warehouse_rel`は`part_number`/`warehouse`と同様の`@property`実装（`material_code`/`warehouse`）。 |
+| `ProductionPlan` | `models.py` | `status` choices: `PENDING`/`IN_PROGRESS`/`COMPLETED`/`ON_HOLD`/`CANCELLED`。`product`はItem(製品・中間品)へのFK(`to_field="code"`)。`production_plan`(文字列)は旧来`PartsUsed`と紐付けていたBOM識別子で、現在は業務処理から参照しない。 |
+| `ProductionPlanMaterial` | `models.py` | 計画ごとの所要部品。`(production_plan, material)`に一意制約。計画作成時にBOMマスターの直下の子品目がコピーされ(`signals.py`)、計画数量の変更で`required_quantity`(1個あたり×計画数量の切り上げ)を再計算、製品の変更でコピーし直す。 |
+| `PartsUsed` | `models.py` | 旧来の部品構成(文字列のBOM識別子単位)。所要部品は`ProductionPlanMaterial`に移行済み(マイグレーション0010)で、業務処理からは参照しない。 |
+| `MaterialAllocation` | `models.py` | `status` choices: `ALLOCATED`/`ISSUED`/`RETURNED`。`allocation_type`: `NORMAL`(所要量に対する引当)/`ADDITIONAL`(歩留まり・ロス等の追加出庫。即時ISSUED、所要量の消化に数えず、完了取消でも戻さない)。 |
 | `WorkProgress` | `models.py:207-253` | `status` choices: `NOT_STARTED`/`IN_PROGRESS`/`COMPLETED`/`PAUSED`。`(production_plan, process_step)`に一意制約。`update_production_progress_service`は常に`process_step="Overall Plan Progress"`で`get_or_create`する。 |
 
 ## 4. 既存自動テストの状況
@@ -63,20 +64,21 @@
 
 | ケースID | 分類 | 対象 | 前提条件 | 手順・入力 | 期待結果 | 備考 |
 |---|---|---|---|---|---|---|
-| PP-REQ-01 | 正常系 | `required-parts` | `PartsUsed`が紐づく`production_plan`識別子でBOMが定義済み | GET | 200、`part_code`/`required_quantity`/`inventory_quantity`/`already_allocated_quantity`等を含む配列 | 2026-07-22 `part_code`プロパティ誤用によるFieldErrorを修正済み（[7. 既知の懸念事項](#7-既知の懸念事項)参照） |
-| PP-REQ-02 | 境界値 | `required-parts` | `production_plan`(文字列識別子)が未設定、またはBOMが1件もない | GET | 200、空配列 | |
-| PP-REQ-03 | 正常系 | `required-parts` | `PartsUsed.warehouse`が指定されている | GET | `inventory_quantity`は指定倉庫のみの在庫数（他倉庫は無視） | |
-| PP-REQ-04 | 正常系 | `required-parts` | `PartsUsed.warehouse`が未指定(null) | GET | `inventory_quantity`は全倉庫合計 | |
-| PP-REQ-05 | 正常系 | `required-parts` | 同一部品に対し`MaterialAllocation`が既に存在 | GET | `already_allocated_quantity`に引当済数量が反映される | |
-| PP-REQ-06 | 境界値 | `required-parts` | 該当`Inventory`が`is_active=False`または`is_allocatable=False` | GET | `inventory_quantity`に含まれない（クエリ側で`is_active=True, is_allocatable=True`に絞込） | |
+| PP-REQ-01 | 正常系 | `required-parts` | 計画に所要部品(`ProductionPlanMaterial`)が登録済み | GET | 200、`part_code`/`quantity_per_unit`/`required_quantity`/`inventory_quantity`/`already_allocated_quantity`/`additional_issued_quantity`/`warehouses`を含む配列 | |
+| PP-REQ-02 | 境界値 | `required-parts` | 計画に所要部品が1件もない | GET | 200、空配列 | |
+| PP-REQ-03 | 正常系 | `required-parts` | 部品の在庫が複数倉庫にあり、一方は全量引当済み | GET | `warehouses`は引当可能数の多い順で、引当可能数0の倉庫は含まない | 倉庫は引当時に選ぶ |
+| PP-REQ-04 | 正常系 | `required-parts` | 部品の在庫が複数倉庫にある | GET | `inventory_quantity`は全倉庫の引当可能数の合計 | |
+| PP-REQ-05 | 正常系 | `required-parts` | 通常引当・返却済み引当・追加出庫が混在 | GET | `already_allocated_quantity`は通常引当(返却済みを除く)のみ、`additional_issued_quantity`は追加出庫分 | |
+| PP-REQ-06 | 境界値 | `required-parts` | 該当`Inventory`が`is_active=False`または`is_allocatable=False` | GET | `inventory_quantity`に含まれない | |
 
 ### 5.3 資材引当 `allocate-materials`（`POST plans/{id}/allocate-materials/`）
 
 | ケースID | 分類 | 対象 | 前提条件 | 手順・入力 | 期待結果 | 備考 |
 |---|---|---|---|---|---|---|
 | PP-ALLOC-01 | 正常系 | `allocate-materials` | 十分な在庫が存在 | 1件の引当リクエスト | 200、`Inventory.reserved`加算、`MaterialAllocation`(status=ALLOCATED)作成、内部`SalesOrder`(`INT-`prefix)作成 | 2026-07-22 `material_code`プロパティ誤用によるFieldErrorを修正済み（[7. 既知の懸念事項](#7-既知の懸念事項)参照） |
-| PP-ALLOC-02 | 正常系 | `allocate-materials` | BOM(`PartsUsed`)が定義済みで、必要数量以内 | 引当リクエスト | 200 | |
-| PP-ALLOC-03 | 異常系 | `allocate-materials` | BOM定義済みで、既存引当+今回要求がBOM必要数量を超過 | 引当リクエスト | 400、`Inventory.reserved`は変更されない（トランザクションロールバック） | |
+| PP-ALLOC-02 | 正常系 | `allocate-materials` | 計画の所要部品が登録済みで、所要数量以内 | 引当リクエスト | 200 | |
+| PP-ALLOC-03 | 異常系 | `allocate-materials` | 既存引当+今回要求が所要数量を超過(同一リクエスト内の重複行を含む。返却済みは数えない: 03b/03c) | 引当リクエスト | 400、`Inventory.reserved`は変更されない（トランザクションロールバック） | |
+| PP-ALLOC-03d | 異常系 | `allocate-materials` | 計画の所要部品に含まれない部品 | 引当リクエスト | 400(所要量を超える分・構成外の部品は追加出庫または構成の編集で扱う) | |
 | PP-ALLOC-04 | 異常系 | `allocate-materials` | 対象`Inventory`が存在しない | 引当リクエスト | 400 | |
 | PP-ALLOC-05 | 異常系 | `allocate-materials` | `Inventory.is_active=False`または`is_allocatable=False` | 引当リクエスト | 400 | |
 | PP-ALLOC-06 | 異常系 | `allocate-materials` | `available_quantity`が要求数量未満 | 引当リクエスト | 400 | |
@@ -101,6 +103,8 @@
 | PP-PROG-11 | 正常系 | `update-progress` | Plan.status=ON_HOLD | `status=PENDING` | 200、`WorkProgress.status=NOT_STARTED` | |
 
 ### 5.5 使用部品 CRUD（`PartsUsedViewSet`）
+
+旧来の部品構成。所要部品は`ProductionPlanMaterial`に移行済みで、画面からは削除した(APIのみ残存)。
 
 | ケースID | 分類 | 対象 | 前提条件 | 手順・入力 | 期待結果 | 備考 |
 |---|---|---|---|---|---|---|
@@ -146,6 +150,47 @@
 | PSS-03 | 正常系 | `GET parts-supply-simulation/` | 対象部品に`MaterialAllocation`（引当済み）が既に存在 | `plan_ids=<id>` | 200、`feasible=True`（引当済み分は`Inventory.reserved`側で加味され、不足として扱われない） | |
 | PSS-04 | 正常系 | `GET parts-supply-simulation/` | 不足部品の`Item.lead_time_days`に7を設定し、計画開始日時を現在時刻とする | `plan_ids=<id>` | 200、`parts`側の`lead_time_days=7`、`order_by_date`=`shortage_date - 7日`、期限が既に過去のため`order_overdue=True` | 不足発生日からリードタイム分を遡った「発注要否期限」を算出する |
 | PSS-05 | 正常系 | `GET parts-supply-simulation/` | `lead_time_days`未設定（デフォルト0）の部品が、計画開始日時30日後の計画で不足 | `plan_ids=<id>` | 200、`lead_time_days=0`、`order_by_date`が`shortage_date`と一致、`order_overdue=False` | リードタイム0日の場合は不足発生日＝発注要否期限になる |
+
+| PSS-06 | 正常系 | `GET parts-supply-simulation/` | 共通部品の在庫が2倉庫に分かれ(合計8)、2計画がそれぞれ5必要 | `plan_ids=<id1>,<id2>` | 200、所要部品は倉庫を持たないため全倉庫合算で判定し、後の計画が不足2で`feasible=False` | |
+| PSS-07 | 正常系 | `GET parts-supply-simulation/` | 所要5に対し追加出庫5のみ、在庫3 | `plan_ids=<id>` | 200、追加出庫は所要量の消化に数えないため不足2 | |
+
+### 5.9 生産計画の所要部品（`ProductionPlanMaterialViewSet`・`signals.py`、`production/tests/test_plan_materials.py`）
+
+| ケースID | 分類 | 対象 | 前提条件 | 手順・入力 | 期待結果 | 備考 |
+|---|---|---|---|---|---|---|
+| PP-MAT-SNAP-01 | 正常系 | 計画作成 | 製品に材料(1.5)・中間品(2)、中間品に材料のBOMあり | 計画数量3で作成 | 所要部品は直下の2件のみ、材料は1.5×3=4.5→切り上げ5、中間品6 | 2階層目は含めない |
+| PP-MAT-SNAP-02 | 正常系 | 計画更新 | 同上 | 計画数量を10に変更 | 所要数量を再計算(15) | |
+| PP-MAT-SNAP-03 | 正常系 | 計画更新 | 計画の構成を編集済み | 計画名のみ変更 | 編集内容は保持される | |
+| PP-MAT-SNAP-04 | 正常系 | 計画更新 | - | 製品を変更 | 新しい製品のBOMでコピーし直す | |
+| PP-MAT-SNAP-05 | 正常系 | `POST plans/` | 中間品のBOMあり | 中間品を製品として計画作成 | 201、所要部品は中間品のBOMから作られる | |
+| PP-MAT-SNAP-06 | 異常系 | `PATCH plans/{id}/` | 通常引当あり | 製品を変更 | 400(`errors.product_code`) | |
+| PP-MAT-SNAP-07 | 正常系 | `PATCH plans/{id}/` | 通常引当あり | 同じ製品コードと計画名を送信 | 200 | |
+| PP-MAT-01 | 正常系 | `GET plan-materials/?production_plan_id=` | 複数計画に所要部品あり | 一覧取得 | 対象計画の分のみ、部品名を含む | |
+| PP-MAT-02 | 正常系 | `POST plan-materials/` | - | 1個あたり0.25で追加(計画数量10) | 201、`required_quantity=3` | |
+| PP-MAT-03 | 異常系 | `POST plan-materials/` | 同じ部品が登録済み | 追加 | 400(`errors.material_code`) | |
+| PP-MAT-04 | 異常系 | `POST plan-materials/` | - | 製品(材料・中間品以外)を部品に指定 | 400 | |
+| PP-MAT-04b | 異常系 | `POST plan-materials/` | 中間品の計画 | 中間品自身を部品に指定 | 400 | |
+| PP-MAT-05 | 異常系/正常系 | `PATCH plan-materials/{id}/` | 8引当済み | 所要数量を5/8にする変更 | 5は400、8は200 | 引当済数量を下回れない |
+| PP-MAT-06 | 異常系 | `DELETE plan-materials/{id}/` | 通常引当あり | 削除 | 400 | |
+| PP-MAT-07 | 正常系 | `DELETE plan-materials/{id}/` | 返却済み引当のみ | 削除 | 204 | |
+| PP-MAT-08 | 異常系 | `PATCH`/`DELETE plan-materials/{id}/` | 計画が完了済み | 変更・削除 | 400 | 完了・中止した計画の構成は固定 |
+| PP-MAT-09 | 正常系 | `POST plans/{id}/reset-materials/` | BOMマスターが変わっている | 実行 | 200、BOMマスターの構成でコピーし直す | |
+| PP-MAT-10 | 異常系 | `POST plans/{id}/reset-materials/` | 通常引当あり | 実行 | 400、構成は変わらない | |
+| PP-MAT-MIG-01 | 正常系 | マイグレーション0010 | 同じBOM識別子を参照する2計画、同一部品のPartsUsedが2行 | 移行 | 各計画に合計数量(10)で1行作成、1個あたりは数量÷計画数量(小数3桁) | 部品未設定の行は無視 |
+| PP-MAT-MIG-02 | 正常系 | マイグレーション0010 | 所要部品が既にある計画 | 移行 | 既存の構成を変えない | |
+
+### 5.10 追加出庫（`POST plans/{id}/issue-additional-materials/`、`production/tests/test_additional_issue.py`）
+
+| ケースID | 分類 | 対象 | 前提条件 | 手順・入力 | 期待結果 | 備考 |
+|---|---|---|---|---|---|---|
+| PP-ADDISSUE-01 | 正常系 | 追加出庫 | 在庫10のうち6が他で引当済み | 3を追加出庫 | 200、在庫7(引当6は不変)、`MaterialAllocation`(ADDITIONAL, ISSUED, 備考)と`StockMovement`(used)作成 | |
+| PP-ADDISSUE-02 | 正常系 | 追加出庫後の引当 | 追加出庫済み | 所要数量10を全量引当 | 200 | 追加出庫は所要量の消化に数えない |
+| PP-ADDISSUE-03 | 異常系 | 追加出庫 | 2件目が在庫不足 | 2件まとめて出庫 | 400、1件目もロールバック | |
+| PP-ADDISSUE-04 | 異常系 | 追加出庫 | - | 所要部品に無い部品 | 400 | |
+| PP-ADDISSUE-05 | 異常系 | 追加出庫 | - | 空・リスト以外・0・数値以外 | 400 | |
+| PP-ADDISSUE-06 | 異常系 | 追加出庫 | 計画が中止 | 出庫 | 400 | |
+| PP-ADDISSUE-07 | 正常系 | 完了の取消 | 追加出庫後に完了 | 完了→進行中 | 追加出庫はISSUEDのまま、在庫も戻らない | |
+| PP-ADDISSUE-08 | 正常系 | `change-status` | 追加出庫済み | RETURNED | 200、在庫に戻る | 使わなかった分の返却 |
 
 ## 6. シリアライザの read_only_fields 確認
 

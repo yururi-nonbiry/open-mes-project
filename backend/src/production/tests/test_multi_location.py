@@ -13,6 +13,7 @@ class ProductionMultiLocationTests(ProductionAPITestBase):
     def setUp(self):
         super().setUp()
         self.plan = self.create_plan(status="IN_PROGRESS")
+        self.create_plan_material(self.plan, self.material_item1)
         self.loc1 = self.create_inventory(location="A-01", quantity=3)
         self.loc2 = self.create_inventory(location="A-02", quantity=10)
 

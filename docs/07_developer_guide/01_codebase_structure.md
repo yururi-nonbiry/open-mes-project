@@ -8,7 +8,7 @@
     - **`base/`**: プロジェクト直下の設定アプリ。`settings.py`（Django設定）、`urls.py`（ルートURLconf）、`wsgi.py`、`celery.py`に加え、`BaseSetting`（システム設定）、`CsvColumnMapping`（CSVインポート列マッピング）、`ModelDisplaySetting`（管理画面表示設定）、`QrCodeAction`（QRコード読み取り時アクション定義）、`AsyncTask`（Celery連携の非同期タスク状態管理）などのモデルを持ちます。他の全アプリから参照される共通基盤です。
     - **`master/`**: マスタデータ管理アプリ。品目（`Item`）、サプライヤー（`Supplier`）、倉庫（`Warehouse`）、倉庫ロケーション（`WarehouseLocation`）、顧客（`Customer`）、ワークセンター（`WorkCenter`）、標準単価（`UnitCost`）、使用部品構成（`BillOfMaterial`）を管理します。
     - **`inventory/`**: 在庫管理アプリ。在庫（`Inventory`）、入出庫履歴（`StockMovement`）、入庫予定（`PurchaseOrder`）、入庫実績（`Receipt`）、出庫予定（`SalesOrder`）を扱い、複数ロケーションからのFIFO順引当・出庫処理などの業務ロジックを`rest_views.py`に実装しています。
-    - **`production/`**: 生産管理アプリ。生産計画（`ProductionPlan`）、使用部品（`PartsUsed`）、材料引当（`MaterialAllocation`）、作業進捗（`WorkProgress`）を管理します。業務ロジックは`services/`サブディレクトリにモジュール分割されています。
+    - **`production/`**: 生産管理アプリ。生産計画（`ProductionPlan`）、生産計画の所要部品（`ProductionPlanMaterial`）、使用部品（`PartsUsed`、旧来の部品構成）、材料引当（`MaterialAllocation`）、作業進捗（`WorkProgress`）を管理します。業務ロジックは`services/`サブディレクトリにモジュール分割されています。
     - **`quality/`**: 品質管理アプリ。検査項目マスター（`InspectionItem`）、測定・判定詳細（`MeasurementDetail`）、検査実績（`InspectionResult`）、検査実績詳細（`InspectionResultDetail`）を管理します。
     - **`machine/`**: 設備管理アプリ。設備マスター（`Machine`）を管理します。
     - **`users/`**: ユーザー管理アプリ。`AbstractBaseUser`を継承したカスタムユーザーモデル（`CustomUser`、ログインIDは`custom_id`、通常ユーザー/システム連携用を区別する`account_type`フィールドを持つ）と、パスワード有効期限チェック用ミドルウェア（`PasswordExpirationMiddleware`）、固定トークンのIP制限・スコープ制限を行う`ApiTokenPolicy`モデルおよび`ScopedTokenAuthentication`（`authentication.py`）を持ちます。

@@ -1,20 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../../components/Modal';
-import authFetch from '../../utils/api';
-import bomService, { BillOfMaterial } from '../../services/bomService';
+import bomService, { BillOfMaterial, MasterItem, isConsumableItem, isProducibleItem, itemTypeLabel } from '../../services/bomService';
 
 interface BomMasterModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSuccess: () => void;
     editingItem: BillOfMaterial | null;
-}
-
-interface MasterItem {
-    id: string;
-    code: string;
-    name: string;
-    item_type: string;
 }
 
 const emptyForm: BillOfMaterial = {
@@ -37,13 +29,10 @@ const BomMasterModal: React.FC<BomMasterModalProps> = ({ isOpen, onClose, onSucc
 
         const loadItems = async () => {
             try {
-                const res = await authFetch('/api/master/items/');
-                if (!res.ok) return;
-                const data = await res.json();
-                const list: MasterItem[] = data.data || data;
-                // item_type は表示名 ("Product"/"Material") で返るため大文字小文字を無視して判定する
-                setProductOptions(list.filter((i) => i.item_type?.toLowerCase() === 'product'));
-                setMaterialOptions(list.filter((i) => i.item_type?.toLowerCase() === 'material'));
+                const list = await bomService.getItems();
+                // 中間品は親(自身の構成を持つ)にも子(上位品目の部品)にもなれる
+                setProductOptions(list.filter(isProducibleItem));
+                setMaterialOptions(list.filter(isConsumableItem));
             } catch (e) {
                 console.error('Failed to load items:', e);
             }
@@ -101,23 +90,23 @@ const BomMasterModal: React.FC<BomMasterModalProps> = ({ isOpen, onClose, onSucc
                 <hr />
                 <form onSubmit={handleSubmit} noValidate>
                     <div className="form-group">
-                        <label htmlFor="bom_product">製品*</label>
+                        <label htmlFor="bom_product">親品目（製品・中間品）*</label>
                         <select
                             id="bom_product" name="product"
                             value={currentItem.product} onChange={handleChange}
                             className={`form-control ${formErrors.product ? 'is-invalid' : ''}`}
                             required
                         >
-                            <option value="">-- 製品を選択 --</option>
+                            <option value="">-- 親品目を選択 --</option>
                             {productOptions.map((item) => (
-                                <option key={item.id} value={item.code}>[{item.code}] {item.name}</option>
+                                <option key={item.id} value={item.code}>[{item.code}] {item.name}（{itemTypeLabel(item.item_type)}）</option>
                             ))}
                         </select>
                         <div className="invalid-feedback">{formErrors.product}</div>
                     </div>
 
                     <div className="form-group">
-                        <label htmlFor="bom_material">使用部品*</label>
+                        <label htmlFor="bom_material">使用部品（材料・中間品）*</label>
                         <select
                             id="bom_material" name="material"
                             value={currentItem.material} onChange={handleChange}
@@ -126,14 +115,14 @@ const BomMasterModal: React.FC<BomMasterModalProps> = ({ isOpen, onClose, onSucc
                         >
                             <option value="">-- 部品を選択 --</option>
                             {materialOptions.map((item) => (
-                                <option key={item.id} value={item.code}>[{item.code}] {item.name}</option>
+                                <option key={item.id} value={item.code}>[{item.code}] {item.name}（{itemTypeLabel(item.item_type)}）</option>
                             ))}
                         </select>
                         <div className="invalid-feedback">{formErrors.material}</div>
                     </div>
 
                     <div className="form-group">
-                        <label htmlFor="bom_quantity">所要数量（製品1個あたり）*</label>
+                        <label htmlFor="bom_quantity">所要数量（親品目1個あたり）*</label>
                         <input
                             type="number" id="bom_quantity" name="quantity" step="0.001" min="0.001"
                             value={currentItem.quantity} onChange={handleChange}

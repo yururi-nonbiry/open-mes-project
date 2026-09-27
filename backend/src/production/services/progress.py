@@ -284,8 +284,11 @@ def _restore_materials_for_plan(plan, now, user):
     """
     生産完了が取り消された際、消費された材料を引き当て状態（ALLOCATED）に戻します。
     """
+    # 追加出庫は実際に使われた分のため戻さない
     allocations = MaterialAllocation.objects.filter(
-        production_plan=plan, status=MaterialAllocation.Status.ISSUED
+        production_plan=plan,
+        status=MaterialAllocation.Status.ISSUED,
+        allocation_type=MaterialAllocation.AllocationType.NORMAL,
     ).select_for_update()
 
     for alloc in allocations:

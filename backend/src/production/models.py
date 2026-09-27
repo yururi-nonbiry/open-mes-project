@@ -32,7 +32,7 @@ class ProductionPlan(models.Model):
         null=True,
         blank=True,
         verbose_name="製品",
-        limit_choices_to={"item_type": "product"}
+        limit_choices_to={"item_type__in": ("product", "intermediate")}
     )
 
     product_code = fk_id_alias("product")
@@ -65,7 +65,10 @@ class ProductionPlan(models.Model):
 
 class PartsUsed(models.Model):
     """
-    使用部品モデル
+    使用部品モデル(旧: 参照生産計画の文字列キー単位の部品構成)
+
+    生産計画の所要部品は ProductionPlanMaterial に移行したため、業務処理からは参照しない。
+    既存データの確認用に残している。
     """
 
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False)  # UUIDv7を使用
@@ -134,6 +137,12 @@ class MaterialAllocation(models.Model):
         ISSUED = "ISSUED", "出庫済"
         RETURNED = "RETURNED", "返却済"
 
+    class AllocationType(models.TextChoices):
+        # 通常: 所要部品に対する引当。生産完了時に消費する。
+        NORMAL = "NORMAL", "通常"
+        # 追加出庫: 歩留まり・ロス等で所要量を超えて必要になった分。引当を経ずに即時出庫し、所要量の消化には数えない。
+        ADDITIONAL = "ADDITIONAL", "追加出庫"
+
     STATUS_CHOICES = Status.choices
 
     production_plan = models.ForeignKey(
@@ -147,7 +156,7 @@ class MaterialAllocation(models.Model):
         null=True,
         blank=True,
         verbose_name="材料",
-        limit_choices_to={"item_type": "material"}
+        limit_choices_to={"item_type__in": ("material", "intermediate")}
     )
     warehouse_rel = models.ForeignKey(
         "master.Warehouse",
@@ -167,6 +176,9 @@ class MaterialAllocation(models.Model):
     status = models.CharField(
         max_length=20, choices=STATUS_CHOICES, default=Status.ALLOCATED, verbose_name="ステータス"
     )
+    allocation_type = models.CharField(
+        max_length=20, choices=AllocationType.choices, default=AllocationType.NORMAL, verbose_name="引当区分"
+    )
     remarks = models.TextField(blank=True, null=True, verbose_name="備考")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="作成日時")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新日時")
@@ -178,6 +190,47 @@ class MaterialAllocation(models.Model):
         verbose_name = "材料引当"
         verbose_name_plural = "材料引当"
         ordering = ["-allocation_datetime"]
+
+
+class ProductionPlanMaterial(models.Model):
+    """
+    生産計画ごとの所要部品(部品構成)。
+
+    計画作成時に BOM マスターの直下の子品目をコピーし、以降は計画ごとに編集できる
+    (同じ製品でも計画によって構成が変わるため)。中間品は自身の生産計画で作って在庫から引き当てるため、
+    ここには1階層分のみを持つ。倉庫は持たず、引当時に選ぶ。
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
+    production_plan = models.ForeignKey(
+        ProductionPlan, on_delete=models.CASCADE, related_name="materials", verbose_name="生産計画"
+    )
+    material = models.ForeignKey(
+        "master.Item",
+        to_field="code",
+        db_column="material_code",
+        on_delete=models.PROTECT,
+        verbose_name="部品",
+        limit_choices_to={"item_type__in": ("material", "intermediate")},
+    )
+    material_code = fk_id_alias("material")
+    quantity_per_unit = models.DecimalField(max_digits=12, decimal_places=3, verbose_name="所要数量（製品1個あたり）")
+    # 在庫は整数管理のため、1個あたり所要数量 × 計画数量 を切り上げた値。計画数量の変更時に再計算する。
+    required_quantity = models.PositiveIntegerField(verbose_name="所要数量（計画全体）")
+    remarks = models.TextField(blank=True, null=True, verbose_name="備考")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="作成日時")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新日時")
+
+    class Meta:
+        verbose_name = "生産計画所要部品"
+        verbose_name_plural = "生産計画所要部品"
+        ordering = ["material__code"]
+        constraints = [
+            models.UniqueConstraint(fields=["production_plan", "material"], name="unique_plan_material"),
+        ]
+
+    def __str__(self):
+        return f"{self.production_plan.plan_name}: {self.material_code} x {self.required_quantity}"
 
 
 class WorkProgress(models.Model):

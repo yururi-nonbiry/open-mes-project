@@ -35,14 +35,47 @@ export interface ProductionPlanFilters {
     ordering?: string;
 }
 
+export interface RequiredPartWarehouse {
+    warehouse: string;
+    /** この倉庫の引当可能数 */
+    available_quantity: number;
+}
+
+/** 生産計画の所要部品と引当状況(plans/{id}/required-parts/) */
 export interface RequiredPart {
     part_code: string;
     part_name: string;
-    required_quantity: number;
     unit: string;
-    inventory_quantity: number;
-    warehouse: string | null;
+    /** 製品1個あたり所要数量(小数3桁の文字列) */
+    quantity_per_unit: string;
+    /** 計画全体の所要数量 */
+    required_quantity: number;
+    /** 所要量に対して引当済みの数量 */
     already_allocated_quantity: number;
+    /** 所要量とは別に追加出庫した数量(歩留まり・ロス等) */
+    additional_issued_quantity: number;
+    /** 全倉庫の引当可能数の合計 */
+    inventory_quantity: number;
+    /** 引当可能な在庫がある倉庫(引当可能数の多い順)。倉庫は引当時に選ぶ */
+    warehouses: RequiredPartWarehouse[];
+}
+
+/** 生産計画ごとの所要部品(計画作成時にBOMマスターからコピーされ、計画ごとに編集できる) */
+export interface PlanMaterial {
+    id?: string;
+    production_plan: string;
+    material_code: string;
+    material_name?: string;
+    material_unit?: string;
+    quantity_per_unit: string | number;
+    required_quantity?: number;
+    remarks?: string | null;
+}
+
+export interface AdditionalIssueItem {
+    part_number: string;
+    warehouse: string;
+    quantity: number;
 }
 
 export interface MaterialAllocationPayload {
@@ -107,6 +140,9 @@ export interface MaterialAllocation {
     allocation_datetime: string;
     status: 'ALLOCATED' | 'ISSUED' | 'RETURNED';
     status_display: string;
+    /** NORMAL: 所要量に対する引当 / ADDITIONAL: 歩留まり・ロス等の追加出庫 */
+    allocation_type?: 'NORMAL' | 'ADDITIONAL';
+    allocation_type_display?: string;
     remarks: string | null;
     warehouse?: string;
 }

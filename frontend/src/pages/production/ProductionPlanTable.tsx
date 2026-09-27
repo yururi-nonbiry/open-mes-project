@@ -7,10 +7,12 @@ interface ProductionPlanTableProps {
     error: string | null;
     onDetail: (plan: ProductionPlan) => void;
     onAllocate: (plan: ProductionPlan) => void;
+    onMaterials: (plan: ProductionPlan) => void;
+    onAdditionalIssue: (plan: ProductionPlan) => void;
 }
 
 const ProductionPlanTable: React.FC<ProductionPlanTableProps> = ({
-    plans, loading, error, onDetail, onAllocate
+    plans, loading, error, onDetail, onAllocate, onMaterials, onAdditionalIssue
 }) => {
     const formatDate = (dateStr: string) => {
         if (!dateStr) return 'N/A';
@@ -34,9 +36,7 @@ const ProductionPlanTable: React.FC<ProductionPlanTableProps> = ({
                         <th className="text-center">計画開始日時</th>
                         <th className="text-center">計画終了日時</th>
                         <th className="text-center">ステータス</th>
-                        <th className="text-center">親計画ID</th>
-                        <th className="text-center">詳細</th>
-                        <th className="text-center">材料引当</th>
+                        <th className="text-center">操作</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -48,16 +48,15 @@ const ProductionPlanTable: React.FC<ProductionPlanTableProps> = ({
                             <td className="text-center">{formatDate(plan.planned_start_datetime)}</td>
                             <td className="text-center">{formatDate(plan.planned_end_datetime)}</td>
                             <td className="text-center">{plan.status || 'N/A'}</td>
-                            <td className="text-center">{plan.production_plan || 'N/A'}</td>
-                            <td className="text-center">
+                            <td className="text-center text-nowrap">
                                 <button className="btn btn-sm btn-info" onClick={() => onDetail(plan)}>詳細</button>
-                            </td>
-                            <td className="text-center">
-                                <button className="btn btn-sm btn-warning" onClick={() => onAllocate(plan)}>材料引当</button>
+                                <button className="btn btn-sm btn-secondary ms-1" onClick={() => onMaterials(plan)}>部品構成</button>
+                                <button className="btn btn-sm btn-warning ms-1" onClick={() => onAllocate(plan)}>材料引当</button>
+                                <button className="btn btn-sm btn-outline-danger ms-1" onClick={() => onAdditionalIssue(plan)}>追加出庫</button>
                             </td>
                         </tr>
                     )) : (
-                        <tr><td colSpan={9} className="text-center">生産計画データがありません。</td></tr>
+                        <tr><td colSpan={7} className="text-center">生産計画データがありません。</td></tr>
                     )}
                 </tbody>
             </table>

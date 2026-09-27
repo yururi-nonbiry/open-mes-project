@@ -31,7 +31,7 @@ const ProductionPlanDetailModal: React.FC<ProductionPlanDetailModalProps> = ({
                     <dt className="col-sm-4">実績開始日時:</dt><dd className="col-sm-8">{fullFormat(plan.actual_start_datetime)}</dd>
                     <dt className="col-sm-4">実績終了日時:</dt><dd className="col-sm-8">{fullFormat(plan.actual_end_datetime)}</dd>
                     <dt className="col-sm-4">ステータス:</dt><dd className="col-sm-8">{plan.status || 'N/A'}</dd>
-                    <dt className="col-sm-4">親計画ID:</dt><dd className="col-sm-8">{plan.production_plan || 'N/A'}</dd>
+                    <dt className="col-sm-4">参照生産計画（旧BOMキー）:</dt><dd className="col-sm-8">{plan.production_plan || 'N/A'}</dd>
                     <dt className="col-sm-4">備考:</dt><dd className="col-sm-8">{plan.remarks || ''}</dd>
                     <dt className="col-sm-4">作成日時:</dt><dd className="col-sm-8">{fullFormat(plan.created_at)}</dd>
                     <dt className="col-sm-4">更新日時:</dt><dd className="col-sm-8">{fullFormat(plan.updated_at)}</dd>

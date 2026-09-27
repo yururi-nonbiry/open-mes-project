@@ -19,7 +19,6 @@ const TopPage = ({ isAuthenticated, isStaffOrSuperuser, onLogout }) => {
         <h3>生産管理</h3>
         <ul>
           <li><Link to="/production/plan">生産計画</Link></li>
-          <li><Link to="/production/parts-used">使用部品</Link></li>
           <li><Link to="/production/material-allocation">材料引当</Link></li>
           <li><Link to="/production/work-progress">作業進捗</Link></li>
         </ul>

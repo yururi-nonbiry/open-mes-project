@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator, UniqueValidator
 
+from .bom import creates_cycle
 from .models import BillOfMaterial, Customer, Item, Supplier, UnitCost, Warehouse, WarehouseLocation, WorkCenter
 
 
@@ -266,13 +267,17 @@ class BillOfMaterialSerializer(serializers.ModelSerializer):
 class BillOfMaterialCreateUpdateSerializer(serializers.ModelSerializer):
     product = serializers.SlugRelatedField(
         slug_field="code",
-        queryset=Item.objects.filter(item_type="product"),
-        error_messages={"does_not_exist": "指定された製品コードは存在しないか、製品として登録されていません。"},
+        queryset=Item.objects.filter(item_type__in=Item.PRODUCIBLE_TYPES),
+        error_messages={
+            "does_not_exist": "指定された親品目コードは存在しないか、製品・中間品として登録されていません。"
+        },
     )
     material = serializers.SlugRelatedField(
         slug_field="code",
-        queryset=Item.objects.filter(item_type="material"),
-        error_messages={"does_not_exist": "指定された部品コードは存在しないか、材料として登録されていません。"},
+        queryset=Item.objects.filter(item_type__in=Item.CONSUMABLE_TYPES),
+        error_messages={
+            "does_not_exist": "指定された部品コードは存在しないか、材料・中間品として登録されていません。"
+        },
     )
 
     class Meta:
@@ -290,3 +295,12 @@ class BillOfMaterialCreateUpdateSerializer(serializers.ModelSerializer):
         if value <= 0:
             raise serializers.ValidationError("所要数量は0より大きい値を入力してください。")
         return value
+
+    def validate(self, attrs):
+        product = attrs.get("product", getattr(self.instance, "product", None))
+        material = attrs.get("material", getattr(self.instance, "material", None))
+        if product and material and creates_cycle(product.code, material.code, getattr(self.instance, "pk", None)):
+            raise serializers.ValidationError(
+                f"{material.code} は {product.code} を構成に含むため、{product.code} の部品にできません(循環参照)。"
+            )
+        return attrs

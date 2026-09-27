@@ -69,7 +69,7 @@ export const getFormFields = (type: string): FormField[] => {
         item: [
             { name: 'code', label: '品番コード' },
             { name: 'name', label: '名称' },
-            { name: 'item_type', label: '区分 (product/material)' },
+            { name: 'item_type', label: '区分 (product/material/intermediate)' },
             { name: 'unit', label: '単位' },
             { name: 'description', label: '説明' },
             { name: 'default_warehouse', label: 'デフォルト入庫倉庫' },

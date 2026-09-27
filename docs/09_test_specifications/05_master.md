@@ -42,7 +42,7 @@
 | `Customer` | `models.py:98-105` | `code`は`unique=True`。 |
 | `WorkCenter` | `models.py:109-116` | `code`は`unique=True`。 |
 | `UnitCost` | `models.py:120-140` | `item`は`Item`へ`to_field="code"`のFK、`on_delete=PROTECT`。`(item)`に`UniqueConstraint`（1品目1単価）。 |
-| `BillOfMaterial` | `models.py:144-177` | UUIDv7主キー。`product`（`Item`、`item_type="product"`限定）・`material`（`Item`、`item_type="material"`限定）はいずれも`to_field="code"`、`on_delete=PROTECT`のFK。`(product, material)`に`UniqueConstraint`。`quantity`は正数のみ許容（小数3桁）。 |
+| `BillOfMaterial` | `models.py` | UUIDv7主キー。`product`（`Item`、製品・中間品限定）・`material`（`Item`、材料・中間品限定）はいずれも`to_field="code"`、`on_delete=PROTECT`のFK。中間品を親にも子にもできる多階層構成で、循環参照は登録時に拒否（`master/bom.py`）。`(product, material)`に`UniqueConstraint`。`quantity`は正数のみ許容（小数3桁）。 |
 
 ## 4. 既存自動テストの状況
 
@@ -143,6 +143,20 @@
 | MST-BOM-07 | 正常系 | `GET bill-of-materials/` | BOM行が存在 | 一覧取得 | 200、`product`/`material`は品目コード、`product_name`/`material_name`/`material_unit`も含む | |
 | MST-BOM-08 | 正常系 | `DELETE bill-of-materials/{id}/` | 既存BOM行が存在 | 削除 | 200、DBから削除 | |
 | MST-BOM-09 | 異常系 | `DELETE items/{id}/` | `BillOfMaterial`から`material`として参照されているItem | 削除 | 400、BOM行は残存 | `on_delete=PROTECT`（MST-ITEM-08と同様のパターン） |
+
+### 5.8.1 多階層BOM（中間品・循環参照・展開、`master/tests/test_bill_of_material.py`）
+
+前提: 製品A = 中間品S×2 + 材料X×1、中間品S = 材料X×3 + 材料Y×0.5。
+
+| ケースID | 分類 | 対象 | 前提条件 | 手順・入力 | 期待結果 | 備考 |
+|---|---|---|---|---|---|---|
+| MST-BOMML-01 | 正常系 | `POST bill-of-materials/` | - | 中間品Tの部品に中間品Sを登録 | 201 | 中間品は親にも子にもなれる |
+| MST-BOMML-02 | 異常系 | `POST bill-of-materials/` | - | 中間品Sの部品に中間品S自身 | 400(循環参照) | |
+| MST-BOMML-03 | 異常系 | `POST bill-of-materials/` | T→S の構成あり | Sの部品にTを登録 | 400、登録されない | 間接的な循環 |
+| MST-BOMML-04 | 異常系 | `PATCH bill-of-materials/{id}/` | T→S の構成あり | S→Y の行の部品をTに変更 | 400 | |
+| MST-BOMML-05 | 正常系 | `GET bill-of-materials/explode/?product=A&quantity=10` | - | 展開 | 200、S=20(階層1)、その下のX=60・Y=10(階層2)、最下位の合計はX=70・Y=10(中間品は合計に含めない) | |
+| MST-BOMML-06 | 異常系 | `GET bill-of-materials/explode/` | - | `product`未指定/存在しない品目 | 400/404 | |
+| MST-BOMML-07 | 異常系 | `GET bill-of-materials/explode/` | - | `quantity`が数値以外/0 | 400 | |
 
 ## 6. シリアライザの read_only_fields 確認
 

@@ -1,8 +1,14 @@
-from rest_framework import viewsets
-from rest_framework.permissions import IsAuthenticated
+from decimal import Decimal, InvalidOperation
 
+from rest_framework import status, viewsets
+from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
+from base.responses import error_response
 from base.viewsets import CustomSuccessMessageMixin
 
+from .bom import BomCycleError, explode_bom
 from .models import (  # master.models を直接参照
     BillOfMaterial,
     Customer,
@@ -120,3 +126,28 @@ class BillOfMaterialViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
         if self.action in ["list"]:
             return BillOfMaterialSerializer
         return BillOfMaterialCreateUpdateSerializer
+
+    @action(detail=False, methods=["get"])
+    def explode(self, request):
+        """
+        多階層BOMの展開。GET bill-of-materials/explode/?product=<品目コード>&quantity=<数量(省略時1)>
+        """
+        product_code = request.query_params.get("product")
+        if not product_code:
+            return error_response("product は必須です。")
+        product = Item.objects.filter(code=product_code).first()
+        if product is None:
+            return error_response(f"品目 {product_code} は存在しません。", status.HTTP_404_NOT_FOUND)
+        try:
+            quantity = Decimal(request.query_params.get("quantity") or "1")
+        except InvalidOperation:
+            return error_response("quantity は数値で指定してください。")
+        if quantity <= 0:
+            return error_response("quantity は0より大きい値を指定してください。")
+        try:
+            result = explode_bom(product.code, quantity)
+        except BomCycleError as e:
+            return error_response(str(e))
+        return Response(
+            {"data": {"item_code": product.code, "item_name": product.name, "quantity": str(quantity), **result}}
+        )

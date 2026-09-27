@@ -1,74 +1,45 @@
-from django.db.models import Sum
-
 from inventory.models import Inventory
-from master.models import Item
 
-from ..models import MaterialAllocation, PartsUsed
+from .materials import additional_issued_quantity_by_material, allocated_quantity_by_material
 
 
 def get_production_plan_required_parts(production_plan_instance):
     """
-    特定の生産計画に必要な部品リストとその現在の在庫・引当状況を返します。
-    クエリを最適化し、N+1問題を回避しています。
+    生産計画の所要部品と、部品ごとの在庫(倉庫別の引当可能数)・引当状況を返します。
+    倉庫は引当時に選ぶため、引当可能な在庫がある倉庫を候補として返します。
     """
-    plan_identifier = production_plan_instance.production_plan
-    if not plan_identifier:
+    materials = list(production_plan_instance.materials.select_related("material"))
+    if not materials:
         return []
+    part_codes = [m.material_id for m in materials]
 
-    # 1. 使用部品情報を一括取得
-    parts_used_queryset = PartsUsed.objects.filter(production_plan=plan_identifier)
-    if not parts_used_queryset.exists():
-        return []
+    available_by_warehouse = {}
+    for inv in Inventory.objects.filter(part_number_rel_id__in=part_codes, is_active=True, is_allocatable=True):
+        by_warehouse = available_by_warehouse.setdefault(inv.part_number, {})
+        by_warehouse[inv.warehouse] = by_warehouse.get(inv.warehouse, 0) + (inv.available_quantity or 0)
 
-    part_codes = list(parts_used_queryset.values_list("part_id", flat=True).distinct())
+    allocated = allocated_quantity_by_material(production_plan_instance)
+    additional = additional_issued_quantity_by_material(production_plan_instance)
 
-    # 1.5. マスタから部品名を取得してマッピング
-    items_map = {item.code: item.name for item in Item.objects.filter(code__in=part_codes)}
-
-    # 2. 在庫情報を一括取得
-    inventory_items = Inventory.objects.filter(part_number_rel_id__in=part_codes, is_active=True, is_allocatable=True)
-
-    # 在庫データをマッピング (part_code -> {warehouse -> quantity}) または (part_code -> total_quantity)
-    inventory_map = {}
-    for inv in inventory_items:
-        if inv.part_number not in inventory_map:
-            inventory_map[inv.part_number] = {}
-        inventory_map[inv.part_number][inv.warehouse] = inventory_map[inv.part_number].get(inv.warehouse, 0) + (
-            inv.available_quantity or 0
-        )
-
-    # 3. 引当済情報を一括取得
-    allocations = (
-        MaterialAllocation.objects.filter(production_plan=production_plan_instance, material_id__in=part_codes)
-        .values("material_id")
-        .annotate(total_allocated=Sum("allocated_quantity"))
-    )
-    allocation_map = {a["material_id"]: a["total_allocated"] for a in allocations}
-
-    # 4. 結果の組み立て
     results = []
-    for part_used in parts_used_queryset:
-        part_code = part_used.part_code
-        target_warehouse = part_used.warehouse
-
-        # 在庫数量の計算
-        if target_warehouse:
-            # 特定の倉庫が指定されている場合
-            current_inventory_quantity = inventory_map.get(part_code, {}).get(target_warehouse, 0)
-        else:
-            # 倉庫指定がない場合、全倉庫の合計
-            current_inventory_quantity = sum(inventory_map.get(part_code, {}).values())
-
+    for m in materials:
+        by_warehouse = available_by_warehouse.get(m.material_id, {})
         results.append(
             {
-                "part_code": part_code,
-                "part_name": items_map.get(part_code, f"{part_code} (名称未登録)"),
-                "required_quantity": part_used.quantity_used,
-                "unit": "個",
-                "inventory_quantity": current_inventory_quantity,
-                "warehouse": target_warehouse,
-                "already_allocated_quantity": allocation_map.get(part_code, 0),
+                "part_code": m.material_id,
+                "part_name": m.material.name,
+                "unit": m.material.unit,
+                "quantity_per_unit": m.quantity_per_unit,
+                "required_quantity": m.required_quantity,
+                "already_allocated_quantity": allocated.get(m.material_id, 0),
+                "additional_issued_quantity": additional.get(m.material_id, 0),
+                "inventory_quantity": sum(by_warehouse.values()),
+                # 引当可能数の多い倉庫から並べる(画面の既定の選択肢)
+                "warehouses": [
+                    {"warehouse": warehouse, "available_quantity": qty}
+                    for warehouse, qty in sorted(by_warehouse.items(), key=lambda kv: (-kv[1], str(kv[0])))
+                    if qty > 0
+                ],
             }
         )
-
     return results

@@ -5,6 +5,11 @@ import ProductionPlanTable from './production/ProductionPlanTable';
 import ProductionPlanFilters from './production/ProductionPlanFilters';
 import ProductionPlanDetailModal from './production/ProductionPlanDetailModal';
 import ProductionPlanAllocateModal from './production/ProductionPlanAllocateModal';
+import ProductionPlanMaterialsModal from './production/ProductionPlanMaterialsModal';
+import ProductionPlanAdditionalIssueModal from './production/ProductionPlanAdditionalIssueModal';
+
+type PlanModalState = { isOpen: boolean; plan: ProductionPlanType | null };
+const closedModal: PlanModalState = { isOpen: false, plan: null };
 
 const ProductionPlan: React.FC = () => {
     const {
@@ -20,6 +25,9 @@ const ProductionPlan: React.FC = () => {
         isOpen: false,
         plan: null
     });
+
+    const [materialsModal, setMaterialsModal] = useState<PlanModalState>(closedModal);
+    const [additionalIssueModal, setAdditionalIssueModal] = useState<PlanModalState>(closedModal);
 
     const openDetailModal = (plan: ProductionPlanType) => setDetailModal({ isOpen: true, plan });
     const closeDetailModal = () => setDetailModal({ isOpen: false, plan: null });
@@ -44,6 +52,8 @@ const ProductionPlan: React.FC = () => {
                 error={error}
                 onDetail={openDetailModal}
                 onAllocate={openAllocateModal}
+                onMaterials={(plan) => setMaterialsModal({ isOpen: true, plan })}
+                onAdditionalIssue={(plan) => setAdditionalIssueModal({ isOpen: true, plan })}
             />
 
             <div className="text-center mt-4 mb-5">
@@ -75,6 +85,18 @@ const ProductionPlan: React.FC = () => {
                 onClose={closeAllocateModal}
                 onSuccess={handleSearch}
                 plan={allocateModal.plan}
+            />
+
+            <ProductionPlanMaterialsModal
+                isOpen={materialsModal.isOpen}
+                onClose={() => setMaterialsModal(closedModal)}
+                plan={materialsModal.plan}
+            />
+
+            <ProductionPlanAdditionalIssueModal
+                isOpen={additionalIssueModal.isOpen}
+                onClose={() => setAdditionalIssueModal(closedModal)}
+                plan={additionalIssueModal.plan}
             />
         </div>
     );

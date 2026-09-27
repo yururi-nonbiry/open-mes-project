@@ -4,6 +4,8 @@
 docstring 内に記載している（例: "PP-ALLOC-01"）。レポート生成スクリプトはこのdocstringを
 そのまま利用するため、ケースを追加・変更する際はテスト仕様書側も合わせて更新すること。
 """
+from decimal import Decimal
+
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.utils import timezone
@@ -12,7 +14,7 @@ from rest_framework.test import APITestCase
 from inventory.models import Inventory
 from master.models import Item, Warehouse
 
-from ..models import MaterialAllocation, PartsUsed, ProductionPlan, WorkProgress
+from ..models import MaterialAllocation, PartsUsed, ProductionPlan, ProductionPlanMaterial, WorkProgress
 
 User = get_user_model()
 
@@ -46,6 +48,19 @@ class ProductionAPITestBase(APITestCase):
         }
         defaults.update(kwargs)
         return ProductionPlan.objects.create(**defaults)
+
+    def create_plan_material(self, plan, material=None, required_quantity=None, quantity_per_unit=None):
+        """計画の所要部品を登録(既にあれば上書き)。required_quantity 省略時は 1個あたり所要数量 × 計画数量。"""
+        material = material or self.material_item1
+        quantity_per_unit = Decimal(quantity_per_unit if quantity_per_unit is not None else 1)
+        if required_quantity is None:
+            required_quantity = int(quantity_per_unit * plan.planned_quantity)
+        obj, _ = ProductionPlanMaterial.objects.update_or_create(
+            production_plan=plan,
+            material=material,
+            defaults={"quantity_per_unit": quantity_per_unit, "required_quantity": required_quantity},
+        )
+        return obj
 
     def create_parts_used(self, **kwargs):
         defaults = {

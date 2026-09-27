@@ -1,4 +1,4 @@
-import authFetch, { buildQueryString, handleError } from '../utils/api';
+import authFetch, { apiRequest, buildQueryString, handleError } from '../utils/api';
 import {
     ProductionPlan,
     PaginationData,
@@ -9,7 +9,10 @@ import {
     MaterialAllocationPayload,
     AllocateMaterialsResponse,
     WorkProgress,
-    PartsSupplySimulationResult
+    PartsSupplySimulationResult,
+    PlanMaterial,
+    AdditionalIssueItem,
+    MaterialAllocation
 } from '../types/production';
 
 /**
@@ -90,6 +93,41 @@ const productionService = {
         await handleError(response, 'Allocation failed');
         return await response.json() as AllocateMaterialsResponse;
     },
+
+    /** 生産計画の所要部品(部品構成)の一覧 */
+    getPlanMaterials: (planId: string) =>
+        apiRequest<PlanMaterial[]>(
+            `/api/production/plan-materials/?production_plan_id=${encodeURIComponent(planId)}`,
+            {},
+            '部品構成の取得に失敗しました。'
+        ),
+
+    savePlanMaterial: (material: PlanMaterial) => {
+        const url = material.id ? `/api/production/plan-materials/${material.id}/` : '/api/production/plan-materials/';
+        return apiRequest<PlanMaterial>(url, {
+            method: material.id ? 'PATCH' : 'POST',
+            body: JSON.stringify(material),
+        }, '部品構成の保存に失敗しました。');
+    },
+
+    deletePlanMaterial: (id: string) =>
+        apiRequest(`/api/production/plan-materials/${id}/`, { method: 'DELETE' }, '部品構成の削除に失敗しました。'),
+
+    /** 計画の部品構成をBOMマスターから読み込み直す(計画ごとの編集内容は破棄される) */
+    resetPlanMaterials: (planId: string) =>
+        apiRequest<{ message: string; data: PlanMaterial[] }>(
+            `/api/production/plans/${planId}/reset-materials/`,
+            { method: 'POST' },
+            '部品構成の初期化に失敗しました。'
+        ),
+
+    /** 歩留まり・ロス等の不足分を追加出庫する(引当を経ずに即時出庫) */
+    issueAdditionalMaterials: (planId: string, items: AdditionalIssueItem[], remarks: string) =>
+        apiRequest<{ message: string; data: MaterialAllocation[] }>(
+            `/api/production/plans/${planId}/issue-additional-materials/`,
+            { method: 'POST', body: JSON.stringify({ items, remarks }) },
+            '追加出庫に失敗しました。'
+        ),
 
     getWorkProgressForPlan: async (planId: string) => {
         const response = await authFetch(`/api/production/work-progress/?production_plan_id=${planId}`);

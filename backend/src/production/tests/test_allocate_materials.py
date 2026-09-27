@@ -2,6 +2,7 @@ from django.urls import reverse
 from rest_framework import status
 
 from inventory.models import SalesOrder
+from master.models import Item
 
 from ..models import MaterialAllocation
 from .test_helpers import ProductionAPITestBase
@@ -15,6 +16,9 @@ class AllocateMaterialsTests(ProductionAPITestBase):
         self.plan = self.create_plan()
         self.url = reverse("production_api:production-plan-allocate-materials", args=[self.plan.id])
         self.inventory = self.create_inventory(quantity=10, reserved=0)
+        # 計画数量10 × 1個あたり1 = 所要数量10
+        self.create_plan_material(self.plan, self.material_item1)
+        self.create_plan_material(self.plan, self.material_item2)
 
     def _item(self, quantity, part_number=None, warehouse=None):
         return {
@@ -38,16 +42,12 @@ class AllocateMaterialsTests(ProductionAPITestBase):
         self.assertTrue(SalesOrder.objects.filter(order_number=so_number, status="pending").exists())
 
     def test_pp_alloc_02_within_bom_requirement(self):
-        self.plan.production_plan = "BOM-1"
-        self.plan.save()
-        self.create_parts_used(production_plan="BOM-1", part_code=self.material_item1.code, quantity_used=5)
+        self.create_plan_material(self.plan, self.material_item1, required_quantity=5, quantity_per_unit="0.5")
         response = self._allocate([self._item(5)])
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_pp_alloc_03_exceeds_bom_requirement_rejected(self):
-        self.plan.production_plan = "BOM-1"
-        self.plan.save()
-        self.create_parts_used(production_plan="BOM-1", part_code=self.material_item1.code, quantity_used=5)
+        self.create_plan_material(self.plan, self.material_item1, required_quantity=5, quantity_per_unit="0.5")
         response = self._allocate([self._item(6)])
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.inventory.refresh_from_db()
@@ -55,9 +55,7 @@ class AllocateMaterialsTests(ProductionAPITestBase):
 
     def test_pp_alloc_03b_duplicate_rows_in_one_request_exceed_bom_rejected(self):
         """同一リクエスト内で同じ部品を複数行に分けてもBOM必要数を超えて引き当てられない。"""
-        self.plan.production_plan = "BOM-1"
-        self.plan.save()
-        self.create_parts_used(production_plan="BOM-1", part_code=self.material_item1.code, quantity_used=5)
+        self.create_plan_material(self.plan, self.material_item1, required_quantity=5, quantity_per_unit="0.5")
         response = self._allocate([self._item(3), self._item(3)])
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.inventory.refresh_from_db()
@@ -65,9 +63,7 @@ class AllocateMaterialsTests(ProductionAPITestBase):
 
     def test_pp_alloc_03c_returned_allocation_not_counted(self):
         """返却済み(RETURNED)の引当はBOM必要数の消化に数えず、再引当できる。"""
-        self.plan.production_plan = "BOM-1"
-        self.plan.save()
-        self.create_parts_used(production_plan="BOM-1", part_code=self.material_item1.code, quantity_used=5)
+        self.create_plan_material(self.plan, self.material_item1, required_quantity=5, quantity_per_unit="0.5")
         MaterialAllocation.objects.create(
             production_plan=self.plan,
             material_code=self.material_item1.code,
@@ -77,6 +73,14 @@ class AllocateMaterialsTests(ProductionAPITestBase):
         )
         response = self._allocate([self._item(5)])
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_pp_alloc_03d_part_not_in_plan_materials_rejected(self):
+        """計画の所要部品に無い部品は引き当てられない(所要量を超える分は追加出庫で扱う)。"""
+        other = Item.objects.create(code="MAT-OTHER", name="Other", item_type="material")
+        self.create_inventory(part_number=other.code, quantity=10)
+        response = self._allocate([self._item(1, part_number=other.code)])
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("所要部品に含まれていません", response.data["error"])
 
     def test_pp_alloc_04_inventory_not_found_rejected(self):
         response = self._allocate([self._item(1, part_number="NO-SUCH-PART")])

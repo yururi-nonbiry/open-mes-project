@@ -9,7 +9,6 @@ const DATA_TYPE_CHOICES = [
     { value: 'warehouse', label: '倉庫マスター' },
     { value: 'purchase_order', label: '入庫予定' },
     { value: 'production_plan', label: '生産計画' },
-    { value: 'parts_used', label: '使用部品' },
     { value: 'customer', label: '顧客マスター' },
     { value: 'work_center', label: 'ワークセンターマスター' },
     { value: 'unit_cost', label: '標準単価' },

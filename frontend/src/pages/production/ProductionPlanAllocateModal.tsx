@@ -1,16 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../../components/Modal';
 import productionService from '../../services/productionService';
-import { ProductionPlan } from '../../types/production';
+import { ProductionPlan, RequiredPart } from '../../types/production';
 
-interface RequiredPart {
-    part_code: string;
-    part_name: string;
-    warehouse: string;
-    required_quantity: string | number;
-    already_allocated_quantity: string | number;
-    inventory_quantity: number;
-    unit: string;
+/** 画面上の行。倉庫は引当時に選ぶため、行ごとに選択中の倉庫を持つ */
+interface AllocationRow extends RequiredPart {
+    selected_warehouse: string;
     quantity_to_allocate: string | number;
 }
 
@@ -21,21 +16,22 @@ interface ProductionPlanAllocateModalProps {
     plan: ProductionPlan | null;
 }
 
+const availableIn = (part: RequiredPart, warehouse: string) =>
+    part.warehouses.find(w => w.warehouse === warehouse)?.available_quantity ?? 0;
+
+/** 未引当の所要数と、選んだ倉庫の引当可能数の小さい方を既定の引当数量にする */
+const defaultQuantity = (part: RequiredPart, warehouse: string) => {
+    const stillNeeded = Math.max(0, part.required_quantity - part.already_allocated_quantity);
+    return Math.max(0, Math.min(stillNeeded, availableIn(part, warehouse)));
+};
+
 const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = ({
     isOpen, onClose, onSuccess, plan
 }) => {
-    const [requiredParts, setRequiredParts] = useState<RequiredPart[]>([]);
+    const [requiredParts, setRequiredParts] = useState<AllocationRow[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [allocationResult, setAllocationResult] = useState<{ type: 'success' | 'error', message?: string, data?: any } | null>(null);
-
-    const calculateDefaultAllocation = (requiredStr: any, inventoryStr: any, alreadyAllocatedStr: any) => {
-        const requiredQty = parseFloat(requiredStr) || 0;
-        const inventoryQty = parseInt(inventoryStr, 10) || 0;
-        const alreadyAllocatedQty = parseFloat(alreadyAllocatedStr) || 0;
-        const stillNeeded = Math.max(0, requiredQty - alreadyAllocatedQty);
-        return Math.max(0, Math.min(stillNeeded, inventoryQty));
-    };
 
     useEffect(() => {
         if (isOpen && plan && !allocationResult) {
@@ -44,11 +40,11 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
                 setError(null);
                 try {
                     const data = await productionService.getRequiredParts(plan.id);
-                    const partsWithAllocation = data.map((part: any) => ({
-                        ...part,
-                        quantity_to_allocate: calculateDefaultAllocation(part.required_quantity, part.inventory_quantity, part.already_allocated_quantity)
+                    setRequiredParts(data.map(part => {
+                        // 候補は引当可能数の多い順に並んでいるため、先頭を既定の倉庫にする
+                        const warehouse = part.warehouses[0]?.warehouse ?? '';
+                        return { ...part, selected_warehouse: warehouse, quantity_to_allocate: defaultQuantity(part, warehouse) };
                     }));
-                    setRequiredParts(partsWithAllocation);
                 } catch (e: any) {
                     setError(e.message);
                 } finally {
@@ -60,8 +56,16 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
     }, [isOpen, plan, allocationResult]);
 
     const handleQuantityChange = (partCode: string, value: string) => {
-        setRequiredParts(prev => prev.map(part => 
+        setRequiredParts(prev => prev.map(part =>
             part.part_code === partCode ? { ...part, quantity_to_allocate: value } : part
+        ));
+    };
+
+    const handleWarehouseChange = (partCode: string, warehouse: string) => {
+        setRequiredParts(prev => prev.map(part =>
+            part.part_code === partCode
+                ? { ...part, selected_warehouse: warehouse, quantity_to_allocate: defaultQuantity(part, warehouse) }
+                : part
         ));
     };
 
@@ -69,15 +73,15 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
         if (!plan) return;
 
         const allocationsData = requiredParts
-            .filter(part => (parseFloat(part.quantity_to_allocate as string) || 0) > 0 && part.warehouse && part.warehouse !== 'N/A')
+            .filter(part => (parseFloat(part.quantity_to_allocate as string) || 0) > 0 && part.selected_warehouse)
             .map(part => ({
                 part_number: part.part_code,
-                warehouse: part.warehouse,
+                warehouse: part.selected_warehouse,
                 quantity_to_allocate: parseFloat(part.quantity_to_allocate as string)
             }));
 
         if (allocationsData.length === 0) {
-            alert('引き当て対象の有効な部品がありません。');
+            alert('引き当て対象の有効な部品がありません。引当数量と倉庫を確認してください。');
             return;
         }
 
@@ -92,12 +96,6 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
         } catch (e: any) {
             setAllocationResult({ type: 'error', message: e.message });
         }
-    };
-
-    const formatDecimalQuantity = (value: any) => {
-        const num = parseFloat(value);
-        if (isNaN(num)) return value;
-        return (num % 1 === 0) ? num.toFixed(0) : num.toString();
     };
 
     if (!plan) return null;
@@ -145,33 +143,59 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
                             {loading && <p>部品情報を読み込み中...</p>}
                             {error && <p className="text-danger">{error}</p>}
                             {!loading && !error && (
+                                requiredParts.length === 0 ? (
+                                    <p className="mb-0">
+                                        この計画には所要部品が登録されていません。「部品構成」から登録するか、BOMマスターから読み込んでください。
+                                    </p>
+                                ) : (
                                 <table className="table table-sm table-bordered table-hover">
                                     <thead className="table-light">
                                         <tr>
-                                            <th>部品コード</th><th>部品名</th><th>倉庫</th><th className="text-end">総必要数</th>
-                                            <th className="text-end">引当済</th><th className="text-end">在庫</th><th className="text-end">引当数量</th><th>単位</th>
+                                            <th>部品コード</th><th>部品名</th><th className="text-end">所要数</th>
+                                            <th className="text-end">引当済</th><th className="text-end">追加出庫済</th>
+                                            <th>引当倉庫（引当可能数）</th><th className="text-end">引当数量</th><th>単位</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {requiredParts.map(part => (
                                             <tr key={part.part_code}>
-                                                <td>{part.part_code || 'N/A'}</td><td>{part.part_name || 'N/A'}</td><td>{part.warehouse || 'N/A'}</td>
-                                                <td className="text-end">{formatDecimalQuantity(part.required_quantity)}</td>
-                                                <td className="text-end">{formatDecimalQuantity(part.already_allocated_quantity)}</td>
-                                                <td className="text-end">{part.inventory_quantity}</td>
+                                                <td>{part.part_code}</td><td>{part.part_name}</td>
+                                                <td className="text-end">{part.required_quantity}</td>
+                                                <td className="text-end">{part.already_allocated_quantity}</td>
+                                                <td className="text-end">{part.additional_issued_quantity}</td>
+                                                <td>
+                                                    {part.warehouses.length > 0 ? (
+                                                        <select
+                                                            className="form-select form-select-sm"
+                                                            value={part.selected_warehouse}
+                                                            onChange={(e) => handleWarehouseChange(part.part_code, e.target.value)}
+                                                        >
+                                                            {part.warehouses.map(w => (
+                                                                <option key={w.warehouse} value={w.warehouse}>
+                                                                    {w.warehouse}（{w.available_quantity}）
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                    ) : (
+                                                        <span className="text-danger">引当可能な在庫なし</span>
+                                                    )}
+                                                </td>
                                                 <td className="text-end">
-                                                    <input 
-                                                        type="number" className="form-control form-control-sm text-end" 
-                                                        value={part.quantity_to_allocate} 
-                                                        onChange={(e) => handleQuantityChange(part.part_code, e.target.value)} 
-                                                        min="0" style={{ width: '80px' }}
+                                                    <input
+                                                        type="number" className="form-control form-control-sm text-end"
+                                                        value={part.quantity_to_allocate}
+                                                        onChange={(e) => handleQuantityChange(part.part_code, e.target.value)}
+                                                        min="0" max={availableIn(part, part.selected_warehouse)}
+                                                        disabled={!part.selected_warehouse}
+                                                        style={{ width: '80px' }}
                                                     />
                                                 </td>
-                                                <td>{part.unit || 'N/A'}</td>
+                                                <td>{part.unit}</td>
                                             </tr>
                                         ))}
                                     </tbody>
                                 </table>
+                                )
                             )}
                         </div>
                         <div className="text-end mt-4">

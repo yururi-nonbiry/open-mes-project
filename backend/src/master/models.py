@@ -7,7 +7,11 @@ class Item(models.Model):
     ITEM_TYPE_CHOICES = [
         ("product", "Product"),  # 製品
         ("material", "Material"),  # 材料
+        ("intermediate", "Intermediate"),  # 中間品(自身の生産計画で作り、上位の製品の部品として使う)
     ]
+    # 生産計画で作れる品目(BOMの親になれる品目)と、部品として使える品目(BOMの子になれる品目)
+    PRODUCIBLE_TYPES = ("product", "intermediate")
+    CONSUMABLE_TYPES = ("material", "intermediate")
     PROVISION_TYPE_CHOICES = [
         ("paid", "有償支給"),
         ("free", "無償支給"),
@@ -16,7 +20,7 @@ class Item(models.Model):
 
     name = models.CharField(max_length=255, unique=True)  # 名称
     code = models.CharField(max_length=50, unique=True)  # 製品/材料コード
-    item_type = models.CharField(max_length=10, choices=ITEM_TYPE_CHOICES)  # 製品 or 材料
+    item_type = models.CharField(max_length=20, choices=ITEM_TYPE_CHOICES)  # 製品 / 材料 / 中間品
     description = models.TextField(blank=True, null=True)  # 説明
     unit = models.CharField(max_length=10, default="kg")  # 単位 (例: kg, 個)
     default_warehouse = models.CharField(
@@ -151,7 +155,7 @@ class BillOfMaterial(models.Model):
         to_field="code",
         db_column="product",
         on_delete=models.PROTECT,
-        verbose_name="製品",
+        verbose_name="親品目（製品・中間品）",
         related_name="bom_as_product",
     )
     material = models.ForeignKey(
@@ -162,7 +166,7 @@ class BillOfMaterial(models.Model):
         verbose_name="使用部品",
         related_name="bom_as_material",
     )
-    quantity = models.DecimalField(max_digits=12, decimal_places=3, verbose_name="所要数量（製品1個あたり）")
+    quantity = models.DecimalField(max_digits=12, decimal_places=3, verbose_name="所要数量（親品目1個あたり）")
     remarks = models.TextField(blank=True, null=True, verbose_name="備考")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

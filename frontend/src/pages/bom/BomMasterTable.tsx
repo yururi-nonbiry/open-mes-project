@@ -5,22 +5,23 @@ interface BomMasterTableProps {
     items: BillOfMaterial[];
     onEdit: (item: BillOfMaterial) => void;
     onDelete: (id: string, product: string, material: string) => void;
+    onExplode: (product: string) => void;
 }
 
-const BomMasterTable: React.FC<BomMasterTableProps> = ({ items, onEdit, onDelete }) => {
+const BomMasterTable: React.FC<BomMasterTableProps> = ({ items, onEdit, onDelete, onExplode }) => {
     return (
         <div className="table-responsive">
             <table className="table table-striped table-bordered table-hover">
                 <thead className="thead-light">
                     <tr>
-                        <th>製品コード</th>
-                        <th>製品名</th>
+                        <th>親品目コード</th>
+                        <th>親品目名</th>
                         <th>使用部品コード</th>
                         <th>部品名</th>
                         <th>所要数量</th>
                         <th>単位</th>
                         <th>備考</th>
-                        <th style={{ width: "150px" }}>操作</th>
+                        <th style={{ width: "220px" }}>操作</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -47,6 +48,13 @@ const BomMasterTable: React.FC<BomMasterTableProps> = ({ items, onEdit, onDelete
                                     onClick={() => onDelete(item.id!, item.product, item.material)}
                                 >
                                     <i className="fas fa-trash-alt"></i> 削除
+                                </button>
+                                <button
+                                    type="button"
+                                    className="btn btn-sm btn-secondary ml-2"
+                                    onClick={() => onExplode(item.product)}
+                                >
+                                    展開
                                 </button>
                             </td>
                         </tr>

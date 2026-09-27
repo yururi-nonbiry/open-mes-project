@@ -219,7 +219,14 @@ const MaterialAllocationPage = () => {
                       <td>
                         <small>{new Date(alloc.allocation_datetime).toLocaleString()}</small>
                       </td>
-                      <td>{getStatusBadge(alloc.status, alloc.status_display)}</td>
+                      <td>
+                        {getStatusBadge(alloc.status, alloc.status_display)}
+                        {alloc.allocation_type === 'ADDITIONAL' && (
+                          <span className="badge bg-danger-subtle text-danger-emphasis ms-1" title="歩留まり・ロス等の不足分の追加出庫">
+                            {alloc.allocation_type_display || '追加出庫'}
+                          </span>
+                        )}
+                      </td>
                       <td>
                         <span className="text-truncate d-inline-block" style={{ maxWidth: '150px' }} title={alloc.remarks || ''}>
                           {alloc.remarks || '-'}

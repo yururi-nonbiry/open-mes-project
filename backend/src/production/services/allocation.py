@@ -1,7 +1,6 @@
 import logging
 
 from django.db import transaction
-from django.db.models import Sum
 from django.utils import timezone
 
 from inventory.models import SalesOrder, StockMovement
@@ -15,7 +14,8 @@ from inventory.services import (
     save_rows,
 )
 
-from ..models import MaterialAllocation, PartsUsed
+from ..models import MaterialAllocation, ProductionPlan
+from .materials import allocated_quantity_by_material
 
 logger = logging.getLogger(__name__)
 
@@ -42,22 +42,11 @@ def allocate_materials_service(production_plan, allocations_data):
     processed_allocations_summary = []
     errors = []
 
-    # BOM情報の取得（バリデーション用）
-    plan_identifier = production_plan.production_plan
-    required_parts = {}
-    if plan_identifier:
-        parts_used = PartsUsed.objects.filter(production_plan=plan_identifier)
-        for p in parts_used:
-            required_parts[p.part_code] = required_parts.get(p.part_code, 0) + p.quantity_used
+    # 計画の所要部品(バリデーション用)。所要量を超える分(ロス等)は追加出庫で扱う。
+    required_parts = {m.material_id: m.required_quantity for m in production_plan.materials.all()}
 
-    # 既に引き当て済みの数量を取得(返却済み(RETURNED)は使われなかった分のため必要数から差し引かない)
-    existing_allocations = (
-        MaterialAllocation.objects.filter(production_plan=production_plan)
-        .exclude(status=MaterialAllocation.Status.RETURNED)
-        .values('material_id')
-        .annotate(total=Sum('allocated_quantity'))
-    )
-    allocated_map = {a['material_id']: a['total'] for a in existing_allocations}
+    # 既に引き当て済みの数量(返却済みと追加出庫は所要量の消化に数えない)
+    allocated_map = allocated_quantity_by_material(production_plan)
 
     with transaction.atomic():
         for alloc_item_data in allocations_data:
@@ -82,18 +71,21 @@ def allocate_materials_service(production_plan, allocations_data):
                 errors.append(f"Invalid quantity for {part_number}.")
                 continue
 
-            # BOMバリデーション
-            if plan_identifier and part_number in required_parts:
-                req_qty = required_parts[part_number]
-                already_alloc = allocated_map.get(part_number, 0)
-                if already_alloc + quantity_to_allocate > req_qty:
-                    errors.append(
-                        f"Allocation exceeds BOM requirement for {part_number}. "
-                        f"Required: {req_qty}, Already Allocated: {already_alloc}, Requesting: {quantity_to_allocate}"
-                    )
-                    continue
-            elif plan_identifier:
-                logger.warning(f"Allocating part {part_number} not found in BOM for plan {plan_identifier}")
+            # 所要部品のバリデーション
+            if part_number not in required_parts:
+                errors.append(
+                    f"{part_number} はこの生産計画の所要部品に含まれていません。"
+                    "必要な場合は計画の部品構成に追加してください。"
+                )
+                continue
+            req_qty = required_parts[part_number]
+            already_alloc = allocated_map.get(part_number, 0)
+            if already_alloc + quantity_to_allocate > req_qty:
+                errors.append(
+                    f"Allocation exceeds BOM requirement for {part_number}. "
+                    f"Required: {req_qty}, Already Allocated: {already_alloc}, Requesting: {quantity_to_allocate}"
+                )
+                continue
 
             # 同一品番+倉庫で棚をまたいで在庫が分散している場合は、入庫が古い順に複数の棚から引き当てる
             inventory_rows = lock_inventory_rows(part_number, warehouse)
@@ -269,3 +261,80 @@ def update_material_allocation_status_service(allocation, new_status, user, now=
         allocation.save()
 
     return allocation
+
+
+def issue_additional_materials_service(production_plan, items, user, remarks=None, now=None):
+    """
+    歩留まり・ロス等で所要量を超えて必要になった部品を、引当を経ずに即時出庫する(追加出庫)。
+    追加出庫は所要量の消化に数えず、生産完了の取消でも引当状態に戻さない(実際に使われた分のため)。
+
+    items: [{"part_number": 部品コード, "warehouse": 倉庫番号, "quantity": 数量}, ...]
+    """
+    if production_plan.status == ProductionPlan.Status.CANCELLED:
+        raise ValueError("中止された生産計画には追加出庫できません。")
+    if not isinstance(items, list) or not items:
+        raise ValueError("追加出庫する部品を1件以上指定してください。")
+
+    now = now or timezone.now()
+    operator = user if user and user.is_authenticated else None
+    plan_materials = set(production_plan.materials.values_list("material_id", flat=True))
+    created = []
+    errors = []
+
+    with transaction.atomic():
+        for item in items:
+            part_number = item.get("part_number")
+            warehouse = item.get("warehouse")
+            if not part_number or not warehouse:
+                errors.append(f"部品コードと倉庫は必須です: {item}")
+                continue
+            if part_number not in plan_materials:
+                errors.append(f"{part_number} はこの生産計画の所要部品に含まれていません。")
+                continue
+            try:
+                quantity = int(item.get("quantity"))
+            except (TypeError, ValueError):
+                errors.append(f"{part_number} の数量が不正です。")
+                continue
+            if quantity <= 0:
+                errors.append(f"{part_number} の数量は1以上を指定してください。")
+                continue
+
+            rows = [row for row in lock_inventory_rows(part_number, warehouse) if row.is_active]
+            if not rows:
+                errors.append(f"倉庫 {warehouse} に {part_number} の在庫がありません。")
+                continue
+            try:
+                # 他の引当分には手を付けず、引当されていない在庫から出庫する
+                consumed, _ = consume_stock(rows, quantity)
+            except InventoryServiceError as e:
+                errors.append(f"{part_number} (倉庫 {warehouse}) の在庫が不足しています。{e.message}")
+                continue
+
+            allocation = MaterialAllocation.objects.create(
+                production_plan=production_plan,
+                material_code=part_number,
+                warehouse=warehouse,
+                allocated_quantity=quantity,
+                status=MaterialAllocation.Status.ISSUED,
+                allocation_type=MaterialAllocation.AllocationType.ADDITIONAL,
+                remarks=remarks,
+            )
+            for row, take in consumed:
+                StockMovement.objects.create(
+                    part_number=part_number,
+                    quantity=take,
+                    warehouse=warehouse,
+                    location=row.location,
+                    movement_type=StockMovement.MovementType.USED,
+                    movement_date=now,
+                    reference_document=f"MaterialAllocation-{allocation.id}",
+                    description=f"Additional issue for plan {production_plan.id}.",
+                    operator=operator,
+                )
+            created.append(allocation)
+
+        if errors:
+            raise ValueError("; ".join(errors))
+
+    return created

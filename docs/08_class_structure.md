@@ -164,6 +164,14 @@ class ProductionPlan {
     +created_at: datetime
     +updated_at: datetime
 }
+class ProductionPlanMaterial {
+    +id: UUID
+    +quantity_per_unit: decimal
+    +required_quantity: int
+    +remarks: text
+    +created_at: datetime
+    +updated_at: datetime
+}
 class PartsUsed {
     +id: UUID
     +production_plan: string
@@ -280,6 +288,8 @@ Item "1" -- "0..*" ProductionPlan : product
 Item "1" -- "0..*" MaterialAllocation : material
 Warehouse "1" -- "0..*" MaterialAllocation : warehouse_rel
 ProductionPlan "1" -- "0..*" MaterialAllocation : production_plan
+ProductionPlan "1" -- "0..*" ProductionPlanMaterial : production_plan
+Item "1" -- "0..*" ProductionPlanMaterial : material
 ProductionPlan "1" -- "0..*" WorkProgress : production_plan
 CustomUser "1" -- "0..*" WorkProgress : operator
 Item "1" -- "0..*" PartsUsed : part
@@ -301,7 +311,7 @@ MeasurementDetail "1" -- "0..*" InspectionResultDetail : measurement_detail
 
 ## Master（マスターデータ）モジュール
 
-**Item（品目）** – 製品や原材料を表すマスターデータのクラスです。`name`（名称）・`code`（コード）はユニーク制約付きです。`item_type`フィールドで「product（製品）」か「material（材料）」かを区別します。`unit`（単位、デフォルト`kg`）、`description`（説明）に加え、`default_warehouse`/`default_location`（デフォルトの入庫先倉庫・棚番）、`provision_type`（有償支給/無償支給/支給なし）、`lead_time_days`（調達リードタイム日数、デフォルト0。発注・支給依頼から入庫までにかかる日数で、部品供給シミュレーションの発注要否期限算出に使用）を持ちます。Itemは`Inventory`、`StockMovement`、`PurchaseOrder`、`SalesOrder`、`ProductionPlan`、`PartsUsed`、`MaterialAllocation`、`UnitCost`、`BillOfMaterial`（製品・使用部品の双方として2回参照）など、他の多くのクラスから外部キー（`to_field="code"`で品目コードを参照）で参照される中心的存在です。
+**Item（品目）** – 製品や原材料を表すマスターデータのクラスです。`name`（名称）・`code`（コード）はユニーク制約付きです。`item_type`フィールドで「product（製品）」「material（材料）」「intermediate（中間品）」を区別します。中間品は自身の生産計画で作って在庫に入れ、上位の製品の部品として引き当てて使う品目で、BOMの親にも子にもなれます。`unit`（単位、デフォルト`kg`）、`description`（説明）に加え、`default_warehouse`/`default_location`（デフォルトの入庫先倉庫・棚番）、`provision_type`（有償支給/無償支給/支給なし）、`lead_time_days`（調達リードタイム日数、デフォルト0。発注・支給依頼から入庫までにかかる日数で、部品供給シミュレーションの発注要否期限算出に使用）を持ちます。Itemは`Inventory`、`StockMovement`、`PurchaseOrder`、`SalesOrder`、`ProductionPlan`、`PartsUsed`、`MaterialAllocation`、`UnitCost`、`BillOfMaterial`（製品・使用部品の双方として2回参照）など、他の多くのクラスから外部キー（`to_field="code"`で品目コードを参照）で参照される中心的存在です。
 
 **Supplier（サプライヤー）** – サプライヤー（部品・材料の供給元）を表すマスタークラスです。`supplier_number`（サプライヤー番号）がユニークキーで、`name`（名前）、`contact_person`（担当者）、`phone`、`email`、`address`といった連絡先情報を持ちます。`PurchaseOrder`から参照されます。
 
@@ -315,7 +325,7 @@ MeasurementDetail "1" -- "0..*" InspectionResultDetail : measurement_detail
 
 **UnitCost（標準単価）** – `Item`に対する標準単価を保持するクラスです。`item`への1対1相当のFK（ユニーク制約あり）と`cost`（数値、小数2桁）を持ちます。
 
-**BillOfMaterial（使用部品構成／BOM）** – 製品ごとの使用部品構成（部品表）を表すマスタークラスです。UUIDv7主キー。`product`（`master.Item`へのFK、`item_type="product"`の品目に限定、DBカラム名`product`、`related_name="bom_as_product"`）と`material`（`master.Item`へのFK、`item_type="material"`の品目に限定、DBカラム名`material`、`related_name="bom_as_material"`）を持ち、`quantity`（製品1個あたりの所要数量、小数3桁）、`remarks`（備考）、`created_at`/`updated_at`を保持します。`product`と`material`の組み合わせにユニーク制約があります。
+**BillOfMaterial（使用部品構成／BOM）** – 親品目ごとの使用部品構成（部品表）を表すマスタークラスです。UUIDv7主キー。`product`（`master.Item`へのFK、製品・中間品に限定、DBカラム名`product`、`related_name="bom_as_product"`）と`material`（`master.Item`へのFK、材料・中間品に限定、DBカラム名`material`、`related_name="bom_as_material"`）を持ち、`quantity`（親品目1個あたりの所要数量、小数3桁）、`remarks`（備考）、`created_at`/`updated_at`を保持します。`product`と`material`の組み合わせにユニーク制約があります。中間品にも構成を登録することで多階層になり、登録時に循環参照（自分自身を構成に含む）を拒否します。全階層の展開と最下位の材料の合計所要量は`master/bom.py`の`explode_bom`（API: `GET bill-of-materials/explode/`）で求めます。
 
 ## Inventory（在庫）モジュール
 
@@ -331,15 +341,17 @@ MeasurementDetail "1" -- "0..*" InspectionResultDetail : measurement_detail
 
 ## Production（生産）モジュール
 
-**ProductionPlan（生産計画）** – 製造指示・生産計画を表すクラスです。UUIDv7の`id`で識別されます。`plan_name`（計画名）、`product`（`master.Item`へのFK、`item_type="product"`に限定、DBカラム名`product_code`）、`planned_quantity`（計画数量）、計画開始・終了日時、実績の開始・終了日時を持ち、進捗ステータス`status`は「未着手(PENDING)」「進行中(IN_PROGRESS)」「完了(COMPLETED)」「保留(ON_HOLD)」「中止(CANCELLED)」です。`production_plan`という文字列フィールドも別途あり、参照する他の生産計画の名称等を自由記述で記録できます。
+**ProductionPlan（生産計画）** – 製造指示・生産計画を表すクラスです。UUIDv7の`id`で識別されます。`plan_name`（計画名）、`product`（`master.Item`へのFK、製品・中間品に限定、DBカラム名`product_code`）、`planned_quantity`（計画数量）、計画開始・終了日時、実績の開始・終了日時を持ち、進捗ステータス`status`は「未着手(PENDING)」「進行中(IN_PROGRESS)」「完了(COMPLETED)」「保留(ON_HOLD)」「中止(CANCELLED)」です。`production_plan`という文字列フィールドも別途あり、旧来は`PartsUsed`と対応付けるBOM識別子として使われていました（現在は業務処理から参照しません）。計画の部品構成は`materials`（`ProductionPlanMaterial`）で持ちます。
 
-**PartsUsed（使用部品）** – 生産計画において使用された部品の記録を表すクラスです。`part`（`master.Item`へのFK、`item_type="material"`に限定、DBカラム名`part_code`）、`warehouse_rel`（使用倉庫）、`quantity_used`、`used_datetime`を持ちます。**`production_plan`フィールドは`ProductionPlan`へのFKではなく、生産計画の名前やIDを保存する単なる文字列（CharField）です**（コード中のコメントによれば、以前はFKでしたが現在は文字列識別子に変更されています）。そのため`ProductionPlan`側から`PartsUsed`を直接たどる`related_name`は存在しません。
+**ProductionPlanMaterial（生産計画の所要部品）** – 生産計画ごとの部品構成です。`production_plan`（`ProductionPlan`へのFK、`related_name="materials"`、CASCADE）、`material`（`master.Item`へのFK、材料・中間品、DBカラム名`material_code`）、`quantity_per_unit`（製品1個あたり所要数量、小数3桁）、`required_quantity`（計画全体の所要数量＝1個あたり×計画数量の切り上げ）を持ち、`(production_plan, material)`にユニーク制約があります。計画の作成時にBOMマスターの直下の子品目（1階層分）がコピーされ（`production/signals.py`。API・CSV取込のどちらで作成しても同じ）、以後は計画ごとに編集できます（同じ製品でも計画によって構成が変わるため）。計画数量を変えると所要数量を再計算し、製品を変えるとBOMマスターからコピーし直します。倉庫は持たず、材料引当時に選びます。歩留まり・ロスは所要量に含めず、不足分は`MaterialAllocation`の追加出庫で扱います。
 
-**MaterialAllocation（材料引当）** – 生産計画に対して原材料を引き当てた情報を表すクラスです。`production_plan`（`ProductionPlan`へのFK、`related_name="material_allocations"`）、`material`（`master.Item`へのFK、材料限定、DBカラム名`material_code`）、`warehouse_rel`（引当倉庫）、`allocated_quantity`、`allocation_datetime`を持ちます。`status`は「引当済(ALLOCATED)」「出庫済(ISSUED)」「返却済(RETURNED)」です。
+**PartsUsed（使用部品）** – 旧来の部品構成です。`production_plan`（`ProductionPlan.production_plan`と文字列一致で対応するBOM識別子）単位に、計画全体の使用数量`quantity_used`と倉庫`warehouse_rel`を持っていました。生産計画の所要部品は`ProductionPlanMaterial`に移行済み（マイグレーション`production/0010`でデータも移行）で、業務処理からは参照しません。既存データの確認用にモデルとAPIのみ残しています。
+
+**MaterialAllocation（材料引当）** – 生産計画に対して原材料を引き当てた情報を表すクラスです。`production_plan`（`ProductionPlan`へのFK、`related_name="material_allocations"`）、`material`（`master.Item`へのFK、材料限定、DBカラム名`material_code`）、`warehouse_rel`（引当倉庫）、`allocated_quantity`、`allocation_datetime`を持ちます。`status`は「引当済(ALLOCATED)」「出庫済(ISSUED)」「返却済(RETURNED)」です。`allocation_type`は「通常(NORMAL)」＝所要量に対する引当と、「追加出庫(ADDITIONAL)」＝歩留まり・ロス等で所要量を超えて必要になった分を引当を経ずに即時出庫した記録を区別します。追加出庫は所要量の消化に数えず、生産完了の取消でも引当状態に戻しません。
 
 **WorkProgress（作業進捗）** – 現場の作業進行状況を記録するクラスです。`production_plan`（`ProductionPlan`へのFK、`related_name="work_progresses"`）、`process_step`（工程名、例:「組立」「塗装」「検査」）、`operator`（`CustomUser`へのFK、`on_delete=SET_NULL`）、開始・終了日時、`quantity_completed`（良品数）、`actual_reported_quantity`（総生産数）、`defective_reported_quantity`（不良数）、`status`（「未開始(NOT_STARTED)」「進行中(IN_PROGRESS)」「完了(COMPLETED)」「一時停止(PAUSED)」）を持ちます。`production_plan`と`process_step`の組み合わせにユニーク制約があります。
 
-**部品供給シミュレーション（`production/services/simulation.py`）** – 複数の生産計画にまたがり、`PartsUsed.production_plan`（生産計画識別子の文字列）が共通する部品の需給を横断的にシミュレーションするサービスです。独立したモデルクラスは持たず、既存の`ProductionPlan`・`PartsUsed`・`Inventory`・`Item`の情報を集計して算出するため、本クラス図には表示されていません。部品ごとに不足が発生する計画・日付（`shortage_date`）を求めたうえで、`Item.lead_time_days`（調達リードタイム）を遡った`order_by_date`（発注・支給依頼をすべき期限）を算出し、現在時刻がこれを過ぎている場合は`order_overdue=True`として警告します。
+**部品供給シミュレーション（`production/services/simulation.py`）** – 複数の生産計画にまたがり、各計画の所要部品（`ProductionPlanMaterial`）のうち共通する部品の需給を横断的にシミュレーションするサービスです。所要部品は倉庫を持たないため、全倉庫の在庫を合算して判定します。独立したモデルクラスは持たず、既存の`ProductionPlan`・`ProductionPlanMaterial`・`MaterialAllocation`・`Inventory`・`Item`の情報を集計して算出するため、本クラス図には表示されていません。部品ごとに不足が発生する計画・日付（`shortage_date`）を求めたうえで、`Item.lead_time_days`（調達リードタイム）を遡った`order_by_date`（発注・支給依頼をすべき期限）を算出し、現在時刻がこれを過ぎている場合は`order_overdue=True`として警告します。
 
 ## Quality（品質）モジュール
 

@@ -2,7 +2,8 @@ from rest_framework import serializers
 
 from master.models import Item, Warehouse
 
-from .models import MaterialAllocation, PartsUsed, ProductionPlan, WorkProgress
+from .models import MaterialAllocation, PartsUsed, ProductionPlan, ProductionPlanMaterial, WorkProgress
+from .services.materials import allocated_quantity_by_material, calc_required_quantity, normal_allocations
 
 
 class ProductionPlanSerializer(serializers.ModelSerializer):
@@ -10,7 +11,7 @@ class ProductionPlanSerializer(serializers.ModelSerializer):
     product_code = serializers.SlugRelatedField(
         source="product",
         slug_field="code",
-        queryset=Item.objects.filter(item_type="product")
+        queryset=Item.objects.filter(item_type__in=Item.PRODUCIBLE_TYPES)
     )
 
     class Meta:
@@ -65,6 +66,14 @@ class ProductionPlanSerializer(serializers.ModelSerializer):
         # Only proceed with validation if both dates are available.
         # This check is mostly for safety; for create, they are required by the model,
         # and for update, we've fetched them from data or instance.
+        # 製品を変えると所要部品をBOMマスターからコピーし直すため、引当が残っている計画では変更させない
+        new_product = data.get("product")
+        if self.instance and new_product is not None and new_product.code != self.instance.product_id:
+            if normal_allocations(self.instance.material_allocations.all()).exists():
+                raise serializers.ValidationError(
+                    {"product_code": "材料の引当がある生産計画の製品は変更できません。先に引当を解除してください。"}
+                )
+
         if planned_start is not None and planned_end is not None:
             if planned_start >= planned_end:
                 # The error message points to 'planned_end_datetime'.
@@ -109,26 +118,100 @@ class PartsUsedSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at", "updated_at"]
 
 
+class RequiredPartWarehouseSerializer(serializers.Serializer):
+    warehouse = serializers.CharField()
+    available_quantity = serializers.IntegerField(help_text="この倉庫の引当可能数")
+
+
 class RequiredPartSerializer(serializers.Serializer):
-    """
-    必要部品情報を表現するためのシリアライザ。
-    特定のモデルに直接紐づかないため、serializers.Serializerを継承します。
-    """
+    """生産計画の所要部品と引当状況(plans/{id}/required-parts/ の応答)。"""
 
-    part_code = serializers.CharField(max_length=100)
-    part_name = serializers.CharField(max_length=255, help_text="部品名")
-    # required_quantity の型 (DecimalField, IntegerField など) は、
-    # PartsUsed.quantity_used is PositiveIntegerField, MaterialAllocation.allocated_quantity is PositiveIntegerField.
-    required_quantity = serializers.IntegerField(help_text="必要数量")
-    unit = serializers.CharField(max_length=50, help_text="単位")
-    inventory_quantity = serializers.IntegerField(help_text="現在の在庫数量")
-    already_allocated_quantity = serializers.IntegerField(help_text="既にこの生産計画に引当済の数量", default=0)
-    warehouse = serializers.CharField(
-        max_length=255, required=False, allow_blank=True, allow_null=True, help_text="部品が使用される倉庫"
+    part_code = serializers.CharField()
+    part_name = serializers.CharField()
+    unit = serializers.CharField()
+    quantity_per_unit = serializers.DecimalField(max_digits=12, decimal_places=3, help_text="製品1個あたり所要数量")
+    required_quantity = serializers.IntegerField(help_text="計画全体の所要数量")
+    already_allocated_quantity = serializers.IntegerField(help_text="所要量に対して引当済の数量")
+    additional_issued_quantity = serializers.IntegerField(help_text="所要量とは別に追加出庫した数量")
+    inventory_quantity = serializers.IntegerField(help_text="全倉庫の引当可能数の合計")
+    warehouses = RequiredPartWarehouseSerializer(many=True, help_text="引当可能な在庫がある倉庫(引当時に選ぶ)")
+
+
+class ProductionPlanMaterialSerializer(serializers.ModelSerializer):
+    """生産計画ごとの所要部品。所要数量(計画全体)は1個あたり所要数量と計画数量から計算する。"""
+
+    production_plan = serializers.PrimaryKeyRelatedField(queryset=ProductionPlan.objects.all())
+    material_code = serializers.SlugRelatedField(
+        source="material",
+        slug_field="code",
+        queryset=Item.objects.filter(item_type__in=Item.CONSUMABLE_TYPES),
+        error_messages={"does_not_exist": "指定された部品コードは存在しないか、材料・中間品として登録されていません。"},
     )
+    material_name = serializers.CharField(source="material.name", read_only=True)
+    material_unit = serializers.CharField(source="material.unit", read_only=True)
 
-    # このシリアライザは読み取り専用のデータを想定しています。
-    # ビュー側で `data_for_serializer` を構築する際に、これらのフィールドに合致するデータを提供します。
+    class Meta:
+        model = ProductionPlanMaterial
+        fields = [
+            "id",
+            "production_plan",
+            "material_code",
+            "material_name",
+            "material_unit",
+            "quantity_per_unit",
+            "required_quantity",
+            "remarks",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "required_quantity", "created_at", "updated_at"]
+        validators = []  # (計画, 部品) の重複は validate() で日本語のメッセージにして返す
+
+    def validate_quantity_per_unit(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("所要数量は0より大きい値を入力してください。")
+        return value
+
+    def validate(self, attrs):
+        instance = self.instance
+        plan = attrs.get("production_plan", getattr(instance, "production_plan", None))
+        material = attrs.get("material", getattr(instance, "material", None))
+        quantity_per_unit = attrs.get("quantity_per_unit", getattr(instance, "quantity_per_unit", None))
+
+        if instance and plan.pk != instance.production_plan_id:
+            raise serializers.ValidationError({"production_plan": "所要部品の生産計画は変更できません。"})
+        ensure_plan_materials_editable(plan)
+        if material.code == plan.product_id:
+            raise serializers.ValidationError({"material_code": "計画の製品自身は部品にできません。"})
+        duplicates = ProductionPlanMaterial.objects.filter(production_plan=plan, material=material)
+        if instance:
+            duplicates = duplicates.exclude(pk=instance.pk)
+        if duplicates.exists():
+            raise serializers.ValidationError({"material_code": "この部品は既にこの生産計画に登録されています。"})
+
+        allocated = allocated_quantity_by_material(plan)
+        if instance and material.code != instance.material_id and allocated.get(instance.material_id, 0) > 0:
+            raise serializers.ValidationError(
+                {"material_code": "引当済みの部品は別の部品に変更できません。先に引当を解除してください。"}
+            )
+        required = calc_required_quantity(quantity_per_unit, plan.planned_quantity)
+        if required < allocated.get(material.code, 0):
+            raise serializers.ValidationError(
+                {
+                    "quantity_per_unit": (
+                        f"所要数量({required})が引当済数量({allocated[material.code]})を下回ります。"
+                        "先に引当を解除してください。"
+                    )
+                }
+            )
+        attrs["required_quantity"] = required
+        return attrs
+
+
+def ensure_plan_materials_editable(plan):
+    """完了・中止した計画の所要部品は履歴として固定する。"""
+    if plan.status in (ProductionPlan.Status.COMPLETED, ProductionPlan.Status.CANCELLED):
+        raise serializers.ValidationError(f"{plan.get_status_display()}の生産計画の部品構成は変更できません。")
 
 
 class MaterialAllocationSerializer(serializers.ModelSerializer):
@@ -137,6 +220,7 @@ class MaterialAllocationSerializer(serializers.ModelSerializer):
     """
 
     status_display = serializers.CharField(source="get_status_display", read_only=True)
+    allocation_type_display = serializers.CharField(source="get_allocation_type_display", read_only=True)
     production_plan_name = serializers.CharField(source="production_plan.plan_name", read_only=True)
     material_code = serializers.SlugRelatedField(source="material", slug_field="code", read_only=True)
     warehouse = serializers.SlugRelatedField(source="warehouse_rel", slug_field="warehouse_number", read_only=True)
@@ -153,6 +237,8 @@ class MaterialAllocationSerializer(serializers.ModelSerializer):
             "allocation_datetime",
             "status",
             "status_display",
+            "allocation_type",
+            "allocation_type_display",
             "remarks",
             "created_at",
             "updated_at",
@@ -169,6 +255,8 @@ class MaterialAllocationSerializer(serializers.ModelSerializer):
             "allocation_datetime",
             "status",
             "status_display",
+            "allocation_type",
+            "allocation_type_display",
             "production_plan_name",
         ]
 

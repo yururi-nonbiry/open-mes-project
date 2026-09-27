@@ -7,7 +7,8 @@ from django.utils import timezone
 from inventory.models import Inventory
 from master.models import Item
 
-from ..models import MaterialAllocation, PartsUsed
+from ..models import MaterialAllocation, ProductionPlanMaterial
+from .materials import normal_allocations
 
 
 def simulate_parts_supply(plans):
@@ -51,12 +52,11 @@ def simulate_parts_supply(plans):
     plans = list(plans)
     now = timezone.now()
 
-    bom_keys = [p.production_plan for p in plans if p.production_plan]
-    parts_used_by_bom_key = defaultdict(list)
-    for parts_used in PartsUsed.objects.filter(production_plan__in=bom_keys):
-        parts_used_by_bom_key[parts_used.production_plan].append(parts_used)
+    materials_by_plan = defaultdict(list)
+    for material in ProductionPlanMaterial.objects.filter(production_plan__in=plans):
+        materials_by_plan[material.production_plan_id].append(material)
 
-    part_codes = {pu.part_id for values in parts_used_by_bom_key.values() for pu in values if pu.part_id}
+    part_codes = {m.material_id for values in materials_by_plan.values() for m in values}
     items_map = {item.code: item for item in Item.objects.filter(code__in=part_codes)}
 
     # (part_code, warehouse) -> 利用可能数量。warehouse指定が無いPartsUsed用に、
@@ -71,8 +71,9 @@ def simulate_parts_supply(plans):
     # 需要が同じ在庫を二重に当てにしないよう、両者で共通の残数を消費する。
     remaining_by_part_warehouse = defaultdict(int, available_by_part_warehouse)
 
+    # 返却済みと追加出庫は所要量の消化に数えない
     allocation_rows = (
-        MaterialAllocation.objects.filter(production_plan__in=plans, material_id__in=part_codes)
+        normal_allocations(MaterialAllocation.objects.filter(production_plan__in=plans, material_id__in=part_codes))
         .values("production_plan_id", "material_id")
         .annotate(total=Sum("allocated_quantity"))
     )
@@ -118,15 +119,14 @@ def simulate_parts_supply(plans):
 
     for plan in plans:
         limiting_parts = []
-        for parts_used in parts_used_by_bom_key.get(plan.production_plan, []):
-            part_code = parts_used.part_id
-            if not part_code:
-                continue
-            warehouse = parts_used.warehouse
+        for material in materials_by_plan.get(plan.id, []):
+            part_code = material.material_id
+            # 所要部品は倉庫を持たない(引当時に選ぶ)ため、全倉庫の在庫を対象にする
+            warehouse = None
             key = (part_code, warehouse)
 
             already_allocated = allocated_map.get((plan.id, part_code), 0)
-            remaining_required = max(parts_used.quantity_used - already_allocated, 0)
+            remaining_required = max(material.required_quantity - already_allocated, 0)
             cumulative_required[key] += remaining_required
             cumulative_shortage[key] += consume(part_code, warehouse, remaining_required)
 

@@ -20,7 +20,6 @@ const ShipmentSchedule = lazy(() => import('./pages/ShipmentSchedule'));
 const GoodsReceipt = lazy(() => import('./pages/GoodsReceipt'));
 const GoodsIssue = lazy(() => import('./pages/GoodsIssue'));
 const ProductionPlan = lazy(() => import('./pages/ProductionPlan'));
-const PartsUsed = lazy(() => import('./pages/PartsUsed'));
 const MaterialAllocation = lazy(() => import('./pages/MaterialAllocation'));
 const PartsSupplySimulationPage = lazy(() => import('./pages/production/PartsSupplySimulationPage'));
 const WorkProgress = lazy(() => import('./pages/WorkProgress'));
@@ -150,7 +149,6 @@ function AppContent() {
           <Route path="/inventory/purchase" element={<GoodsReceipt />} />
           <Route path="/inventory/issue" element={<GoodsIssue />} />
           <Route path="/production/plan" element={<ProductionPlan />} />
-          <Route path="/production/parts-used" element={<PartsUsed />} />
           <Route path="/production/bom-master" element={<BomMasterCreation />} />
           <Route path="/production/material-allocation" element={<MaterialAllocation />} />
           <Route path="/production/parts-supply-simulation" element={<PartsSupplySimulationPage />} />

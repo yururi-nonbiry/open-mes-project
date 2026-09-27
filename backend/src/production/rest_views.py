@@ -14,22 +14,27 @@ from rest_framework.views import APIView  # APIViewをインポート
 from base.pagination import StandardResultsSetPagination
 from base.responses import error_response
 
-from .models import MaterialAllocation, PartsUsed, ProductionPlan, WorkProgress
+from .models import MaterialAllocation, PartsUsed, ProductionPlan, ProductionPlanMaterial, WorkProgress
 from .serializers import (
     MaterialAllocationSerializer,
     PartsUsedSerializer,
+    ProductionPlanMaterialSerializer,
     ProductionPlanSerializer,
     RequiredPartSerializer,
     WorkProgressSerializer,
+    ensure_plan_materials_editable,
 )
 from .services import (
     allocate_materials_service,
     get_production_plan_required_parts,
+    issue_additional_materials_service,
     release_material_allocation_service,
     simulate_parts_supply,
+    snapshot_plan_materials,
     update_material_allocation_status_service,
     update_production_progress_service,
 )
+from .services.materials import allocated_quantity_by_material, normal_allocations
 
 
 # Define a pagination class specifically for Production Plans API
@@ -106,14 +111,47 @@ class ProductionPlanViewSet(viewsets.ModelViewSet):
         """
         production_plan_instance = self.get_object()
         required_parts_data = get_production_plan_required_parts(production_plan_instance)
+        return Response(RequiredPartSerializer(required_parts_data, many=True).data)
 
-        if not required_parts_data:
-            # 部品が見つからない場合は空リストを返す（200 OK）
-            return Response([])
+    @action(detail=True, methods=["post"], url_path="reset-materials")
+    def reset_materials(self, request, pk=None):
+        """
+        計画の所要部品をBOMマスターの構成でコピーし直します(計画ごとの編集内容は破棄されます)。
+        所要量の消化に数える引当が残っている場合は、引当と構成が食い違うため実行できません。
+        """
+        plan = self.get_object()
+        ensure_plan_materials_editable(plan)
+        if normal_allocations(plan.material_allocations.all()).exists():
+            return error_response("材料の引当がある生産計画の部品構成は初期化できません。先に引当を解除してください。")
+        snapshot_plan_materials(plan)
+        materials = ProductionPlanMaterial.objects.filter(production_plan=plan).select_related("material")
+        return Response(
+            {
+                "message": "部品構成をBOMマスターから読み込み直しました。",
+                "data": ProductionPlanMaterialSerializer(materials, many=True).data,
+            }
+        )
 
-        serializer = RequiredPartSerializer(data=required_parts_data, many=True)
-        serializer.is_valid(raise_exception=True)
-        return Response(serializer.data)
+    @action(detail=True, methods=["post"], url_path="issue-additional-materials")
+    def issue_additional_materials(self, request, pk=None):
+        """
+        歩留まり・ロス等で不足した部品を追加出庫します(引当を経ずに即時出庫)。
+
+        Request body: {"items": [{"part_number", "warehouse", "quantity"}], "remarks": "理由など(任意)"}
+        """
+        plan = self.get_object()
+        try:
+            allocations = issue_additional_materials_service(
+                plan, request.data.get("items"), request.user, remarks=request.data.get("remarks")
+            )
+        except ValueError as e:
+            return error_response(e)
+        return Response(
+            {
+                "message": "追加出庫しました。",
+                "data": MaterialAllocationSerializer(allocations, many=True).data,
+            }
+        )
 
     @action(detail=True, methods=["post"], url_path="allocate-materials")
     def allocate_materials(self, request, pk=None):
@@ -207,6 +245,31 @@ class PartsUsedViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(part__code__icontains=part_code)
 
         return queryset
+
+
+class ProductionPlanMaterialViewSet(viewsets.ModelViewSet):
+    """
+    生産計画ごとの所要部品。計画作成時にBOMマスターからコピーされ、計画ごとに編集できます。
+    一覧は production_plan_id で絞り込みます。
+    """
+
+    queryset = ProductionPlanMaterial.objects.all().select_related("material", "production_plan")
+    serializer_class = ProductionPlanMaterialSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        plan_id = self.request.query_params.get("production_plan_id")
+        if plan_id:
+            queryset = queryset.filter(production_plan_id=plan_id)
+        return queryset
+
+    def destroy(self, request, *args, **kwargs):
+        material = self.get_object()
+        ensure_plan_materials_editable(material.production_plan)
+        if allocated_quantity_by_material(material.production_plan).get(material.material_id, 0) > 0:
+            return error_response("引当済みの部品は削除できません。先に引当を解除してください。")
+        return super().destroy(request, *args, **kwargs)
 
 
 class MaterialAllocationViewSet(viewsets.ModelViewSet):

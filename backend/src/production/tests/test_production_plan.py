@@ -111,30 +111,28 @@ class RequiredPartsTests(ProductionAPITestBase):
 
     def setUp(self):
         super().setUp()
-        self.plan = self.create_plan(production_plan="BOM-1")
+        self.plan = self.create_plan()
         self.url = reverse("production_api:production-plan-required-parts", args=[self.plan.id])
 
-    def test_pp_req_01_returns_bom_parts(self):
-        self.create_parts_used(production_plan="BOM-1", part_code=self.material_item1.code, quantity_used=5)
+    def test_pp_req_01_returns_plan_materials(self):
+        self.create_plan_material(self.plan, self.material_item1, required_quantity=5, quantity_per_unit="0.5")
         self.create_inventory(part_number=self.material_item1.code, quantity=20)
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["part_code"], self.material_item1.code)
         self.assertEqual(response.data[0]["required_quantity"], 5)
+        self.assertEqual(response.data[0]["quantity_per_unit"], "0.500")
         self.assertEqual(response.data[0]["inventory_quantity"], 20)
 
-    def test_pp_req_02_no_bom_returns_empty(self):
-        plan_without_bom = self.create_plan(production_plan=None)
-        url = reverse("production_api:production-plan-required-parts", args=[plan_without_bom.id])
-        response = self.client.get(url)
+    def test_pp_req_02_no_materials_returns_empty(self):
+        response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data, [])
 
-    def test_pp_req_03_specific_warehouse_only(self):
-        self.create_parts_used(
-            production_plan="BOM-1", part_code=self.material_item1.code, warehouse=self.warehouse_a.warehouse_number
-        )
+    def test_pp_req_03_warehouse_candidates_sorted_by_available(self):
+        """倉庫は引当時に選ぶため、引当可能数の多い順に倉庫の候補を返す(在庫0の倉庫は含めない)。"""
+        self.create_plan_material(self.plan, self.material_item1)
         self.create_inventory(
             part_number=self.material_item1.code, warehouse=self.warehouse_a.warehouse_number, quantity=7
         )
@@ -143,13 +141,16 @@ class RequiredPartsTests(ProductionAPITestBase):
             warehouse=self.warehouse_fg.warehouse_number,
             location="FG-01",
             quantity=100,
+            reserved=100,
         )
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data[0]["inventory_quantity"], 7)
+        self.assertEqual(
+            response.data[0]["warehouses"], [{"warehouse": self.warehouse_a.warehouse_number, "available_quantity": 7}]
+        )
 
-    def test_pp_req_04_no_warehouse_sums_all(self):
-        self.create_parts_used(production_plan="BOM-1", part_code=self.material_item1.code, warehouse=None)
+    def test_pp_req_04_inventory_quantity_sums_all_warehouses(self):
+        self.create_plan_material(self.plan, self.material_item1)
         self.create_inventory(
             part_number=self.material_item1.code, warehouse=self.warehouse_a.warehouse_number, quantity=7
         )
@@ -162,18 +163,34 @@ class RequiredPartsTests(ProductionAPITestBase):
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data[0]["inventory_quantity"], 10)
+        self.assertEqual(
+            [w["warehouse"] for w in response.data[0]["warehouses"]],
+            [self.warehouse_a.warehouse_number, self.warehouse_fg.warehouse_number],
+        )
 
-    def test_pp_req_05_already_allocated_quantity_reflected(self):
-        self.create_parts_used(production_plan="BOM-1", part_code=self.material_item1.code)
+    def test_pp_req_05_allocated_and_additional_quantities_reflected(self):
+        """所要量に対する引当と追加出庫は別々に集計し、返却済みは数えない。"""
+        self.create_plan_material(self.plan, self.material_item1)
         self.create_material_allocation(
             production_plan=self.plan, material_code=self.material_item1.code, allocated_quantity=4
+        )
+        self.create_material_allocation(
+            production_plan=self.plan, material_code=self.material_item1.code, allocated_quantity=9, status="RETURNED"
+        )
+        self.create_material_allocation(
+            production_plan=self.plan,
+            material_code=self.material_item1.code,
+            allocated_quantity=2,
+            status="ISSUED",
+            allocation_type="ADDITIONAL",
         )
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data[0]["already_allocated_quantity"], 4)
+        self.assertEqual(response.data[0]["additional_issued_quantity"], 2)
 
     def test_pp_req_06_inactive_inventory_excluded(self):
-        self.create_parts_used(production_plan="BOM-1", part_code=self.material_item1.code)
+        self.create_plan_material(self.plan, self.material_item1)
         self.create_inventory(part_number=self.material_item1.code, quantity=20, is_active=False)
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)

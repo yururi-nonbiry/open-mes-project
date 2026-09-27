@@ -24,7 +24,7 @@ POSTGRES_DB=open_mes
 
 - `master`: 品目（Item）、サプライヤー（Supplier）、倉庫（Warehouse）、倉庫ロケーション（WarehouseLocation）、顧客（Customer）、ワークセンター（WorkCenter）、標準単価（UnitCost）、使用部品構成（BillOfMaterial）
 - `inventory`: 在庫（Inventory）、入出庫履歴（StockMovement）、入庫予定（PurchaseOrder）、入庫実績（Receipt）、出庫予定（SalesOrder）
-- `production`: 生産計画（ProductionPlan）、使用部品（PartsUsed）、材料引当（MaterialAllocation）、作業進捗（WorkProgress）
+- `production`: 生産計画（ProductionPlan）、生産計画の所要部品（ProductionPlanMaterial）、使用部品（PartsUsed、旧来の部品構成。現在は業務処理から参照しない）、材料引当（MaterialAllocation）、作業進捗（WorkProgress）
 - `quality`: 検査項目マスター（InspectionItem）、測定・判定詳細（MeasurementDetail）、検査実績（InspectionResult）、検査実績詳細（InspectionResultDetail）
 - `machine`: 設備マスター（Machine）
 - `users`: カスタムユーザー（CustomUser、`custom_id`でログイン、`account_type`で通常ユーザー/システム連携用アカウントを区別）、APIトークンポリシー（ApiTokenPolicy、トークンの有効/無効・接続元IP許可リスト・アクセス可能なAPIスコープを管理）

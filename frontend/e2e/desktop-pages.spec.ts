@@ -21,7 +21,7 @@ const pages: { name: string; path: string }[] = [
   { name: '入庫', path: '/inventory/purchase' },
   { name: '出庫', path: '/inventory/issue' },
   { name: '生産計画', path: '/production/plan' },
-  { name: '使用部品', path: '/production/parts-used' },
+  { name: '使用部品マスター', path: '/production/bom-master' },
   { name: '資材引当', path: '/production/material-allocation' },
   { name: '作業進捗', path: '/production/work-progress' },
   { name: '工程内検査', path: '/quality/process-inspection' },
