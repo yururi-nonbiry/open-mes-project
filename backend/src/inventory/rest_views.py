@@ -14,7 +14,7 @@ from django.db.models import (
 from django.http import Http404
 from django.shortcuts import get_object_or_404  # オブジェクト取得のためにインポート
 from master.models import WarehouseLocation
-from rest_framework import status, viewsets
+from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.pagination import (
     PageNumberPagination,  # PageNumberPagination は StandardResultsSetPagination で使用
@@ -86,9 +86,13 @@ def _rebalance_reserved(rows):
 # --- ViewSets ---
 
 
-class ReceiptViewSet(viewsets.ModelViewSet):
+class ReceiptViewSet(
+    mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.UpdateModelMixin, viewsets.GenericViewSet
+):
     """
     API endpoint that allows receipts to be viewed or edited.
+    入庫実績の作成は在庫計上と連動する purchase-orders/process-receipt/ でのみ行い、
+    削除は在庫との整合性が崩れるため提供しない(更新は備考のみ)。
     """
 
     queryset = Receipt.objects.all().select_related("purchase_order", "operator").order_by("-received_date")
@@ -126,6 +130,16 @@ class InventoryViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(is_active=True, is_allocatable=True, quantity__gt=F("reserved"))
 
         return queryset.order_by("part_number_rel__code", "warehouse_rel__warehouse_number", "location")
+
+    def destroy(self, request, *args, **kwargs):
+        inventory = self.get_object()
+        if inventory.quantity > 0 or inventory.reserved > 0:
+            # 在庫数や引当が残ったまま削除すると入出庫履歴なしに在庫が消えるため、先に在庫調整で0にさせる
+            return Response(
+                {"error": "在庫数または引当済数量が0でない在庫は削除できません。在庫調整で0にしてから削除してください。"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return super().destroy(request, *args, **kwargs)
 
     @action(detail=False, methods=["get"], url_path="by-location")
     def by_location(self, request):

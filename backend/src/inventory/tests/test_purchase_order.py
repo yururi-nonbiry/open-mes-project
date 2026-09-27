@@ -83,3 +83,24 @@ class PurchaseOrderCrudTests(InventoryAPITestBase):
         order_numbers = [r["order_number"] for r in response.data["results"]]
         self.assertIn("PO-001", order_numbers)
         self.assertIn("PO-002", order_numbers)
+
+
+class PurchaseOrderQuantityUpdateTests(InventoryAPITestBase):
+    """PO-CRUD-10〜: 入庫済みの発注の数量変更。"""
+
+    def setUp(self):
+        super().setUp()
+        self.po = self.create_purchase_order(
+            order_number="PO-QTY-1", quantity=10, received_quantity=4, status="partially_received"
+        )
+        self.url = reverse("inventory_api:purchaseorder-detail", args=[self.po.id])
+
+    def test_po_crud_10_quantity_below_received_rejected(self):
+        response = self.client.patch(self.url, {"quantity": 3}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_po_crud_11_quantity_reduced_to_received_marks_fully_received(self):
+        response = self.client.patch(self.url, {"quantity": 4}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.po.refresh_from_db()
+        self.assertEqual(self.po.status, "fully_received")

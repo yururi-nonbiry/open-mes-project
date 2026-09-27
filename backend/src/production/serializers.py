@@ -137,18 +137,8 @@ class MaterialAllocationSerializer(serializers.ModelSerializer):
 
     status_display = serializers.CharField(source="get_status_display", read_only=True)
     production_plan_name = serializers.CharField(source="production_plan.plan_name", read_only=True)
-    material_code = serializers.SlugRelatedField(
-        source="material",
-        slug_field="code",
-        queryset=Item.objects.filter(item_type="material")
-    )
-    warehouse = serializers.SlugRelatedField(
-        source="warehouse_rel",
-        slug_field="warehouse_number",
-        queryset=Warehouse.objects.all(),
-        allow_null=True,
-        required=False
-    )
+    material_code = serializers.SlugRelatedField(source="material", slug_field="code", read_only=True)
+    warehouse = serializers.SlugRelatedField(source="warehouse_rel", slug_field="warehouse_number", read_only=True)
 
     class Meta:
         model = MaterialAllocation
@@ -166,12 +156,16 @@ class MaterialAllocationSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        # status は在庫連動が必要なため、直接の書き換えは不可。
-        # MaterialAllocationViewSet の change-status アクション経由でのみ変更する。
+        # 引当内容は在庫の reserved と連動するため、作成は plans/{id}/allocate-materials/、
+        # status の変更は change-status アクション、解除は削除(destroy)経由でのみ行う。
+        # 直接の更新で変更できるのは備考のみ。
         read_only_fields = [
             "id",
             "created_at",
             "updated_at",
+            "production_plan",
+            "allocated_quantity",
+            "allocation_datetime",
             "status",
             "status_display",
             "production_plan_name",

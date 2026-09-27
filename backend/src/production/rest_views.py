@@ -255,6 +255,12 @@ class MaterialAllocationViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(production_plan_id=plan_id)
         return queryset
 
+    def create(self, request, *args, **kwargs):
+        return Response(
+            {"error": "材料引当は plans/{id}/allocate-materials/ から作成してください。"},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED,
+        )
+
     def destroy(self, request, *args, **kwargs):
         """
         引当の削除は在庫の reserved 解放を伴うため、専用サービスに委譲します。

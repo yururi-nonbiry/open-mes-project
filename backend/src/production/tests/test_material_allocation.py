@@ -38,6 +38,25 @@ class MaterialAllocationCrudTests(ProductionAPITestBase):
         self.assertEqual(self.allocation.status, "ALLOCATED")
 
 
+    def test_ma_crud_04_direct_create_not_allowed(self):
+        response = self.client.post(
+            reverse("production_api:material-allocation-list"),
+            {"production_plan": str(self.plan.id), "material_code": self.material_item1.code, "allocated_quantity": 1},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    def test_ma_crud_05_quantity_not_writable(self):
+        """引当数量は在庫のreservedと連動するため直接変更できず、備考のみ更新できる。"""
+        response = self.client.patch(
+            self._detail_url(self.allocation.id), {"allocated_quantity": 999, "remarks": "memo"}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.allocation.refresh_from_db()
+        self.assertNotEqual(self.allocation.allocated_quantity, 999)
+        self.assertEqual(self.allocation.remarks, "memo")
+
+
 class MaterialAllocationDeleteTests(ProductionAPITestBase):
     """MA-DEL-* : 材料引当削除 (destroy override -> release_material_allocation_service)。"""
 

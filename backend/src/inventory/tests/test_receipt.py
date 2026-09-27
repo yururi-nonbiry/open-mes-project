@@ -22,7 +22,8 @@ class ReceiptCrudTests(InventoryAPITestBase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["count"], 1)
 
-    def test_rcp_crud_02_retrieve_create_update_delete(self):
+    def test_rcp_crud_02_retrieve_and_update_remarks_only(self):
+        """入庫実績は参照と備考の更新のみ可能。作成・削除・数量変更は在庫と整合しなくなるため不可。"""
         detail_url = reverse("inventory_api:receipt-detail", kwargs={"pk": self.receipt.id})
         response = self.client.get(detail_url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -38,12 +39,16 @@ class ReceiptCrudTests(InventoryAPITestBase):
             },
             format="json",
         )
-        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(create_response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
 
-        update_response = self.client.patch(detail_url, {"remarks": "更新済み"}, format="json")
+        update_response = self.client.patch(
+            detail_url, {"remarks": "更新済み", "received_quantity": 99}, format="json"
+        )
         self.assertEqual(update_response.status_code, status.HTTP_200_OK)
         self.assertEqual(update_response.data["remarks"], "更新済み")
+        self.receipt.refresh_from_db()
+        self.assertEqual(self.receipt.received_quantity, 5)
 
         delete_response = self.client.delete(detail_url)
-        self.assertEqual(delete_response.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertFalse(Receipt.objects.filter(pk=self.receipt.pk).exists())
+        self.assertEqual(delete_response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+        self.assertTrue(Receipt.objects.filter(pk=self.receipt.pk).exists())

@@ -88,3 +88,17 @@ class InventoryCrudTests(InventoryAPITestBase):
         self.inventory1.is_allocatable = False
         self.inventory1.save()
         self.assertEqual(self.inventory1.available_quantity, 0)
+
+
+class InventoryDeleteTests(InventoryAPITestBase):
+    """INV-CRUD-10〜: 在庫レコードの削除。"""
+
+    def test_inv_crud_10_delete_with_stock_rejected(self):
+        inventory = self.create_inventory(quantity=3)
+        response = self.client.delete(reverse("inventory_api:inventory-detail", args=[inventory.id]))
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_inv_crud_11_delete_empty_allowed(self):
+        inventory = self.create_inventory(quantity=0)
+        response = self.client.delete(reverse("inventory_api:inventory-detail", args=[inventory.id]))
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)

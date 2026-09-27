@@ -16,7 +16,7 @@ class ReceiptSerializer(serializers.ModelSerializer):
     """
 
     operator_username = serializers.CharField(source="operator.username", read_only=True, allow_null=True)
-    warehouse = serializers.SlugRelatedField(source="warehouse_rel", slug_field="warehouse_number", queryset=Warehouse.objects.all())
+    warehouse = serializers.SlugRelatedField(source="warehouse_rel", slug_field="warehouse_number", read_only=True)
 
     class Meta:
         model = Receipt
@@ -31,7 +31,17 @@ class ReceiptSerializer(serializers.ModelSerializer):
             "operator_username",
             "remarks",
         ]
-        read_only_fields = ["id", "operator_username"]
+        # 入庫実績は在庫・発注の入庫済数量と連動するため purchase-orders/process-receipt/ でのみ作成する。
+        # 作成後に変更できるのは備考のみ。
+        read_only_fields = [
+            "id",
+            "purchase_order",
+            "received_quantity",
+            "received_date",
+            "location",
+            "operator",
+            "operator_username",
+        ]
 
 
 class PurchaseOrderSerializer(serializers.ModelSerializer):
@@ -100,6 +110,23 @@ class PurchaseOrderSerializer(serializers.ModelSerializer):
             # status は process-receipt アクション経由でのみ更新させる（在庫計上と整合させるため）
             "status",
         ]  # is_first_time はデフォルト値があるので読み取り専用には含めません
+
+    def validate_quantity(self, value):
+        if self.instance and value is not None and value < self.instance.received_quantity:
+            raise serializers.ValidationError(
+                f"発注数量は入庫済数量({self.instance.received_quantity})以上である必要があります。"
+            )
+        return value
+
+    def update(self, instance, validated_data):
+        instance = super().update(instance, validated_data)
+        # 発注数量の変更に合わせて入庫ステータスを再計算する(キャンセル済みは維持)
+        if "quantity" in validated_data and instance.status != "canceled" and instance.received_quantity > 0:
+            new_status = "fully_received" if instance.received_quantity >= instance.quantity else "partially_received"
+            if new_status != instance.status:
+                instance.status = new_status
+                instance.save(update_fields=["status"])
+        return instance
 
     def validate_order_number(self, value):
         """
