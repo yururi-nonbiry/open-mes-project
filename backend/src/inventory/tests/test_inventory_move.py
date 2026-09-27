@@ -89,6 +89,15 @@ class InventoryMoveTests(InventoryAPITestBase):
         self.source.refresh_from_db()
         self.assertEqual(self.source.quantity, 10)
 
+    def test_inv_move_05c_same_location_rejected(self):
+        """移動元と同じ倉庫・棚番への移動は、在庫が変わらないまま入出庫履歴だけが残るため拒否する。"""
+        response = self.client.post(
+            self.url,
+            {"quantity_to_move": 1, "target_warehouse": self.warehouse_a.warehouse_number, "target_location": "A-01"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_inv_move_06_non_positive_quantity(self):
         response = self.client.post(
             self.url,

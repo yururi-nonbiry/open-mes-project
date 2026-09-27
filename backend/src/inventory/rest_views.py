@@ -1,18 +1,10 @@
-from django.db import (  # トランザクションのためにインポート # Qオブジェクトをインポートして複雑なクエリを構築
-    IntegrityError,
-    models,
-    transaction,
-)
+from django.db import IntegrityError, models
 from django.db.models import (
     F,
     ProtectedError,
     Q,
     Sum,
 )
-from django.http import Http404
-from django.shortcuts import get_object_or_404  # オブジェクト取得のためにインポート
-from django.utils import timezone
-from master.models import Warehouse, WarehouseLocation
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.pagination import (
@@ -21,7 +13,10 @@ from rest_framework.pagination import (
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import (  # SalesOrder, Receiptモデルをインポート
+from master.models import WarehouseLocation
+
+from . import services
+from .models import (
     Inventory,
     PurchaseOrder,
     Receipt,
@@ -55,31 +50,6 @@ class StandardResultsSetPagination(PageNumberPagination):
                 "results": data,
             }
         )
-
-
-def _rebalance_reserved(rows):
-    """
-    引当(reserved)が物理在庫(quantity)を超えている棚から、余裕のある棚へ超過分を付け替える。
-
-    Inventory.reserved は品番+倉庫内でどの棚の在庫を引き当てているかを区別しないプールのため、
-    入庫が古い順の出庫で引当のある棚の在庫が先に減った場合でも、同じ品番+倉庫の他の棚に
-    付け替えることで「各棚で quantity >= reserved」を保つ(棚ごとの available_quantity が
-    実態より多く見えて過剰引当されるのを防ぐ)。rows は保存前の状態で渡し、呼び出し側で保存する。
-    """
-    excess = 0
-    for row in rows:
-        if row.reserved > row.quantity:
-            excess += row.reserved - row.quantity
-            row.reserved = row.quantity
-    for row in rows:
-        if excess <= 0:
-            break
-        room = row.quantity - row.reserved
-        if room <= 0:
-            continue
-        moved = min(room, excess)
-        row.reserved += moved
-        excess -= moved
 
 
 # --- ViewSets ---
@@ -135,7 +105,12 @@ class InventoryViewSet(viewsets.ModelViewSet):
         if inventory.quantity > 0 or inventory.reserved > 0:
             # 在庫数や引当が残ったまま削除すると入出庫履歴なしに在庫が消えるため、先に在庫調整で0にさせる
             return Response(
-                {"error": "在庫数または引当済数量が0でない在庫は削除できません。在庫調整で0にしてから削除してください。"},
+                {
+                    "error": (
+                        "在庫数または引当済数量が0でない在庫は削除できません。"
+                        "在庫調整で0にしてから削除してください。"
+                    )
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
         return super().destroy(request, *args, **kwargs)
@@ -151,9 +126,9 @@ class InventoryViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        inventory_items = Inventory.objects.filter(warehouse_rel__warehouse_number=warehouse, location=location, quantity__gt=0).order_by(
-            "part_number_rel__code"
-        )
+        inventory_items = Inventory.objects.filter(
+            warehouse_rel__warehouse_number=warehouse, location=location, quantity__gt=0
+        ).order_by("part_number_rel__code")
 
         serializer = self.get_serializer(inventory_items, many=True)
         return Response(serializer.data)
@@ -161,102 +136,32 @@ class InventoryViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], url_path="move")
     def move(self, request, pk=None):
         source_inventory = self.get_object()
-
         try:
             quantity_to_move = int(request.data.get("quantity_to_move"))
-            target_warehouse = request.data.get("target_warehouse")
-            target_location = request.data.get("target_location") or ""  # 棚番なしは空文字で扱う
         except (TypeError, ValueError):
             return Response(
                 {"success": False, "error": "無効なリクエストデータです。"}, status=status.HTTP_400_BAD_REQUEST
             )
 
-        if not target_warehouse:
-            return Response({"success": False, "error": "移動先倉庫は必須です。"}, status=status.HTTP_400_BAD_REQUEST)
-        if not Warehouse.objects.filter(warehouse_number=target_warehouse).exists():
-            return Response(
-                {"success": False, "error": f"移動先倉庫 '{target_warehouse}' が存在しません。"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if quantity_to_move <= 0:
-            return Response(
-                {"success": False, "error": "移動数量は1以上である必要があります。"}, status=status.HTTP_400_BAD_REQUEST
-            )
-
         try:
-            with transaction.atomic():
-                # 行ロックを取得した上で最新の状態を再取得する（同時実行によるロストアップデート防止）
-                source_inventory = Inventory.objects.select_for_update().get(pk=source_inventory.pk)
-
-                available_to_move = source_inventory.quantity - source_inventory.reserved
-                if quantity_to_move > available_to_move:
-                    return Response(
-                        {
-                            "success": False,
-                            "error": f"移動数量が利用可能在庫数(引当済みを除く)を超えています。利用可能: {available_to_move}",
-                        },
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-                # 移動元から在庫を減らす
-                source_inventory.quantity -= quantity_to_move
-                source_inventory.save()
-
-                # 移動先に在庫を追加または作成（行ロックを取得してからget_or_create相当の処理を行う）
-                try:
-                    target_inventory = Inventory.objects.select_for_update().get(
-                        part_number_rel_id=source_inventory.part_number,
-                        warehouse_rel_id=target_warehouse,
-                        location=target_location,
-                    )
-                    target_inventory.quantity += quantity_to_move
-                    target_inventory.save()
-                except Inventory.DoesNotExist:
-                    Inventory.objects.create(
-                        part_number=source_inventory.part_number,
-                        warehouse=target_warehouse,
-                        location=target_location,
-                        quantity=quantity_to_move,
-                    )
-
-                # 在庫移動履歴を記録
-                operator = request.user if request.user.is_authenticated else None
-
-                # 移動元の履歴 (出庫)
-                StockMovement.objects.create(
-                    part_number=source_inventory.part_number,
-                    movement_type=StockMovement.MovementType.OUTGOING,
-                    quantity=quantity_to_move,
-                    warehouse=source_inventory.warehouse,
-                    location=source_inventory.location,
-                    description=f"棚番移動: {target_warehouse} の {target_location} へ",
-                    operator=operator,
-                )
-
-                # 移動先の履歴 (入庫)
-                StockMovement.objects.create(
-                    part_number=source_inventory.part_number,
-                    movement_type=StockMovement.MovementType.INCOMING,
-                    quantity=quantity_to_move,
-                    warehouse=target_warehouse,
-                    location=target_location,
-                    description=f"棚番移動: {source_inventory.warehouse} の {source_inventory.location} から",
-                    operator=operator,
-                )
-
-            return Response({"success": True, "message": "在庫を正常に移動しました。"})
-
+            services.move_inventory(
+                source_inventory.pk,
+                quantity_to_move,
+                request.data.get("target_warehouse"),
+                request.data.get("target_location"),
+                request.user,
+            )
+        except services.InventoryServiceError as e:
+            return Response({"success": False, "error": e.message}, status=e.status_code)
         except IntegrityError:
             return Response(
-                {"success": False, "error": "移動先の品番/倉庫/棚番の組み合わせが既に別の在庫レコードとして存在します。"},
+                {
+                    "success": False,
+                    "error": "移動先の品番/倉庫/棚番の組み合わせが既に別の在庫レコードとして存在します。",
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        except Exception as e:
-            return Response(
-                {"success": False, "error": f"在庫移動中にエラーが発生しました: {str(e)}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+        return Response({"success": True, "message": "在庫を正常に移動しました。"})
 
     @action(detail=True, methods=["post"], url_path="adjust")
     def adjust(self, request, pk=None):
@@ -265,63 +170,23 @@ class InventoryViewSet(viewsets.ModelViewSet):
         """
         inventory = self.get_object()
         new_quantity = request.data.get("quantity")
-        new_location = request.data.get("location")
-
         if new_quantity is None:
             return Response({"error": "数量は必須です。"}, status=status.HTTP_400_BAD_REQUEST)
-
         try:
             new_quantity = int(new_quantity)
         except (TypeError, ValueError):
             return Response({"error": "数量は数値である必要があります。"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            with transaction.atomic():
-                # 行ロックを取得した上で最新の状態を再取得する（同時実行によるロストアップデート防止）
-                inventory = Inventory.objects.select_for_update().get(pk=inventory.pk)
-
-                if new_quantity < inventory.reserved:
-                    return Response(
-                        {
-                            "error": (
-                                f"調整後の数量({new_quantity})は引当済数量({inventory.reserved})"
-                                "以上である必要があります。"
-                            )
-                        },
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-                old_quantity = inventory.quantity
-                diff = new_quantity - old_quantity
-
-                inventory.quantity = new_quantity
-                if new_location is not None:
-                    inventory.location = new_location
-                inventory.save()
-
-                if diff != 0:
-                    movement_type = StockMovement.MovementType.INCOMING if diff > 0 else StockMovement.MovementType.OUTGOING
-                    StockMovement.objects.create(
-                        part_number=inventory.part_number,
-                        movement_type=movement_type,
-                        quantity=abs(diff),
-                        warehouse=inventory.warehouse,
-                        location=inventory.location,
-                        description=f"在庫調整: {old_quantity} -> {new_quantity}",
-                        operator=request.user if request.user.is_authenticated else None,
-                    )
-
-            return Response({"success": True, "message": "在庫を正常に調整しました。"})
+            services.adjust_inventory(inventory.pk, new_quantity, request.data.get("location"), request.user)
+        except services.InventoryServiceError as e:
+            return Response({"error": e.message}, status=e.status_code)
         except IntegrityError:
             return Response(
                 {"error": "移動先の品番/倉庫/棚番の組み合わせが既に別の在庫レコードとして存在します。"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        except Exception as e:
-            return Response(
-                {"error": f"在庫調整中にエラーが発生しました: {str(e)}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+        return Response({"success": True, "message": "在庫を正常に調整しました。"})
 
 
 class PurchaseOrderViewSet(viewsets.ModelViewSet):
@@ -407,123 +272,31 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
         """
         purchase_order_id = request.data.get("purchase_order_id")
         received_quantity_str = request.data.get("received_quantity")
-        location = str(request.data.get("location") or "").strip()
-        warehouse = str(request.data.get("warehouse") or "").strip()
-        operator = request.user
-
         if not all([purchase_order_id, received_quantity_str]):
             return Response({"error": "必須項目が不足しています。"}, status=status.HTTP_400_BAD_REQUEST)
-
         try:
             received_quantity = int(received_quantity_str)
-            if received_quantity <= 0:
-                raise ValueError()
         except (ValueError, TypeError):
             return Response({"error": "入庫数量は正の整数である必要があります。"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            with transaction.atomic():
-                po = get_object_or_404(PurchaseOrder.objects.select_for_update(), pk=purchase_order_id)
-
-                if po.status == PurchaseOrder.Status.CANCELED:
-                    return Response(
-                        {"error": f"発注 {po.order_number} はキャンセルされているため入庫できません。"},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-                if po.quantity is None:
-                    return Response(
-                        {"error": "この発注には発注数量が設定されていないため、入庫処理ができません。"},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-                # 在庫計上には品番が必須なため、存在をチェックする
-                if not po.part_number:
-                    return Response(
-                        {"error": "この発注には品番が設定されていないため、入庫処理（在庫計上）ができません。"},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-                remaining_quantity = po.quantity - po.received_quantity
-                if received_quantity > remaining_quantity:
-                    return Response(
-                        {"error": f"入庫数量が残数量({remaining_quantity})を超えています。"},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-                if not warehouse:
-                    warehouse = po.warehouse
-                if not location:
-                    location = po.location or ""
-                if not warehouse:
-                    return Response({"error": "入庫倉庫が指定されていません。"}, status=status.HTTP_400_BAD_REQUEST)
-                if not Warehouse.objects.filter(warehouse_number=warehouse).exists():
-                    return Response(
-                        {"error": f"入庫倉庫 '{warehouse}' が存在しません。"}, status=status.HTTP_400_BAD_REQUEST
-                    )
-
-                # 1. Create Receipt
-                Receipt.objects.create(
-                    purchase_order=po,
-                    received_quantity=received_quantity,
-                    received_date=timezone.now(),
-                    warehouse=warehouse,
-                    location=location,
-                    operator=operator,
-                )
-
-                # 2. Update/Create Inventory（行ロックを取得してから更新し、同時入庫によるロストアップデートを防止）
-                try:
-                    inventory = Inventory.objects.select_for_update().get(
-                        part_number_rel_id=po.part_number, warehouse_rel_id=warehouse, location=location
-                    )
-                    inventory.quantity += received_quantity
-                    inventory.save()
-                except Inventory.DoesNotExist:
-                    Inventory.objects.create(
-                        part_number=po.part_number,
-                        warehouse=warehouse,
-                        location=location,
-                        quantity=received_quantity,
-                    )
-
-                # 3. Create Stock Movement
-                StockMovement.objects.create(
-                    part_number=po.part_number,
-                    movement_type=StockMovement.MovementType.INCOMING,
-                    quantity=received_quantity,
-                    warehouse=warehouse,
-                    location=location,
-                    reference_document=f"PO: {po.order_number}",
-                    description=f"発注番号 {po.order_number} の入庫",
-                    operator=operator,
-                )
-
-                # 4. Update Purchase Order status
-                po.received_quantity += received_quantity
-                if po.received_quantity >= po.quantity:
-                    po.status = PurchaseOrder.Status.FULLY_RECEIVED
-                else:
-                    po.status = PurchaseOrder.Status.PARTIALLY_RECEIVED
-                po.save()
-
-                return Response(
-                    {
-                        "success": True,
-                        "message": f"発注 {po.order_number} の入庫処理が正常に完了しました。",
-                        "order_number": po.order_number,
-                    },
-                    status=status.HTTP_200_OK,
-                )
-
-        except (PurchaseOrder.DoesNotExist, Http404):
-            # get_object_or_404 は DoesNotExist/ValueError/TypeError を Http404 に変換して送出するため、
-            # 両方を捕捉する。
-            return Response({"error": "指定された発注が見つかりません。"}, status=status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            return Response(
-                {"error": f"処理中に予期せぬエラーが発生しました: {str(e)}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            po = services.receive_purchase_order(
+                purchase_order_id,
+                received_quantity,
+                str(request.data.get("warehouse") or "").strip(),
+                str(request.data.get("location") or "").strip(),
+                request.user,
             )
+        except services.InventoryServiceError as e:
+            return Response({"error": e.message}, status=e.status_code)
+        return Response(
+            {
+                "success": True,
+                "message": f"発注 {po.order_number} の入庫処理が正常に完了しました。",
+                "order_number": po.order_number,
+            },
+            status=status.HTTP_200_OK,
+        )
 
     @action(detail=False, methods=["get"], url_path="distinct-values")
     def distinct_values(self, request):
@@ -585,48 +358,21 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
 
         return queryset.select_related("item_rel", "warehouse_rel").order_by("expected_shipment", "order_number")
 
-    def _reject_internal_order(self, sales_order):
-        return Response(
-            {
-                "success": False,
-                "error": (
-                    f"受注 {sales_order.order_number} は生産計画の材料引当用の内部受注のため、"
-                    "ここでは変更・出庫できません。材料引当画面から操作してください。"
-                ),
-            },
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
         if instance.is_internal:
-            return self._reject_internal_order(instance)
+            return Response(
+                {"success": False, "error": services.internal_order_error(instance).message},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         return super().update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
-        if instance.is_internal:
-            return self._reject_internal_order(instance)
-        with transaction.atomic():
-            sales_order = SalesOrder.objects.select_for_update().get(pk=instance.pk)
-            if sales_order.reserved_quantity > 0:
-                # 削除する受注が持っていた引当を在庫側からも解放する
-                rows = list(
-                    Inventory.objects.select_for_update()
-                    .filter(part_number_rel_id=sales_order.item, warehouse_rel_id=sales_order.warehouse)
-                    .order_by(F("first_received_at").desc(nulls_first=True), "-location")
-                )
-                remaining_to_release = sales_order.reserved_quantity
-                for row in rows:
-                    if remaining_to_release <= 0:
-                        break
-                    release = min(row.reserved, remaining_to_release)
-                    if release <= 0:
-                        continue
-                    row.reserved -= release
-                    row.save()
-                    remaining_to_release -= release
-            sales_order.delete()
+        try:
+            services.delete_sales_order(instance.pk)
+        except services.InventoryServiceError as e:
+            return Response({"success": False, "error": e.message}, status=e.status_code)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=["get"], url_path="location-map")
@@ -694,134 +440,22 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
           ]
         }
         """
-        sales_order_ref = request.data.get("sales_order_reference")
-        allocations_data = request.data.get("allocations")
-
-        if not sales_order_ref or not isinstance(allocations_data, list) or not allocations_data:
-            return Response(
-                {"success": False, "error": "sales_order_reference と allocations(1件以上)は必須です。"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        if str(sales_order_ref).startswith(SalesOrder.INTERNAL_ORDER_PREFIX):
-            return Response(
-                {
-                    "success": False,
-                    "error": f"'{SalesOrder.INTERNAL_ORDER_PREFIX}' で始まる受注番号は生産計画の材料引当用に予約されています。",
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        processed_allocations_summary = []
-        sales_order = None
-
         try:
-            with transaction.atomic():
-                for alloc_item_data in allocations_data:
-                    part_number = alloc_item_data.get("part_number")
-                    warehouse = alloc_item_data.get("warehouse")
-                    quantity_to_reserve = alloc_item_data.get("quantity_to_reserve")
-
-                    if not part_number or not warehouse or quantity_to_reserve is None:
-                        raise ValueError(f"引当データが不正です: {alloc_item_data}")
-                    try:
-                        quantity_to_reserve = int(quantity_to_reserve)
-                    except (TypeError, ValueError):
-                        raise ValueError(f"引当数量が不正です: {alloc_item_data}")
-                    if quantity_to_reserve <= 0:
-                        raise ValueError(f"引当数量は1以上である必要があります: {alloc_item_data}")
-
-                    # 同一品番+倉庫内で棚番(location)をまたいで在庫が分散しているケースに対応するため、
-                    # 単一行の get() ではなく該当する全ロケーションを取得し、入庫が古い順(FIFO)で
-                    # 必要数量に達するまで複数ロケーションから引き当てる。
-                    inventory_rows = list(
-                        Inventory.objects.select_for_update()
-                        .filter(part_number_rel_id=part_number, warehouse_rel_id=warehouse)
-                        .order_by(F("first_received_at").asc(nulls_last=True), "location")
-                    )
-                    if not inventory_rows:
-                        raise ValueError(f"在庫が見つかりません: 品番'{part_number}' 倉庫'{warehouse}'。")
-
-                    eligible_rows = [row for row in inventory_rows if row.is_active and row.is_allocatable]
-                    if not eligible_rows:
-                        raise ValueError(
-                            f"在庫が有効または引当可能ではありません: 品番'{part_number}' 倉庫'{warehouse}'。"
-                        )
-
-                    total_available = sum(row.available_quantity for row in eligible_rows)
-                    if total_available < quantity_to_reserve:
-                        raise ValueError(
-                            f"利用可能在庫が不足しています: 品番'{part_number}' 倉庫'{warehouse}'。"
-                            f"必要数: {quantity_to_reserve}, 利用可能: {total_available}"
-                        )
-
-                    remaining_to_reserve = quantity_to_reserve
-                    locations_consumed = []
-                    for row in eligible_rows:
-                        if remaining_to_reserve <= 0:
-                            break
-                        take = min(row.available_quantity, remaining_to_reserve)
-                        if take <= 0:
-                            continue
-                        row.reserved += take
-                        row.save()
-                        remaining_to_reserve -= take
-                        locations_consumed.append({"location": row.location, "reserved_quantity": take})
-
-                    sales_order, so_created = SalesOrder.objects.get_or_create(
-                        order_number=sales_order_ref,
-                        defaults={
-                            "item": part_number,
-                            "quantity": quantity_to_reserve,
-                            "warehouse": warehouse,
-                            "status": SalesOrder.Status.PENDING,
-                        },
-                    )
-
-                    if not so_created and (sales_order.item != part_number or sales_order.warehouse != warehouse):
-                        raise ValueError(
-                            f"受注 '{sales_order_ref}' は既に異なる品目/倉庫で存在します。"
-                            f"既存: 品目='{sales_order.item}', 倉庫='{sales_order.warehouse}'。"
-                            f"今回: 品目='{part_number}', 倉庫='{warehouse}'。"
-                        )
-                    if sales_order.status != SalesOrder.Status.PENDING:
-                        raise ValueError(f"受注 '{sales_order_ref}' は出庫済みまたはキャンセル済みのため引当できません。")
-
-                    # 受注ごとの引当数量を記録する(出庫時に自身の引当分だけを解放するため)。
-                    # 既存受注への追加引当で出庫予定数量を超える場合は、出庫予定数量を引当に合わせて拡張する。
-                    sales_order = SalesOrder.objects.select_for_update().get(pk=sales_order.pk)
-                    if not so_created:
-                        sales_order.reserved_quantity += quantity_to_reserve
-                    else:
-                        sales_order.reserved_quantity = quantity_to_reserve
-                    sales_order.quantity = max(
-                        sales_order.quantity, sales_order.shipped_quantity + sales_order.reserved_quantity
-                    )
-                    sales_order.save()
-
-                    processed_allocations_summary.append(
-                        {
-                            "part_number": part_number,
-                            "warehouse": warehouse,
-                            "reserved_quantity": quantity_to_reserve,
-                            "sales_order_created": so_created,
-                            "locations_consumed": locations_consumed,
-                            "new_total_reserved": sum(row.reserved for row in inventory_rows),
-                            "new_available_quantity": sum(row.available_quantity for row in inventory_rows),
-                        }
-                    )
-
-            return Response(
-                {
-                    "success": True,
-                    "message": "在庫を正常に引き当てました。",
-                    "sales_order_reference": sales_order_ref,
-                    "sales_order_id": sales_order.id if sales_order else None,
-                    "allocations_summary": processed_allocations_summary,
-                },
-                status=status.HTTP_200_OK,
+            sales_order, summary = services.allocate_sales_order(
+                request.data.get("sales_order_reference"), request.data.get("allocations")
             )
-        except ValueError as e:
-            return Response({"success": False, "error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except services.InventoryServiceError as e:
+            return Response({"success": False, "error": e.message}, status=e.status_code)
+        return Response(
+            {
+                "success": True,
+                "message": "在庫を正常に引き当てました。",
+                "sales_order_reference": sales_order.order_number,
+                "sales_order_id": sales_order.id,
+                "allocations_summary": summary,
+            },
+            status=status.HTTP_200_OK,
+        )
 
     @action(detail=False, methods=["post"])
     def issue(self, request):
@@ -832,20 +466,13 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
         """
         order_id = request.data.get("order_id")
         quantity_to_ship_str = request.data.get("quantity_to_ship")
-
         if not order_id or quantity_to_ship_str is None:
             return Response(
                 {"success": False, "error": "order_id と quantity_to_ship は必須です。"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
         try:
             quantity_to_ship = int(quantity_to_ship_str)
-            if quantity_to_ship <= 0:
-                return Response(
-                    {"success": False, "error": "出庫数量は0より大きい必要があります。"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
         except (TypeError, ValueError):
             return Response(
                 {"success": False, "error": "出庫数量は有効な数値である必要があります。"},
@@ -853,157 +480,17 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
             )
 
         try:
-            with transaction.atomic():
-                try:
-                    sales_order = SalesOrder.objects.select_for_update().get(id=order_id)
-                except SalesOrder.DoesNotExist:
-                    return Response(
-                        {"success": False, "error": f"受注ID {order_id} が見つかりません。"},
-                        status=status.HTTP_404_NOT_FOUND,
-                    )
-
-                if sales_order.is_internal:
-                    return self._reject_internal_order(sales_order)
-                if sales_order.status == SalesOrder.Status.SHIPPED:
-                    return Response(
-                        {"success": False, "error": f"受注 {sales_order.order_number} は既に出庫済みです。"},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-                if sales_order.status == SalesOrder.Status.CANCELED:
-                    return Response(
-                        {"success": False, "error": f"受注 {sales_order.order_number} はキャンセルされています。"},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-                if not sales_order.item or not sales_order.warehouse:
-                    return Response(
-                        {
-                            "success": False,
-                            "error": f"受注 {sales_order.order_number} に品目または倉庫が指定されていません。",
-                        },
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-                if quantity_to_ship > sales_order.remaining_quantity:
-                    return Response(
-                        {
-                            "success": False,
-                            "error": (
-                                f"出庫数量 ({quantity_to_ship}) が残数量 "
-                                f"({sales_order.remaining_quantity}) を超えています。"
-                            ),
-                        },
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-                # 同一品番+倉庫内で棚番(location)をまたいで在庫が分散しているケースに対応するため、
-                # 単一行の get() ではなく該当する全ロケーションを取得し、入庫が古い順(FIFO)で
-                # 出庫数量に達するまで複数ロケーションから出庫する。
-                inventory_rows = list(
-                    Inventory.objects.select_for_update()
-                    .filter(part_number_rel_id=sales_order.item, warehouse_rel_id=sales_order.warehouse)
-                    .order_by(F("first_received_at").asc(nulls_last=True), "location")
-                )
-                if not inventory_rows:
-                    return Response(
-                        {
-                            "success": False,
-                            "error": (
-                                f"在庫記録が見つかりません: 品目 {sales_order.item}、"
-                                f"倉庫 {sales_order.warehouse} (受注: {sales_order.order_number})"
-                            ),
-                        },
-                        status=status.HTTP_404_NOT_FOUND,
-                    )
-
-                # issue は allocate と異なり is_allocatable は確認しない(意図的な非対称性、
-                # docs/09_test_specifications/01_inventory.md の既知の懸念事項2を参照)。
-                eligible_rows = [row for row in inventory_rows if row.is_active]
-                if not eligible_rows:
-                    return Response(
-                        {
-                            "success": False,
-                            "error": f"在庫品目 {sales_order.item} (倉庫: {sales_order.warehouse}) は有効ではありません。",
-                        },
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-                # 他の受注・生産計画が引き当てている在庫は出庫できない。出庫可能数は
-                # 「物理在庫 - 他者の引当(= 引当合計 - この受注自身の引当)」とする。
-                total_quantity = sum(row.quantity for row in eligible_rows)
-                total_reserved = sum(row.reserved for row in eligible_rows)
-                own_reserved = min(sales_order.reserved_quantity, total_reserved)
-                others_reserved = total_reserved - own_reserved
-                shippable_quantity = max(0, total_quantity - others_reserved)
-                if shippable_quantity < quantity_to_ship:
-                    return Response(
-                        {
-                            "success": False,
-                            "error": (
-                                f"在庫不足: {sales_order.item} (倉庫: {sales_order.warehouse})。"
-                                f"実在庫: {total_quantity}, 他の引当: {others_reserved}, "
-                                f"出庫可能: {shippable_quantity}, 要求: {quantity_to_ship}。"
-                            ),
-                        },
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-                # 出庫する棚(物理在庫の消費元)と、引当(reserved)を解放する棚は必ずしも一致しない
-                # (例: 引当は別の棚で行われていたが、入庫が古い順の都合で別の棚から出庫するケース)。
-                # そのため、まず入庫が古い順に物理在庫(quantity)を消費し、この受注自身の引当分を
-                # 品番+倉庫全体の引当済数量から取り崩す、という形で分離して扱う。
-                remaining_to_ship = quantity_to_ship
-                operator = request.user if request.user.is_authenticated else None
-                for row in eligible_rows:
-                    if remaining_to_ship <= 0:
-                        break
-                    take = min(row.quantity, remaining_to_ship)
-                    if take <= 0:
-                        continue
-                    row.quantity -= take
-                    remaining_to_ship -= take
-
-                    StockMovement.objects.create(
-                        part_number=sales_order.item,
-                        movement_type=StockMovement.MovementType.OUTGOING,
-                        quantity=take,
-                        warehouse=sales_order.warehouse,
-                        location=row.location,
-                        reference_document=f"SO: {sales_order.order_number}",
-                        description=f"受注 {sales_order.order_number} による出庫",
-                        operator=operator,
-                    )
-
-                remaining_to_release = min(own_reserved, quantity_to_ship)
-                released_quantity = remaining_to_release
-                for row in eligible_rows:
-                    if remaining_to_release <= 0:
-                        break
-                    release = min(row.reserved, remaining_to_release)
-                    if release <= 0:
-                        continue
-                    row.reserved -= release
-                    remaining_to_release -= release
-
-                _rebalance_reserved(eligible_rows)
-                for row in eligible_rows:
-                    row.save()
-
-                sales_order.reserved_quantity -= released_quantity
-                sales_order.shipped_quantity += quantity_to_ship
-                if sales_order.remaining_quantity <= 0:
-                    sales_order.status = SalesOrder.Status.SHIPPED
-                sales_order.save()
-
-                return Response(
-                    {
-                        "success": True,
-                        "message": f"受注 {sales_order.order_number} から {quantity_to_ship} 個の {sales_order.item} を出庫しました。",
-                    }
-                )
-        except Exception as e:
-            return Response(
-                {"success": False, "error": f"出庫処理中に予期せぬエラーが発生しました: {str(e)}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+            sales_order = services.issue_sales_order(order_id, quantity_to_ship, request.user)
+        except services.InventoryServiceError as e:
+            return Response({"success": False, "error": e.message}, status=e.status_code)
+        return Response(
+            {
+                "success": True,
+                "message": (
+                    f"受注 {sales_order.order_number} から {quantity_to_ship} 個の {sales_order.item} を出庫しました。"
+                ),
+            }
+        )
 
 
 class StockMovementViewSet(viewsets.ReadOnlyModelViewSet):
@@ -1047,4 +534,8 @@ class StockMovementViewSet(viewsets.ReadOnlyModelViewSet):
         if date_to:
             filters &= Q(movement_date__date__lte=date_to)
 
-        return StockMovement.objects.filter(filters).select_related("part_number_rel", "warehouse_rel").order_by("-movement_date", "part_number_rel__code")
+        return (
+            StockMovement.objects.filter(filters)
+            .select_related("part_number_rel", "warehouse_rel")
+            .order_by("-movement_date", "part_number_rel__code")
+        )
