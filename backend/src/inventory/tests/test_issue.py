@@ -20,6 +20,7 @@ class IssueTests(InventoryAPITestBase):
             item=self.item1.code,
             warehouse=self.warehouse_a.warehouse_number,
             quantity=10,
+            reserved_quantity=2,  # setUpの在庫の引当(reserved=2)はこの受注のもの
         )
 
     def _issue(self, **overrides):
@@ -181,6 +182,8 @@ class IssueTests(InventoryAPITestBase):
             quantity=10,
             reserved=5,
         )
+        self.so.reserved_quantity = 5
+        self.so.save()
         response = self._issue(quantity_to_ship=4)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.inventory.refresh_from_db()
@@ -191,3 +194,42 @@ class IssueTests(InventoryAPITestBase):
         # 引当(reserved)の解放は、実際に引当があるA-02から行われる
         self.assertEqual(self.inventory.reserved, 0)
         self.assertEqual(second.reserved, 1)
+
+    def test_so_issue_15_other_orders_reservation_protected(self):
+        """他の受注・生産計画が引き当てている在庫は出庫できず、その引当も解放されない。"""
+        self.so.reserved_quantity = 0
+        self.so.save()
+        # 在庫10のうち2は他者の引当 → 出庫可能は8
+        response = self._issue(quantity_to_ship=9)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        response = self._issue(quantity_to_ship=8)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.inventory.refresh_from_db()
+        self.assertEqual(self.inventory.quantity, 2)
+        self.assertEqual(self.inventory.reserved, 2, "他者の引当は解放されないこと")
+
+    def test_so_issue_16_own_reservation_released_and_tracked(self):
+        response = self._issue(quantity_to_ship=5)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.so.refresh_from_db()
+        self.inventory.refresh_from_db()
+        self.assertEqual(self.so.reserved_quantity, 0)
+        self.assertEqual(self.inventory.reserved, 0)
+
+    def test_so_issue_17_reservation_moved_when_reserved_location_is_consumed(self):
+        """入庫が古い棚(他者の引当あり)から出庫した場合、引当は在庫が残る棚へ付け替えられ、
+        各棚で quantity >= reserved が保たれる。"""
+        self.so.reserved_quantity = 0
+        self.so.save()
+        self.inventory.quantity = 5
+        self.inventory.reserved = 5
+        self.inventory.save()
+        second = self.create_inventory(
+            part_number=self.item1.code, warehouse=self.warehouse_a.warehouse_number, location="A-02", quantity=5
+        )
+        response = self._issue(quantity_to_ship=5)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.inventory.refresh_from_db()
+        second.refresh_from_db()
+        self.assertEqual((self.inventory.quantity, self.inventory.reserved), (0, 0))
+        self.assertEqual((second.quantity, second.reserved), (5, 5))

@@ -33,7 +33,7 @@ class AllocateTests(InventoryAPITestBase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.inventory.refresh_from_db()
         self.assertEqual(self.inventory.reserved, 5)
-        self.assertTrue(SalesOrder.objects.filter(order_number="SO-ALLOC-1").exists())
+        self.assertTrue(SalesOrder.objects.filter(order_number="SO-ALLOC-1", reserved_quantity=5).exists())
 
     def test_so_alloc_02_success_adds_to_existing_sales_order(self):
         self._allocate()
@@ -50,6 +50,9 @@ class AllocateTests(InventoryAPITestBase):
         self.inventory.refresh_from_db()
         self.assertEqual(self.inventory.reserved, 8)
         self.assertEqual(SalesOrder.objects.filter(order_number="SO-ALLOC-1").count(), 1)
+        so = SalesOrder.objects.get(order_number="SO-ALLOC-1")
+        self.assertEqual(so.reserved_quantity, 8)
+        self.assertEqual(so.quantity, 8, "引当が出庫予定数量を超える場合は出庫予定数量を拡張する")
 
     def test_so_alloc_03_insufficient_stock_rejected(self):
         response = self._allocate(

@@ -224,6 +224,7 @@ class SalesOrderSerializer(serializers.ModelSerializer):
             "item",
             "quantity",
             "shipped_quantity",
+            "reserved_quantity",
             "remaining_quantity",  # 利用可能在庫 (プロパティ)
             "order_date",
             "expected_shipment",
@@ -236,11 +237,28 @@ class SalesOrderSerializer(serializers.ModelSerializer):
             "id",
             "order_date",
             "shipped_quantity",
+            "reserved_quantity",
             "remaining_quantity",
             "status",
             "status_display",
             "is_internal",
         ]
+
+    def validate(self, data):
+        instance = self.instance
+        if instance and instance.reserved_quantity > 0:
+            # 引当済みの在庫は品番+倉庫に紐づくため、引当を持ったまま品目・倉庫を変更させない
+            if "item_rel" in data and data["item_rel"] != instance.item_rel:
+                raise serializers.ValidationError({"item": "引当済みの受注は品目を変更できません。"})
+            if "warehouse_rel" in data and data["warehouse_rel"] != instance.warehouse_rel:
+                raise serializers.ValidationError({"warehouse": "引当済みの受注は倉庫を変更できません。"})
+        if instance and "quantity" in data:
+            minimum = instance.shipped_quantity + instance.reserved_quantity
+            if data["quantity"] < minimum:
+                raise serializers.ValidationError(
+                    {"quantity": f"出庫予定数量は出庫済数量+引当済数量({minimum})以上である必要があります。"}
+                )
+        return data
 
     def validate_order_number(self, value):
         if value and value.startswith(SalesOrder.INTERNAL_ORDER_PREFIX):

@@ -48,3 +48,27 @@ class SalesOrderCrudTests(InventoryAPITestBase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["count"], 1)
         self.assertEqual(response.data["results"][0]["order_number"], "SO-002")
+
+
+class SalesOrderReservationCrudTests(InventoryAPITestBase):
+    """SO-CRUD-06〜: 引当を持つ受注の更新・削除。"""
+
+    def setUp(self):
+        super().setUp()
+        self.inventory = self.create_inventory(quantity=10, reserved=4)
+        self.so = self.create_sales_order(order_number="SO-RSV-1", quantity=6, reserved_quantity=4)
+        self.url = reverse("inventory_api:salesorder-detail", args=[self.so.id])
+
+    def test_so_crud_06_delete_releases_reservation(self):
+        response = self.client.delete(self.url)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.inventory.refresh_from_db()
+        self.assertEqual(self.inventory.reserved, 0)
+
+    def test_so_crud_07_quantity_below_reserved_rejected(self):
+        response = self.client.patch(self.url, {"quantity": 3}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_so_crud_08_change_item_with_reservation_rejected(self):
+        response = self.client.patch(self.url, {"item": self.item2.code}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

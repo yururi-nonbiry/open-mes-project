@@ -58,6 +58,31 @@ class StandardResultsSetPagination(PageNumberPagination):
         )
 
 
+def _rebalance_reserved(rows):
+    """
+    引当(reserved)が物理在庫(quantity)を超えている棚から、余裕のある棚へ超過分を付け替える。
+
+    Inventory.reserved は品番+倉庫内でどの棚の在庫を引き当てているかを区別しないプールのため、
+    入庫が古い順の出庫で引当のある棚の在庫が先に減った場合でも、同じ品番+倉庫の他の棚に
+    付け替えることで「各棚で quantity >= reserved」を保つ(棚ごとの available_quantity が
+    実態より多く見えて過剰引当されるのを防ぐ)。rows は保存前の状態で渡し、呼び出し側で保存する。
+    """
+    excess = 0
+    for row in rows:
+        if row.reserved > row.quantity:
+            excess += row.reserved - row.quantity
+            row.reserved = row.quantity
+    for row in rows:
+        if excess <= 0:
+            break
+        room = row.quantity - row.reserved
+        if room <= 0:
+            continue
+        moved = min(room, excess)
+        row.reserved += moved
+        excess -= moved
+
+
 # --- ViewSets ---
 
 
@@ -552,7 +577,27 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         if instance.is_internal:
             return self._reject_internal_order(instance)
-        return super().destroy(request, *args, **kwargs)
+        with transaction.atomic():
+            sales_order = SalesOrder.objects.select_for_update().get(pk=instance.pk)
+            if sales_order.reserved_quantity > 0:
+                # 削除する受注が持っていた引当を在庫側からも解放する
+                rows = list(
+                    Inventory.objects.select_for_update()
+                    .filter(part_number_rel_id=sales_order.item, warehouse_rel_id=sales_order.warehouse)
+                    .order_by(F("first_received_at").desc(nulls_first=True), "-location")
+                )
+                remaining_to_release = sales_order.reserved_quantity
+                for row in rows:
+                    if remaining_to_release <= 0:
+                        break
+                    release = min(row.reserved, remaining_to_release)
+                    if release <= 0:
+                        continue
+                    row.reserved -= release
+                    row.save()
+                    remaining_to_release -= release
+            sales_order.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=["get"], url_path="location-map")
     def location_map(self, request, pk=None):
@@ -703,6 +748,20 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
                             f"既存: 品目='{sales_order.item}', 倉庫='{sales_order.warehouse}'。"
                             f"今回: 品目='{part_number}', 倉庫='{warehouse}'。"
                         )
+                    if sales_order.status != "pending":
+                        raise ValueError(f"受注 '{sales_order_ref}' は出庫済みまたはキャンセル済みのため引当できません。")
+
+                    # 受注ごとの引当数量を記録する(出庫時に自身の引当分だけを解放するため)。
+                    # 既存受注への追加引当で出庫予定数量を超える場合は、出庫予定数量を引当に合わせて拡張する。
+                    sales_order = SalesOrder.objects.select_for_update().get(pk=sales_order.pk)
+                    if not so_created:
+                        sales_order.reserved_quantity += quantity_to_reserve
+                    else:
+                        sales_order.reserved_quantity = quantity_to_reserve
+                    sales_order.quantity = max(
+                        sales_order.quantity, sales_order.shipped_quantity + sales_order.reserved_quantity
+                    )
+                    sales_order.save()
 
                     processed_allocations_summary.append(
                         {
@@ -832,14 +891,21 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
+                # 他の受注・生産計画が引き当てている在庫は出庫できない。出庫可能数は
+                # 「物理在庫 - 他者の引当(= 引当合計 - この受注自身の引当)」とする。
                 total_quantity = sum(row.quantity for row in eligible_rows)
-                if total_quantity < quantity_to_ship:
+                total_reserved = sum(row.reserved for row in eligible_rows)
+                own_reserved = min(sales_order.reserved_quantity, total_reserved)
+                others_reserved = total_reserved - own_reserved
+                shippable_quantity = max(0, total_quantity - others_reserved)
+                if shippable_quantity < quantity_to_ship:
                     return Response(
                         {
                             "success": False,
                             "error": (
                                 f"在庫不足: {sales_order.item} (倉庫: {sales_order.warehouse})。"
-                                f"実在庫: {total_quantity}, 要求: {quantity_to_ship}。"
+                                f"実在庫: {total_quantity}, 他の引当: {others_reserved}, "
+                                f"出庫可能: {shippable_quantity}, 要求: {quantity_to_ship}。"
                             ),
                         },
                         status=status.HTTP_400_BAD_REQUEST,
@@ -847,8 +913,8 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
 
                 # 出庫する棚(物理在庫の消費元)と、引当(reserved)を解放する棚は必ずしも一致しない
                 # (例: 引当は別の棚で行われていたが、入庫が古い順の都合で別の棚から出庫するケース)。
-                # そのため、まず入庫が古い順に物理在庫(quantity)を消費し、reservedの解放は
-                # 品番+倉庫全体の引当済数量から出庫数量分をまとめて取り崩す、という形で分離して扱う。
+                # そのため、まず入庫が古い順に物理在庫(quantity)を消費し、この受注自身の引当分を
+                # 品番+倉庫全体の引当済数量から取り崩す、という形で分離して扱う。
                 remaining_to_ship = quantity_to_ship
                 operator = request.user if request.user.is_authenticated else None
                 for row in eligible_rows:
@@ -858,7 +924,6 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
                     if take <= 0:
                         continue
                     row.quantity -= take
-                    row.save()
                     remaining_to_ship -= take
 
                     StockMovement.objects.create(
@@ -872,8 +937,8 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
                         operator=operator,
                     )
 
-                total_reserved = sum(row.reserved for row in eligible_rows)
-                remaining_to_release = min(total_reserved, quantity_to_ship)
+                remaining_to_release = min(own_reserved, quantity_to_ship)
+                released_quantity = remaining_to_release
                 for row in eligible_rows:
                     if remaining_to_release <= 0:
                         break
@@ -881,9 +946,13 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
                     if release <= 0:
                         continue
                     row.reserved -= release
-                    row.save()
                     remaining_to_release -= release
 
+                _rebalance_reserved(eligible_rows)
+                for row in eligible_rows:
+                    row.save()
+
+                sales_order.reserved_quantity -= released_quantity
                 sales_order.shipped_quantity += quantity_to_ship
                 if sales_order.remaining_quantity <= 0:
                     sales_order.status = "shipped"
