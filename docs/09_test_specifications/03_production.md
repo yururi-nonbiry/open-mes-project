@@ -153,6 +153,10 @@
 
 | PSS-06 | 正常系 | `GET parts-supply-simulation/` | 共通部品の在庫が2倉庫に分かれ(合計8)、2計画がそれぞれ5必要 | `plan_ids=<id1>,<id2>` | 200、所要部品は倉庫を持たないため全倉庫合算で判定し、後の計画が不足2で`feasible=False` | |
 | PSS-07 | 正常系 | `GET parts-supply-simulation/` | 所要5に対し追加出庫5のみ、在庫3 | `plan_ids=<id>` | 200、追加出庫は所要量の消化に数えないため不足2 | |
+| PSS-08 | 正常系 | `GET parts-supply-simulation/` | 中間品の在庫0、開始前日に終わる中間品の生産計画(20、対象外) | 中間品20を使う計画のみ指定 | 200、`feasible=True`、`incoming_quantity=20`、`incoming_plans`に生産計画 | 対象に選ばない生産予定も数える |
+| PSS-09 | 異常系 | `GET parts-supply-simulation/` | 開始後に終わる生産計画、保留中の生産計画 | 同上 | 200、どちらも数えず不足20 | |
+| PSS-10 | 正常系 | `GET parts-supply-simulation/` | 在庫0、計画A(5)→生産予定10入荷→計画B(5) | A・Bを指定 | Aは不足、Bは生産可能、部品の不足数量5 | 入荷分はまず不足の穴埋めに充てる |
+| PSS-11 | 正常系 | `GET parts-supply-simulation/` | 入荷見込みの生産計画自身が材料不足 | 両計画を指定 | 使う側は生産可能だが`incoming_plans[].at_risk=True` | |
 
 ### 5.9 生産計画の所要部品（`ProductionPlanMaterialViewSet`・`signals.py`、`production/tests/test_plan_materials.py`）
 
@@ -191,6 +195,25 @@
 | PP-ADDISSUE-06 | 異常系 | 追加出庫 | 計画が中止 | 出庫 | 400 | |
 | PP-ADDISSUE-07 | 正常系 | 完了の取消 | 追加出庫後に完了 | 完了→進行中 | 追加出庫はISSUEDのまま、在庫も戻らない | |
 | PP-ADDISSUE-08 | 正常系 | `change-status` | 追加出庫済み | RETURNED | 200、在庫に戻る | 使わなかった分の返却 |
+
+### 5.11 中間品の子計画（`services/intermediates.py`、`production/tests/test_intermediate_plans.py`）
+
+構成: 製品 ← 中間品×2・材料×1 / 中間品(リードタイム2日) ← 材料×3
+
+| ケースID | 分類 | 対象 | 前提条件 | 手順・入力 | 期待結果 | 備考 |
+|---|---|---|---|---|---|---|
+| PP-INT-01 | 正常系 | 計画作成 | 中間品の在庫なし | 計画数量10で作成 | 中間品20の子計画(親の開始日時に終了、2日前に開始、所要部品は材料60)、手配方法は子計画 | |
+| PP-INT-02 | 正常系 | 計画作成 | 中間品の在庫15 | 同上 | 子計画は不足分の5 | |
+| PP-INT-03 | 正常系 | `GET plans/{id}/intermediate-requirements/` | 中間品の在庫30 | 計画作成 | 子計画なし、`DECISION_REQUIRED`、見込み30、`pending_intermediate_count=1` | |
+| PP-INT-04 | 正常系 | `POST plans/{id}/arrange-intermediates/` | 同上 | STOCK | 200、`COVERED`、`pending_intermediate_count=0` | |
+| PP-INT-05 | 正常系 | `POST plans/{id}/arrange-intermediates/` | 同上 | CHILD_PLAN(数量省略)→CHILD_PLAN(4) | 20の子計画を作成、数量を指定すれば追加で作れる | |
+| PP-INT-06 | 異常系 | `POST plans/{id}/arrange-intermediates/` | 作成後に在庫が5に減った | STOCK | 400 | 見込みが足りない場合は在庫を選べない |
+| PP-INT-07 | 正常系 | 計画作成 | 在庫30、先に始まる計画が20使う | 後の計画を作成 | 子計画は10 | 先の計画の未引当の所要数を差し引く |
+| PP-INT-08 | 正常系 | 計画作成 | 開始前に終わる中間品の生産計画(20) | 計画作成 | 子計画なし、`DECISION_REQUIRED` | 他の生産予定も見込みに数える |
+| PP-INT-09 | 正常系 | 計画作成 | 中間品が別の中間品を使う | 計画作成 | 孫計画が子計画の開始日時に終わるよう作られる | 多階層 |
+| PP-INT-10 | 正常系 | `PATCH plans/{id}/` | 在庫30 | 計画数量を20に変更 | 不足分10の子計画を作成 | |
+| PP-INT-11 | 正常系 | `POST plan-materials/` | 在庫のない中間品 | 部品構成に追加 | 子計画を作成 | |
+| PP-INT-12 | 異常系 | `POST plans/{id}/arrange-intermediates/` | - | 空・部品構成に無い品目・不正な手配方法・数量0・数値以外、完了した計画 | 400、子計画は作られない | |
 
 ## 6. シリアライザの read_only_fields 確認
 

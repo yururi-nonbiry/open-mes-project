@@ -9,10 +9,11 @@ interface ProductionPlanTableProps {
     onAllocate: (plan: ProductionPlan) => void;
     onMaterials: (plan: ProductionPlan) => void;
     onAdditionalIssue: (plan: ProductionPlan) => void;
+    onIntermediates: (plan: ProductionPlan) => void;
 }
 
 const ProductionPlanTable: React.FC<ProductionPlanTableProps> = ({
-    plans, loading, error, onDetail, onAllocate, onMaterials, onAdditionalIssue
+    plans, loading, error, onDetail, onAllocate, onMaterials, onAdditionalIssue, onIntermediates
 }) => {
     const formatDate = (dateStr: string) => {
         if (!dateStr) return 'N/A';
@@ -42,7 +43,11 @@ const ProductionPlanTable: React.FC<ProductionPlanTableProps> = ({
                 <tbody>
                     {plans.length > 0 ? plans.map(plan => (
                         <tr key={plan.id}>
-                            <td>{plan.plan_name || 'N/A'}</td>
+                            <td>
+                                {plan.plan_name || 'N/A'}
+                                {plan.parent_plan_name && <div className="small text-muted">親計画: {plan.parent_plan_name}</div>}
+                                {!!plan.child_plan_count && <div className="small text-muted">子計画: {plan.child_plan_count}件</div>}
+                            </td>
                             <td>{plan.product_code || 'N/A'}</td>
                             <td className="text-end">{plan.planned_quantity}</td>
                             <td className="text-center">{formatDate(plan.planned_start_datetime)}</td>
@@ -51,6 +56,14 @@ const ProductionPlanTable: React.FC<ProductionPlanTableProps> = ({
                             <td className="text-center text-nowrap">
                                 <button className="btn btn-sm btn-info" onClick={() => onDetail(plan)}>詳細</button>
                                 <button className="btn btn-sm btn-secondary ms-1" onClick={() => onMaterials(plan)}>部品構成</button>
+                                <button className="btn btn-sm btn-outline-primary ms-1" onClick={() => onIntermediates(plan)}>
+                                    中間品
+                                    {!!plan.pending_intermediate_count && ['PENDING', 'IN_PROGRESS'].includes(plan.status) && (
+                                        <span className="badge bg-warning text-dark ms-1" title="子計画を立てるか在庫を使うかが未決定の中間品">
+                                            要判断 {plan.pending_intermediate_count}
+                                        </span>
+                                    )}
+                                </button>
                                 <button className="btn btn-sm btn-warning ms-1" onClick={() => onAllocate(plan)}>材料引当</button>
                                 <button className="btn btn-sm btn-outline-danger ms-1" onClick={() => onAdditionalIssue(plan)}>追加出庫</button>
                             </td>

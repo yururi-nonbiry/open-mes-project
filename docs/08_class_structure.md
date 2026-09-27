@@ -168,6 +168,7 @@ class ProductionPlanMaterial {
     +id: UUID
     +quantity_per_unit: decimal
     +required_quantity: int
+    +supply_method: string
     +remarks: text
     +created_at: datetime
     +updated_at: datetime
@@ -289,6 +290,7 @@ Item "1" -- "0..*" MaterialAllocation : material
 Warehouse "1" -- "0..*" MaterialAllocation : warehouse_rel
 ProductionPlan "1" -- "0..*" MaterialAllocation : production_plan
 ProductionPlan "1" -- "0..*" ProductionPlanMaterial : production_plan
+ProductionPlan "0..1" -- "0..*" ProductionPlan : parent_plan
 Item "1" -- "0..*" ProductionPlanMaterial : material
 ProductionPlan "1" -- "0..*" WorkProgress : production_plan
 CustomUser "1" -- "0..*" WorkProgress : operator
@@ -341,9 +343,9 @@ MeasurementDetail "1" -- "0..*" InspectionResultDetail : measurement_detail
 
 ## Production（生産）モジュール
 
-**ProductionPlan（生産計画）** – 製造指示・生産計画を表すクラスです。UUIDv7の`id`で識別されます。`plan_name`（計画名）、`product`（`master.Item`へのFK、製品・中間品に限定、DBカラム名`product_code`）、`planned_quantity`（計画数量）、計画開始・終了日時、実績の開始・終了日時を持ち、進捗ステータス`status`は「未着手(PENDING)」「進行中(IN_PROGRESS)」「完了(COMPLETED)」「保留(ON_HOLD)」「中止(CANCELLED)」です。`production_plan`という文字列フィールドも別途あり、旧来は`PartsUsed`と対応付けるBOM識別子として使われていました（現在は業務処理から参照しません）。計画の部品構成は`materials`（`ProductionPlanMaterial`）で持ちます。
+**ProductionPlan（生産計画）** – 製造指示・生産計画を表すクラスです。UUIDv7の`id`で識別されます。`plan_name`（計画名）、`product`（`master.Item`へのFK、製品・中間品に限定、DBカラム名`product_code`）、`planned_quantity`（計画数量）、計画開始・終了日時、実績の開始・終了日時を持ち、進捗ステータス`status`は「未着手(PENDING)」「進行中(IN_PROGRESS)」「完了(COMPLETED)」「保留(ON_HOLD)」「中止(CANCELLED)」です。`production_plan`という文字列フィールドも別途あり、旧来は`PartsUsed`と対応付けるBOM識別子として使われていました（現在は業務処理から参照しません）。計画の部品構成は`materials`（`ProductionPlanMaterial`）で持ちます。`parent_plan`（自身へのFK、`related_name="child_plans"`、SET_NULL）は中間品の子計画の場合にその中間品を使う親の計画を指します。
 
-**ProductionPlanMaterial（生産計画の所要部品）** – 生産計画ごとの部品構成です。`production_plan`（`ProductionPlan`へのFK、`related_name="materials"`、CASCADE）、`material`（`master.Item`へのFK、材料・中間品、DBカラム名`material_code`）、`quantity_per_unit`（製品1個あたり所要数量、小数3桁）、`required_quantity`（計画全体の所要数量＝1個あたり×計画数量の切り上げ）を持ち、`(production_plan, material)`にユニーク制約があります。計画の作成時にBOMマスターの直下の子品目（1階層分）がコピーされ（`production/signals.py`。API・CSV取込のどちらで作成しても同じ）、以後は計画ごとに編集できます（同じ製品でも計画によって構成が変わるため）。計画数量を変えると所要数量を再計算し、製品を変えるとBOMマスターからコピーし直します。倉庫は持たず、材料引当時に選びます。歩留まり・ロスは所要量に含めず、不足分は`MaterialAllocation`の追加出庫で扱います。
+**ProductionPlanMaterial（生産計画の所要部品）** – 生産計画ごとの部品構成です。`production_plan`（`ProductionPlan`へのFK、`related_name="materials"`、CASCADE）、`material`（`master.Item`へのFK、材料・中間品、DBカラム名`material_code`）、`quantity_per_unit`（製品1個あたり所要数量、小数3桁）、`required_quantity`（計画全体の所要数量＝1個あたり×計画数量の切り上げ）を持ち、`(production_plan, material)`にユニーク制約があります。計画の作成時にBOMマスターの直下の子品目（1階層分）がコピーされ（`production/signals.py`。API・CSV取込のどちらで作成しても同じ）、以後は計画ごとに編集できます（同じ製品でも計画によって構成が変わるため）。計画数量を変えると所要数量を再計算し、製品を変えるとBOMマスターからコピーし直します。倉庫は持たず、材料引当時に選びます。歩留まり・ロスは所要量に含めず、不足分は`MaterialAllocation`の追加出庫で扱います。`supply_method`は中間品の手配方法（未決定／在庫を使う(STOCK)／子計画を立てる(CHILD_PLAN)）です。中間品の手配は`production/services/intermediates.py`が行い、計画開始時点の見込み（未引当の在庫＋開始までに終わる他の生産予定−先に始まる計画の未引当の所要数）で足りない分は、計画の作成・製品変更・計画数量変更、所要部品の追加・変更、BOMからの読み込み直しの際に子計画を自動で作成します（子計画の所要部品もBOMからコピーされ、不足すれば孫計画も作られます）。子計画は親の開始日時に終わり、期間は中間品の`lead_time_days`（未設定なら親と同じ期間）です。見込みで足りる中間品は、子計画を立てるか在庫を使うかを利用者が選びます（API: `GET plans/{id}/intermediate-requirements/`、`POST plans/{id}/arrange-intermediates/`）。
 
 **PartsUsed（使用部品）** – 旧来の部品構成です。`production_plan`（`ProductionPlan.production_plan`と文字列一致で対応するBOM識別子）単位に、計画全体の使用数量`quantity_used`と倉庫`warehouse_rel`を持っていました。生産計画の所要部品は`ProductionPlanMaterial`に移行済み（マイグレーション`production/0010`でデータも移行）で、業務処理からは参照しません。既存データの確認用にモデルとAPIのみ残しています。
 
@@ -351,7 +353,7 @@ MeasurementDetail "1" -- "0..*" InspectionResultDetail : measurement_detail
 
 **WorkProgress（作業進捗）** – 現場の作業進行状況を記録するクラスです。`production_plan`（`ProductionPlan`へのFK、`related_name="work_progresses"`）、`process_step`（工程名、例:「組立」「塗装」「検査」）、`operator`（`CustomUser`へのFK、`on_delete=SET_NULL`）、開始・終了日時、`quantity_completed`（良品数）、`actual_reported_quantity`（総生産数）、`defective_reported_quantity`（不良数）、`status`（「未開始(NOT_STARTED)」「進行中(IN_PROGRESS)」「完了(COMPLETED)」「一時停止(PAUSED)」）を持ちます。`production_plan`と`process_step`の組み合わせにユニーク制約があります。
 
-**部品供給シミュレーション（`production/services/simulation.py`）** – 複数の生産計画にまたがり、各計画の所要部品（`ProductionPlanMaterial`）のうち共通する部品の需給を横断的にシミュレーションするサービスです。所要部品は倉庫を持たないため、全倉庫の在庫を合算して判定します。独立したモデルクラスは持たず、既存の`ProductionPlan`・`ProductionPlanMaterial`・`MaterialAllocation`・`Inventory`・`Item`の情報を集計して算出するため、本クラス図には表示されていません。部品ごとに不足が発生する計画・日付（`shortage_date`）を求めたうえで、`Item.lead_time_days`（調達リードタイム）を遡った`order_by_date`（発注・支給依頼をすべき期限）を算出し、現在時刻がこれを過ぎている場合は`order_overdue=True`として警告します。
+**部品供給シミュレーション（`production/services/simulation.py`）** – 複数の生産計画にまたがり、各計画の所要部品（`ProductionPlanMaterial`）のうち共通する部品の需給を横断的にシミュレーションするサービスです。所要部品は倉庫を持たないため、全倉庫の在庫を合算して判定します。独立したモデルクラスは持たず、既存の`ProductionPlan`・`ProductionPlanMaterial`・`MaterialAllocation`・`Inventory`・`Item`の情報を集計して算出するため、本クラス図には表示されていません。部品ごとに不足が発生する計画・日付（`shortage_date`）を求めたうえで、`Item.lead_time_days`（調達リードタイム）を遡った`order_by_date`（発注・支給依頼をすべき期限）を算出し、現在時刻がこれを過ぎている場合は`order_overdue=True`として警告します。中間品などを作る未着手・進行中の生産計画は、対象計画の選択に関係なく計画終了日時に入荷する見込み（`incoming_plans`）として数え、入荷分はまず先行計画の不足の穴埋めに充てます。このため部品の`shortage_quantity`は全計画を賄うために前倒しで必要な数量（不足の最大値）です。入荷見込みの計画自身が部品不足の場合は`at_risk=True`になります。
 
 ## Quality（品質）モジュール
 

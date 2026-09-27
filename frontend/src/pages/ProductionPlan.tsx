@@ -7,6 +7,7 @@ import ProductionPlanDetailModal from './production/ProductionPlanDetailModal';
 import ProductionPlanAllocateModal from './production/ProductionPlanAllocateModal';
 import ProductionPlanMaterialsModal from './production/ProductionPlanMaterialsModal';
 import ProductionPlanAdditionalIssueModal from './production/ProductionPlanAdditionalIssueModal';
+import ProductionPlanIntermediatesModal from './production/ProductionPlanIntermediatesModal';
 
 type PlanModalState = { isOpen: boolean; plan: ProductionPlanType | null };
 const closedModal: PlanModalState = { isOpen: false, plan: null };
@@ -28,6 +29,7 @@ const ProductionPlan: React.FC = () => {
 
     const [materialsModal, setMaterialsModal] = useState<PlanModalState>(closedModal);
     const [additionalIssueModal, setAdditionalIssueModal] = useState<PlanModalState>(closedModal);
+    const [intermediatesModal, setIntermediatesModal] = useState<PlanModalState>(closedModal);
 
     const openDetailModal = (plan: ProductionPlanType) => setDetailModal({ isOpen: true, plan });
     const closeDetailModal = () => setDetailModal({ isOpen: false, plan: null });
@@ -54,6 +56,7 @@ const ProductionPlan: React.FC = () => {
                 onAllocate={openAllocateModal}
                 onMaterials={(plan) => setMaterialsModal({ isOpen: true, plan })}
                 onAdditionalIssue={(plan) => setAdditionalIssueModal({ isOpen: true, plan })}
+                onIntermediates={(plan) => setIntermediatesModal({ isOpen: true, plan })}
             />
 
             <div className="text-center mt-4 mb-5">
@@ -89,7 +92,11 @@ const ProductionPlan: React.FC = () => {
 
             <ProductionPlanMaterialsModal
                 isOpen={materialsModal.isOpen}
-                onClose={() => setMaterialsModal(closedModal)}
+                onClose={() => {
+                    setMaterialsModal(closedModal);
+                    // 中間品を追加・所要数を変えると子計画が自動で作られることがあるため一覧を更新する
+                    handleSearch();
+                }}
                 plan={materialsModal.plan}
             />
 
@@ -97,6 +104,13 @@ const ProductionPlan: React.FC = () => {
                 isOpen={additionalIssueModal.isOpen}
                 onClose={() => setAdditionalIssueModal(closedModal)}
                 plan={additionalIssueModal.plan}
+            />
+
+            <ProductionPlanIntermediatesModal
+                isOpen={intermediatesModal.isOpen}
+                onClose={() => setIntermediatesModal(closedModal)}
+                onChanged={handleSearch}
+                plan={intermediatesModal.plan}
             />
         </div>
     );

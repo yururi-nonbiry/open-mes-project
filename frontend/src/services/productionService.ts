@@ -12,7 +12,9 @@ import {
     PartsSupplySimulationResult,
     PlanMaterial,
     AdditionalIssueItem,
-    MaterialAllocation
+    MaterialAllocation,
+    IntermediateRequirement,
+    IntermediateDecision
 } from '../types/production';
 
 /**
@@ -127,6 +129,25 @@ const productionService = {
             `/api/production/plans/${planId}/issue-additional-materials/`,
             { method: 'POST', body: JSON.stringify({ items, remarks }) },
             '追加出庫に失敗しました。'
+        ),
+
+    /** 中間品ごとの手配状況(在庫の見込み・子計画・不足) */
+    getIntermediateRequirements: (planId: string) =>
+        apiRequest<IntermediateRequirement[]>(
+            `/api/production/plans/${planId}/intermediate-requirements/`,
+            {},
+            '中間品の手配状況の取得に失敗しました。'
+        ),
+
+    /** 中間品の手配方法を決める(子計画を立てる / 在庫を使う) */
+    arrangeIntermediates: (planId: string, decisions: IntermediateDecision[]) =>
+        apiRequest<{
+            message: string;
+            data: { created_plans: ProductionPlan[]; requirements: IntermediateRequirement[] };
+        }>(
+            `/api/production/plans/${planId}/arrange-intermediates/`,
+            { method: 'POST', body: JSON.stringify({ decisions }) },
+            '中間品の手配に失敗しました。'
         ),
 
     getWorkProgressForPlan: async (planId: string) => {

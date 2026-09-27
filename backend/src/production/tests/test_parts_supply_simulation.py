@@ -154,3 +154,87 @@ class PartsSupplySimulationTests(ProductionAPITestBase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertFalse(response.data["plans"][0]["feasible"])
         self.assertEqual(response.data["parts"][0]["shortage_quantity"], 2)
+
+
+class IntermediateIncomingSimulationTests(ProductionAPITestBase):
+    """PSS-08..11: 中間品の生産予定を入荷見込みとして数える。"""
+
+    def setUp(self):
+        super().setUp()
+        from master.models import Item
+
+        self.url = reverse("production_api:parts-supply-simulation")
+        self.now = timezone.now()
+        self.intermediate = Item.objects.create(code="INT-001", name="Intermediate 1", item_type="intermediate")
+
+    def _demand(self, name, days, quantity):
+        plan = self.create_plan(
+            plan_name=name,
+            planned_start_datetime=self.now + timezone.timedelta(days=days),
+            planned_end_datetime=self.now + timezone.timedelta(days=days, hours=8),
+        )
+        self.create_plan_material(plan, self.intermediate, required_quantity=quantity)
+        return plan
+
+    def _supply(self, name, end_days, quantity):
+        return self.create_plan(
+            plan_name=name,
+            product_code=self.intermediate.code,
+            planned_quantity=quantity,
+            planned_start_datetime=self.now + timezone.timedelta(days=end_days - 1),
+            planned_end_datetime=self.now + timezone.timedelta(days=end_days),
+        )
+
+    def _simulate(self, *plans):
+        response = self.client.get(self.url, {"plan_ids": ",".join(str(p.id) for p in plans)})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        return {p["plan_name"]: p for p in response.data["plans"]}, response.data["parts"][0]
+
+    def test_pss_08_production_before_start_counts_as_incoming(self):
+        """PSS-08: 開始までに終わる中間品の生産予定は、対象に選ばなくても入荷見込みに数える。"""
+        supply = self._supply("Make INT", 2, 20)
+        demand = self._demand("Use INT", 3, 20)
+        plans, part = self._simulate(demand)
+        self.assertTrue(plans["Use INT"]["feasible"])
+        self.assertEqual(part["available_quantity"], 0)
+        self.assertEqual(part["incoming_quantity"], 20)
+        self.assertEqual(part["incoming_plans"][0]["plan_id"], supply.id)
+        self.assertFalse(part["incoming_plans"][0]["at_risk"])
+
+    def test_pss_09_production_after_start_not_counted(self):
+        """PSS-09: 開始より後に終わる生産予定は間に合わないため数えない。保留・中止の計画も数えない。"""
+        self._supply("Too late", 5, 20)
+        on_hold = self._supply("On hold", 1, 20)
+        on_hold.status = "ON_HOLD"
+        on_hold.save()
+        demand = self._demand("Use INT", 3, 20)
+        plans, part = self._simulate(demand)
+        self.assertFalse(plans["Use INT"]["feasible"])
+        self.assertEqual(part["incoming_quantity"], 0)
+        self.assertEqual(part["shortage_quantity"], 20)
+
+    def test_pss_10_incoming_fills_earlier_shortage_first(self):
+        """
+        PSS-10: 入荷分はまず先行計画の不足の穴埋めに充て、残りを後続計画が使う。
+        部品の不足数量は、全計画を賄うのに前倒しで必要な数量(不足の最大値)。
+        """
+        a = self._demand("A", 1, 5)
+        self._supply("Make INT", 2, 10)
+        b = self._demand("B", 3, 5)
+        plans, part = self._simulate(a, b)
+        self.assertFalse(plans["A"]["feasible"])
+        self.assertTrue(plans["B"]["feasible"])
+        self.assertEqual(part["shortage_quantity"], 5)
+        self.assertEqual(part["incoming_quantity"], 10)
+
+    def test_pss_11_incoming_from_infeasible_plan_is_at_risk(self):
+        """PSS-11: 入荷見込みの生産計画自身が部品不足の場合は at_risk=True。"""
+        supply = self._supply("Make INT", 2, 20)
+        self.create_plan_material(supply, self.material_item1, required_quantity=5)  # 在庫なし
+        demand = self._demand("Use INT", 3, 20)
+        plans, _ = self._simulate(supply, demand)
+        self.assertFalse(plans["Make INT"]["feasible"])
+        self.assertTrue(plans["Use INT"]["feasible"])
+        response = self.client.get(self.url, {"plan_ids": f"{supply.id},{demand.id}"})
+        incoming = next(p for p in response.data["parts"] if p["part_code"] == self.intermediate.code)
+        self.assertTrue(incoming["incoming_plans"][0]["at_risk"])

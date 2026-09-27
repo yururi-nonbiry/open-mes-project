@@ -118,6 +118,7 @@ const ProductionPlanMaterialsModal: React.FC<ProductionPlanMaterialsModalProps> 
                 <p className="text-muted small">
                     計画作成時にBOMマスターの構成がコピーされています。この計画だけ構成を変える場合はここで編集します。
                     所要数は「1個あたり × 計画数量」を切り上げた値です。歩留まり・ロスによる不足分は「追加出庫」で出庫してください。
+                    中間品の見込みが足りなくなった場合は子計画が自動で作られます（「中間品」ボタンで確認・手配）。
                     {readOnly && <><br /><strong>完了・中止した計画の部品構成は変更できません。</strong></>}
                 </p>
 
@@ -138,7 +139,12 @@ const ProductionPlanMaterialsModal: React.FC<ProductionPlanMaterialsModalProps> 
                                 <tr><td colSpan={5}>部品構成が登録されていません。</td></tr>
                             ) : materials.map(m => (
                                 <tr key={m.id}>
-                                    <td>[{m.material_code}] {m.material_name}</td>
+                                    <td>
+                                        [{m.material_code}] {m.material_name}
+                                        {m.material_item_type === 'intermediate' && (
+                                            <span className="badge bg-info text-dark ms-1">中間品{m.supply_method ? `・${m.supply_method_display}` : ''}</span>
+                                        )}
+                                    </td>
                                     <td className="text-end">
                                         {readOnly ? m.quantity_per_unit : (
                                             <input

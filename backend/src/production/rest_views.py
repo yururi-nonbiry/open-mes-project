@@ -1,3 +1,4 @@
+from django.db.models import Count, Q
 from django_filters import rest_framework as filters  # django-filterをインポート
 from rest_framework import (
     permissions,
@@ -16,6 +17,7 @@ from base.responses import error_response
 
 from .models import MaterialAllocation, PartsUsed, ProductionPlan, ProductionPlanMaterial, WorkProgress
 from .serializers import (
+    IntermediateRequirementSerializer,
     MaterialAllocationSerializer,
     PartsUsedSerializer,
     ProductionPlanMaterialSerializer,
@@ -33,6 +35,11 @@ from .services import (
     snapshot_plan_materials,
     update_material_allocation_status_service,
     update_production_progress_service,
+)
+from .services.intermediates import (
+    arrange_intermediates_service,
+    auto_arrange_intermediates,
+    get_intermediate_requirements,
 )
 from .services.materials import allocated_quantity_by_material, normal_allocations
 
@@ -101,7 +108,52 @@ class ProductionPlanViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         # django-filterが自動で処理するため、手動のフィルタリングを削除
-        return ProductionPlan.objects.all().select_related("product")
+        return (
+            ProductionPlan.objects.all()
+            .select_related("product", "parent_plan")
+            .annotate(
+                pending_intermediate_count=Count(
+                    "materials",
+                    filter=Q(
+                        materials__material__item_type="intermediate",
+                        materials__supply_method=ProductionPlanMaterial.SupplyMethod.UNDECIDED,
+                    ),
+                    distinct=True,
+                ),
+                child_plan_count=Count("child_plans", distinct=True),
+            )
+        )
+
+    @action(detail=True, methods=["get"], url_path="intermediate-requirements")
+    def intermediate_requirements(self, request, pk=None):
+        """計画の所要部品のうち中間品ごとの手配状況(在庫の見込み・子計画・不足)を返します。"""
+        plan = self.get_object()
+        return Response(IntermediateRequirementSerializer(get_intermediate_requirements(plan), many=True).data)
+
+    @action(detail=True, methods=["post"], url_path="arrange-intermediates")
+    def arrange_intermediates(self, request, pk=None):
+        """
+        中間品の手配方法を決めます(子計画を立てる / 在庫を使う)。
+
+        Request body: {"decisions": [{"material_code", "method": "CHILD_PLAN" | "STOCK", "quantity"(任意)}]}
+        """
+        plan = self.get_object()
+        try:
+            created = arrange_intermediates_service(plan, request.data.get("decisions"))
+        except ValueError as e:
+            return error_response(e)
+        message = f"子計画を{len(created)}件作成しました。" if created else "手配方法を更新しました。"
+        return Response(
+            {
+                "message": message,
+                "data": {
+                    "created_plans": ProductionPlanSerializer(created, many=True).data,
+                    "requirements": IntermediateRequirementSerializer(
+                        get_intermediate_requirements(plan), many=True
+                    ).data,
+                },
+            }
+        )
 
     @action(detail=True, methods=["get"], url_path="required-parts")
     def required_parts(self, request, pk=None):
@@ -124,6 +176,7 @@ class ProductionPlanViewSet(viewsets.ModelViewSet):
         if normal_allocations(plan.material_allocations.all()).exists():
             return error_response("材料の引当がある生産計画の部品構成は初期化できません。先に引当を解除してください。")
         snapshot_plan_materials(plan)
+        auto_arrange_intermediates(plan)
         materials = ProductionPlanMaterial.objects.filter(production_plan=plan).select_related("material")
         return Response(
             {
@@ -263,6 +316,15 @@ class ProductionPlanMaterialViewSet(viewsets.ModelViewSet):
         if plan_id:
             queryset = queryset.filter(production_plan_id=plan_id)
         return queryset
+
+    # 中間品を追加・所要数を増やした結果、見込みが足りなくなった分は子計画を自動で作る
+    def perform_create(self, serializer):
+        material = serializer.save()
+        auto_arrange_intermediates(material.production_plan)
+
+    def perform_update(self, serializer):
+        material = serializer.save()
+        auto_arrange_intermediates(material.production_plan)
 
     def destroy(self, request, *args, **kwargs):
         material = self.get_object()

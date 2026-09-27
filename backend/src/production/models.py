@@ -37,6 +37,16 @@ class ProductionPlan(models.Model):
 
     product_code = fk_id_alias("product")
 
+    # 中間品の子計画の場合、その中間品を使う親の生産計画。親を削除しても子計画(着手済みの場合がある)は残す。
+    parent_plan = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="child_plans",
+        verbose_name="親生産計画",
+    )
+
     production_plan = models.CharField(
         max_length=255,  # 参照する計画名などを想定
         null=True,
@@ -217,6 +227,16 @@ class ProductionPlanMaterial(models.Model):
     quantity_per_unit = models.DecimalField(max_digits=12, decimal_places=3, verbose_name="所要数量（製品1個あたり）")
     # 在庫は整数管理のため、1個あたり所要数量 × 計画数量 を切り上げた値。計画数量の変更時に再計算する。
     required_quantity = models.PositiveIntegerField(verbose_name="所要数量（計画全体）")
+
+    class SupplyMethod(models.TextChoices):
+        # 中間品をどう手配するか。材料では使わない(常に未決定)。
+        UNDECIDED = "", "未決定"
+        STOCK = "STOCK", "在庫を使う"
+        CHILD_PLAN = "CHILD_PLAN", "子計画を立てる"
+
+    supply_method = models.CharField(
+        max_length=20, choices=SupplyMethod.choices, default=SupplyMethod.UNDECIDED, blank=True, verbose_name="手配方法"
+    )
     remarks = models.TextField(blank=True, null=True, verbose_name="備考")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="作成日時")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新日時")

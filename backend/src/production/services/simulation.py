@@ -7,8 +7,11 @@ from django.utils import timezone
 from inventory.models import Inventory
 from master.models import Item
 
-from ..models import MaterialAllocation, ProductionPlanMaterial
+from ..models import MaterialAllocation, ProductionPlan, ProductionPlanMaterial
 from .materials import normal_allocations
+
+# 入荷見込みに数える生産計画のステータス(保留・完了・中止は数えない。完了分は既に在庫にある)
+SUPPLY_STATUSES = (ProductionPlan.Status.PENDING, ProductionPlan.Status.IN_PROGRESS)
 
 
 def simulate_parts_supply(plans):
@@ -79,6 +82,36 @@ def simulate_parts_supply(plans):
     )
     allocated_map = {(row["production_plan_id"], row["material_id"]): row["total"] for row in allocation_rows}
 
+    # 部品(中間品)を作る生産計画を、終了日時に入荷する見込みとして数える
+    incoming_by_part = defaultdict(list)
+    supply_plans = ProductionPlan.objects.filter(
+        product_id__in=part_codes, status__in=SUPPLY_STATUSES, planned_end_datetime__isnull=False
+    ).order_by("planned_end_datetime", "planned_start_datetime")
+    for supply_plan in supply_plans:
+        incoming_by_part[supply_plan.product_id].append(supply_plan)
+    incoming_counted = defaultdict(list)
+    feasible_by_plan = {}
+
+    def receive_incoming(part_code, until):
+        """until までに終わる part_code の生産予定を入荷させ、まず不足の穴埋め、残りを在庫残数に加える。"""
+        queue = incoming_by_part.get(part_code, [])
+        while queue and queue[0].planned_end_datetime <= until:
+            supply_plan = queue.pop(0)
+            key = (part_code, None)
+            quantity = supply_plan.planned_quantity
+            paid = min(cumulative_shortage[key], quantity)
+            cumulative_shortage[key] -= paid
+            remaining_by_part_warehouse[key] += quantity - paid
+            incoming_counted[part_code].append(
+                {
+                    "plan_id": supply_plan.id,
+                    "plan_name": supply_plan.plan_name,
+                    "quantity": quantity,
+                    "planned_end_datetime": supply_plan.planned_end_datetime,
+                    "at_risk": feasible_by_plan.get(supply_plan.id) is False,
+                }
+            )
+
     def resolve_available(part_code, warehouse):
         if warehouse:
             return available_by_part_warehouse.get((part_code, warehouse), 0)
@@ -114,6 +147,7 @@ def simulate_parts_supply(plans):
 
     cumulative_required = defaultdict(int)
     cumulative_shortage = defaultdict(int)
+    max_shortage = defaultdict(int)
     part_summary = {}
     plan_results = []
 
@@ -124,6 +158,7 @@ def simulate_parts_supply(plans):
             # 所要部品は倉庫を持たない(引当時に選ぶ)ため、全倉庫の在庫を対象にする
             warehouse = None
             key = (part_code, warehouse)
+            receive_incoming(part_code, plan.planned_start_datetime)
 
             already_allocated = allocated_map.get((plan.id, part_code), 0)
             remaining_required = max(material.required_quantity - already_allocated, 0)
@@ -148,13 +183,16 @@ def simulate_parts_supply(plans):
                     "lead_time_days": lead_time_days,
                     "order_by_date": None,
                     "order_overdue": False,
+                    "incoming_quantity": 0,
+                    "incoming_plans": incoming_counted[part_code],
                 },
             )
             summary["total_required_quantity"] = cumulative_required[key]
 
             if cumulative_shortage[key] > 0:
                 shortage_quantity = cumulative_shortage[key]
-                summary["shortage_quantity"] = shortage_quantity
+                max_shortage[key] = max(max_shortage[key], shortage_quantity)
+                summary["shortage_quantity"] = max_shortage[key]
                 if summary["shortage_plan_id"] is None:
                     # この部品が初めて不足に転じた計画（＝支給元への連絡が必要になる納期）を記録
                     summary["shortage_plan_id"] = plan.id
@@ -173,6 +211,7 @@ def simulate_parts_supply(plans):
                     }
                 )
 
+        feasible_by_plan[plan.id] = len(limiting_parts) == 0
         plan_results.append(
             {
                 "plan_id": plan.id,
@@ -185,6 +224,9 @@ def simulate_parts_supply(plans):
                 "limiting_parts": limiting_parts,
             }
         )
+
+    for summary in part_summary.values():
+        summary["incoming_quantity"] = sum(row["quantity"] for row in summary["incoming_plans"])
 
     return {
         "plans": plan_results,

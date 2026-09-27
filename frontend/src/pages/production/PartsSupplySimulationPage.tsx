@@ -60,6 +60,7 @@ const PartsSupplySimulationPage = () => {
                 <p className="text-muted mb-0">
                     複数の生産計画（納入品番）を横断し、共通部品の在庫が納期順にどこまで賄えるかを判定します。
                     比較したい生産計画だけに絞り込むことで「単独なら」「同時なら」の違いを確認できます。
+                    中間品などの生産予定（未着手・進行中の生産計画）は、対象の選択に関係なく計画終了日時に入荷する見込みとして数えます。
                 </p>
             </div>
 
@@ -157,6 +158,9 @@ const PartsSupplySimulationPage = () => {
                             <p className="px-3 text-muted small mb-2">
                                 不足が見込まれる部品は、不足発生日から部品マスターの調達リードタイム分をさかのぼった
                                 「発注要否期限」までに支給元へ必要数の連絡が必要です。期限を過ぎている行は赤色で表示されます。
+                                「入荷見込み（生産予定）」は計画終了日時に入荷するとみなした生産計画で、入荷分は先に発生した不足の穴埋めに充てます。
+                                不足数量は、すべての計画を賄うために前倒しで追加手配が必要な数量です。
+                                「要注意」は、その生産計画自身が部品不足で予定どおり作れない見込みであることを示します。
                             </p>
                             <div className="table-responsive">
                                 <table className="table table-hover align-middle mb-0">
@@ -166,6 +170,7 @@ const PartsSupplySimulationPage = () => {
                                             <th>部品名</th>
                                             <th>倉庫</th>
                                             <th className="text-end">現在庫（利用可能）</th>
+                                            <th>入荷見込み（生産予定）</th>
                                             <th className="text-end">対象期間の累計必要数</th>
                                             <th className="text-end">不足数量</th>
                                             <th>不足が発生する計画</th>
@@ -176,7 +181,7 @@ const PartsSupplySimulationPage = () => {
                                     </thead>
                                     <tbody>
                                         {result.parts.length === 0 ? (
-                                            <tr><td colSpan={10} className="text-center py-4 text-muted">対象の部品データがありません。</td></tr>
+                                            <tr><td colSpan={11} className="text-center py-4 text-muted">対象の部品データがありません。</td></tr>
                                         ) : result.parts.map(part => (
                                             <tr
                                                 key={`${part.part_code}-${part.warehouse ?? 'ALL'}`}
@@ -186,6 +191,19 @@ const PartsSupplySimulationPage = () => {
                                                 <td>{part.part_name}</td>
                                                 <td>{part.warehouse || '(全倉庫合計)'}</td>
                                                 <td className="text-end">{part.available_quantity}</td>
+                                                <td>
+                                                    {part.incoming_plans.length === 0 ? '-' : (
+                                                        <>
+                                                            <div className="fw-semibold">計 {part.incoming_quantity}</div>
+                                                            {part.incoming_plans.map(incoming => (
+                                                                <div key={incoming.plan_id} className="small text-nowrap">
+                                                                    {incoming.plan_name}：{incoming.quantity}（{formatDate(incoming.planned_end_datetime)}）
+                                                                    {incoming.at_risk && <span className="badge bg-danger ms-1">要注意</span>}
+                                                                </div>
+                                                            ))}
+                                                        </>
+                                                    )}
+                                                </td>
                                                 <td className="text-end">{part.total_required_quantity}</td>
                                                 <td className="text-end fw-bold">{part.shortage_quantity > 0 ? part.shortage_quantity : '-'}</td>
                                                 <td>{part.shortage_plan_name || '-'}</td>

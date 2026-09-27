@@ -13,6 +13,10 @@ class ProductionPlanSerializer(serializers.ModelSerializer):
         slug_field="code",
         queryset=Item.objects.filter(item_type__in=Item.PRODUCIBLE_TYPES)
     )
+    parent_plan_name = serializers.CharField(source="parent_plan.plan_name", read_only=True, default=None)
+    # 在庫で足りるが、子計画を立てるか在庫を使うかが未決定の中間品の数(ProductionPlanViewSet で集計)
+    pending_intermediate_count = serializers.IntegerField(read_only=True, default=0)
+    child_plan_count = serializers.IntegerField(read_only=True, default=0)
 
     class Meta:
         model = ProductionPlan
@@ -28,6 +32,10 @@ class ProductionPlanSerializer(serializers.ModelSerializer):
             "actual_end_datetime",
             "status",  # ステータスの内部キー (例: 'PENDING', 'IN_PROGRESS')
             "status_display",  # ステータスの表示名 (例: '未着手', '進行中')
+            "parent_plan",
+            "parent_plan_name",
+            "child_plan_count",
+            "pending_intermediate_count",
             "remarks",
             "created_at",
             "updated_at",
@@ -42,6 +50,7 @@ class ProductionPlanSerializer(serializers.ModelSerializer):
             "status_display",
             "actual_start_datetime",
             "actual_end_datetime",
+            "parent_plan",
         ]
 
     def validate(self, data):
@@ -149,6 +158,8 @@ class ProductionPlanMaterialSerializer(serializers.ModelSerializer):
     )
     material_name = serializers.CharField(source="material.name", read_only=True)
     material_unit = serializers.CharField(source="material.unit", read_only=True)
+    material_item_type = serializers.CharField(source="material.item_type", read_only=True)
+    supply_method_display = serializers.CharField(source="get_supply_method_display", read_only=True)
 
     class Meta:
         model = ProductionPlanMaterial
@@ -158,13 +169,17 @@ class ProductionPlanMaterialSerializer(serializers.ModelSerializer):
             "material_code",
             "material_name",
             "material_unit",
+            "material_item_type",
             "quantity_per_unit",
             "required_quantity",
+            "supply_method",
+            "supply_method_display",
             "remarks",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "required_quantity", "created_at", "updated_at"]
+        # 手配方法は arrange-intermediates で決める
+        read_only_fields = ["id", "required_quantity", "supply_method", "created_at", "updated_at"]
         validators = []  # (計画, 部品) の重複は validate() で日本語のメッセージにして返す
 
     def validate_quantity_per_unit(self, value):
@@ -205,6 +220,8 @@ class ProductionPlanMaterialSerializer(serializers.ModelSerializer):
                 }
             )
         attrs["required_quantity"] = required
+        if instance and material.code != instance.material_id:
+            attrs["supply_method"] = ProductionPlanMaterial.SupplyMethod.UNDECIDED
         return attrs
 
 
@@ -321,3 +338,31 @@ class WorkProgressSerializer(serializers.ModelSerializer):
             if start >= end:
                 raise serializers.ValidationError({"end_datetime": "End datetime must be after start datetime."})
         return data
+
+
+class IntermediateChildPlanSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    plan_name = serializers.CharField()
+    planned_quantity = serializers.IntegerField()
+    planned_start_datetime = serializers.DateTimeField()
+    planned_end_datetime = serializers.DateTimeField()
+    status = serializers.CharField()
+    status_display = serializers.CharField()
+
+
+class IntermediateRequirementSerializer(serializers.Serializer):
+    """生産計画の中間品ごとの手配状況 (services.intermediates.get_intermediate_requirements)。"""
+
+    material_code = serializers.CharField()
+    material_name = serializers.CharField()
+    unit = serializers.CharField(allow_null=True)
+    required_quantity = serializers.IntegerField()
+    allocated_quantity = serializers.IntegerField()
+    child_planned_quantity = serializers.IntegerField()
+    projected_available_quantity = serializers.IntegerField()
+    uncovered_quantity = serializers.IntegerField()
+    shortage_quantity = serializers.IntegerField()
+    supply_method = serializers.CharField(allow_blank=True)
+    supply_method_display = serializers.CharField()
+    status = serializers.CharField()
+    child_plans = IntermediateChildPlanSerializer(many=True)
