@@ -21,8 +21,8 @@
 - テストクラスは`rest_framework.test.APITestCase`を使用し、`reverse("machine_api:machine-list"/"machine-detail")`
   でURL解決する（`machine-detail`は`kwargs={"pk": machine.id}`）。
 - ViewSetの`permission_classes`は`[IsAuthenticated]`のみ。
-- `master.rest_views.CustomSuccessMessageMixin`を`machine`も再利用しており、応答形式は`master`/`quality`と
-  同一（`{"status": "success", "data": ...}`、ページネーションなし、`destroy()`もHTTP 200）。
+- `base.viewsets.CustomSuccessMessageMixin`を`machine`も利用しており、応答形式は`master`/`quality`と
+  同一（`{"data": ...}`、ページネーションなし、`destroy()`もHTTP 200）。
 - `get_serializer_class()`により、`list`アクションのみ`MachineSerializer`（`created_at`を含む）、それ以外
   （`retrieve`/`create`/`update`/`destroy`）は`MachineCreateUpdateSerializer`（`created_at`を含まない）が
   使われる非対称な挙動がある。

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import authFetch from '../utils/api';
+import authFetch, { formatFieldErrors, toApiError } from '../utils/api';
 
 interface UserFormState {
     custom_id: string;
@@ -48,24 +48,11 @@ const emptyPolicy: TokenPolicyState = {
 };
 
 /**
- * サーバーのエラーレスポンスから可能な限り具体的なメッセージを抽出する。
- * DRFのシリアライザバリデーションエラーは { field_name: ["エラー内容", ...] } の形式で返る。
+ * サーバーのエラーレスポンスからメッセージを作る。入力値エラーは全項目分をまとめて表示する。
  */
 const extractErrorMessage = async (response: Response, defaultMessage: string): Promise<string> => {
-    try {
-        const data = await response.json();
-        if (typeof data?.detail === 'string') return data.detail;
-        if (data && typeof data === 'object') {
-            const parts = Object.entries(data).map(([field, messages]) => {
-                const msg = Array.isArray(messages) ? messages.join(' ') : String(messages);
-                return `${field}: ${msg}`;
-            });
-            if (parts.length > 0) return parts.join(' / ');
-        }
-    } catch {
-        // JSON以外のレスポンスは無視してデフォルトメッセージを使う
-    }
-    return defaultMessage;
+    const error = await toApiError(response, defaultMessage);
+    return error.errors ? formatFieldErrors(error.errors) : error.message;
 };
 
 const UserForm: React.FC = () => {

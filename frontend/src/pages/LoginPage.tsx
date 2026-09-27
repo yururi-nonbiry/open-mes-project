@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { formatFieldErrors, toApiError } from '../utils/api';
 import './LoginPage.css'; // Add some basic styling
 
 interface LoginPageProps {
@@ -36,28 +37,16 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, isAuthenticated }
         body: JSON.stringify({ custom_id: customId, password }),
       });
 
-      const data = await response.json();
-
       if (response.ok) {
+        const data = await response.json();
         // トークンをlocalStorageに保存
         localStorage.setItem('access_token', data.access);
         localStorage.setItem('refresh_token', data.refresh);
         // Appコンポーネントにログイン成功を通知
         await onLoginSuccess();
       } else {
-        let errorMessage = 'Login failed. Please check your credentials and try again.'; // Default message
-        if (data) {
-          if (data.non_field_errors) {
-            errorMessage = data.non_field_errors.join(' ');
-          } else if (data.detail) {
-            errorMessage = data.detail;
-          } else if (typeof data === 'object' && !Array.isArray(data) && Object.keys(data).length > 0) {
-            // Handle field-specific errors (e.g., {'password': ['This field is required.']})
-            const fieldErrors = Object.entries(data).map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(' ') : String(value)}`).join('; ');
-            if (fieldErrors) errorMessage = fieldErrors;
-          }
-        }
-        setError(errorMessage);
+        const error = await toApiError(response, 'Login failed. Please check your credentials and try again.');
+        setError(error.errors ? formatFieldErrors(error.errors) : error.message);
       }
     } catch (err) {
       console.error('Login request failed:', err);

@@ -31,13 +31,13 @@ class SupplierCrudTests(MasterAPITestBase):
         payload = {"supplier_number": "SUP-OTHER", "name": self.supplier.name}
         response = self.client.post(self.list_url, payload, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("name", response.data)
+        self.assertIn("name", response.data["errors"])
 
     def test_mst_sup_04_duplicate_email_rejected(self):
         payload = {"supplier_number": "SUP-OTHER", "name": "別名2", "email": self.supplier.email}
         response = self.client.post(self.list_url, payload, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("email", response.data)
+        self.assertIn("email", response.data["errors"])
 
     def test_mst_sup_05_blank_email_allowed(self):
         payload = {"supplier_number": "SUP-NOEMAIL", "name": "メールなし"}

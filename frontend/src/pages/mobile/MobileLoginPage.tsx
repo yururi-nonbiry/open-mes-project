@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toApiError } from '../../utils/api';
 import './MobileLoginPage.css';
 
 const MobileLoginPage = ({ onLoginSuccess, isAuthenticated }) => {
@@ -30,21 +31,15 @@ const MobileLoginPage = ({ onLoginSuccess, isAuthenticated }) => {
                 body: JSON.stringify({ custom_id: customId, password }),
             });
 
-            const data = await response.json();
-
             if (response.ok) {
+                const data = await response.json();
                 // トークンをlocalStorageに保存
                 localStorage.setItem('access_token', data.access);
                 localStorage.setItem('refresh_token', data.refresh);
                 await onLoginSuccess();
             } else {
-                let errorMessage = 'ログインに失敗しました。ユーザー名とパスワードを確認してください。';
-                if (data?.detail) {
-                    errorMessage = data.detail;
-                } else if (data?.non_field_errors) {
-                    errorMessage = data.non_field_errors.join(' ');
-                }
-                setError(errorMessage);
+                const error = await toApiError(response, 'ログインに失敗しました。ユーザー名とパスワードを確認してください。');
+                setError(error.message);
             }
         } catch (err) {
             console.error('ログインリクエスト失敗:', err);

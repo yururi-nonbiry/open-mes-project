@@ -45,6 +45,26 @@ router.register(r"stock-movements", rest_views.StockMovementViewSet, basename="s
 
 CORS設定（`django-cors-headers`）により、Vite開発サーバー（別オリジン）からのAPIリクエストも許可されています。
 
+## 応答形式
+
+- **成否はHTTPステータスコードで判定します。** 本文に `success` / `status: "success"` のような成否フラグは含めません。
+- **エラー時（4xx/5xx）の本文は全APIで次の形式に統一されています**（`backend/src/base/responses.py`）。
+
+  ```json
+  {
+    "error": "画面にそのまま表示できるメッセージ（必須）",
+    "errors": {"field": ["項目ごとのエラー"]},
+    "code": "not_authenticated"
+  }
+  ```
+
+  - `errors` は入力値エラー（400）の場合のみ付与され、キーはフィールド名（全体に関わるエラーは `non_field_errors`）です。このとき `error` には最初の項目エラーを添えたメッセージが入ります。
+  - `code` は認証エラーなど、クライアントが分岐に使える識別子がある場合のみ付与されます（例: `not_authenticated`、`token_not_valid`、`password_expired`）。
+  - DRFの例外（`ValidationError`、`NotFound`、`PermissionDenied`、認証エラー等）は、`REST_FRAMEWORK["EXCEPTION_HANDLER"]` に設定した `base.responses.api_exception_handler` がこの形式に変換します。ビューで個別にエラーを返す場合は `base.responses.error_response(message, status_code)` を使います。
+  - 想定外の例外も同ハンドラが捕捉し、内部情報を含まない500応答（`error` のみ）を返したうえで、スタックトレースをログへ出力します。
+- 成功時の本文はエンドポイントごとの形式です。マスター系（`master`/`quality`/`machine`、`base.viewsets.CustomSuccessMessageMixin`）は一覧・詳細が `{"data": ...}`、登録・更新が `{"message": ..., "data": ...}`、削除が `{"message": ...}`（HTTP 200）です。それ以外の標準ViewSetはDRF標準（一覧はページネーション形式 `{"count", "next", "previous", "results"}` またはプレーンな配列）、業務処理のカスタムactionは `{"message": ..., ...}` を返します。
+- フロントエンドでは `frontend/src/utils/api.ts` の `apiRequest` / `handleError` / `toApiError` を使い、失敗時は `ApiError`（`message`・`status`・`errors`・`code`）として扱います。
+
 ## その他の特徴
 
 - `django-filter` を使ったクエリパラメータによる一覧の絞り込みに対応しているエンドポイントがあります。

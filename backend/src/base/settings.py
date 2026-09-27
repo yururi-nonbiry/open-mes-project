@@ -15,7 +15,7 @@ from pathlib import Path
 
 import environ
 
-VERSION = "0.1.19"
+VERSION = "0.1.20"
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -216,7 +216,9 @@ REST_FRAMEWORK = {
         # QRリーダー等のデバイスや外部連携アプリ向けの長期固定トークン認証。
         # ApiTokenPolicyによるIP制限・スコープ制限に対応したサブクラスを使用する。
         "users.authentication.ScopedTokenAuthentication",
-    ]
+    ],
+    # エラー応答を {"error": ..., "errors"?: ..., "code"?: ...} に統一する(base/responses.py 参照)
+    "EXCEPTION_HANDLER": "base.responses.api_exception_handler",
 }
 
 # djangorestframework-simplejwt settings

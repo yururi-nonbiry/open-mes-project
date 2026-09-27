@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import authFetch from '../../utils/api';
+import authFetch, { ApiError, handleError } from '../../utils/api';
+import inventoryService from '../../services/inventoryService';
 import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library';
 import './MobileGoodsReceiptPage.css';
 import './MobileLocationTransferPage.css'; // スタイルを再利用
@@ -128,10 +129,7 @@ const MobileGoodsReceiptPage = () => {
         return;
       }
 
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || `サーバーエラー: ${response.status}`);
-      }
+      await handleError(response, `サーバーエラー: ${response.status}`);
 
       const data = await response.json();
       const { action, payload, navigate: navTarget, state, updateSearch, updateFields } = data.result || {};
@@ -199,28 +197,20 @@ const MobileGoodsReceiptPage = () => {
     }
 
     try {
-      const response = await authFetch('/api/inventory/purchase-orders/process-receipt/', {
-        method: 'POST',
-        body: JSON.stringify({
-          purchase_order_id: selectedOrder.id,
-          received_quantity: receivedQuantity,
-          location: receiptFormData.location.trim(),
-          warehouse: receiptFormData.warehouse.trim(),
-        }),
+      const result = await inventoryService.receivePurchaseOrder({
+        purchase_order_id: selectedOrder.id,
+        received_quantity: receivedQuantity,
+        location: receiptFormData.location.trim(),
+        warehouse: receiptFormData.warehouse.trim(),
       });
-      const result = await response.json();
-      if (response.ok) {
-        setFormSuccess(`発注 ${result.order_number} の入庫処理が正常に完了しました。`);
-        setTimeout(() => {
-          closeReceiptForm();
-          fetchPurchaseOrders(); // Refresh data
-        }, 1500);
-      } else {
-        setFormError(result.error || '入庫処理に失敗しました。');
-      }
+      setFormSuccess(`発注 ${result.order_number} の入庫処理が正常に完了しました。`);
+      setTimeout(() => {
+        closeReceiptForm();
+        fetchPurchaseOrders(); // Refresh data
+      }, 1500);
     } catch (err) {
       console.error('Error submitting purchase receipt:', err);
-      setFormError('入庫処理中に通信エラーが発生しました。');
+      setFormError(err instanceof ApiError ? err.message : '入庫処理中に通信エラーが発生しました。');
     }
   };
 

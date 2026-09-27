@@ -34,7 +34,7 @@ class PurchaseOrderCrudTests(InventoryAPITestBase):
         data = {"order_number": "PO-001", "item": "Item D", "quantity": 40}
         response = self.client.post(url, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("order_number", response.data)
+        self.assertIn("order_number", response.data["errors"])
 
     def test_po_crud_04_delete_without_receipt(self):
         url = reverse("inventory_api:purchaseorder-detail", kwargs={"pk": self.po1.id})

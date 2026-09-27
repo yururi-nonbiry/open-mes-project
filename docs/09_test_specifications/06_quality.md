@@ -22,11 +22,11 @@
 - テストクラスは`rest_framework.test.APITestCase`（判定ロジックの純粋関数テストのみ`django.test.TestCase`）を
   使用し、`reverse("quality_api:<basename>-list"/"-detail")`でURL解決する。
 - 全ViewSetの`permission_classes`は`[IsAuthenticated]`で統一されており、staff/superuser等の権限区分はない。
-- `CustomSuccessMessageMixin`により、list/retrieve/create/updateのレスポンスは`{"status": "success", "data": ...}`
+- `CustomSuccessMessageMixin`（`base/viewsets.py`）により、list/retrieve/create/updateのレスポンスは`{"data": ...}`
   でラップされる（`master`と同一パターン）。ページネーションは設定されていない。
 - `destroy()`は成功時も**HTTP 200**を返す（DRF標準の204ではない）。
-- カスタムaction（`form-data`、`record-result`）は上記と異なり`{"success": true/false, ...}`という
-  **別の応答エンベロープ**を使う。テストコードはエンドポイントごとにこの違いを意識する必要がある。
+- カスタムaction（`form-data`、`record-result`）は成功時に`data`でラップしない独自の本文を返す。エラー時は
+  全API共通の`{"error": ..., "errors"?: ...}`形式。
 - `quality/migrations/`にはテストDB向けのスタブデータ投入マイグレーションは存在せず、`master`/`production`と
   異なりテストDBは本アプリのモデルに関して完全に空の状態から始まる。
 
@@ -58,9 +58,9 @@
 | QUA-ITEM-06 | 正常系 | `PATCH inspection-items/{id}/` | 既存detailが存在 | 既存detailを`id`付きで内容変更して送信 | 200、該当detailが更新される | `update()`のid一致による更新分岐 |
 | QUA-ITEM-07 | 正常系 | `PATCH inspection-items/{id}/` | 既存detailが存在 | 既存detail(id付き)＋新規detail(id無し)を送信 | 200、detail件数が1件増える | `update()`のid無し＝新規作成分岐 |
 | QUA-ITEM-08 | 境界値 | `PATCH inspection-items/{id}/` | detailが2件存在 | 1件だけをid付きで送信（もう1件を省略） | 200、省略されたdetailはDBから削除される | ペイロードに無いdetailは暗黙削除（要注意仕様） |
-| QUA-ITEM-09 | 異常系 | `PATCH inspection-items/{id}/` | 省略対象のdetailが`InspectionResultDetail`からPROTECT参照されている | `measurement_details: []`で送信 | 400、`{"status": "error", ...}`、detailは削除されず残存 | `serializers.py:98`の`.delete()`が`ProtectedError`を送出し、`CustomSuccessMessageMixin.update()`が捕捉 |
+| QUA-ITEM-09 | 異常系 | `PATCH inspection-items/{id}/` | 省略対象のdetailが`InspectionResultDetail`からPROTECT参照されている | `measurement_details: []`で送信 | 400、`{"error": ...}`、detailは削除されず残存 | `serializers.py:98`の`.delete()`が`ProtectedError`を送出し、`CustomSuccessMessageMixin.update()`が捕捉 |
 | QUA-ITEM-10 | 正常系 | `DELETE inspection-items/{id}/` | 参照されていないItem（detail所持） | 削除 | 200、Item・紐づくdetailとも削除される | `on_delete=CASCADE` |
-| QUA-ITEM-11 | 異常系 | `DELETE inspection-items/{id}/` | `InspectionResult`から参照されている | 削除 | 400、`{"status": "error", ...}`、DBに残存 | `on_delete=PROTECT` |
+| QUA-ITEM-11 | 異常系 | `DELETE inspection-items/{id}/` | `InspectionResult`から参照されている | 削除 | 400、`{"error": ...}`、DBに残存 | `on_delete=PROTECT` |
 | QUA-ITEM-12 | 異常系 | `GET inspection-items/` | 未認証 | 呼び出し | 401 | |
 
 ### 5.2 検査実績 CRUD（`InspectionResultViewSet`、`quality/tests/test_inspection_result.py`）
@@ -96,10 +96,10 @@
 
 | ケースID | 分類 | 対象 | 前提条件 | 手順・入力 | 期待結果 | 備考 |
 |---|---|---|---|---|---|---|
-| QUA-ACTION-01 | 正常系 | `GET inspection-items/{id}/form-data/` | MeasurementDetailが存在 | 取得 | 200、`{"success": true, "measurement_details": [...]}` | `{"status": ...}`ではなく`{"success": ...}`エンベロープ |
-| QUA-ACTION-02 | 正常系 | `POST inspection-items/{id}/record-result/` | 定量detailが存在 | `measurement_details_payload`をJSON文字列化してmultipartで送信 | 201、`{"success": true, ...}`、`InspectionResult`がDBに作成され`judgment`が計算される、`inspected_by`はリクエストユーザー | `InspectionResultViewSet`を経由しない専用ロジック |
-| QUA-ACTION-03 | 異常系 | `POST inspection-items/{id}/record-result/` | - | 存在しない`measurement_detail_id`を含めて送信 | 400、`{"success": false, ...}` | |
-| QUA-ACTION-04 | 異常系 | `POST inspection-items/{id}/record-result/` | - | `measurement_details_payload`に不正なJSON文字列を送信 | 400、`{"success": false, ...}` | `json.JSONDecodeError`を捕捉 |
+| QUA-ACTION-01 | 正常系 | `GET inspection-items/{id}/form-data/` | MeasurementDetailが存在 | 取得 | 200、`{"result_form_fields": [...], "measurement_details": [...]}` |  |
+| QUA-ACTION-02 | 正常系 | `POST inspection-items/{id}/record-result/` | 定量detailが存在 | `measurement_details_payload`をJSON文字列化してmultipartで送信 | 201、`{"message": ...}`、`InspectionResult`がDBに作成され`judgment`が計算される、`inspected_by`はリクエストユーザー | `InspectionResultViewSet`を経由しない専用ロジック |
+| QUA-ACTION-03 | 異常系 | `POST inspection-items/{id}/record-result/` | - | 存在しない`measurement_detail_id`を含めて送信 | 400、`{"error": ...}` | |
+| QUA-ACTION-04 | 異常系 | `POST inspection-items/{id}/record-result/` | - | `measurement_details_payload`に不正なJSON文字列を送信 | 400、`{"error": ...}` | `json.JSONDecodeError`を捕捉 |
 
 ## 6. シリアライザの read_only_fields 確認
 
@@ -115,12 +115,12 @@
    `production`/`master`で発見された「`__init__.py`欠落によるテスト検出破損」、および`inventory`/`production`で
    発見された「モデルの`@property`を`.filter()`/`.values()`に誤って渡す`FieldError`」のいずれのパターンも
    `quality`には存在しないことを確認した（`__init__.py`は最初から存在、`@property`は`grep`で0件）。
-2. **応答エンベロープの不整合（`{"status": ...}` vs `{"success": ...}`）**:
-   標準CRUD（`CustomSuccessMessageMixin`経由）は`{"status": "success"|"error", ...}`を返す一方、
-   カスタムaction（`form-data`、`record-result`）は`{"success": true|false, ...}`という別形式を返す
-   （`rest_views.py:116-123`, `177-192`）。フロントエンド側は両方の形式に対応済みと思われるが、API利用者
-   （将来的な外部連携アプリ等）向けドキュメントとしては形式の統一を検討する余地がある。
-3. **`update()`内の`ProtectedError`メッセージが「削除できません」と表現される**:
+2. **応答エンベロープの不整合（`{"status": ...}` vs `{"success": ...}`）**: 【対応済み】
+   成否フラグを廃止してHTTPステータスで判定する形に統一し、エラー本文も全APIで`{"error": ..., "errors"?: ...}`に
+   統一した（[API構造](../05_api.md#応答形式)参照）。
+3. **`update()`内の`ProtectedError`メッセージが「削除できません」と表現される**: 【対応済み】
+   `base/viewsets.py`への共通化に合わせ、`InspectionItemViewSet.protected_error_message`で「この検査項目
+   (または削除しようとした測定詳細)は…削除できません」と、更新時の測定詳細削除も含む文言にした。以下は当時の記録。
    `CustomSuccessMessageMixin.update()`（rest_views.py:61-70）内で`ProtectedError`を捕捉した際のメッセージが
    「削除できません」という`destroy()`用の文言のままになっている（`update()`文脈では実際には
    ネストしたMeasurementDetailの暗黙削除が原因で発生するため、文言自体は意味上大きくは外れていないが、

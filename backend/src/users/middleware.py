@@ -40,8 +40,8 @@ class PasswordExpirationMiddleware(MiddlewareMixin):
             # これにより、リダイレクトの責務をフロントエンドクライアントに委任します。
             return JsonResponse(
                 {
+                    "error": "パスワードの有効期限が切れています。新しいパスワードを設定してください。",
                     "code": "password_expired",
-                    "detail": "パスワードの有効期限が切れています。新しいパスワードを設定してください。",
                 },
                 status=403,
             )  # 403 Forbidden はこの場合に適切です。

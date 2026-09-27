@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Container, Form, Button, Row, Col, Card, Badge, Modal, Spinner, Alert, Pagination as BootstrapPagination, InputGroup } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
-import authFetch from '../../utils/api';
+import authFetch, { handleError } from '../../utils/api';
 import inventoryService, { SalesOrder, validateIssueQuantity } from '../../services/inventoryService';
 import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library';
 import './MobileLocationTransferPage.css'; // スタイルを再利用
@@ -129,10 +129,7 @@ const MobileGoodsIssuePage = () => {
                 return;
             }
 
-            if (!response.ok) {
-                const errData = await response.json().catch(() => ({}));
-                throw new Error(errData.error || `サーバーエラー: ${response.status}`);
-            }
+            await handleError(response, `サーバーエラー: ${response.status}`);
 
             const data = await response.json();
             const { action, payload, navigate: navTarget, state, updateSearch } = data.result || {};

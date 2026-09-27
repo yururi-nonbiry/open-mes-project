@@ -1,5 +1,3 @@
-import logging
-
 from django_filters import rest_framework as filters  # django-filterをインポート
 from rest_framework import (
     permissions,
@@ -14,6 +12,7 @@ from rest_framework.response import Response  # Responseをインポート
 from rest_framework.views import APIView  # APIViewをインポート
 
 from base.pagination import StandardResultsSetPagination
+from base.responses import error_response
 
 from .models import MaterialAllocation, PartsUsed, ProductionPlan, WorkProgress
 from .serializers import (
@@ -31,8 +30,6 @@ from .services import (
     update_material_allocation_status_service,
     update_production_progress_service,
 )
-
-logger = logging.getLogger(__name__)
 
 
 # Define a pagination class specifically for Production Plans API
@@ -129,22 +126,16 @@ class ProductionPlanViewSet(viewsets.ModelViewSet):
 
         try:
             summary = allocate_materials_service(production_plan, allocations_data)
-            return Response(
-                {
-                    "message": "Materials allocated successfully for production plan.",
-                    "production_plan_id": production_plan.id,
-                    "allocations_summary": summary,
-                },
-                status=status.HTTP_200_OK,
-            )
         except ValueError as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        except Exception:
-            logger.exception("Unexpected error during material allocation for plan %s", production_plan.id)
-            return Response(
-                {"error": "An unexpected error occurred during material allocation."},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+            return error_response(e)
+        return Response(
+            {
+                "message": "Materials allocated successfully for production plan.",
+                "production_plan_id": production_plan.id,
+                "allocations_summary": summary,
+            },
+            status=status.HTTP_200_OK,
+        )
 
     @action(detail=True, methods=["post"], url_path="update-progress")
     def update_progress(self, request, pk=None):
@@ -155,22 +146,16 @@ class ProductionPlanViewSet(viewsets.ModelViewSet):
         plan = self.get_object()
         try:
             plan, wp = update_production_progress_service(plan, request.data, request.user)
-            return Response(
-                {
-                    "message": "Production plan progress updated successfully.",
-                    "plan_id": plan.id,
-                    "new_status": plan.get_status_display(),
-                },
-                status=status.HTTP_200_OK,
-            )
         except ValueError as ve:
-            return Response({"error": f"Failed to save progress: {str(ve)}"}, status=status.HTTP_400_BAD_REQUEST)
-        except Exception:
-            logger.exception("Unexpected error during progress update for plan %s", plan.id)
-            return Response(
-                {"error": "Failed to save progress due to an unexpected error. Please check logs."},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+            return error_response(f"Failed to save progress: {ve}")
+        return Response(
+            {
+                "message": "Production plan progress updated successfully.",
+                "plan_id": plan.id,
+                "new_status": plan.get_status_display(),
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class PartsSupplySimulationView(APIView):
@@ -245,9 +230,8 @@ class MaterialAllocationViewSet(viewsets.ModelViewSet):
         return queryset
 
     def create(self, request, *args, **kwargs):
-        return Response(
-            {"error": "材料引当は plans/{id}/allocate-materials/ から作成してください。"},
-            status=status.HTTP_405_METHOD_NOT_ALLOWED,
+        return error_response(
+            "材料引当は plans/{id}/allocate-materials/ から作成してください。", status.HTTP_405_METHOD_NOT_ALLOWED
         )
 
     def destroy(self, request, *args, **kwargs):
@@ -258,9 +242,9 @@ class MaterialAllocationViewSet(viewsets.ModelViewSet):
         allocation = self.get_object()
         try:
             release_material_allocation_service(allocation)
-            return Response(status=status.HTTP_204_NO_CONTENT)
         except ValueError as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return error_response(e)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=["post"], url_path="change-status")
     def change_status(self, request, pk=None):
@@ -271,14 +255,14 @@ class MaterialAllocationViewSet(viewsets.ModelViewSet):
         allocation = self.get_object()
         new_status = request.data.get("status")
         if not new_status:
-            return Response({"error": "status is required."}, status=status.HTTP_400_BAD_REQUEST)
+            return error_response("status is required.")
 
         try:
             allocation = update_material_allocation_status_service(allocation, new_status, request.user)
-            serializer = self.get_serializer(allocation)
-            return Response(serializer.data, status=status.HTTP_200_OK)
         except ValueError as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return error_response(e)
+        serializer = self.get_serializer(allocation)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class WorkProgressViewSet(viewsets.ModelViewSet):

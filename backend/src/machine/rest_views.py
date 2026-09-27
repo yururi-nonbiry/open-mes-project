@@ -1,7 +1,7 @@
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 
-from master.rest_views import CustomSuccessMessageMixin
+from base.viewsets import CustomSuccessMessageMixin
 
 from .models import Machine
 from .serializers import MachineCreateUpdateSerializer, MachineSerializer

@@ -1,11 +1,11 @@
 import json
-import logging
 
-from django.db.models import ProtectedError
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
+
+from base.responses import error_response
+from base.viewsets import CustomSuccessMessageMixin
 
 from .models import InspectionItem, InspectionResult
 from .serializers import (
@@ -14,8 +14,6 @@ from .serializers import (
     InspectionResultSerializer,
     MeasurementDetailSerializer,
 )
-
-logger = logging.getLogger(__name__)
 
 # 検査結果登録フォームの動的な定義
 # フロントエンドの InspectionResultModal.jsx で使用されます
@@ -29,71 +27,6 @@ INSPECTION_RESULT_FORM_FIELDS = [
 ]
 
 
-class CustomSuccessMessageMixin:
-    """
-    Mixin to customize success messages for create, update, and destroy actions.
-    """
-
-    def list(self, request, *args, **kwargs):
-        queryset = self.filter_queryset(self.get_queryset())
-        serializer = self.get_serializer(queryset, many=True)
-        return Response({"status": "success", "data": serializer.data})
-
-    def retrieve(self, request, *args, **kwargs):
-        instance = self.get_object()
-        serializer = self.get_serializer(instance)
-        return Response({"status": "success", "data": serializer.data})
-
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
-        headers = self.get_success_headers(serializer.data)
-        model_name = self.queryset.model._meta.verbose_name
-        return Response(
-            {"status": "success", "message": f"{model_name}を登録しました。", "data": serializer.data},
-            status=status.HTTP_201_CREATED,
-            headers=headers,
-        )
-
-    def update(self, request, *args, **kwargs):
-        partial = kwargs.pop("partial", True)  # Default to PATCH
-        instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=partial)
-        serializer.is_valid(raise_exception=True)
-        model_name = self.queryset.model._meta.verbose_name
-        try:
-            self.perform_update(serializer)
-        except ProtectedError:
-            return Response(
-                {
-                    "status": "error",
-                    "message": f"この{model_name}の一部項目は実績データが関連付けられているため削除できません。",
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        return Response(
-            {"status": "success", "message": f"{model_name}を更新しました。", "data": serializer.data},
-            status=status.HTTP_200_OK,
-        )
-
-    def destroy(self, request, *args, **kwargs):
-        instance = self.get_object()
-        model_name = self.queryset.model._meta.verbose_name
-        instance_repr = str(instance)
-        try:
-            self.perform_destroy(instance)
-            return Response(
-                {"status": "success", "message": f"{model_name}「{instance_repr}」を削除しました。"},
-                status=status.HTTP_200_OK,
-            )
-        except ProtectedError:
-            return Response(
-                {"status": "error", "message": f"この{model_name}は実績データが関連付けられているため削除できません。"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-
 class InspectionItemViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
     """
     API endpoint for Inspection Items (検査項目マスター).
@@ -101,6 +34,9 @@ class InspectionItemViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
 
     queryset = InspectionItem.objects.prefetch_related("measurement_details").all().order_by("code")
     permission_classes = [permissions.IsAuthenticated]
+    protected_error_message = (
+        "この{model_name}(または削除しようとした測定詳細)は実績データが関連付けられているため削除できません。"
+    )
 
     def get_serializer_class(self):
         if self.action == "list":
@@ -117,7 +53,6 @@ class InspectionItemViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
         details_serializer = MeasurementDetailSerializer(measurement_details, many=True)
         return Response(
             {
-                "success": True,
                 "result_form_fields": INSPECTION_RESULT_FORM_FIELDS,
                 "measurement_details": details_serializer.data,
             }
@@ -130,72 +65,54 @@ class InspectionItemViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
         """
         inspection_item = self.get_object()
 
+        # フロントエンドはFormDataで送信し、詳細はJSON文字列で渡される
         try:
-            # フロントエンドはFormDataで送信し、詳細はJSON文字列で渡される
-            measurement_payload_str = request.data.get("measurement_details_payload", "[]")
-            measurement_payload = json.loads(measurement_payload_str)
-
-            # 各詳細の測定タイプを特定するために、MeasurementDetailオブジェクトを取得
-            detail_ids = [d.get("measurement_detail_id") for d in measurement_payload]
-            measurement_details_map = {
-                str(md.id): md for md in inspection_item.measurement_details.filter(id__in=detail_ids)
-            }
-
-            details_data_for_serializer = []
-            for measurement_data in measurement_payload:
-                detail_id = measurement_data.get("measurement_detail_id")
-                value = measurement_data.get("value")
-                measurement_detail = measurement_details_map.get(detail_id)
-
-                if not measurement_detail:
-                    return Response(
-                        {"success": False, "message": f"無効な測定詳細IDです: {detail_id}"},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-                detail_dict = {"measurement_detail": detail_id}
-                if measurement_detail.measurement_type == "quantitative":
-                    detail_dict["measured_value_numeric"] = value if value not in [None, ""] else None
-                else:  # qualitative
-                    detail_dict["result_qualitative"] = value if value not in [None, ""] else None
-                details_data_for_serializer.append(detail_dict)
-
-            # シリアライザ用のメインデータオブジェクトを構築
-            result_data = {
-                "inspection_item": inspection_item.id,
-                "part_number": request.data.get("part_number"),
-                "lot_number": request.data.get("lot_number"),
-                "equipment_used": request.data.get("equipment_used"),
-                "remarks": request.data.get("remarks"),
-                "attachment": request.data.get("attachment"),
-                "details": details_data_for_serializer,
-            }
-
-            serializer = InspectionResultSerializer(data=result_data, context=self.get_serializer_context())
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
-
-            return Response(
-                {"success": True, "message": f"検査項目「{inspection_item.name}」の結果を登録しました。"},
-                status=status.HTTP_201_CREATED,
-            )
-
+            measurement_payload = json.loads(request.data.get("measurement_details_payload", "[]"))
         except json.JSONDecodeError:
-            return Response(
-                {"success": False, "message": "測定詳細のデータ形式が不正です。"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        except ValidationError as e:
-            return Response(
-                {"success": False, "message": "検査結果の登録中にエラーが発生しました。", "errors": e.detail},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        except Exception:
-            logger.exception("Unexpected error while recording inspection result for item %s", inspection_item.id)
-            return Response(
-                {"success": False, "message": "検査結果の登録中に予期せぬエラーが発生しました。"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+            return error_response("測定詳細のデータ形式が不正です。")
+
+        # 各詳細の測定タイプを特定するために、MeasurementDetailオブジェクトを取得
+        detail_ids = [d.get("measurement_detail_id") for d in measurement_payload]
+        measurement_details_map = {
+            str(md.id): md for md in inspection_item.measurement_details.filter(id__in=detail_ids)
+        }
+
+        details_data_for_serializer = []
+        for measurement_data in measurement_payload:
+            detail_id = measurement_data.get("measurement_detail_id")
+            value = measurement_data.get("value")
+            measurement_detail = measurement_details_map.get(detail_id)
+
+            if not measurement_detail:
+                return error_response(f"無効な測定詳細IDです: {detail_id}")
+
+            detail_dict = {"measurement_detail": detail_id}
+            if measurement_detail.measurement_type == "quantitative":
+                detail_dict["measured_value_numeric"] = value if value not in [None, ""] else None
+            else:  # qualitative
+                detail_dict["result_qualitative"] = value if value not in [None, ""] else None
+            details_data_for_serializer.append(detail_dict)
+
+        # シリアライザ用のメインデータオブジェクトを構築
+        result_data = {
+            "inspection_item": inspection_item.id,
+            "part_number": request.data.get("part_number"),
+            "lot_number": request.data.get("lot_number"),
+            "equipment_used": request.data.get("equipment_used"),
+            "remarks": request.data.get("remarks"),
+            "attachment": request.data.get("attachment"),
+            "details": details_data_for_serializer,
+        }
+
+        # 入力値エラーは共通の例外ハンドラが統一形式の400に変換する
+        serializer = InspectionResultSerializer(data=result_data, context=self.get_serializer_context())
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response(
+            {"message": f"検査項目「{inspection_item.name}」の結果を登録しました。"},
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class InspectionResultViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):

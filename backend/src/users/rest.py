@@ -42,17 +42,16 @@ def csrf_failure(request, reason=""):
 @api_view(["POST"])
 def register_user(request):
     serializer = CustomUserSerializer(data=request.data)
-    if serializer.is_valid():
-        user = serializer.save()  # serializer.save() returns the created user instance
-        token, created = Token.objects.get_or_create(user=user)  # Get or create token
-        return Response(
-            {
-                "message": "ユーザー登録が完了しました",
-                "token": token.key,  # Include token in the response
-            },
-            status=status.HTTP_201_CREATED,
-        )
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    serializer.is_valid(raise_exception=True)
+    user = serializer.save()  # serializer.save() returns the created user instance
+    token, created = Token.objects.get_or_create(user=user)  # Get or create token
+    return Response(
+        {
+            "message": "ユーザー登録が完了しました",
+            "token": token.key,  # Include token in the response
+        },
+        status=status.HTTP_201_CREATED,
+    )
 
 
 class CustomObtainAuthToken(DefaultObtainAuthToken):
@@ -65,14 +64,13 @@ class CustomObtainAuthToken(DefaultObtainAuthToken):
 
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
-        if serializer.is_valid():
-            user = serializer.validated_data["user"]
-            # Start a session upon successful authentication
-            login(request, user)
-            token, created = Token.objects.get_or_create(user=user)
-            user_data = CustomUserSerializer(user).data
-            return Response({"token": token.key, "user": user_data})
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.validated_data["user"]
+        # Start a session upon successful authentication
+        login(request, user)
+        token, created = Token.objects.get_or_create(user=user)
+        user_data = CustomUserSerializer(user).data
+        return Response({"token": token.key, "user": user_data})
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
@@ -102,7 +100,7 @@ class APILogoutView(APIView):
         # Djangoのセッションを無効化します
         logout(request)
 
-        return Response({"success": True, "message": "Successfully logged out."}, status=status.HTTP_200_OK)
+        return Response({"message": "Successfully logged out."}, status=status.HTTP_200_OK)
 
 
 @api_view(["GET"])
@@ -151,10 +149,9 @@ class UserSettingsDetailView(APIView):
         """
         user = request.user
         serializer = UserProfileUpdateSerializer(user, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(AdminUserSerializer(user).data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(AdminUserSerializer(user).data)
 
 
 class UserPasswordChangeView(APIView):
@@ -166,14 +163,13 @@ class UserPasswordChangeView(APIView):
 
     def post(self, request, *args, **kwargs):
         serializer = PasswordChangeSerializer(data=request.data, context={"request": request})
-        if serializer.is_valid():
-            user = request.user
-            user.set_password(serializer.validated_data["new_password1"])
-            user.save()
-            # To keep the user logged in after password change
-            update_session_auth_hash(request, user)
-            return Response({"message": "パスワードが正常に変更されました。"}, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
+        user = request.user
+        user.set_password(serializer.validated_data["new_password1"])
+        user.save()
+        # To keep the user logged in after password change
+        update_session_auth_hash(request, user)
+        return Response({"message": "パスワードが正常に変更されました。"}, status=status.HTTP_200_OK)
 
 
 class APITokenView(APIView):

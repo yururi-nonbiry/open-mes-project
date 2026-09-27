@@ -16,18 +16,89 @@ export const buildQueryString = (params: Record<string, any>): string => {
 };
 
 /**
- * 共通のエラーハンドリング関数
+ * APIのエラー応答本文。成否はHTTPステータスで判定し、失敗時の本文は常にこの形式になる
+ * (backend/src/base/responses.py と対応)。
+ */
+export interface ApiErrorBody {
+    /** 画面にそのまま表示できるメッセージ */
+    error?: string;
+    /** 入力値エラー時のみ。フィールド名ごとのエラー詳細 */
+    errors?: Record<string, unknown>;
+    /** 認証系など、分岐に使う識別子がある場合のみ */
+    code?: string;
+}
+
+export class ApiError extends Error {
+    status: number;
+    errors: Record<string, unknown> | null;
+    code?: string;
+
+    constructor(message: string, status: number, errors: Record<string, unknown> | null = null, code?: string) {
+        super(message);
+        this.name = 'ApiError';
+        this.status = status;
+        this.errors = errors;
+        this.code = code;
+    }
+}
+
+/**
+ * 失敗したレスポンスから ApiError を生成する。
+ * 本文がJSONでない場合(プロキシのHTMLエラーページ等)は defaultMessage を使う。
+ */
+export const toApiError = async (response: Response, defaultMessage: string): Promise<ApiError> => {
+    let body: ApiErrorBody | null = null;
+    try {
+        body = await response.json();
+    } catch {
+        // JSON以外の本文は無視する
+    }
+    return new ApiError(body?.error || defaultMessage, response.status, body?.errors ?? null, body?.code);
+};
+
+/**
+ * 入力値エラーの詳細を「項目: 内容 / 項目: 内容」の1行にまとめる。項目別の表示欄を持たない画面向け。
+ */
+export const formatFieldErrors = (errors: Record<string, unknown>): string =>
+    Object.entries(errors)
+        .map(([field, messages]) => {
+            const msg = Array.isArray(messages)
+                ? messages.map(m => (typeof m === 'string' ? m : JSON.stringify(m))).join(' ')
+                : typeof messages === 'string' ? messages : JSON.stringify(messages);
+            return `${field}: ${msg}`;
+        })
+        .join(' / ');
+
+/**
+ * 例外を画面表示用の1行にする。入力値エラーの場合は項目別の詳細も添える(項目別の表示欄を持たない画面向け)。
+ */
+export const describeError = (err: unknown): string => {
+    if (err instanceof ApiError && err.errors) return `${err.message} ${formatFieldErrors(err.errors)}`;
+    return err instanceof Error ? err.message : String(err);
+};
+
+/**
+ * レスポンスが失敗(2xx以外)なら ApiError を送出する。
  */
 export const handleError = async (response: Response, defaultMessage: string) => {
     if (response.ok) return;
-    let detail = '';
-    try {
-        const data = await response.json();
-        detail = data.error || data.detail || '';
-    } catch {
-        detail = response.statusText;
-    }
-    throw new Error(detail || defaultMessage);
+    throw await toApiError(response, defaultMessage);
+};
+
+/**
+ * authFetch でリクエストし、成功時はJSON本文(204の場合は undefined)を返す。失敗時は ApiError を送出する。
+ */
+// 呼び出し側の多くが本文の型を定義していないため、既定では any として扱う
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const apiRequest = async <T = any>(
+    url: string,
+    options: RequestInit = {},
+    defaultMessage = 'サーバーとの通信に失敗しました。'
+): Promise<T> => {
+    const response = await authFetch(url, options);
+    await handleError(response, defaultMessage);
+    if (response.status === 204) return undefined as T;
+    return await response.json() as T;
 };
 
 const BASE_URL = '/api';

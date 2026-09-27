@@ -1,4 +1,4 @@
-import authFetch from '../utils/api';
+import { apiRequest } from '../utils/api';
 
 export interface Machine {
     id?: string;
@@ -11,36 +11,18 @@ export interface Machine {
 
 const machineService = {
     getMachines: async () => {
-        const response = await authFetch('/api/machine/machines/');
-        if (!response.ok) throw new Error('Failed to fetch machines');
-        const data = await response.json();
+        const data = await apiRequest('/api/machine/machines/', {}, 'Failed to fetch machines');
         return data.data as Machine[];
     },
 
-    saveMachine: async (machine: Machine) => {
+    saveMachine: (machine: Machine) => {
         const url = machine.id ? `/api/machine/machines/${machine.id}/` : '/api/machine/machines/';
         const method = machine.id ? 'PUT' : 'POST';
-        const response = await authFetch(url, {
-            method,
-            body: JSON.stringify(machine),
-        });
-        const data = await response.json();
-        if (!response.ok || data.status !== 'success') {
-            throw { message: data.message || 'Failed to save machine', data: data.data || data };
-        }
-        return data;
+        return apiRequest(url, { method, body: JSON.stringify(machine) }, 'Failed to save machine');
     },
 
-    deleteMachine: async (id: string) => {
-        const response = await authFetch(`/api/machine/machines/${id}/`, {
-            method: 'DELETE',
-        });
-        const data = await response.json();
-        if (!response.ok || data.status !== 'success') {
-            throw new Error(data.message || 'Failed to delete machine');
-        }
-        return data;
-    }
+    deleteMachine: (id: string) =>
+        apiRequest(`/api/machine/machines/${id}/`, { method: 'DELETE' }, 'Failed to delete machine'),
 };
 
 export default machineService;

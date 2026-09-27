@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import authFetch from '../../utils/api';
+import authFetch, { describeError, handleError } from '../../utils/api';
+import inventoryService from '../../services/inventoryService';
 import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library';
 import './MobileLocationTransferPage.css'; // 新しいCSSファイルをインポート
 
@@ -58,10 +59,7 @@ const MobileLocationTransferPage = () => {
       const params = new URLSearchParams({ warehouse: warehouse, location: sourceLocation });
       const response = await authFetch(`/api/inventory/inventories/by-location/?${params.toString()}`);
 
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || `サーバーエラー: ${response.status}`);
-      }
+      await handleError(response, `サーバーエラー: ${response.status}`);
 
       const inventoryItems = await response.json();
 
@@ -114,23 +112,14 @@ const MobileLocationTransferPage = () => {
     };
 
     try {
-      const response = await authFetch(`/api/inventory/inventories/${selectedItem.id}/move/`, {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
-      const result = await response.json();
-
-      if (response.ok && result.success) {
-        showMessage(result.message, 'success', true);
-        setTimeout(() => {
-          closeModal();
-          setSourceLocation('');
-        }, 1500);
-      } else {
-        showMessage(result.error || '不明なエラーが発生しました。', 'error', true);
-      }
+      const result = await inventoryService.moveInventory(selectedItem.id, payload);
+      showMessage(result.message, 'success', true);
+      setTimeout(() => {
+        closeModal();
+        setSourceLocation('');
+      }, 1500);
     } catch (error) {
-      showMessage('サーバーとの通信に失敗しました。', 'error', true);
+      showMessage(describeError(error) || 'サーバーとの通信に失敗しました。', 'error', true);
     } finally {
       setIsLoading(false);
     }
@@ -203,10 +192,7 @@ const MobileLocationTransferPage = () => {
             return;
         }
 
-        if (!response.ok) {
-            const errData = await response.json().catch(() => ({}));
-            throw new Error(errData.error || `サーバーエラー: ${response.status}`);
-        }
+        await handleError(response, `サーバーエラー: ${response.status}`);
 
         const data = await response.json();
         const { action, payload, navigate: navTarget, state, updateFields } = data.result || {};

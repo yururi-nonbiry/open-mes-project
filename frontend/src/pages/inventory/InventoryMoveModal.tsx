@@ -64,15 +64,11 @@ const InventoryMoveModal: React.FC<InventoryMoveModalProps> = ({
                 target_warehouse: formData.target_warehouse.trim(),
                 target_location: formData.target_location.trim(),
             });
-            if (result.success) {
-                setSuccess(result.message || '在庫を移動しました。');
-                setTimeout(() => {
-                    onSuccess();
-                    onClose();
-                }, 1500);
-            } else {
-                setError(result.error || '在庫の移動に失敗しました。');
-            }
+            setSuccess(result.message || '在庫を移動しました。');
+            setTimeout(() => {
+                onSuccess();
+                onClose();
+            }, 1500);
         } catch (err: any) {
             setError(err.message || '在庫移動中にエラーが発生しました。');
         } finally {

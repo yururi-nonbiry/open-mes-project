@@ -1,4 +1,4 @@
-import authFetch from '../utils/api';
+import { apiRequest } from '../utils/api';
 
 export interface Warehouse {
     id?: string;
@@ -43,55 +43,34 @@ export interface WarehouseLocationMap {
 
 const warehouseLocationService = {
     getWarehouses: async () => {
-        const response = await authFetch('/api/master/warehouses/');
-        if (!response.ok) throw new Error('倉庫一覧の取得に失敗しました。');
-        const data = await response.json();
+        const data = await apiRequest('/api/master/warehouses/', {}, '倉庫一覧の取得に失敗しました。');
         return (data.data || []) as Warehouse[];
     },
 
-    saveWarehouseLayout: async (warehouse: Warehouse) => {
-        const response = await authFetch(`/api/master/warehouses/${warehouse.id}/`, {
-            method: 'PUT',
-            body: JSON.stringify(warehouse),
-        });
-        const data = await response.json();
-        if (!response.ok || data.status !== 'success') {
-            throw new Error(data.message || '倉庫レイアウト設定の保存に失敗しました。');
-        }
-        return data;
-    },
+    saveWarehouseLayout: (warehouse: Warehouse) =>
+        apiRequest(
+            `/api/master/warehouses/${warehouse.id}/`,
+            { method: 'PUT', body: JSON.stringify(warehouse) },
+            '倉庫レイアウト設定の保存に失敗しました。'
+        ),
 
     getLocations: async (warehouseNumber: string) => {
-        const response = await authFetch(`/api/master/warehouse-locations/?warehouse=${encodeURIComponent(warehouseNumber)}`);
-        if (!response.ok) throw new Error('ロケーション一覧の取得に失敗しました。');
-        const data = await response.json();
+        const data = await apiRequest(
+            `/api/master/warehouse-locations/?warehouse=${encodeURIComponent(warehouseNumber)}`,
+            {},
+            'ロケーション一覧の取得に失敗しました。'
+        );
         return (data.data || []) as WarehouseLocation[];
     },
 
-    saveLocation: async (location: WarehouseLocation) => {
+    saveLocation: (location: WarehouseLocation) => {
         const url = location.id ? `/api/master/warehouse-locations/${location.id}/` : '/api/master/warehouse-locations/';
         const method = location.id ? 'PUT' : 'POST';
-        const response = await authFetch(url, {
-            method,
-            body: JSON.stringify(location),
-        });
-        const data = await response.json();
-        if (!response.ok || data.status !== 'success') {
-            throw { message: data.message || 'ロケーションの保存に失敗しました。', data: data.data || data };
-        }
-        return data;
+        return apiRequest(url, { method, body: JSON.stringify(location) }, 'ロケーションの保存に失敗しました。');
     },
 
-    deleteLocation: async (id: string) => {
-        const response = await authFetch(`/api/master/warehouse-locations/${id}/`, {
-            method: 'DELETE',
-        });
-        const data = await response.json();
-        if (!response.ok || data.status !== 'success') {
-            throw new Error(data.message || 'ロケーションの削除に失敗しました。');
-        }
-        return data;
-    },
+    deleteLocation: (id: string) =>
+        apiRequest(`/api/master/warehouse-locations/${id}/`, { method: 'DELETE' }, 'ロケーションの削除に失敗しました。'),
 };
 
 export default warehouseLocationService;

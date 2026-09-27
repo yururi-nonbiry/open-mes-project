@@ -11,6 +11,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from base.pagination import StandardResultsSetPagination
+from base.responses import error_response
 from master.models import WarehouseLocation
 
 from . import services
@@ -81,14 +82,8 @@ class InventoryViewSet(viewsets.ModelViewSet):
         inventory = self.get_object()
         if inventory.quantity > 0 or inventory.reserved > 0:
             # 在庫数や引当が残ったまま削除すると入出庫履歴なしに在庫が消えるため、先に在庫調整で0にさせる
-            return Response(
-                {
-                    "error": (
-                        "在庫数または引当済数量が0でない在庫は削除できません。"
-                        "在庫調整で0にしてから削除してください。"
-                    )
-                },
-                status=status.HTTP_400_BAD_REQUEST,
+            return error_response(
+                "在庫数または引当済数量が0でない在庫は削除できません。在庫調整で0にしてから削除してください。"
             )
         return super().destroy(request, *args, **kwargs)
 
@@ -98,10 +93,7 @@ class InventoryViewSet(viewsets.ModelViewSet):
         location = request.query_params.get("location")
 
         if not warehouse or location is None:
-            return Response(
-                {"success": False, "error": "倉庫(warehouse)と棚番(location)は必須のクエリパラメータです。"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return error_response("倉庫(warehouse)と棚番(location)は必須のクエリパラメータです。")
 
         inventory_items = Inventory.objects.filter(
             warehouse_rel__warehouse_number=warehouse, location=location, quantity__gt=0
@@ -116,9 +108,7 @@ class InventoryViewSet(viewsets.ModelViewSet):
         try:
             quantity_to_move = int(request.data.get("quantity_to_move"))
         except (TypeError, ValueError):
-            return Response(
-                {"success": False, "error": "無効なリクエストデータです。"}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return error_response("無効なリクエストデータです。")
 
         try:
             services.move_inventory(
@@ -129,16 +119,10 @@ class InventoryViewSet(viewsets.ModelViewSet):
                 request.user,
             )
         except services.InventoryServiceError as e:
-            return Response({"success": False, "error": e.message}, status=e.status_code)
+            return error_response(e.message, e.status_code)
         except IntegrityError:
-            return Response(
-                {
-                    "success": False,
-                    "error": "移動先の品番/倉庫/棚番の組み合わせが既に別の在庫レコードとして存在します。",
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        return Response({"success": True, "message": "在庫を正常に移動しました。"})
+            return error_response("移動先の品番/倉庫/棚番の組み合わせが既に別の在庫レコードとして存在します。")
+        return Response({"message": "在庫を正常に移動しました。"})
 
     @action(detail=True, methods=["post"], url_path="adjust")
     def adjust(self, request, pk=None):
@@ -148,22 +132,19 @@ class InventoryViewSet(viewsets.ModelViewSet):
         inventory = self.get_object()
         new_quantity = request.data.get("quantity")
         if new_quantity is None:
-            return Response({"error": "数量は必須です。"}, status=status.HTTP_400_BAD_REQUEST)
+            return error_response("数量は必須です。")
         try:
             new_quantity = int(new_quantity)
         except (TypeError, ValueError):
-            return Response({"error": "数量は数値である必要があります。"}, status=status.HTTP_400_BAD_REQUEST)
+            return error_response("数量は数値である必要があります。")
 
         try:
             services.adjust_inventory(inventory.pk, new_quantity, request.data.get("location"), request.user)
         except services.InventoryServiceError as e:
-            return Response({"error": e.message}, status=e.status_code)
+            return error_response(e.message, e.status_code)
         except IntegrityError:
-            return Response(
-                {"error": "移動先の品番/倉庫/棚番の組み合わせが既に別の在庫レコードとして存在します。"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        return Response({"success": True, "message": "在庫を正常に調整しました。"})
+            return error_response("移動先の品番/倉庫/棚番の組み合わせが既に別の在庫レコードとして存在します。")
+        return Response({"message": "在庫を正常に調整しました。"})
 
 
 class PurchaseOrderViewSet(viewsets.ModelViewSet):
@@ -179,10 +160,7 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
         try:
             self.perform_destroy(instance)
         except ProtectedError:
-            return Response(
-                {"error": "この発注は入庫実績が関連付けられているため削除できません。"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return error_response("この発注は入庫実績が関連付けられているため削除できません。")
         return Response(status=status.HTTP_204_NO_CONTENT)
     permission_classes = [IsAuthenticated]
 
@@ -250,11 +228,11 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
         purchase_order_id = request.data.get("purchase_order_id")
         received_quantity_str = request.data.get("received_quantity")
         if not all([purchase_order_id, received_quantity_str]):
-            return Response({"error": "必須項目が不足しています。"}, status=status.HTTP_400_BAD_REQUEST)
+            return error_response("必須項目が不足しています。")
         try:
             received_quantity = int(received_quantity_str)
         except (ValueError, TypeError):
-            return Response({"error": "入庫数量は正の整数である必要があります。"}, status=status.HTTP_400_BAD_REQUEST)
+            return error_response("入庫数量は正の整数である必要があります。")
 
         try:
             po = services.receive_purchase_order(
@@ -265,10 +243,9 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
                 request.user,
             )
         except services.InventoryServiceError as e:
-            return Response({"error": e.message}, status=e.status_code)
+            return error_response(e.message, e.status_code)
         return Response(
             {
-                "success": True,
                 "message": f"発注 {po.order_number} の入庫処理が正常に完了しました。",
                 "order_number": po.order_number,
             },
@@ -287,7 +264,7 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
         allowed_fields = [f.name for f in PurchaseOrder._meta.get_fields() if isinstance(f, models.CharField)]
 
         if not field_name or field_name not in allowed_fields:
-            return Response({"error": "Invalid or missing field parameter."}, status=status.HTTP_400_BAD_REQUEST)
+            return error_response("Invalid or missing field parameter.")
 
         # 空やNULLでない値のみを取得し、ソートする
         values = (
@@ -347,10 +324,7 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
         if instance.is_internal:
-            return Response(
-                {"success": False, "error": services.internal_order_error(instance).message},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return error_response(services.internal_order_error(instance).message)
         return super().update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
@@ -358,7 +332,7 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
         try:
             services.delete_sales_order(instance.pk)
         except services.InventoryServiceError as e:
-            return Response({"success": False, "error": e.message}, status=e.status_code)
+            return error_response(e.message, e.status_code)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=["get"], url_path="location-map")
@@ -370,10 +344,7 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
         order = self.get_object()
         warehouse = order.warehouse_rel
         if warehouse is None:
-            return Response(
-                {"status": "error", "message": f"受注 {order.order_number} に出庫倉庫が設定されていません。"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return error_response(f"受注 {order.order_number} に出庫倉庫が設定されていません。")
 
         qty_by_location = {
             row["location"]: row["total_qty"]
@@ -400,7 +371,6 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
 
         return Response(
             {
-                "status": "success",
                 "data": {
                     "warehouse": {
                         "warehouse_number": warehouse.warehouse_number,
@@ -431,10 +401,9 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
                 request.data.get("sales_order_reference"), request.data.get("allocations")
             )
         except services.InventoryServiceError as e:
-            return Response({"success": False, "error": e.message}, status=e.status_code)
+            return error_response(e.message, e.status_code)
         return Response(
             {
-                "success": True,
                 "message": "在庫を正常に引き当てました。",
                 "sales_order_reference": sales_order.order_number,
                 "sales_order_id": sales_order.id,
@@ -453,25 +422,18 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
         order_id = request.data.get("order_id")
         quantity_to_ship_str = request.data.get("quantity_to_ship")
         if not order_id or quantity_to_ship_str is None:
-            return Response(
-                {"success": False, "error": "order_id と quantity_to_ship は必須です。"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return error_response("order_id と quantity_to_ship は必須です。")
         try:
             quantity_to_ship = int(quantity_to_ship_str)
         except (TypeError, ValueError):
-            return Response(
-                {"success": False, "error": "出庫数量は有効な数値である必要があります。"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return error_response("出庫数量は有効な数値である必要があります。")
 
         try:
             sales_order = services.issue_sales_order(order_id, quantity_to_ship, request.user)
         except services.InventoryServiceError as e:
-            return Response({"success": False, "error": e.message}, status=e.status_code)
+            return error_response(e.message, e.status_code)
         return Response(
             {
-                "success": True,
                 "message": (
                     f"受注 {sales_order.order_number} から {quantity_to_ship} 個の {sales_order.item} を出庫しました。"
                 ),

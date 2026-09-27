@@ -19,7 +19,7 @@ class ItemCrudTests(MasterAPITestBase):
     def test_mst_item_01_list_returns_display_names(self):
         response = self.client.get(self.list_url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["status"], "success")
+        self.assertIn("data", response.data)
         row = response.data["data"][0]
         self.assertEqual(row["item_type"], "Product")
         self.assertEqual(row["provision_type"], "有償支給")
@@ -34,13 +34,13 @@ class ItemCrudTests(MasterAPITestBase):
         payload = {"name": "別名", "code": self.item.code, "item_type": "material"}
         response = self.client.post(self.list_url, payload, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("code", response.data)
+        self.assertIn("code", response.data["errors"])
 
     def test_mst_item_04_duplicate_name_rejected(self):
         payload = {"name": self.item.name, "code": "ITEM-OTHER", "item_type": "material"}
         response = self.client.post(self.list_url, payload, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("name", response.data)
+        self.assertIn("name", response.data["errors"])
 
     def test_mst_item_05_update_code_is_read_only(self):
         response = self.client.patch(self._detail_url(self.item.id), {"code": "CHANGED"}, format="json")
@@ -63,7 +63,7 @@ class ItemCrudTests(MasterAPITestBase):
         self.create_unit_cost(item=self.item)
         response = self.client.delete(self._detail_url(self.item.id))
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.data["status"], "error")
+        self.assertIn("error", response.data)
         self.assertTrue(Item.objects.filter(id=self.item.id).exists())
 
     def test_mst_item_09_anonymous_rejected(self):

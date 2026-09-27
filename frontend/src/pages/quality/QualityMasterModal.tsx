@@ -142,8 +142,8 @@ const QualityMasterModal: React.FC<QualityMasterModalProps> = ({ isOpen, onClose
             }, 1000);
         } catch (err: any) {
             setSubmitting(false);
-            if (err.data) {
-                const errors = err.data;
+            if (err.errors) {
+                const errors = { ...err.errors };
                 const flatErrors: any = {};
                 if (errors.measurement_details && Array.isArray(errors.measurement_details)) {
                     errors.measurement_details.forEach((detailError: any, index: number) => {

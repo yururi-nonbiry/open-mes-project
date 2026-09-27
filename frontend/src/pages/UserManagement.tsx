@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import authFetch from '../utils/api';
+import authFetch, { handleError, toApiError } from '../utils/api';
 
 const UserManagement = () => {
     const [users, setUsers] = useState([]);
@@ -25,10 +25,7 @@ const UserManagement = () => {
             // NOTE: This assumes a JSON-based API endpoint at /api/users/
             // This needs to be created in the Django backend.
             const response = await authFetch('/api/users/');
-            if (!response.ok) {
-                const data = await response.json().catch(() => null);
-                throw new Error(data?.detail || `HTTP error! status: ${response.status}`);
-            }
+            await handleError(response, `HTTP error! status: ${response.status}`);
             const data = await response.json();
             setUsers(data.results || data); // Support paginated or simple list response
         } catch (e) {
@@ -56,8 +53,8 @@ const UserManagement = () => {
                     setMessage({ text: `ユーザー "${userCustomId}" を削除しました。`, type: 'success' });
                     fetchUsers(); // Refresh the user list
                 } else {
-                    const data = await response.json().catch(() => ({ detail: '削除に失敗しました。' }));
-                    setMessage({ text: data.detail || '削除に失敗しました。', type: 'danger' });
+                    const error = await toApiError(response, '削除に失敗しました。');
+                    setMessage({ text: error.message, type: 'danger' });
                 }
             } catch (err) {
                 console.error('Delete request failed:', err);

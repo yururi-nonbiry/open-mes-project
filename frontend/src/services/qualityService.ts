@@ -1,4 +1,4 @@
-import authFetch from '../utils/api';
+import { apiRequest } from '../utils/api';
 
 export interface MeasurementDetail {
     id?: string | null;
@@ -27,73 +27,33 @@ export interface InspectionItem {
 
 const qualityService = {
     getInspectionItems: async () => {
-        const response = await authFetch('/api/quality/inspection-items/');
-        if (!response.ok) throw new Error('Failed to fetch inspection items');
-        const data = await response.json();
-        if (data.status !== 'success') throw new Error(data.message || 'Failed to fetch inspection items');
+        const data = await apiRequest('/api/quality/inspection-items/', {}, 'Failed to fetch inspection items');
         return data.data as InspectionItem[];
     },
 
     getInspectionItem: async (id: string) => {
-        const response = await authFetch(`/api/quality/inspection-items/${id}/`);
-        if (!response.ok) throw new Error('Failed to fetch inspection item');
-        const data = await response.json();
-        if (data.status !== 'success') throw new Error(data.message || 'Failed to fetch inspection item');
+        const data = await apiRequest(`/api/quality/inspection-items/${id}/`, {}, 'Failed to fetch inspection item');
         return data.data as InspectionItem;
     },
 
-    createInspectionItem: async (item: InspectionItem) => {
-        const response = await authFetch('/api/quality/inspection-items/', {
-            method: 'POST',
-            body: JSON.stringify(item),
-        });
-        const data = await response.json();
-        if (!response.ok || data.status !== 'success') {
-            throw { message: data.message || 'Failed to create item', data: data.data || data };
-        }
-        return data;
-    },
+    createInspectionItem: (item: InspectionItem) =>
+        apiRequest('/api/quality/inspection-items/', { method: 'POST', body: JSON.stringify(item) }, 'Failed to create item'),
 
-    updateInspectionItem: async (id: string, item: InspectionItem) => {
-        const response = await authFetch(`/api/quality/inspection-items/${id}/`, {
-            method: 'PUT',
-            body: JSON.stringify(item),
-        });
-        const data = await response.json();
-        if (!response.ok || data.status !== 'success') {
-            throw { message: data.message || 'Failed to update item', data: data.data || data };
-        }
-        return data;
-    },
+    updateInspectionItem: (id: string, item: InspectionItem) =>
+        apiRequest(`/api/quality/inspection-items/${id}/`, { method: 'PUT', body: JSON.stringify(item) }, 'Failed to update item'),
 
-    deleteInspectionItem: async (id: string) => {
-        const response = await authFetch(`/api/quality/inspection-items/${id}/`, {
-            method: 'DELETE',
-        });
-        const data = await response.json();
-        if (!response.ok || data.status !== 'success') {
-            throw new Error(data.message || 'Failed to delete item');
-        }
-        return data;
-    },
+    deleteInspectionItem: (id: string) =>
+        apiRequest(`/api/quality/inspection-items/${id}/`, { method: 'DELETE' }, 'Failed to delete item'),
 
-    getInspectionFormData: async (id: string | number) => {
-        const response = await authFetch(`/api/quality/inspection-items/${id}/form-data/`);
-        if (!response.ok) throw new Error('Failed to fetch inspection form data');
-        const data = await response.json();
-        if (!data.success) throw new Error(data.message || 'Failed to fetch form data');
-        return data;
-    },
+    getInspectionFormData: (id: string | number) =>
+        apiRequest(`/api/quality/inspection-items/${id}/form-data/`, {}, 'Failed to fetch inspection form data'),
 
-    recordInspectionResult: async (id: string | number, formData: FormData) => {
-        const response = await authFetch(`/api/quality/inspection-items/${id}/record-result/`, {
-            method: 'POST',
-            body: formData,
-        });
-        const data = await response.json();
-        if (!response.ok || !data.success) throw new Error(data.message || 'Failed to record inspection result');
-        return data;
-    }
+    recordInspectionResult: (id: string | number, formData: FormData) =>
+        apiRequest(
+            `/api/quality/inspection-items/${id}/record-result/`,
+            { method: 'POST', body: formData },
+            'Failed to record inspection result'
+        ),
 };
 
 export default qualityService;

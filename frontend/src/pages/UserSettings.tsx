@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import authFetch from '../utils/api';
+import authFetch, { ApiError, apiRequest, handleError } from '../utils/api';
 import Modal from '../components/Modal';
 
 const UserSettings = () => {
@@ -43,10 +43,7 @@ const UserSettings = () => {
     try {
       const [profileRes, tokenRes] = await Promise.all([authFetch('/api/users/settings/'), authFetch('/api/users/settings/token/')]);
 
-      if (!profileRes.ok) {
-        const errorData = await profileRes.json().catch(() => ({ detail: 'ユーザーデータの読み込みに失敗しました。' }));
-        throw new Error(errorData.detail || 'ユーザーデータの読み込みに失敗しました。');
-      }
+      await handleError(profileRes, 'ユーザーデータの読み込みに失敗しました。');
       const profileData = await profileRes.json();
       setProfileForm({
         username: profileData.username || '',
@@ -89,22 +86,18 @@ const UserSettings = () => {
     e.preventDefault();
     setProfileErrors({});
     try {
-      const response = await authFetch('/api/users/settings/', {
+      const data = await apiRequest('/api/users/settings/', {
         method: 'PATCH',
         body: JSON.stringify({
           username: profileForm.username,
           email: profileForm.email,
         }),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        if (response.status === 400) {
-          setProfileErrors(data);
-        }
-        throw new Error(data.detail || data.error || 'プロフィールの更新に失敗しました。');
-      }
+      }, 'プロフィールの更新に失敗しました。');
       addMessage(data.message || 'プロフィール情報が更新されました。', 'success');
     } catch (err) {
+      if (err instanceof ApiError && err.errors) {
+        setProfileErrors(err.errors);
+      }
       addMessage(err.message, 'danger');
     }
   };
@@ -113,22 +106,16 @@ const UserSettings = () => {
     e.preventDefault();
     setPasswordErrors({});
     try {
-      const response = await authFetch('/api/users/settings/password/', {
+      const data = await apiRequest('/api/users/settings/password/', {
         method: 'POST',
         body: JSON.stringify(passwordForm),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        if (response.status === 400) {
-          setPasswordErrors(data);
-        }
-        throw new Error(data.detail || data.error || 'パスワードの変更に失敗しました。');
-      }
+      }, 'パスワードの変更に失敗しました。');
       addMessage(data.message || 'パスワードが正常に変更されました。', 'success');
       closePasswordModal();
     } catch (err) {
-      // Non-field errors are often in 'detail' or a top-level error key
-      setPasswordErrors(prev => ({ ...prev, non_field_errors: [err.message] }));
+      // 項目別のエラーは各入力欄に、全体のメッセージはフォーム上部に表示する
+      const fieldErrors = err instanceof ApiError && err.errors ? err.errors : {};
+      setPasswordErrors({ ...fieldErrors, non_field_errors: [err.message] });
     }
   };
 
@@ -137,11 +124,7 @@ const UserSettings = () => {
       return;
     }
     try {
-      const response = await authFetch('/api/users/settings/token/', { method: 'POST' });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || data.detail || 'トークンの再生成に失敗しました。');
-      }
+      const data = await apiRequest('/api/users/settings/token/', { method: 'POST' }, 'トークンの再生成に失敗しました。');
       setApiToken(data.api_token);
       addMessage(data.message || 'APIトークンが再生成されました。', 'success');
       setIsTokenVisible(true); // Show the new token immediately

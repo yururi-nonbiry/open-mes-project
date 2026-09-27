@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Container, Table, Button, Modal, Form, Spinner, Alert, Row, Col } from 'react-bootstrap';
-import authFetch from '../utils/api';
+import authFetch, { ApiError, apiRequest } from '../utils/api';
 
 const ACTION_TEMPLATES = {
     'モバイル入庫処理（検索）': {
@@ -144,19 +144,15 @@ const QrCodeActionSettings = () => {
         const method = isNew ? 'POST' : 'PUT';
 
         try {
-            const response = await authFetch(url, {
+            await apiRequest(url, {
                 method: method,
                 body: JSON.stringify(currentAction),
-            });
-            const result = await response.json();
-            if (!response.ok) {
-                setFormErrors(result);
-                throw new Error('保存に失敗しました。入力内容を確認してください。');
-            }
+            }, '保存に失敗しました。入力内容を確認してください。');
             handleCloseModal();
             fetchActions();
         } catch (err) {
-            setFormErrors(prev => ({ ...prev, non_field_errors: err.message }));
+            const fieldErrors = err instanceof ApiError && err.errors ? err.errors : {};
+            setFormErrors({ ...fieldErrors, non_field_errors: err.message });
         } finally {
             setIsSaving(false);
         }

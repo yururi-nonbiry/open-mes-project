@@ -53,7 +53,7 @@ class PasswordChangeTests(UsersAPITestBase):
     def test_usr_pwchange_02_wrong_old_password_rejected(self):
         response = self.client.post(self.url, self._payload(old="wrongoldpw"), format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("old_password", response.data)
+        self.assertIn("old_password", response.data["errors"])
 
     def test_usr_pwchange_03_mismatched_new_passwords_rejected(self):
         response = self.client.post(self.url, self._payload(new2="different1"), format="json")

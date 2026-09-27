@@ -36,7 +36,7 @@
   `reverse("base_api:<name>")`でURL解決する。
 - `base`の各ViewSet（`CsvColumnMappingViewSet`、`QrCodeActionViewSet`、`ModelDisplaySettingViewSet`）は
   `master`/`quality`/`machine`とは異なり**`CustomSuccessMessageMixin`を使用していない**。標準のDRF
-  `ModelViewSet`の応答形式（listは`{"status": ..., "data": ...}`ではなくプレーンな配列、`destroy()`は
+  `ModelViewSet`の応答形式（listは`{"data": ...}`ではなくプレーンな配列、`destroy()`は
   204 No Content）である点に注意。
 - 各ViewSetの既定`permission_classes`は`[IsAdminUser]`（`is_staff=True`のユーザーのみ）だが、
   `CsvColumnMappingViewSet`の`csv_template`/`import_csv`/`get_task_status`/`cancel_task`、
@@ -129,7 +129,7 @@
 | BASE-QRACTION-05 | 正常系 | `DELETE qr-code-actions/{id}/` | 管理者 | 削除 | 204 | |
 | BASE-QRACTION-06 | 異常系 | `GET qr-code-actions/` | 未認証 | 呼び出し | 401 | |
 | BASE-QRACTION-07 | 異常系 | `GET qr-code-actions/` | 一般ユーザー | 呼び出し | 403 | |
-| BASE-QREXEC-01 | 正常系 | `POST qr-code-actions/execute/` | 一般ユーザー、パターンに一致する有効なアクションが存在 | `qr_data`を送信 | 200、`{"status": "success", "action_name": ..., "result": ...}` | `IsAuthenticated`へ降格 |
+| BASE-QREXEC-01 | 正常系 | `POST qr-code-actions/execute/` | 一般ユーザー、パターンに一致する有効なアクションが存在 | `qr_data`を送信 | 200、`{"action_name": ..., "result": ...}` | `IsAuthenticated`へ降格 |
 | BASE-QREXEC-02 | 異常系 | 同上 | 一般ユーザー、一致するアクションなし | 送信 | 404 | |
 | BASE-QREXEC-03 | 異常系 | 同上 | 一般ユーザー | `qr_data`未指定 | 400 | |
 | BASE-QREXEC-04 | 異常系 | 同上 | 未認証 | 送信 | 401 | |
@@ -149,7 +149,22 @@
 | BASE-MDSBULK-01 | 正常系 | `POST model-display-settings/bulk-save/?data_type=item` | 管理者、既存設定が存在 | 一括保存 | 200、既存分は削除され新しい内容に置き換わる | |
 | BASE-MDSBULK-02 | 異常系 | 同上 | 一般ユーザー | 呼び出し | 403 | |
 
-### 5.9 API未実装モデルの単体テスト（`base/tests/test_models.py`）
+### 5.9 エラー応答形式の統一（`base.responses.api_exception_handler`、`base/tests/test_error_responses.py`）
+
+| ケースID | 分類 | 対象 | 前提条件 | 手順・入力 | 期待結果 | 備考 |
+|---|---|---|---|---|---|---|
+| BASE-ERR-01 | 異常系 | `POST master/items/` | 管理者 | 空の本文 | 400、`error`に最初の項目エラーを含むメッセージ、`errors`に項目別詳細 | `ValidationError`の変換 |
+| BASE-ERR-02 | 異常系 | `GET master/items/{id}/` | 管理者 | 存在しないID | 404、`{"error": ...}` | `NotFound`の変換 |
+| BASE-ERR-03 | 異常系 | `GET master/items/` | 未認証 | 呼び出し | 401、`{"error": ..., "code": "not_authenticated"}` | |
+| BASE-ERR-04 | 異常系 | `GET model-fields/` | 一般ユーザー | 呼び出し | 403、`{"error": ...}` | |
+| BASE-ERR-05 | 異常系 | `POST inventory/sales-orders/issue/` | 管理者 | 空の本文 | 400、`{"error": ...}` | ビューで個別に返すエラー(`error_response`) |
+| BASE-ERR-06 | 異常系 | 同上 | 管理者、サービス層が想定外の例外を送出(モック) | 送信 | 500、`{"error": ...}`に例外の内容を含まない、ログにERROR出力 | |
+| BASE-ERR-07 | 異常系 | `POST users/token/` | 未認証 | 誤ったパスワード | 401、`error`が日本語のメッセージ | simplejwtの例外の変換 |
+| BASE-ERR-08 | 異常系 | `POST model-display-settings/bulk-save/` | 管理者 | 不正な値を含む設定 | 400、`errors`がフィールド名をキーとする | |
+
+いずれのケースも、本文に`success`/`status`/`detail`キーが含まれないことを合わせて確認する。
+
+### 5.10 API未実装モデルの単体テスト（`base/tests/test_models.py`）
 
 | ケースID | 分類 | 対象 | 手順・入力 | 期待結果 | 備考 |
 |---|---|---|---|---|---|

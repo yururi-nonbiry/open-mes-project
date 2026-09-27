@@ -20,7 +20,7 @@ class InspectionItemCrudTests(QualityAPITestBase):
     def test_qua_item_01_list_success(self):
         response = self.client.get(self.list_url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["status"], "success")
+        self.assertIn("data", response.data)
         codes = [row["code"] for row in response.data["data"]]
         self.assertIn(self.item.code, codes)
 
@@ -112,7 +112,7 @@ class InspectionItemCrudTests(QualityAPITestBase):
         payload = {"measurement_details": []}
         response = self.client.patch(self._detail_url(self.item.id), payload, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.data["status"], "error")
+        self.assertIn("error", response.data)
         self.assertTrue(MeasurementDetail.objects.filter(id=self.detail.id).exists())
 
     def test_qua_item_10_delete_cascades_to_measurement_details(self):
@@ -125,7 +125,7 @@ class InspectionItemCrudTests(QualityAPITestBase):
         self.create_inspection_result(inspection_item=self.item)
         response = self.client.delete(self._detail_url(self.item.id))
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.data["status"], "error")
+        self.assertIn("error", response.data)
         self.assertTrue(InspectionItem.objects.filter(id=self.item.id).exists())
 
     def test_qua_item_12_anonymous_rejected(self):

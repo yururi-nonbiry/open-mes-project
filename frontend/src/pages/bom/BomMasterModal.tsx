@@ -85,10 +85,9 @@ const BomMasterModal: React.FC<BomMasterModalProps> = ({ isOpen, onClose, onSucc
             }, 800);
         } catch (err: any) {
             setSubmitting(false);
-            if (err.data) {
-                const nonField = Array.isArray(err.data.non_field_errors) ? err.data.non_field_errors.join(' ') : '';
-                setFormErrors(err.data);
-                setGlobalMessage({ text: nonField || err.message || '入力内容を確認してください。', type: 'danger' });
+            if (err.errors) {
+                setFormErrors(err.errors);
+                setGlobalMessage({ text: err.message || '入力内容を確認してください。', type: 'danger' });
             } else {
                 setGlobalMessage({ text: `送信中にエラーが発生しました: ${err.message}`, type: 'danger' });
             }

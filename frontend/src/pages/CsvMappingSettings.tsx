@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Container, Table, Button, Form, Spinner, Alert, Row, Col, Tooltip, OverlayTrigger } from 'react-bootstrap';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
-import authFetch from '../utils/api';
+import authFetch, { apiRequest, describeError } from '../utils/api';
 
 const DATA_TYPE_CHOICES = [
     { value: 'item', label: '品番マスター' },
@@ -104,20 +104,15 @@ const CsvMappingSettings = () => {
         }));
 
         try {
-            const response = await authFetch(`/api/base/csv-mappings/bulk-save/?data_type=${selectedDataType}`, {
+            const result = await apiRequest(`/api/base/csv-mappings/bulk-save/?data_type=${selectedDataType}`, {
                 method: 'POST',
                 body: JSON.stringify(payload),
-            });
-            const result = await response.json();
-            if (!response.ok) {
-                console.error('Save failed:', result);
-                throw new Error(result.message || '保存に失敗しました。');
-            }
+            }, '保存に失敗しました。');
             setSaveStatus({ message: result.message, variant: 'success', show: true });
             // 再取得して画面を最新化
             fetchAllData(selectedDataType);
         } catch (err) {
-            setSaveStatus({ message: err.message, variant: 'danger', show: true });
+            setSaveStatus({ message: describeError(err), variant: 'danger', show: true });
         } finally {
             setLoading(false);
         }

@@ -22,8 +22,9 @@
 - テストクラスは`rest_framework.test.APITestCase`を使用し、`reverse("master_api:<basename>-list"/"-detail")`で
   URL解決する。
 - 全ViewSetの`permission_classes`は`[IsAuthenticated]`で統一されており、staff/superuser等の権限区分はない。
-- `CustomSuccessMessageMixin`により、list/retrieve/create/updateのレスポンスは標準のDRF形式ではなく
-  `{"status": "success", "data": ...}`（list時は`"data"`が配列）でラップされる。またページネーションは
+- `CustomSuccessMessageMixin`（`base/viewsets.py`）により、list/retrieve/create/updateのレスポンスは標準のDRF形式ではなく
+  `{"data": ...}`（list時は`"data"`が配列、create/updateは`"message"`も付く）でラップされる。エラー時は全API共通の
+  `{"error": ..., "errors"?: ...}`形式（[API構造](../05_api.md#応答形式)参照）。またページネーションは
   設定されておらず(`list()`が独自実装で`paginate_queryset`を呼ばない)、`"data"`は常に全件のプレーンな配列。
 - `master/migrations/0007_ensure_test_stub_data.py`により、テストDBにも`Item("TEST-PROD-001")`,
   `Item("TEST-PART-001")`, `Warehouse("WH-001")`, `Warehouse("FG-MAIN")`が事前投入されるため、
@@ -63,7 +64,7 @@
 | MST-ITEM-05 | 境界値 | `PATCH items/{id}/` | 既存Itemが存在 | `code`を変更しようとする | 200だが`code`は変化しない | 更新時`read_only`化（`get_fields`）、他アプリからのFK整合性保護のため |
 | MST-ITEM-06 | 正常系 | `PATCH items/{id}/` | 既存Itemが存在 | `name`を更新 | 200、DBに反映 | |
 | MST-ITEM-07 | 正常系 | `DELETE items/{id}/` | 参照されていないItem | 削除 | 200、DBから削除 | |
-| MST-ITEM-08 | 異常系 | `DELETE items/{id}/` | `UnitCost`から参照されている | 削除 | 400、`{"status": "error", ...}`、DBに残存 | `ProtectedError`を`CustomSuccessMessageMixin.destroy`が捕捉 |
+| MST-ITEM-08 | 異常系 | `DELETE items/{id}/` | `UnitCost`から参照されている | 削除 | 400、`{"error": ...}`、DBに残存 | `ProtectedError`を`CustomSuccessMessageMixin.destroy`が捕捉 |
 | MST-ITEM-09 | 異常系 | `GET items/` | 未認証 | 呼び出し | 401 | |
 
 ### 5.2 サプライヤー CRUD（`SupplierViewSet`、`master/tests/test_supplier.py`）

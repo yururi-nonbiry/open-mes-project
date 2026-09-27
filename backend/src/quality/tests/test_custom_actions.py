@@ -30,7 +30,7 @@ class InspectionItemCustomActionTests(QualityAPITestBase):
     def test_qua_action_01_form_data_success(self):
         response = self.client.get(self._form_data_url())
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertTrue(response.data["success"])
+        self.assertIn("result_form_fields", response.data)
         detail_names = [d["name"] for d in response.data["measurement_details"]]
         self.assertIn(self.qty_detail.name, detail_names)
 
@@ -43,7 +43,7 @@ class InspectionItemCustomActionTests(QualityAPITestBase):
         }
         response = self.client.post(self._record_result_url(), payload, format="multipart")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertTrue(response.data["success"])
+        self.assertIn("message", response.data)
         result = InspectionResult.objects.get(part_number="PART-200")
         self.assertEqual(result.judgment, "pass")
         self.assertEqual(result.inspected_by, self.user)
@@ -56,10 +56,10 @@ class InspectionItemCustomActionTests(QualityAPITestBase):
         }
         response = self.client.post(self._record_result_url(), payload, format="multipart")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertFalse(response.data["success"])
+        self.assertIn("error", response.data)
 
     def test_qua_action_04_record_result_malformed_json_payload(self):
         payload = {"measurement_details_payload": "not-json"}
         response = self.client.post(self._record_result_url(), payload, format="multipart")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertFalse(response.data["success"])
+        self.assertIn("error", response.data)

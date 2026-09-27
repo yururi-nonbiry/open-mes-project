@@ -18,6 +18,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import AsyncTask, CsvColumnMapping, ModelDisplaySetting, QrCodeAction
+from .responses import VALIDATION_ERROR_MESSAGE, error_response
 from .serializers import CsvColumnMappingSerializer, ModelDisplaySettingSerializer, QrCodeActionSerializer
 from .tasks import import_csv_task
 
@@ -87,13 +88,13 @@ class ModelFieldsView(APIView):
         model_string = DATA_TYPE_MODEL_MAPPING.get(data_type)
 
         if not model_string:
-            return Response({"error": f"Invalid data_type: {data_type}"}, status=status.HTTP_400_BAD_REQUEST)
+            return error_response(f"Invalid data_type: {data_type}")
 
         try:
             app_label, model_name = model_string.split(".")
             model = apps.get_model(app_label=app_label, model_name=model_name)
         except (LookupError, ValueError):
-            return Response({"error": f"Model {model_string} not found."}, status=status.HTTP_404_NOT_FOUND)
+            return error_response(f"Model {model_string} not found.", status.HTTP_404_NOT_FOUND)
 
         fields_data = []
         for field in model._meta.get_fields():
@@ -127,19 +128,13 @@ class IntegrityErrorAsBadRequestMixin:
         try:
             return super().create(request, *args, **kwargs)
         except IntegrityError:
-            return Response(
-                {"status": "error", "message": "指定されたデータは既に登録されています。"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return error_response("指定されたデータは既に登録されています。")
 
     def update(self, request, *args, **kwargs):
         try:
             return super().update(request, *args, **kwargs)
         except IntegrityError:
-            return Response(
-                {"status": "error", "message": "指定されたデータは既に登録されています。"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return error_response("指定されたデータは既に登録されています。")
 
 
 class CsvColumnMappingViewSet(IntegrityErrorAsBadRequestMixin, viewsets.ModelViewSet):
@@ -170,7 +165,7 @@ class CsvColumnMappingViewSet(IntegrityErrorAsBadRequestMixin, viewsets.ModelVie
         """
         data_type = request.query_params.get("data_type")
         if not data_type:
-            return Response({"error": 'Query parameter "data_type" is required.'}, status=status.HTTP_400_BAD_REQUEST)
+            return error_response('Query parameter "data_type" is required.')
 
         mappings = CsvColumnMapping.objects.filter(data_type=data_type, is_active=True).order_by("order")
 
@@ -191,16 +186,11 @@ class CsvColumnMappingViewSet(IntegrityErrorAsBadRequestMixin, viewsets.ModelVie
     def import_csv(self, request, *args, **kwargs):
         data_type = request.query_params.get("data_type")
         if not data_type:
-            return Response(
-                {"status": "error", "message": 'Query parameter "data_type" is required.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return error_response('Query parameter "data_type" is required.')
 
         csv_file = request.FILES.get("csv_file")
         if not csv_file:
-            return Response(
-                {"status": "error", "message": "CSVファイルが見つかりません。"}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return error_response("CSVファイルが見つかりません。")
 
         # 一時ファイルに保存
         fs = FileSystemStorage(location=os.path.join(settings.BASE_DIR, "temp_csv_uploads"))
@@ -228,9 +218,7 @@ class CsvColumnMappingViewSet(IntegrityErrorAsBadRequestMixin, viewsets.ModelVie
             }
             return Response(response_data)
         except AsyncTask.DoesNotExist:
-            return Response(
-                {"status": "error", "message": "タスクが見つかりません。"}, status=status.HTTP_404_NOT_FOUND
-            )
+            return error_response("タスクが見つかりません。", status.HTTP_404_NOT_FOUND)
 
     @action(detail=True, methods=["post"], url_path="csv-import-cancel")
     def cancel_task(self, request, pk=None):
@@ -240,16 +228,11 @@ class CsvColumnMappingViewSet(IntegrityErrorAsBadRequestMixin, viewsets.ModelVie
                 import_csv_task.AsyncResult(task.task_id).revoke(terminate=True)
                 task.status = "REVOKED"
                 task.save()
-                return Response({"status": "success", "message": "タスクのキャンセルをリクエストしました。"})
+                return Response({"message": "タスクのキャンセルをリクエストしました。"})
             else:
-                return Response(
-                    {"status": "error", "message": "このタスクはすでに完了またはキャンセルされています。"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+                return error_response("このタスクはすでに完了またはキャンセルされています。")
         except AsyncTask.DoesNotExist:
-            return Response(
-                {"status": "error", "message": "タスクが見つかりません。"}, status=status.HTTP_404_NOT_FOUND
-            )
+            return error_response("タスクが見つかりません。", status.HTTP_404_NOT_FOUND)
 
     @action(detail=False, methods=["post"], url_path="bulk-save")
     def bulk_save(self, request, *args, **kwargs):
@@ -258,16 +241,14 @@ class CsvColumnMappingViewSet(IntegrityErrorAsBadRequestMixin, viewsets.ModelVie
         """
         data_type = request.query_params.get("data_type")
         if not data_type:
-            return Response({"error": 'Query parameter "data_type" is required.'}, status=status.HTTP_400_BAD_REQUEST)
+            return error_response('Query parameter "data_type" is required.')
 
         mappings_data = request.data
         if not isinstance(mappings_data, list):
-            return Response(
-                {"error": "Request body must be a list of mapping objects."}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return error_response("Request body must be a list of mapping objects.")
 
         objects_to_create = []
-        validation_errors = []
+        validation_errors = {}
 
         for index, data in enumerate(mappings_data):
             if not data.get("is_active") or not data.get("csv_header", "").strip():
@@ -278,15 +259,10 @@ class CsvColumnMappingViewSet(IntegrityErrorAsBadRequestMixin, viewsets.ModelVie
             if serializer.is_valid():
                 objects_to_create.append(CsvColumnMapping(**serializer.validated_data))
             else:
-                validation_errors.append(
-                    {"field": data.get("model_field_name", f"index {index}"), "errors": serializer.errors}
-                )
+                validation_errors[data.get("model_field_name") or f"index {index}"] = serializer.errors
 
         if validation_errors:
-            return Response(
-                {"status": "error", "message": "入力データにエラーがあります。", "errors": validation_errors},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return error_response(VALIDATION_ERROR_MESSAGE, errors=validation_errors)
 
         with transaction.atomic():
             # 既存のマッピングを削除
@@ -294,9 +270,7 @@ class CsvColumnMappingViewSet(IntegrityErrorAsBadRequestMixin, viewsets.ModelVie
             # 新しいマッピングを一括作成
             CsvColumnMapping.objects.bulk_create(objects_to_create)
 
-        return Response(
-            {"status": "success", "message": f"{data_type} のマッピングを保存しました。"}, status=status.HTTP_200_OK
-        )
+        return Response({"message": f"{data_type} のマッピングを保存しました。"}, status=status.HTTP_200_OK)
 
 
 # 安全に実行可能なアクション関数を定義
@@ -335,7 +309,7 @@ class QrCodeActionViewSet(viewsets.ModelViewSet):
         """
         qr_data = request.data.get("qr_data")
         if not qr_data:
-            return Response({"error": "qr_data is required."}, status=status.HTTP_400_BAD_REQUEST)
+            return error_response("qr_data is required.")
 
         # アクティブなアクションを取得
         actions = QrCodeAction.objects.filter(is_active=True)
@@ -353,29 +327,11 @@ class QrCodeActionViewSet(viewsets.ModelViewSet):
                     # 登録済みのアクションを取得して実行
                     action_func = REGISTERED_ACTIONS.get(action_obj.action_name)
                     if action_func:
-                        try:
-                            result = action_func(qr_data)
-                            return Response(
-                                {
-                                    "status": "success",
-                                    "action_name": action_obj.name,
-                                    "result": result,
-                                }
-                            )
-                        except Exception:
-                            logger.exception("QRコードアクション '%s' の実行に失敗しました。", action_obj.name)
-                            return Response(
-                                {
-                                    "status": "error",
-                                    "message": f"An error occurred while executing action '{action_obj.name}'.",
-                                },
-                                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                            )
+                        # 実行時の想定外例外は共通の例外ハンドラがログ出力して500を返す
+                        result = action_func(qr_data)
+                        return Response({"action_name": action_obj.name, "result": result})
 
-        return Response(
-            {"status": "not_found", "message": "No matching action found for the given QR data."},
-            status=status.HTTP_404_NOT_FOUND,
-        )
+        return error_response("No matching action found for the given QR data.", status.HTTP_404_NOT_FOUND)
 
 
 class ModelDisplaySettingViewSet(IntegrityErrorAsBadRequestMixin, viewsets.ModelViewSet):
@@ -396,16 +352,14 @@ class ModelDisplaySettingViewSet(IntegrityErrorAsBadRequestMixin, viewsets.Model
         """
         data_type = request.query_params.get("data_type")
         if not data_type:
-            return Response({"error": 'Query parameter "data_type" is required.'}, status=status.HTTP_400_BAD_REQUEST)
+            return error_response('Query parameter "data_type" is required.')
 
         settings_data = request.data
         if not isinstance(settings_data, list):
-            return Response(
-                {"error": "Request body must be a list of setting objects."}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return error_response("Request body must be a list of setting objects.")
 
         objects_to_create = []
-        validation_errors = []
+        validation_errors = {}
 
         for index, data in enumerate(settings_data):
             data["data_type"] = data_type
@@ -413,20 +367,13 @@ class ModelDisplaySettingViewSet(IntegrityErrorAsBadRequestMixin, viewsets.Model
             if serializer.is_valid():
                 objects_to_create.append(ModelDisplaySetting(**serializer.validated_data))
             else:
-                validation_errors.append(
-                    {"field": data.get("model_field_name", f"index {index}"), "errors": serializer.errors}
-                )
+                validation_errors[data.get("model_field_name") or f"index {index}"] = serializer.errors
 
         if validation_errors:
-            return Response(
-                {"status": "error", "message": "入力データにエラーがあります。", "errors": validation_errors},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return error_response(VALIDATION_ERROR_MESSAGE, errors=validation_errors)
 
         with transaction.atomic():
             ModelDisplaySetting.objects.filter(data_type=data_type).delete()
             ModelDisplaySetting.objects.bulk_create(objects_to_create)
 
-        return Response(
-            {"status": "success", "message": f"{data_type} の表示設定を保存しました。"}, status=status.HTTP_200_OK
-        )
+        return Response({"message": f"{data_type} の表示設定を保存しました。"}, status=status.HTTP_200_OK)

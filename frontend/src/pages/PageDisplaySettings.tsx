@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Container, Table, Button, Form, Spinner, Alert, Row, Col, Tooltip, OverlayTrigger } from 'react-bootstrap';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
-import authFetch from '../utils/api';
+import authFetch, { describeError, toApiError } from '../utils/api';
 
 // This could be moved to a shared constants file
 const DATA_TYPE_CHOICES = [
@@ -199,18 +199,16 @@ const PageDisplaySettings = () => {
 
             const responses = await Promise.all(savePromises);
 
-            const errorResponses = responses.filter(res => !res.ok);
-            if (errorResponses.length > 0) {
-                const errorResult = await errorResponses[0].json();
-                console.error('Save failed:', errorResult);
-                throw new Error(errorResult.message || '保存に失敗しました。');
+            const errorResponse = responses.find(res => !res.ok);
+            if (errorResponse) {
+                throw await toApiError(errorResponse as Response, '保存に失敗しました。');
             }
 
             const successMessages = await Promise.all(responses.map(res => res.json().then(r => r.message)));
             setSaveStatus({ message: successMessages.filter(Boolean).join(' ') || '設定を保存しました。', variant: 'success', show: true });
             fetchAllData(selectedDataType);
         } catch (err) {
-            setSaveStatus({ message: err.message, variant: 'danger', show: true });
+            setSaveStatus({ message: describeError(err), variant: 'danger', show: true });
         } finally {
             setIsSaving(false);
         }

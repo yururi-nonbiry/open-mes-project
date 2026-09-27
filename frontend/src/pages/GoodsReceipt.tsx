@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import authFetch from '../utils/api';
+import authFetch, { ApiError } from '../utils/api';
+import inventoryService from '../services/inventoryService';
 import Modal from '../components/Modal';
 import './InventoryInquiry.css'; // 既存のCSSを利用してファイル未発見エラーを回避
 
@@ -202,28 +203,20 @@ const GoodsReceipt = () => {
     }
 
     try {
-      const response = await authFetch('/api/inventory/purchase-orders/process-receipt/', {
-        method: 'POST',
-        body: JSON.stringify({
-          purchase_order_id: receiptModal.order.id,
-          received_quantity: receivedQuantity,
-          location: receiptFormData.location.trim(),
-          warehouse: receiptFormData.warehouse.trim(),
-        }),
+      const result = await inventoryService.receivePurchaseOrder({
+        purchase_order_id: receiptModal.order.id,
+        received_quantity: receivedQuantity,
+        location: receiptFormData.location.trim(),
+        warehouse: receiptFormData.warehouse.trim(),
       });
-      const result = await response.json();
-      if (response.ok) {
-        setReceiptModal(prev => ({ ...prev, success: `発注 ${result.order_number} の入庫処理が正常に完了しました。` }));
-        setTimeout(() => {
-          closeReceiptModal();
-          fetchPurchaseOrders(); // Refresh data
-        }, 1500);
-      } else {
-        setReceiptModal(prev => ({ ...prev, error: result.error || '入庫処理に失敗しました。' }));
-      }
+      setReceiptModal(prev => ({ ...prev, success: `発注 ${result.order_number} の入庫処理が正常に完了しました。` }));
+      setTimeout(() => {
+        closeReceiptModal();
+        fetchPurchaseOrders(); // Refresh data
+      }, 1500);
     } catch (err) {
       console.error('Error submitting purchase receipt:', err);
-      setReceiptModal(prev => ({ ...prev, error: '入庫処理中に通信エラーが発生しました。' }));
+      setReceiptModal(prev => ({ ...prev, error: err instanceof ApiError ? err.message : '入庫処理中に通信エラーが発生しました。' }));
     }
   };
 

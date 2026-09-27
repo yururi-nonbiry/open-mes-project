@@ -81,7 +81,6 @@ class QrCodeActionExecuteTests(BaseAPITestBase):
         self.client.force_authenticate(user=self.user)
         response = self.client.post(self.url, {"qr_data": "ITEM-001"}, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["status"], "success")
         self.assertEqual(response.data["action_name"], self.qr_action.name)
 
     def test_base_qrexec_02_no_matching_action_returns_404(self):

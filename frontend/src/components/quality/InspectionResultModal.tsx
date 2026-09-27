@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Modal from '../Modal';
 import qualityService, { InspectionItem, MeasurementDetail } from '../../services/qualityService';
+import { describeError } from '../../utils/api';
 
 interface InspectionResultModalProps {
     item: InspectionItem;
@@ -91,7 +92,7 @@ const InspectionResultModal: React.FC<InspectionResultModalProps> = ({ item, onC
                 onClose();
             }, 2000);
         } catch (err: any) {
-            setAlert({ show: true, type: 'danger', message: `登録エラー: ${err.message}` });
+            setAlert({ show: true, type: 'danger', message: `登録エラー: ${describeError(err)}` });
         } finally {
             setSubmitting(false);
         }
