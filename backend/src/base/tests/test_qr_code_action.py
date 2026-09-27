@@ -32,6 +32,14 @@ class QrCodeActionCrudTests(BaseAPITestBase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertTrue(QrCodeAction.objects.filter(name="新規アクション").exists())
 
+    def test_base_qraction_02b_invalid_regex_rejected(self):
+        response = self.client.post(
+            self.list_url,
+            {"name": "不正パターン", "action_type": "regex", "qr_code_pattern": "ITEM-(", "action_name": "mark_as_received"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_base_qraction_03_duplicate_name_rejected(self):
         payload = {"name": self.qr_action.name, "action_type": "regex", "qr_code_pattern": r"^X-.+"}
         response = self.client.post(self.list_url, payload, format="json")
@@ -90,3 +98,11 @@ class QrCodeActionExecuteTests(BaseAPITestBase):
         self.client.force_authenticate(user=None)
         response = self.client.post(self.url, {"qr_data": "ITEM-001"}, format="json")
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_base_qrexec_05_invalid_stored_pattern_skipped(self):
+        """DBに不正な正規表現が保存されていても500にならず、他のアクションの判定を継続する。"""
+        self.create_qr_code_action(name="壊れたアクション", qr_code_pattern="ITEM-(", action_name="update_inventory")
+        self.client.force_authenticate(user=self.user)
+        response = self.client.post(self.url, {"qr_data": "ITEM-001"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["action_name"], self.qr_action.name)

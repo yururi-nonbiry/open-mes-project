@@ -1,5 +1,6 @@
 import csv
 import io
+import logging
 import os
 import re
 import uuid
@@ -19,6 +20,8 @@ from rest_framework.views import APIView
 from .models import AsyncTask, CsvColumnMapping, ModelDisplaySetting, QrCodeAction
 from .serializers import CsvColumnMappingSerializer, ModelDisplaySettingSerializer, QrCodeActionSerializer
 from .tasks import import_csv_task
+
+logger = logging.getLogger(__name__)
 
 DATA_TYPE_MODEL_MAPPING = {
     "item": "master.Item",
@@ -340,7 +343,13 @@ class QrCodeActionViewSet(viewsets.ModelViewSet):
         for action_obj in actions:
             # 正規表現による判定
             if action_obj.action_type == "regex" and action_obj.qr_code_pattern:
-                if re.match(action_obj.qr_code_pattern, qr_data):
+                try:
+                    matched = re.match(action_obj.qr_code_pattern, str(qr_data))
+                except re.error:
+                    # 登録済みのパターンが不正でも他のアクションの判定は継続する
+                    logger.warning("QRコードアクション '%s' の正規表現が不正です。", action_obj.name)
+                    continue
+                if matched:
                     # 登録済みのアクションを取得して実行
                     action_func = REGISTERED_ACTIONS.get(action_obj.action_name)
                     if action_func:

@@ -1,3 +1,5 @@
+import re
+
 from django.apps import apps
 from django.core.exceptions import FieldDoesNotExist
 from rest_framework import serializers
@@ -44,6 +46,14 @@ class QrCodeActionSerializer(serializers.ModelSerializer):
             "is_active",
         ]
         read_only_fields = ["id"]
+
+    def validate_qr_code_pattern(self, value):
+        if value:
+            try:
+                re.compile(value)
+            except re.error as e:
+                raise serializers.ValidationError(f"正規表現として不正です: {e}")
+        return value
 
 
 class ModelDisplaySettingSerializer(serializers.ModelSerializer):
