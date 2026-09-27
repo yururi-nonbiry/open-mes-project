@@ -75,8 +75,11 @@ class InspectionItemDetailSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def update(self, instance, validated_data):
-        details_data = validated_data.pop("measurement_details")
+        # PATCH(部分更新)で measurement_details が省略された場合は測定詳細を変更しない
+        details_data = validated_data.pop("measurement_details", None)
         instance = super().update(instance, validated_data)
+        if details_data is None:
+            return instance
 
         detail_mapping = {item.id: item for item in instance.measurement_details.all()}
 
@@ -130,10 +133,12 @@ def _judge_detail(measurement_detail, measured_value_numeric, result_qualitative
         return result_qualitative.strip().lower() == expected.strip().lower()
 
 
-def compute_overall_judgment(details_data):
+def compute_overall_judgment(details_data, required_detail_ids=None):
     """
     各測定・判定詳細の合否から検査実績全体の判定を決定する。
     1件でも不合格があれば不合格、未入力の項目があれば保留、全て合格なら合格。
+    required_detail_ids を渡した場合、その測定詳細のうち送信されていないものがあれば
+    未入力として扱う(必須の測定項目を省略して合格にされるのを防ぐ)。
     """
     if not details_data:
         return "pending"
@@ -149,6 +154,10 @@ def compute_overall_judgment(details_data):
         return "fail"
     if any(result is None for result in per_detail_results):
         return "pending"
+    if required_detail_ids is not None:
+        submitted_ids = {detail_data["measurement_detail"].id for detail_data in details_data}
+        if set(required_detail_ids) - submitted_ids:
+            return "pending"
     return "pass"
 
 
@@ -187,11 +196,39 @@ class InspectionResultSerializer(serializers.ModelSerializer):
             "judgment_display",
         ]
 
+    def validate(self, data):
+        if self.instance is not None:
+            # 判定は登録時の明細から算出しているため、登録後に検査項目・明細を差し替えさせない
+            if "details" in data:
+                raise serializers.ValidationError({"details": "検査明細は登録後に変更できません。"})
+            if "inspection_item" in data and data["inspection_item"] != self.instance.inspection_item:
+                raise serializers.ValidationError({"inspection_item": "検査項目は登録後に変更できません。"})
+            return data
+
+        inspection_item = data.get("inspection_item")
+        seen = set()
+        for detail_data in data.get("details", []):
+            measurement_detail = detail_data["measurement_detail"]
+            if inspection_item is not None and measurement_detail.inspection_item_id != inspection_item.id:
+                raise serializers.ValidationError(
+                    {"details": f"測定詳細「{measurement_detail.name}」は指定された検査項目に属していません。"}
+                )
+            if measurement_detail.id in seen:
+                raise serializers.ValidationError(
+                    {"details": f"測定詳細「{measurement_detail.name}」が重複しています。"}
+                )
+            seen.add(measurement_detail.id)
+        return data
+
     @transaction.atomic
     def create(self, validated_data):
         details_data = validated_data.pop("details")
         validated_data["inspected_by"] = self.context["request"].user
-        validated_data["judgment"] = compute_overall_judgment(details_data)
+        inspection_item = validated_data.get("inspection_item")
+        required_detail_ids = (
+            list(inspection_item.measurement_details.values_list("id", flat=True)) if inspection_item else None
+        )
+        validated_data["judgment"] = compute_overall_judgment(details_data, required_detail_ids)
         inspection_result = InspectionResult.objects.create(**validated_data)
         for detail_data in details_data:
             InspectionResultDetail.objects.create(inspection_result=inspection_result, **detail_data)

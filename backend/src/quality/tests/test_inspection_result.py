@@ -57,6 +57,52 @@ class InspectionResultCrudTests(QualityAPITestBase):
         result = InspectionResult.objects.get(id=response.data["data"]["id"])
         self.assertEqual(result.judgment, "fail")
 
+    def test_qua_result_02b_omitted_measurement_detail_is_pending(self):
+        """検査項目の測定詳細を送信しなかった場合、送信分が全て合格でも合格にはならず保留になる。"""
+        payload = {
+            "inspection_item": str(self.item.id),
+            "details": [
+                {"measurement_detail": str(self.qty_detail.id), "measured_value_numeric": 15.0},
+            ],
+        }
+        response = self.client.post(self.list_url, payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        result = InspectionResult.objects.get(id=response.data["data"]["id"])
+        self.assertEqual(result.judgment, "pending")
+
+    def test_qua_result_02c_detail_of_other_item_rejected(self):
+        other_item = self.create_inspection_item(code="INS-OTHER", name="別の検査項目")
+        other_detail = self.create_measurement_detail(
+            inspection_item=other_item, name="別寸法", measurement_type="quantitative"
+        )
+        payload = {
+            "inspection_item": str(self.item.id),
+            "details": [
+                {"measurement_detail": str(self.qty_detail.id), "measured_value_numeric": 15.0},
+                {"measurement_detail": str(self.qual_detail.id), "result_qualitative": "OK"},
+                {"measurement_detail": str(other_detail.id), "measured_value_numeric": 1.0},
+            ],
+        }
+        response = self.client.post(self.list_url, payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_qua_result_02d_details_not_updatable(self):
+        payload = {
+            "inspection_item": str(self.item.id),
+            "details": [
+                {"measurement_detail": str(self.qty_detail.id), "measured_value_numeric": 999.0},
+            ],
+        }
+        result_id = self.client.post(self.list_url, payload, format="json").data["data"]["id"]
+        response = self.client.patch(
+            self._detail_url(result_id),
+            {"details": [{"measurement_detail": str(self.qty_detail.id), "measured_value_numeric": 15.0}]},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        response = self.client.patch(self._detail_url(result_id), {"remarks": "再確認済み"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
     def test_qua_result_03_create_missing_value_judgment_pending(self):
         payload = {
             "inspection_item": str(self.item.id),

@@ -65,6 +65,14 @@ class InspectionItemCrudTests(QualityAPITestBase):
         self.item.refresh_from_db()
         self.assertEqual(self.item.name, "更新後の名前")
 
+    def test_qua_item_05b_patch_without_measurement_details_keeps_details(self):
+        """measurement_details を省略したPATCHは500にならず、既存の測定詳細は変更されない。"""
+        response = self.client.patch(self._detail_url(self.item.id), {"name": "名前のみ更新"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.name, "名前のみ更新")
+        self.assertTrue(self.item.measurement_details.filter(id=self.detail.id).exists())
+
     def test_qua_item_06_update_existing_measurement_detail(self):
         payload = {
             "measurement_details": [
