@@ -28,3 +28,5 @@ GEMINI.md
 /frontend/playwright/.cache/
 # ログイン済みセッション(アクセストークン等)を含むため、gitで管理しない。
 /frontend/e2e/.auth/
+# ローカル環境の絶対パスを含むため、gitで管理しない。
+/.claude/settings.json
