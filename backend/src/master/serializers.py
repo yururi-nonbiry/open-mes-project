@@ -51,11 +51,6 @@ class ItemCreateUpdateSerializer(serializers.ModelSerializer):
                     UniqueValidator(queryset=Item.objects.all(), message="この品番コードは既に使用されています。")
                 ],
             },
-            "name": {
-                "validators": [
-                    UniqueValidator(queryset=Item.objects.all(), message="この品番名は既に使用されています。")
-                ],
-            },
         }
 
     def get_fields(self):

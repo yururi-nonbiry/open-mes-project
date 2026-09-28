@@ -192,6 +192,10 @@ class PurchaseOrder(models.Model):
     location = models.CharField(
         max_length=255, blank=True, null=True, verbose_name="入庫棚番"
     )  # どの棚番に入庫するかを追加
+    # 外部システム(仕入先側)で受領された記録。在庫・入庫済数量には反映しない
+    delivery_date = models.DateField(blank=True, null=True, verbose_name="納品日")
+    delivered_quantity = models.PositiveIntegerField(blank=True, null=True, verbose_name="納品数")
+
     class Status(models.TextChoices):
         PENDING = "pending", "未入庫"
         PARTIALLY_RECEIVED = "partially_received", "一部入庫"

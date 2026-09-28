@@ -31,8 +31,9 @@ class ImportCsvTaskTests(TestCase):
         return AsyncTask.objects.get(task_id=task_id)
 
     def test_base_importtask_01_db_error_row_skipped_others_imported(self):
-        """1行でDBエラー(一意制約違反)が起きても、他の行は取り込まれエラー行のみ報告され、進捗も更新される。"""
-        task = self._run("code,name,type\nA-1,Alpha,material\nA-2,Alpha,material\nA-3,Gamma,material\n")
+        """1行でDBエラー(桁あふれ)が起きても、他の行は取り込まれエラー行のみ報告され、進捗も更新される。"""
+        too_long_name = "X" * 300  # Item.name は max_length=255
+        task = self._run(f"code,name,type\nA-1,Alpha,material\nA-2,{too_long_name},material\nA-3,Gamma,material\n")
         self.assertEqual(task.status, "FAILURE")
         self.assertEqual(task.result["created"], 2)
         self.assertEqual(len(task.result["errors"]), 1)

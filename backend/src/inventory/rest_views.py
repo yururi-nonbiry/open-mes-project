@@ -252,6 +252,33 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
             status=status.HTTP_200_OK,
         )
 
+    @action(detail=False, methods=["post"], url_path="bulk-upsert")
+    def bulk_upsert(self, request):
+        """
+        外部システム連携用に、入庫予定を発注番号をキーに一括で登録・更新する(最大500件)。
+        1件ずつ反映し、失敗した件があってもほかの件は取り消さず、結果を1件ずつ返す。
+        """
+        rows = request.data.get("items") if isinstance(request.data, dict) else None
+        if not isinstance(rows, list) or not rows:
+            return error_response("items に入庫予定の配列を指定してください。")
+        limit = services.PURCHASE_ORDER_BULK_UPSERT_MAX
+        if len(rows) > limit:
+            return error_response(f"一度に送れる入庫予定は{limit}件までです(送信件数: {len(rows)}件)。")
+
+        results = services.bulk_upsert_purchase_orders(rows)
+        summary = {key: sum(1 for r in results if r["result"] == key) for key in ("created", "updated", "error")}
+        return Response(
+            {
+                "message": (
+                    f"入庫予定の一括登録・更新が完了しました"
+                    f"(登録 {summary['created']}件、更新 {summary['updated']}件、エラー {summary['error']}件)。"
+                ),
+                "summary": summary,
+                "results": results,
+            },
+            status=status.HTTP_200_OK,
+        )
+
     @action(detail=False, methods=["get"], url_path="distinct-values")
     def distinct_values(self, request):
         """

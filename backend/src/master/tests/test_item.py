@@ -36,11 +36,11 @@ class ItemCrudTests(MasterAPITestBase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("code", response.data["errors"])
 
-    def test_mst_item_04_duplicate_name_rejected(self):
+    def test_mst_item_04_duplicate_name_allowed(self):
         payload = {"name": self.item.name, "code": "ITEM-OTHER", "item_type": "material"}
         response = self.client.post(self.list_url, payload, format="json")
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("name", response.data["errors"])
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Item.objects.filter(name=self.item.name).count(), 2)
 
     def test_mst_item_05_update_code_is_read_only(self):
         response = self.client.patch(self._detail_url(self.item.id), {"code": "CHANGED"}, format="json")

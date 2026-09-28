@@ -18,7 +18,7 @@ class Item(models.Model):
         ("none", "支給なし"),
     ]
 
-    name = models.CharField(max_length=255, unique=True)  # 名称
+    name = models.CharField(max_length=255)  # 名称(外部システムの品名に合わせるため重複を許す)
     code = models.CharField(max_length=50, unique=True)  # 製品/材料コード
     item_type = models.CharField(max_length=20, choices=ITEM_TYPE_CHOICES)  # 製品 / 材料 / 中間品
     description = models.TextField(blank=True, null=True)  # 説明

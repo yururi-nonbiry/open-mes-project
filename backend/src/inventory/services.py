@@ -7,14 +7,21 @@
 inventory/production の両アプリから利用する。
 """
 
+import logging
+
 from django.core.exceptions import ValidationError
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import F
 from django.utils import timezone
+from rest_framework import serializers
 
+from base.responses import INTERNAL_ERROR_MESSAGE, validation_error_body
 from master.models import Warehouse
 
 from .models import Inventory, PurchaseOrder, Receipt, SalesOrder, StockMovement
+from .serializers import PurchaseOrderSerializer
+
+logger = logging.getLogger(__name__)
 
 
 class InventoryServiceError(Exception):
@@ -333,6 +340,106 @@ def receive_purchase_order(purchase_order_id, received_quantity, warehouse, loca
             po.status = PurchaseOrder.Status.PARTIALLY_RECEIVED
         po.save()
         return po
+
+
+# --- 入庫予定の一括登録・更新(外部連携) ---
+
+PURCHASE_ORDER_BULK_UPSERT_MAX = 500
+
+# 一括登録・更新で変更できるステータス(キャンセルとキャンセル取り消しのみ。入庫系は process-receipt で扱う)
+BULK_UPSERT_STATUSES = (PurchaseOrder.Status.CANCELED, PurchaseOrder.Status.PENDING)
+
+
+class _RowError(Exception):
+    def __init__(self, body):
+        super().__init__(body.get("error"))
+        self.body = body
+
+
+def _field_error(field, message):
+    return _RowError({"error": message, "errors": {field: [message]}})
+
+
+def _apply_bulk_status(po, new_status):
+    """キャンセル/キャンセル取り消しを反映する。変更がなければ何もしない。"""
+    if new_status == PurchaseOrder.Status.CANCELED:
+        if po.status == PurchaseOrder.Status.CANCELED:
+            return
+        if po.received_quantity > 0:
+            raise _field_error("status", f"発注 {po.order_number} は入庫済数量があるためキャンセルできません。")
+        po.status = PurchaseOrder.Status.CANCELED
+        po.save(update_fields=["status"])
+    elif po.status == PurchaseOrder.Status.CANCELED:
+        # キャンセル取り消し。通常は入庫済数量0なので未入庫に戻るが、管理画面等で入庫後にキャンセルされた場合も考慮する
+        if po.received_quantity <= 0:
+            po.status = PurchaseOrder.Status.PENDING
+        elif po.quantity is not None and po.received_quantity >= po.quantity:
+            po.status = PurchaseOrder.Status.FULLY_RECEIVED
+        else:
+            po.status = PurchaseOrder.Status.PARTIALLY_RECEIVED
+        po.save(update_fields=["status"])
+    # キャンセルされていない入庫予定への pending 指定は、入庫の進捗を巻き戻さないよう無視する
+
+
+def _upsert_purchase_order_row(row):
+    """1件分の登録・更新。成功時は (結果種別, 入庫予定) を返し、失敗時は _RowError を送出する。"""
+    if not isinstance(row, dict):
+        raise _RowError({"error": "各要素はオブジェクトである必要があります。"})
+    order_number = row.get("order_number")
+    if not isinstance(order_number, str) or not order_number.strip():
+        raise _field_error("order_number", "発注番号は必須です。")
+    order_number = order_number.strip()
+    allow_create = row.get("allow_create") is True
+    new_status = row.get("status")
+    if new_status is not None and new_status not in BULK_UPSERT_STATUSES:
+        raise _field_error("status", "ステータスに指定できるのは canceled または pending のみです。")
+
+    data = {key: value for key, value in row.items() if key not in ("allow_create", "status")}
+    data["order_number"] = order_number
+
+    with transaction.atomic():
+        po = PurchaseOrder.objects.select_for_update().filter(order_number=order_number).first()
+        if po is None:
+            if not allow_create:
+                raise _field_error("order_number", f"発注番号 {order_number} の入庫予定が見つかりません。")
+            serializer = PurchaseOrderSerializer(data=data)
+            result = "created"
+        else:
+            # 送られた項目だけを更新する(省略した項目は今の値を残す)
+            serializer = PurchaseOrderSerializer(po, data=data, partial=True)
+            result = "updated"
+        if not serializer.is_valid():
+            raise _RowError(validation_error_body(serializer.errors))
+        po = serializer.save()
+        if new_status is not None:
+            _apply_bulk_status(po, new_status)
+    return result, po
+
+
+def bulk_upsert_purchase_orders(rows):
+    """
+    入庫予定を発注番号をキーに一括で登録・更新する。
+    1件ずつ別のトランザクションで反映し、失敗した件があってもほかの件は取り消さない。
+    新規登録は allow_create=true の行だけ行う。結果は送られた順に1件ずつ返す。
+    """
+    results = []
+    for index, row in enumerate(rows):
+        order_number = row.get("order_number") if isinstance(row, dict) else None
+        entry = {"index": index, "order_number": order_number}
+        try:
+            result, po = _upsert_purchase_order_row(row)
+        except _RowError as exc:
+            entry.update(result="error", **exc.body)
+        except IntegrityError:
+            # 同じ発注番号の同時登録など
+            entry.update(result="error", error="発注番号が重複しているため登録できませんでした。")
+        except Exception:
+            logger.exception("入庫予定の一括登録・更新で想定外のエラー(発注番号: %s)", order_number)
+            entry.update(result="error", error=INTERNAL_ERROR_MESSAGE)
+        else:
+            entry.update(result=result, id=str(po.id), status=po.status)
+        results.append(entry)
+    return results
 
 
 # --- 受注の引当・出庫 ---

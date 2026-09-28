@@ -129,6 +129,8 @@ class PurchaseOrder {
     +received_quantity: int
     +order_date: datetime
     +expected_arrival: datetime
+    +delivery_date: date
+    +delivered_quantity: int
     +status: string
     +remaining_quantity(): int
 }
@@ -313,7 +315,7 @@ MeasurementDetail "1" -- "0..*" InspectionResultDetail : measurement_detail
 
 ## Master（マスターデータ）モジュール
 
-**Item（品目）** – 製品や原材料を表すマスターデータのクラスです。`name`（名称）・`code`（コード）はユニーク制約付きです。`item_type`フィールドで「product（製品）」「material（材料）」「intermediate（中間品）」を区別します。中間品は自身の生産計画で作って在庫に入れ、上位の製品の部品として引き当てて使う品目で、BOMの親にも子にもなれます。`unit`（単位、デフォルト`kg`）、`description`（説明）に加え、`default_warehouse`/`default_location`（デフォルトの入庫先倉庫・棚番）、`provision_type`（有償支給/無償支給/支給なし）、`lead_time_days`（調達リードタイム日数、デフォルト0。発注・支給依頼から入庫までにかかる日数で、部品供給シミュレーションの発注要否期限算出に使用）を持ちます。Itemは`Inventory`、`StockMovement`、`PurchaseOrder`、`SalesOrder`、`ProductionPlan`、`PartsUsed`、`MaterialAllocation`、`UnitCost`、`BillOfMaterial`（製品・使用部品の双方として2回参照）など、他の多くのクラスから外部キー（`to_field="code"`で品目コードを参照）で参照される中心的存在です。
+**Item（品目）** – 製品や原材料を表すマスターデータのクラスです。`code`（コード）はユニーク制約付きです。`name`（名称）は外部システムの品名に合わせるため重複を許します。`item_type`フィールドで「product（製品）」「material（材料）」「intermediate（中間品）」を区別します。中間品は自身の生産計画で作って在庫に入れ、上位の製品の部品として引き当てて使う品目で、BOMの親にも子にもなれます。`unit`（単位、デフォルト`kg`）、`description`（説明）に加え、`default_warehouse`/`default_location`（デフォルトの入庫先倉庫・棚番）、`provision_type`（有償支給/無償支給/支給なし）、`lead_time_days`（調達リードタイム日数、デフォルト0。発注・支給依頼から入庫までにかかる日数で、部品供給シミュレーションの発注要否期限算出に使用）を持ちます。Itemは`Inventory`、`StockMovement`、`PurchaseOrder`、`SalesOrder`、`ProductionPlan`、`PartsUsed`、`MaterialAllocation`、`UnitCost`、`BillOfMaterial`（製品・使用部品の双方として2回参照）など、他の多くのクラスから外部キー（`to_field="code"`で品目コードを参照）で参照される中心的存在です。
 
 **Supplier（サプライヤー）** – サプライヤー（部品・材料の供給元）を表すマスタークラスです。`supplier_number`（サプライヤー番号）がユニークキーで、`name`（名前）、`contact_person`（担当者）、`phone`、`email`、`address`といった連絡先情報を持ちます。`PurchaseOrder`から参照されます。
 
@@ -335,7 +337,7 @@ MeasurementDetail "1" -- "0..*" InspectionResultDetail : measurement_detail
 
 **StockMovement（入出庫履歴）** – 在庫の入出庫や使用履歴を記録するクラスです。`movement_type`は「incoming（入庫）」「outgoing（出庫）」「used（生産使用）」「PRODUCTION_OUTPUT（生産完了入庫）」「PRODUCTION_REVERSAL（生産完了取消）」「adjustment（在庫調整）」から選択します。`Item`・`Warehouse`へのFK、`location`、`quantity`、`movement_date`、`description`、`reference_document`（例: PO番号やSO番号）、記録者`operator`（`CustomUser`へのFK、`on_delete=SET_NULL`）を持ちます。
 
-**PurchaseOrder（入庫予定）** – サプライヤーへの発注・入庫予定を表すクラスです。`order_number`（発注番号、ユニーク）、`supplier_rel`（`Supplier`へのFK）、`part_number_rel`（`Item`へのFK）を持ち、`quantity`（発注数量）・`received_quantity`（入庫済数量）・`remaining_quantity`プロパティ（残数量）で入庫進捗を管理します。`status`は「pending（未入庫）」「partially_received（一部入庫）」「fully_received（全量入庫済み）」「canceled（キャンセル）」です。指示書番号、便番号、機種、色情報、納入先/納入元、備考欄（`remarks1`〜`5`）等、現場運用に合わせた多数の付帯項目も持ちます。`warehouse_rel`で入庫予定倉庫を示します。
+**PurchaseOrder（入庫予定）** – サプライヤーへの発注・入庫予定を表すクラスです。`order_number`（発注番号、ユニーク）、`supplier_rel`（`Supplier`へのFK）、`part_number_rel`（`Item`へのFK）を持ち、`quantity`（発注数量）・`received_quantity`（入庫済数量）・`remaining_quantity`プロパティ（残数量）で入庫進捗を管理します。`status`は「pending（未入庫）」「partially_received（一部入庫）」「fully_received（全量入庫済み）」「canceled（キャンセル）」です。指示書番号、便番号、機種、色情報、納入先/納入元、備考欄（`remarks1`〜`5`）等、現場運用に合わせた多数の付帯項目も持ちます。`warehouse_rel`で入庫予定倉庫を示します。`delivery_date`（納品日）・`delivered_quantity`（納品数）は外部システム（仕入先側）での受領を記録するだけの項目で、在庫や`received_quantity`には反映しません。外部連携では`POST purchase-orders/bulk-upsert/`で発注番号をキーに一括登録・更新でき、キャンセル（`canceled`）とその取り消し（`pending`）もこのAPIから行えます（入庫済数量がある入庫予定はキャンセル不可）。
 
 **Receipt（入庫実績）** – 実際に行われた入庫の実績を記録するクラスです。`purchase_order`（`PurchaseOrder`へのFK、`related_name="receipts"`）、`received_quantity`、`received_date`、`warehouse_rel`、`location`、作業者`operator`（`CustomUser`へのFK）、`remarks`を持ちます。
 

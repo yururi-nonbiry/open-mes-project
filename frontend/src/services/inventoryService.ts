@@ -134,6 +134,17 @@ const inventoryService = {
             '入庫処理に失敗しました。'
         ),
 
+    /** 入庫予定の納品日・納品数の更新(記録のみで在庫には反映しない)。失敗時は ApiError を送出する。 */
+    updatePurchaseOrderDelivery: (
+        purchaseOrderId: string | number,
+        payload: { delivery_date: string | null; delivered_quantity: number | null }
+    ) =>
+        apiRequest<{ id: string; order_number: string }>(
+            `/api/inventory/purchase-orders/${purchaseOrderId}/`,
+            { method: 'PATCH', body: JSON.stringify(payload) },
+            '納品情報の更新に失敗しました。'
+        ),
+
     /** 受注の出庫。失敗時は例外を送出せず ok=false とサーバーのメッセージで返す。 */
     issueSalesOrder: async (orderId: string, quantityToShip: number): Promise<IssueResult> => {
         const response = await authFetch('/api/inventory/sales-orders/issue/', {

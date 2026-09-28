@@ -60,7 +60,7 @@
 | MST-ITEM-01 | 正常系 | `GET items/` | Itemが存在 | 一覧取得 | 200、`item_type`/`provision_type`は表示名（`get_..._display`） | list専用の`ItemSerializer` |
 | MST-ITEM-02 | 正常系 | `POST items/` | - | 有効なデータで作成 | 201、DBに反映 | |
 | MST-ITEM-03 | 異常系 | `POST items/` | `code`重複 | 作成 | 400（`code`にUniqueValidatorエラー） | |
-| MST-ITEM-04 | 異常系 | `POST items/` | `name`重複 | 作成 | 400（`name`にUniqueValidatorエラー） | |
+| MST-ITEM-04 | 正常系 | `POST items/` | `name`重複 | 作成 | 201（品番名の重複は許可。外部システムの品名に合わせるため） | |
 | MST-ITEM-05 | 境界値 | `PATCH items/{id}/` | 既存Itemが存在 | `code`を変更しようとする | 200だが`code`は変化しない | 更新時`read_only`化（`get_fields`）、他アプリからのFK整合性保護のため |
 | MST-ITEM-06 | 正常系 | `PATCH items/{id}/` | 既存Itemが存在 | `name`を更新 | 200、DBに反映 | |
 | MST-ITEM-07 | 正常系 | `DELETE items/{id}/` | 参照されていないItem | 削除 | 200、DBから削除 | |

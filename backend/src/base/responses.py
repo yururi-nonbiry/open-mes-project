@@ -51,7 +51,7 @@ def _first_message(detail):
     return None
 
 
-def _validation_error_body(detail):
+def validation_error_body(detail):
     errors = detail if isinstance(detail, dict) else {api_settings.NON_FIELD_ERRORS_KEY: detail}
     non_field = errors.get(api_settings.NON_FIELD_ERRORS_KEY)
     if non_field:
@@ -78,7 +78,7 @@ def api_exception_handler(exc, context):
         return error_response(INTERNAL_ERROR_MESSAGE, status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     if isinstance(exc, exceptions.ValidationError):
-        response.data = _validation_error_body(response.data)
+        response.data = validation_error_body(response.data)
         return response
 
     data = response.data

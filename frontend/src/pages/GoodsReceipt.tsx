@@ -4,6 +4,8 @@ import inventoryService from '../services/inventoryService';
 import Modal from '../components/Modal';
 import './InventoryInquiry.css'; // 既存のCSSを利用してファイル未発見エラーを回避
 
+const NUMERIC_FIELDS = ['quantity', 'received_quantity', 'remaining_quantity', 'delivered_quantity'];
+
 const GoodsReceipt = () => {
   // State for purchase orders, pagination, and loading/error status
   const [purchaseOrders, setPurchaseOrders] = useState([]);
@@ -28,6 +30,10 @@ const GoodsReceipt = () => {
   // State for the receipt processing modal
   const [receiptModal, setReceiptModal] = useState({ isOpen: false, order: null, error: '', success: '' });
   const [receiptFormData, setReceiptFormData] = useState({ received_quantity: '', location: '', warehouse: '' });
+
+  // State for the delivery (納品) edit modal
+  const [deliveryModal, setDeliveryModal] = useState({ isOpen: false, order: null, error: '', success: '' });
+  const [deliveryFormData, setDeliveryFormData] = useState({ delivery_date: '', delivered_quantity: '' });
 
   // API call to fetch purchase order data and display settings
   const fetchPurchaseOrders = useCallback(async (pageUrl = null) => {
@@ -220,6 +226,53 @@ const GoodsReceipt = () => {
     }
   };
 
+  // 納品日・納品数の編集(外部システムでの受領の記録のみで、在庫や入庫済数量には反映しない)
+  const openDeliveryModal = (order) => {
+    setDeliveryModal({ isOpen: true, order, error: '', success: '' });
+    setDeliveryFormData({
+      delivery_date: order.delivery_date || '',
+      delivered_quantity: order.delivered_quantity ?? '',
+    });
+    document.body.classList.add('menu-open-no-scroll');
+  };
+
+  const closeDeliveryModal = () => {
+    setDeliveryModal({ isOpen: false, order: null, error: '', success: '' });
+    document.body.classList.remove('menu-open-no-scroll');
+  };
+
+  const handleDeliveryFormChange = (e) => {
+    const { name, value } = e.target;
+    setDeliveryFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleDeliverySubmit = async (e) => {
+    e.preventDefault();
+    setDeliveryModal(prev => ({ ...prev, error: '', success: '' }));
+
+    const quantityText = String(deliveryFormData.delivered_quantity).trim();
+    const deliveredQuantity = quantityText === '' ? null : parseInt(quantityText, 10);
+    if (deliveredQuantity !== null && (isNaN(deliveredQuantity) || deliveredQuantity < 0)) {
+      setDeliveryModal(prev => ({ ...prev, error: '納品数は0以上の整数である必要があります。' }));
+      return;
+    }
+
+    try {
+      await inventoryService.updatePurchaseOrderDelivery(deliveryModal.order.id, {
+        delivery_date: deliveryFormData.delivery_date || null,
+        delivered_quantity: deliveredQuantity,
+      });
+      setDeliveryModal(prev => ({ ...prev, success: `発注 ${deliveryModal.order.order_number} の納品情報を更新しました。` }));
+      setTimeout(() => {
+        closeDeliveryModal();
+        fetchPurchaseOrders(); // Refresh data
+      }, 1500);
+    } catch (err) {
+      console.error('Error updating delivery info:', err);
+      setDeliveryModal(prev => ({ ...prev, error: err instanceof ApiError ? err.message : '納品情報の更新中に通信エラーが発生しました。' }));
+    }
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
@@ -250,7 +303,7 @@ const GoodsReceipt = () => {
     return (
       <tr>
         {displaySettings.map(setting => {
-          const isNumeric = ['quantity', 'received_quantity', 'remaining_quantity'].includes(setting.model_field_name);
+          const isNumeric = NUMERIC_FIELDS.includes(setting.model_field_name);
           // カスタム表示名がスペースのみの場合も考慮してtrim()し、
           // verbose_nameがなければmodel_field_nameをフォールバックとして使用
           const headerText = (setting.display_name || '').trim() || setting.verbose_name || setting.model_field_name;
@@ -293,7 +346,7 @@ const GoodsReceipt = () => {
           cellValue = order[fieldName];
         }
 
-        const isNumeric = ['quantity', 'received_quantity', 'remaining_quantity'].includes(fieldName);
+        const isNumeric = NUMERIC_FIELDS.includes(fieldName);
         const className = isNumeric ? 'text-end' : '';
 
         return <td key={fieldName} className={className}>{cellValue ?? 'N/A'}</td>;
@@ -309,6 +362,12 @@ const GoodsReceipt = () => {
               disabled={order.status !== 'pending' || (order.quantity - order.received_quantity <= 0)}
             >
               入庫
+            </button>
+            <button
+              className="btn btn-sm btn-outline-secondary ms-1"
+              onClick={() => openDeliveryModal(order)}
+            >
+              納品
             </button>
           </td>
         </tr>
@@ -404,6 +463,46 @@ const GoodsReceipt = () => {
               <div className="mt-3 text-end">
                 <button type="submit" className="btn btn-primary btn-sm">入庫実行</button>
                 <button type="button" className="btn btn-secondary btn-sm ms-2" onClick={closeReceiptModal}>キャンセル</button>
+              </div>
+            </form>
+        </div>
+      </Modal>
+
+      {/* Delivery (納品) Edit Modal */}
+      <Modal isOpen={deliveryModal.isOpen} onClose={closeDeliveryModal}>
+        <div className="inventory-modal-content">
+            <h2>納品情報の編集</h2>
+            <p className="text-muted small">仕入先側での受領の記録です。在庫や入庫済数量には反映されません。</p>
+            <form onSubmit={handleDeliverySubmit}>
+              <table className="table table-sm table-bordered mb-3">
+                <tbody>
+                  <tr>
+                    <td style={{ width: '35%' }}><label className="mb-0">発注番号:</label></td>
+                    <td><p className="mb-0">{deliveryModal.order?.order_number}</p></td>
+                  </tr>
+                  <tr>
+                    <td><label className="mb-0">品名:</label></td>
+                    <td><p className="mb-0">{deliveryModal.order?.product_name || deliveryModal.order?.item}</p></td>
+                  </tr>
+                  <tr>
+                    <td><label className="mb-0">発注数量:</label></td>
+                    <td><p className="mb-0">{deliveryModal.order?.quantity}</p></td>
+                  </tr>
+                  <tr>
+                    <td><label htmlFor="modal_delivery_date_input" className="mb-0">納品日:</label></td>
+                    <td><input type="date" id="modal_delivery_date_input" name="delivery_date" value={deliveryFormData.delivery_date} onChange={handleDeliveryFormChange} className="form-control form-control-sm" /></td>
+                  </tr>
+                  <tr>
+                    <td><label htmlFor="modal_delivered_quantity_input" className="mb-0">納品数:</label></td>
+                    <td><input type="number" id="modal_delivered_quantity_input" name="delivered_quantity" value={deliveryFormData.delivered_quantity} onChange={handleDeliveryFormChange} className="form-control form-control-sm text-end" min="0" /></td>
+                  </tr>
+                </tbody>
+              </table>
+              {deliveryModal.error && <div className="alert alert-danger">{deliveryModal.error}</div>}
+              {deliveryModal.success && <div className="alert alert-success">{deliveryModal.success}</div>}
+              <div className="mt-3 text-end">
+                <button type="submit" className="btn btn-primary btn-sm">保存</button>
+                <button type="button" className="btn btn-secondary btn-sm ms-2" onClick={closeDeliveryModal}>キャンセル</button>
               </div>
             </form>
         </div>

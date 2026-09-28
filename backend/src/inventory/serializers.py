@@ -101,6 +101,8 @@ class PurchaseOrderSerializer(serializers.ModelSerializer):
             "expected_arrival",  # 入荷予定日 (任意)
             "warehouse",  # 入庫倉庫
             "location",  # 入庫棚番 (任意)
+            "delivery_date",  # 納品日 (任意、外部システムでの受領記録。在庫には反映しない)
+            "delivered_quantity",  # 納品数 (任意、同上)
             "status",  # ステータス (デフォルト'pending'、読み取り専用)
         ]
         read_only_fields = [
@@ -108,7 +110,7 @@ class PurchaseOrderSerializer(serializers.ModelSerializer):
             "order_date",
             "received_quantity",
             "remaining_quantity",
-            # status は process-receipt アクション経由でのみ更新させる（在庫計上と整合させるため）
+            # status は process-receipt(入庫)と bulk-upsert(キャンセル/キャンセル取り消し)経由でのみ更新させる
             "status",
         ]  # is_first_time はデフォルト値があるので読み取り専用には含めません
 

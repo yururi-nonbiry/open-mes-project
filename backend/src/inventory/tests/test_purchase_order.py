@@ -1,7 +1,7 @@
 from django.urls import reverse
 from rest_framework import status
 
-from inventory.models import PurchaseOrder, Receipt
+from inventory.models import Inventory, PurchaseOrder, Receipt
 
 from .test_helpers import InventoryAPITestBase
 
@@ -104,3 +104,158 @@ class PurchaseOrderQuantityUpdateTests(InventoryAPITestBase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.po.refresh_from_db()
         self.assertEqual(self.po.status, "fully_received")
+
+    def test_po_crud_12_delivery_fields_do_not_touch_stock(self):
+        po = self.create_purchase_order(order_number="PO-DLV-1", quantity=10)
+        url = reverse("inventory_api:purchaseorder-detail", args=[po.id])
+        response = self.client.patch(url, {"delivery_date": "2026-09-30", "delivered_quantity": 7}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        po.refresh_from_db()
+        self.assertEqual(str(po.delivery_date), "2026-09-30")
+        self.assertEqual(po.delivered_quantity, 7)
+        self.assertEqual(po.received_quantity, 0)
+        self.assertEqual(po.status, "pending")
+        self.assertFalse(Inventory.objects.exists())
+
+
+class PurchaseOrderBulkUpsertTests(InventoryAPITestBase):
+    """PO-BULK-* : 入庫予定の一括登録・更新。"""
+
+    def setUp(self):
+        super().setUp()
+        self.url = reverse("inventory_api:purchaseorder-bulk-upsert")
+        self.po = self.create_purchase_order(
+            order_number="PO-B-1", quantity=10, warehouse=self.warehouse_a.warehouse_number, location="A-01"
+        )
+
+    def _post(self, items):
+        return self.client.post(self.url, {"items": items}, format="json")
+
+    def test_po_bulk_01_update_existing_keeps_omitted_fields(self):
+        response = self._post([{"order_number": "PO-B-1", "quantity": 12, "product_name": "更新後"}])
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["results"][0]["result"], "updated")
+        self.po.refresh_from_db()
+        self.assertEqual(self.po.quantity, 12)
+        self.assertEqual(self.po.product_name, "更新後")
+        self.assertEqual(self.po.warehouse, self.warehouse_a.warehouse_number)
+        self.assertEqual(self.po.location, "A-01")
+
+    def test_po_bulk_02_create_when_allowed(self):
+        response = self._post(
+            [
+                {
+                    "order_number": "PO-B-NEW",
+                    "allow_create": True,
+                    "part_number": self.item2.code,
+                    "quantity": 5,
+                    "warehouse": self.warehouse_b.warehouse_number,
+                }
+            ]
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        result = response.data["results"][0]
+        self.assertEqual(result["result"], "created")
+        po = PurchaseOrder.objects.get(order_number="PO-B-NEW")
+        self.assertEqual(str(po.id), result["id"])
+        self.assertEqual(po.warehouse, self.warehouse_b.warehouse_number)
+        self.assertEqual(po.status, "pending")
+
+    def test_po_bulk_03_not_found_without_allow_create(self):
+        response = self._post([{"order_number": "PO-B-NONE", "quantity": 5}])
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        result = response.data["results"][0]
+        self.assertEqual(result["result"], "error")
+        self.assertIn("order_number", result["errors"])
+        self.assertFalse(PurchaseOrder.objects.filter(order_number="PO-B-NONE").exists())
+
+    def test_po_bulk_04_one_error_does_not_roll_back_others(self):
+        response = self._post(
+            [
+                {"order_number": "PO-B-1", "quantity": 11},
+                {"order_number": "PO-B-BAD", "allow_create": True, "part_number": "NO-SUCH-PART", "quantity": 1},
+                {"order_number": "PO-B-2", "allow_create": True, "part_number": self.item1.code, "quantity": 3},
+            ]
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual([r["result"] for r in response.data["results"]], ["updated", "error", "created"])
+        self.assertEqual(response.data["results"][1]["index"], 1)
+        self.assertIn("part_number", response.data["results"][1]["errors"])
+        self.assertEqual(response.data["summary"], {"created": 1, "updated": 1, "error": 1})
+        self.po.refresh_from_db()
+        self.assertEqual(self.po.quantity, 11)
+        self.assertTrue(PurchaseOrder.objects.filter(order_number="PO-B-2").exists())
+        self.assertFalse(PurchaseOrder.objects.filter(order_number="PO-B-BAD").exists())
+
+    def test_po_bulk_05_cancel_without_receipt(self):
+        response = self._post([{"order_number": "PO-B-1", "status": "canceled"}])
+        self.assertEqual(response.data["results"][0]["result"], "updated")
+        self.assertEqual(response.data["results"][0]["status"], "canceled")
+        self.po.refresh_from_db()
+        self.assertEqual(self.po.status, "canceled")
+
+    def test_po_bulk_06_cannot_cancel_when_received(self):
+        self.create_purchase_order(
+            order_number="PO-B-RCV", quantity=10, received_quantity=3, status="partially_received"
+        )
+        response = self._post([{"order_number": "PO-B-RCV", "status": "canceled", "product_name": "変更"}])
+        result = response.data["results"][0]
+        self.assertEqual(result["result"], "error")
+        self.assertIn("status", result["errors"])
+        po = PurchaseOrder.objects.get(order_number="PO-B-RCV")
+        self.assertEqual(po.status, "partially_received")
+        # 同じ行の他の項目の更新も取り消される
+        self.assertIsNone(po.product_name)
+
+    def test_po_bulk_07_uncancel_returns_to_pending(self):
+        self.po.status = PurchaseOrder.Status.CANCELED
+        self.po.save()
+        response = self._post([{"order_number": "PO-B-1", "status": "pending"}])
+        self.assertEqual(response.data["results"][0]["result"], "updated")
+        self.po.refresh_from_db()
+        self.assertEqual(self.po.status, "pending")
+
+    def test_po_bulk_08_pending_does_not_rewind_receipt_progress(self):
+        self.create_purchase_order(
+            order_number="PO-B-RCV", quantity=10, received_quantity=3, status="partially_received"
+        )
+        response = self._post([{"order_number": "PO-B-RCV", "status": "pending"}])
+        self.assertEqual(response.data["results"][0]["result"], "updated")
+        self.assertEqual(PurchaseOrder.objects.get(order_number="PO-B-RCV").status, "partially_received")
+
+    def test_po_bulk_09_other_status_rejected(self):
+        response = self._post([{"order_number": "PO-B-1", "status": "fully_received"}])
+        result = response.data["results"][0]
+        self.assertEqual(result["result"], "error")
+        self.assertIn("status", result["errors"])
+        self.po.refresh_from_db()
+        self.assertEqual(self.po.status, "pending")
+
+    def test_po_bulk_10_quantity_below_received_rejected(self):
+        self.create_purchase_order(
+            order_number="PO-B-RCV", quantity=10, received_quantity=4, status="partially_received"
+        )
+        response = self._post([{"order_number": "PO-B-RCV", "quantity": 3}])
+        result = response.data["results"][0]
+        self.assertEqual(result["result"], "error")
+        self.assertIn("quantity", result["errors"])
+        self.assertEqual(PurchaseOrder.objects.get(order_number="PO-B-RCV").quantity, 10)
+
+    def test_po_bulk_11_invalid_payload_rejected(self):
+        for payload in ({"items": "x"}, {"items": []}, {}, [{"order_number": "PO-B-1"}]):
+            response = self.client.post(self.url, payload, format="json")
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, payload)
+        too_many = [{"order_number": f"PO-X-{i}", "allow_create": True, "quantity": 1} for i in range(501)]
+        response = self._post(too_many)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(PurchaseOrder.objects.filter(order_number__startswith="PO-X-").exists())
+
+    def test_po_bulk_12_delivery_fields(self):
+        response = self._post([{"order_number": "PO-B-1", "delivery_date": "2026-10-01", "delivered_quantity": 10}])
+        self.assertEqual(response.data["results"][0]["result"], "updated")
+        self.po.refresh_from_db()
+        self.assertEqual(str(self.po.delivery_date), "2026-10-01")
+        self.assertEqual(self.po.delivered_quantity, 10)
+        self.assertEqual(self.po.received_quantity, 0)
+        self.assertEqual(self.po.status, "pending")
+        self.assertFalse(Inventory.objects.exists())

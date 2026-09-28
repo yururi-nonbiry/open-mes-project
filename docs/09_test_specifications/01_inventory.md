@@ -106,6 +106,9 @@
 | PO-CRUD-07 | 正常系 | `GET purchase-orders/?search_q=xxx` | 発注番号/品番/品名/仕入先名/item いずれかに一致するデータ | 横断検索 | 該当データが返る | モバイル向け検索、未テスト |
 | PO-CRUD-08 | 正常系 | `GET purchase-orders/?search_order_date_from=...&search_order_date_to=...` | 発注日が異なるPO複数件 | 範囲検索 | 範囲内のみ返る | |
 | PO-CRUD-09 | 正常系 | `GET purchase-orders/?search_expected_arrival_from=...&to=...` | 入荷予定日が異なるPO複数件 | 範囲検索 | 範囲内のみ返る。`expected_arrival`未設定分はソート時に最後尾 | |
+| PO-CRUD-10 | 異常系 | `PATCH purchase-orders/{id}/` | `received_quantity=4` | `quantity=3`（入庫済数量未満） | 400 | `validate_quantity` |
+| PO-CRUD-11 | 正常系 | `PATCH purchase-orders/{id}/` | `quantity=10, received_quantity=4, status=partially_received` | `quantity=4` | 200、`status="fully_received"` に再計算 | |
+| PO-CRUD-12 | 正常系 | `PATCH purchase-orders/{id}/` | `received_quantity=0` の在庫なしPO | `delivery_date`, `delivered_quantity` | 200、納品日・納品数が保存され、`received_quantity`・`status`・在庫は変わらない | 外部システムでの受領の記録のみ |
 
 ### 5.6 入庫処理 `process-receipt`（`POST purchase-orders/process-receipt/`）
 
@@ -122,6 +125,23 @@
 | PO-RECV-09 | 異常系 | PO `remaining_quantity=5` | `received_quantity=10` | 400（残数量超過） | |
 | PO-RECV-10 | 正常系 | PO `warehouse_rel`/`location` 設定済み、リクエストで倉庫/棚番省略 | 入庫処理 | POのデフォルト倉庫/棚番が使用される | |
 | PO-RECV-11 | 異常系 | PO・リクエスト双方に倉庫未指定 | 入庫処理 | 400「入庫倉庫が指定されていません」 | |
+
+### 5.6.1 入庫予定の一括登録・更新 `bulk-upsert`（`POST purchase-orders/bulk-upsert/`）
+
+| ケースID | 分類 | 前提条件 | 入力 | 期待結果 | 備考 |
+|---|---|---|---|---|---|
+| PO-BULK-01 | 正常系 | 発注番号が既存のPOあり | 既存の発注番号＋`quantity`等 | 200、`result="updated"`。送った項目だけ更新され、省略した項目（倉庫など）は元の値のまま | |
+| PO-BULK-02 | 正常系 | 発注番号が未登録 | `allow_create=true`＋`warehouse` | 200、`result="created"`、指定倉庫で登録される | |
+| PO-BULK-03 | 異常系 | 発注番号が未登録 | `allow_create` なし | 200、その行だけ `result="error"`（`errors.order_number`）。登録されない | |
+| PO-BULK-04 | 正常系 | 複数行のうち1行が入力エラー | 正常行＋エラー行＋正常行 | 200、正常行は反映され、エラー行のみ `result="error"`（`index` で行を特定できる） | 1件ずつ別トランザクション |
+| PO-BULK-05 | 正常系 | `received_quantity=0` の既存PO | `status="canceled"` | 200、`status="canceled"` | |
+| PO-BULK-06 | 異常系 | `received_quantity>0` の既存PO | `status="canceled"` | 200、その行が `result="error"`（`errors.status`）。ステータスも他の項目も変わらない | 入庫済みはキャンセル不可 |
+| PO-BULK-07 | 正常系 | キャンセル済みPO | `status="pending"` | 200、`status="pending"`（キャンセル取り消し） | |
+| PO-BULK-08 | 正常系 | `partially_received` のPO | `status="pending"` | 200、`status` は `partially_received` のまま（入庫の進捗を巻き戻さない） | |
+| PO-BULK-09 | 異常系 | - | `status="fully_received"` | 200、その行が `result="error"`（`errors.status`） | 変更できるのは canceled/pending のみ |
+| PO-BULK-10 | 異常系 | `received_quantity=4` の既存PO | `quantity=3` | 200、その行が `result="error"`（`errors.quantity`） | 入庫済数量を下回る数量は不可 |
+| PO-BULK-11 | 異常系 | - | `items` が配列でない／空／501件 | 400（何も反映しない） | 上限500件 |
+| PO-BULK-12 | 正常系 | 既存PO | `delivery_date`, `delivered_quantity` | 200、納品日・納品数が保存され、在庫・`received_quantity` は変わらない | |
 
 ### 5.7 発注フィールド一覧取得 `distinct-values`（`GET purchase-orders/distinct-values/`）
 
@@ -213,7 +233,7 @@
 | ケースID | 対象 | 期待結果 |
 |---|---|---|
 | SER-01 | `InventorySerializer` | `PATCH`で`quantity`/`reserved`を送っても無視される。`available_quantity`はレスポンスに含まれる |
-| SER-02 | `PurchaseOrderSerializer` | `PATCH`で`status`/`received_quantity`/`remaining_quantity`を送っても無視される |
+| SER-02 | `PurchaseOrderSerializer` | `PATCH`で`status`/`received_quantity`/`remaining_quantity`を送っても無視される（ステータスの変更は `process-receipt` と `bulk-upsert` のみ） |
 | SER-03 | `SalesOrderSerializer` | `PATCH`で`status`/`shipped_quantity`/`remaining_quantity`を送っても無視される |
 
 ## 7. 既知の懸念事項
