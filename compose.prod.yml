@@ -2,6 +2,8 @@ services:
   db:
     build: ./db/image
     container_name: prod_db
+    # .env の START_DB で起動するかどうかを切り替えます (1: 起動する, 0: 起動しない)
+    scale: ${START_DB:-1}
     volumes:
       - postgres_data:/var/lib/postgresql/data/
     env_file:
@@ -69,6 +71,8 @@ services:
   reverse-proxy:
     build: ./reverse-proxy_prod
     container_name: prod_reverse_proxy
+    # .env の START_NGINX で起動するかどうかを切り替えます (1: 起動する, 0: 起動しない)
+    scale: ${START_NGINX:-1}
     ports:
       - "80:80"
       # - "443:443" # SSL化する際に有効化します

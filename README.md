@@ -136,6 +136,8 @@ docker compose exec -it backend python3 manage.py createsuperuser
 | `CORS_ALLOWED_ORIGINS` | CORSで許可するオリジン（カンマ区切り） | 必須 | `https://your-domain.com,http://localhost` |
 | `DATABASE_URL` | Djangoが接続するDBのURL | 必須 | `postgres://django:django@db:5432/open_mes` |
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | PostgreSQLコンテナの初期設定 | 必須 | `django` / `django` / `open_mes` |
+| `START_DB` | 本番構成（`compose.prod.yml`）でDBコンテナを起動するか（`1`: 起動する / `0`: 起動しない） | 任意 | `1` |
+| `START_NGINX` | 本番構成（`compose.prod.yml`）でNginx（reverse-proxy）コンテナを起動するか（`1`: 起動する / `0`: 起動しない） | 任意 | `1` |
 | `DOMAIN` | SSL証明書を取得するドメイン名（HTTPS構成のみ） | 任意 | `your-domain.com` |
 | `EMAIL` | SSL証明書取得に使用するメールアドレス（HTTPS構成のみ） | 任意 | `your-email@example.com` |
 | `CERTBOT_USE_STAGING` | Let's Encryptのテスト証明書を使用するか（HTTPS構成のみ） | 任意 | `true` |

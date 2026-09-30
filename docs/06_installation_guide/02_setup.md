@@ -85,6 +85,15 @@ docker compose -f compose.prod.yml up -d
 docker compose -f compose.https.yml up -d
 ```
 
+`compose.prod.yml`では、DBコンテナとNginx（reverse-proxy）コンテナを起動するかどうかを`.env`の`START_DB` / `START_NGINX`で切り替えられます（`1`: 起動する、`0`: 起動しない。未設定時はどちらも起動します）。外部のDBや別途用意したリバースプロキシを使う場合は`0`にしてください。
+
+```dotenv
+START_DB=0     # DBコンテナを起動しない（DATABASE_URLを外部のDBに向けること）
+START_NGINX=0  # Nginxコンテナを起動しない
+```
+
+**メモ:** この2つはコンテナ内の環境変数ではなく、Docker Composeが`compose.prod.yml`を読み込む際に参照する値です。そのため`.env.prod`ではなく`.env`（または実行時のシェルの環境変数）に記載してください。`0`に変更して`up -d`を実行すると、起動済みの該当コンテナは停止・削除されます（DBのデータボリュームは残ります）。
+
 これらの構成では、ホスト側で事前にビルドしたフロントエンド静的ファイル（`frontend/dist`）を使用するため、起動前に手順4のビルドコマンドを実行しておく必要があります。
 
 ## 8. （参考）Windows上でのDockerを使わないセットアップ
