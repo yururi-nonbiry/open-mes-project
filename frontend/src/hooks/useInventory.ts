@@ -20,13 +20,14 @@ export const useInventory = () => {
         try {
             const [settings, fields] = await Promise.all([
                 inventoryService.getDisplaySettings('inventory'),
-                inventoryService.getModelFields('inventory')
+                // model-fields は管理者限定のため、一般ユーザーでは取得できない(その場合は設定側のverbose_nameを使う)
+                inventoryService.getModelFields('inventory').catch(() => [])
             ]);
 
             const verboseNameMap = new Map(fields.map((f: any) => [f.name, f.verbose_name]));
             const combinedSettings = settings.map((setting: any) => ({
                 ...setting,
-                verbose_name: verboseNameMap.get(setting.model_field_name) || setting.model_field_name,
+                verbose_name: verboseNameMap.get(setting.model_field_name) || setting.verbose_name || setting.model_field_name,
             }));
 
             setDisplaySettings(combinedSettings

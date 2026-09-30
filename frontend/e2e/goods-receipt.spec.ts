@@ -1,6 +1,8 @@
 import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
 import {
+  E2E_ITEM_CODE,
   E2E_SUPPLIER,
+  E2E_WAREHOUSE,
   authenticate,
   createPurchaseOrder,
   deleteUnreceivedPurchaseOrders,
@@ -166,15 +168,66 @@ test('FE-GR-03 一覧表示対象の設定が無く検索項目のみ設定さ�
   await expect(rows(page).first().locator('td').first()).toHaveText(orders[0].order_number);
 });
 
-test('FE-GR-04 一般ユーザー(表示設定を取得できない)でも既定の列で項目が表示されること', async ({ page }) => {
+test('FE-GR-04 一般ユーザー(スタッフ権限なし)にも表示設定が反映されること', async ({ page }) => {
   await setSettings(CUSTOM_SETTINGS);
   const settingsResponse = page.waitForResponse((r) => r.url().includes('/api/base/model-display-settings/'));
+  const fieldsResponse = page.waitForResponse((r) => r.url().includes('/api/base/model-fields/'));
   await openPage(page, generalTokens);
 
-  expect((await settingsResponse).status()).toBe(403);
-  await expect(headers(page)).toHaveText(DEFAULT_HEADERS);
-  await expect(rows(page).first().locator('td')).toHaveCount(DEFAULT_HEADERS.length);
-  await expect(rows(page).first().locator('td').first()).toHaveText(orders[0].order_number);
+  expect((await settingsResponse).status()).toBe(200);
+  // 項目定義APIは管理者限定のままだが、見出しは表示設定側の名称で表示される
+  expect((await fieldsResponse).status()).toBe(403);
+  await expect(headers(page)).toHaveText(CUSTOM_HEADERS);
+  await expect(rows(page).first().locator('td')).toHaveText([
+    orders[0].order_number,
+    'E2E入庫テスト品 01',
+    '10',
+    '0',
+    '未入庫',
+    'N/A',
+    'N/A',
+    '入庫納品',
+  ]);
+});
+
+test('FE-GR-14 仕入先・品番・入庫倉庫を列と検索項目に設定でき、スタッフ・一般ユーザーの両方で表示されること', async ({ page, browser }) => {
+  await setSettings([
+    { model_field_name: 'order_number', display_order: 1 },
+    { model_field_name: 'supplier', display_order: 2 },
+    { model_field_name: 'part_number', display_order: 3 },
+    { model_field_name: 'warehouse', display_order: 4, is_search_field: true },
+  ]);
+  const expectedHeaders = ['発注番号', '仕入先', '品番', '入庫倉庫', '操作'];
+  const expectedCells = [orders[0].order_number, E2E_SUPPLIER, E2E_ITEM_CODE, E2E_WAREHOUSE, '入庫納品'];
+
+  await openPage(page);
+  await expect(headers(page)).toHaveText(expectedHeaders);
+  await expect(rows(page).first().locator('td')).toHaveText(expectedCells);
+
+  await page.getByPlaceholder('入庫倉庫で検索...').fill(E2E_WAREHOUSE);
+  await page.getByRole('button', { name: '検索', exact: true }).click();
+  await expect(rows(page).first().locator('td').nth(3)).toHaveText(E2E_WAREHOUSE);
+  await expect(page.locator('.pagination-controls span')).toHaveText(/\(全 \d{2} 件\)$/);
+  for (const row of await rows(page).all()) {
+    await expect(row.locator('td').nth(3)).toHaveText(E2E_WAREHOUSE);
+  }
+
+  const generalPage = await browser.newPage();
+  await openPage(generalPage, generalTokens);
+  await expect(headers(generalPage)).toHaveText(expectedHeaders);
+  await expect(rows(generalPage).first().locator('td')).toHaveText(expectedCells);
+  await generalPage.close();
+});
+
+test('FE-GR-15 ページ項目表示設定画面(入庫処理)で仕入先・品番・入庫倉庫を選択できること', async ({ page }) => {
+  await setSettings([]);
+  await authenticate(page, adminTokens);
+  await page.goto('/system/page-display-settings');
+  await expect(page.getByRole('heading', { name: 'ページ項目表示設定' })).toBeVisible();
+
+  for (const label of ['仕入先 (入庫予定)', '品番 (入庫予定)', '入庫倉庫 (入庫予定)']) {
+    await expect(page.getByText(label, { exact: true }).first()).toBeVisible();
+  }
 });
 
 test('FE-GR-05 検索項目で絞り込みができ、該当なしの場合はメッセージが表示されること', async ({ page }) => {

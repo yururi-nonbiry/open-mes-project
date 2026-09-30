@@ -56,7 +56,8 @@ const PageDisplaySettings = () => {
 
             const promises = dataTypesToFetch.flatMap(type => [
                 authFetch(`/api/base/model-display-settings/?data_type=${type}`),
-                authFetch(`/api/base/model-fields/?data_type=${type}`)
+                // 仕入先・品番・倉庫などの外部キー項目も選択できるよう、外部キーを含めて取得する
+                authFetch(`/api/base/model-fields/?data_type=${type}&include_relations=true`)
             ]);
 
             const responses = await Promise.all(promises);

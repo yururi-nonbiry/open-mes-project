@@ -76,8 +76,9 @@ const GoodsReceipt = () => {
     // 「入庫処置」ページは入庫予定(purchase_order)と入庫実績(goods_receipt)の両方の設定を参照する
     const poSettingsUrl = '/api/base/model-display-settings/?data_type=purchase_order';
     const grSettingsUrl = '/api/base/model-display-settings/?data_type=goods_receipt';
-    const poFieldsUrl = '/api/base/model-fields/?data_type=purchase_order';
-    const grFieldsUrl = '/api/base/model-fields/?data_type=goods_receipt';
+    // model-fields は管理者限定のため、一般ユーザーでは取得できない(その場合は設定側のverbose_nameを使う)
+    const poFieldsUrl = '/api/base/model-fields/?data_type=purchase_order&include_relations=true';
+    const grFieldsUrl = '/api/base/model-fields/?data_type=goods_receipt&include_relations=true';
 
     try {
       const [poSettingsResponse, grSettingsResponse, dataResponse, poFieldsResponse, grFieldsResponse] = await Promise.all([
@@ -124,7 +125,7 @@ const GoodsReceipt = () => {
         // マージした設定に verbose_name と field_type を追加
         const combinedSettings = mergedSettings.map(setting => ({
             ...setting,
-            verbose_name: verboseNameMap.get(setting.model_field_name) || setting.model_field_name,
+            verbose_name: verboseNameMap.get(setting.model_field_name) || setting.verbose_name || setting.model_field_name,
             field_type: fieldTypeMap.get(setting.model_field_name) || 'Unknown',
         }));
 

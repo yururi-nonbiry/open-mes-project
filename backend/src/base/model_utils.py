@@ -17,3 +17,16 @@ def fk_id_alias(fk_name):
         setattr(self, attname, value)
 
     return property(getter, setter, doc=f"{attname} の別名")
+
+
+def fk_alias_name(model, field):
+    """
+    fk_id_alias で別名を付けた ForeignKey (<別名>_rel) の別名を返す。該当しなければ None。
+
+    APIのシリアライザは別名(例: supplier)で値を返すため、画面の表示設定など
+    APIの項目名と対応付ける場面ではフィールド名(supplier_rel)ではなく別名を使う。
+    """
+    if not (field.many_to_one and field.name.endswith("_rel")):
+        return None
+    alias = field.name[: -len("_rel")]
+    return alias if isinstance(getattr(model, alias, None), property) else None

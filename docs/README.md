@@ -38,7 +38,7 @@
 - [設備管理 (machine)](./09_test_specifications/07_machine.md)
 - [ベース機能 (base)](./09_test_specifications/08_base.md)
 - [フロントエンドE2E（レスポンシブ表示確認）](./09_test_specifications/10_frontend_e2e.md)
-- [フロントエンドE2E（画面機能確認: 入庫画面）](./09_test_specifications/11_frontend_e2e_functional.md)
+- [フロントエンドE2E（画面機能確認: 入庫画面・在庫一覧）](./09_test_specifications/11_frontend_e2e_functional.md)
 
 ---
 詳細な情報については、各ドキュメントを参照してください。

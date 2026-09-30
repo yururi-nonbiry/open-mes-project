@@ -37,6 +37,32 @@ class ModelFieldsViewTests(APITestCase):
         response = self.client.get(self.url, {"data_type": "customer"})
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_base_modelfields_06_relations_excluded_by_default(self):
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get(self.url, {"data_type": "purchase_order"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        field_names = [f["name"] for f in response.data]
+        self.assertIn("order_number", field_names)
+        for name in ("supplier", "supplier_rel", "part_number", "warehouse"):
+            self.assertNotIn(name, field_names)
+
+    def test_base_modelfields_07_include_relations_returns_foreign_keys_by_alias(self):
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get(self.url, {"data_type": "purchase_order", "include_relations": "true"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        verbose_names = {f["name"]: f["verbose_name"] for f in response.data}
+        self.assertEqual(verbose_names["supplier"], "仕入先")
+        self.assertEqual(verbose_names["part_number"], "品番")
+        self.assertEqual(verbose_names["warehouse"], "入庫倉庫")
+        self.assertNotIn("supplier_rel", verbose_names)
+
+        # 別名を持たない外部キー(入庫実績の作業者・入庫予定)は含めない
+        response = self.client.get(self.url, {"data_type": "goods_receipt", "include_relations": "true"})
+        field_names = [f["name"] for f in response.data]
+        self.assertIn("warehouse", field_names)
+        self.assertNotIn("operator", field_names)
+        self.assertNotIn("purchase_order", field_names)
+
     def test_base_modelfields_04_anonymous_rejected(self):
         response = self.client.get(self.url, {"data_type": "item"})
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)

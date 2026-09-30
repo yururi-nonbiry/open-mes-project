@@ -20,8 +20,8 @@ from master.models import Item, Supplier, Warehouse
 ITEM_CODE = "E2E-GR-ITEM"
 WAREHOUSE_NUMBER = "E2E-WH"
 SUPPLIER_NUMBER = "E2E-SUP"
-# frontend/e2e/goods-receipt*.spec.ts が作成する入庫予定の発注番号接頭辞
-ORDER_NUMBER_PREFIXES = ("E2E-GR-", "E2E-GM-")
+# frontend/e2e/goods-receipt*.spec.ts, inventory-lists.spec.ts が作成する入庫予定の発注番号接頭辞
+ORDER_NUMBER_PREFIXES = ("E2E-GR-", "E2E-GM-", "E2E-GI-")
 
 
 def seed():

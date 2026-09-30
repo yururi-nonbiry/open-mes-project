@@ -17,6 +17,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .model_utils import fk_alias_name
 from .models import AsyncTask, CsvColumnMapping, ModelDisplaySetting, QrCodeAction
 from .responses import VALIDATION_ERROR_MESSAGE, error_response
 from .serializers import CsvColumnMappingSerializer, ModelDisplaySettingSerializer, QrCodeActionSerializer
@@ -96,10 +97,21 @@ class ModelFieldsView(APIView):
         except (LookupError, ValueError):
             return error_response(f"Model {model_string} not found.", status.HTTP_404_NOT_FOUND)
 
+        # 外部キーは既定では返さない(CSVマッピング等は実フィールド名を前提とするため)。
+        # include_relations=true の場合のみ、別名を持つ外部キー(仕入先・品番・倉庫等)を
+        # APIの項目名と同じ別名で返す(一覧画面の表示設定用)。
+        include_relations = request.query_params.get("include_relations") == "true"
+
         fields_data = []
         for field in model._meta.get_fields():
-            if not hasattr(field, "attname") or field.auto_created or field.is_relation:
+            if not hasattr(field, "attname") or field.auto_created:
                 continue
+
+            name = field.name
+            if field.is_relation:
+                name = fk_alias_name(model, field) if include_relations else None
+                if name is None:
+                    continue
 
             default_value = field.get_default()
             if callable(default_value):
@@ -107,7 +119,7 @@ class ModelFieldsView(APIView):
 
             fields_data.append(
                 {
-                    "name": field.name,
+                    "name": name,
                     "verbose_name": str(field.verbose_name),
                     "field_type": field.get_internal_type(),
                     "is_required": not field.blank,
@@ -344,6 +356,15 @@ class ModelDisplaySettingViewSet(IntegrityErrorAsBadRequestMixin, viewsets.Model
     permission_classes = [permissions.IsAdminUser]
     filter_backends = [DjangoFilterBackend]
     filterset_class = ModelDisplaySettingFilter
+
+    def get_permissions(self):
+        """
+        一覧画面が表示列・検索項目を決めるために参照するため、参照は認証済みユーザーなら
+        誰でも可能とする(設定の変更は管理者のみ)。
+        """
+        if self.action in ["list", "retrieve"]:
+            return [permissions.IsAuthenticated()]
+        return super().get_permissions()
 
     @action(detail=False, methods=["post"], url_path="bulk-save")
     def bulk_save(self, request, *args, **kwargs):

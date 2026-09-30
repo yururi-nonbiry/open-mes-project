@@ -10,30 +10,28 @@ interface InventoryTableProps {
     onModify: (item: InventoryItem) => void;
 }
 
+// 表示設定が未登録の場合に使用する既定の列
+const DEFAULT_COLUMNS = [
+    { model_field_name: 'part_number', verbose_name: '品番' },
+    { model_field_name: 'warehouse', verbose_name: '倉庫' },
+    { model_field_name: 'location', verbose_name: '場所' },
+    { model_field_name: 'quantity', verbose_name: '在庫数' },
+    { model_field_name: 'reserved', verbose_name: '引当在庫' },
+    { model_field_name: 'available_quantity', verbose_name: '利用可能数' },
+    { model_field_name: 'last_updated', verbose_name: '最終更新日時' },
+] as DisplaySetting[];
+
 const InventoryTable: React.FC<InventoryTableProps> = ({
-    inventory, displaySettings, isLoading, error, onMove, onModify
+    inventory, displaySettings: configuredSettings, isLoading, error, onMove, onModify
 }) => {
-    const colSpan = displaySettings.length > 0 ? displaySettings.length + 1 : 8;
+    // 一覧表示対象の設定が無い場合は既定の列で表示する(見出しと明細で同じ列定義を使う)
+    const displaySettings = configuredSettings.length > 0 ? configuredSettings : DEFAULT_COLUMNS;
+    const colSpan = displaySettings.length + 1;
 
     if (isLoading) return <div className="text-center p-3">検索中...</div>;
     if (error) return <div className="alert alert-danger">{error}</div>;
 
     const renderHeaders = () => {
-        if (displaySettings.length === 0) {
-            return (
-                <tr>
-                    <th>製品/材料名</th>
-                    <th>倉庫</th>
-                    <th>場所</th>
-                    <th className="text-end">在庫数</th>
-                    <th className="text-end">引当在庫</th>
-                    <th className="text-end">利用可能数</th>
-                    <th>最終更新日時</th>
-                    <th className="text-center">操作</th>
-                </tr>
-            );
-        }
-
         return (
             <tr>
                 {displaySettings.map(setting => {

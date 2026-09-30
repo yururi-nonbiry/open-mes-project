@@ -77,7 +77,8 @@ const inventoryService = {
     },
 
     getModelFields: async (dataType: string) => {
-        const response = await authFetch(`/api/base/model-fields/?data_type=${dataType}`);
+        // 一覧の見出し用。品番・倉庫などの外部キー項目の名称も引けるよう、外部キーを含めて取得する
+        const response = await authFetch(`/api/base/model-fields/?data_type=${dataType}&include_relations=true`);
         await handleError(response, 'Failed to fetch model fields');
         return await response.json();
     },

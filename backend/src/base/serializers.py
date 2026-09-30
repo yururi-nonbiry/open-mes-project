@@ -56,6 +56,11 @@ class QrCodeActionSerializer(serializers.ModelSerializer):
         return value
 
 
+# 表示設定の対象モデル。入出庫履歴はCSVインポートの対象外(models.DATA_TYPE_MODEL_MAPPING に無い)だが、
+# 一覧画面の表示設定は持つため、verbose_name の解決用にここで補う。
+DISPLAY_SETTING_MODEL_MAPPING = {**DATA_TYPE_MODEL_MAPPING, "stock_movement": "inventory.StockMovement"}
+
+
 class ModelDisplaySettingSerializer(serializers.ModelSerializer):
     """
     ModelDisplaySettingモデル用のシリアライザー。
@@ -88,21 +93,27 @@ class ModelDisplaySettingSerializer(serializers.ModelSerializer):
         models_to_check_strings = []
         if obj.data_type == "goods_receipt":
             # goods_receipt は purchase_order と receipt のフィールドを持つ
-            models_to_check_strings.append(DATA_TYPE_MODEL_MAPPING.get("purchase_order"))
-            models_to_check_strings.append(DATA_TYPE_MODEL_MAPPING.get("goods_receipt"))
+            models_to_check_strings.append(DISPLAY_SETTING_MODEL_MAPPING.get("purchase_order"))
+            models_to_check_strings.append(DISPLAY_SETTING_MODEL_MAPPING.get("goods_receipt"))
         else:
-            models_to_check_strings.append(DATA_TYPE_MODEL_MAPPING.get(obj.data_type))
+            models_to_check_strings.append(DISPLAY_SETTING_MODEL_MAPPING.get(obj.data_type))
 
         # モデルを順番にチェックしてフィールドを探す
+        # 外部キーは別名(例: supplier)で設定されるため、実フィールド名(supplier_rel)でも探す
+        field_names_to_check = [obj.model_field_name, f"{obj.model_field_name}_rel"]
         for model_string in filter(None, models_to_check_strings):
             try:
                 app_label, model_name = model_string.split(".")
                 model = apps.get_model(app_label=app_label, model_name=model_name)
-                field = model._meta.get_field(obj.model_field_name)
-                return str(field.verbose_name) or obj.model_field_name
-            except (LookupError, ValueError, FieldDoesNotExist):
-                # このモデルにはフィールドがなかったので、次のモデルを試す
+            except (LookupError, ValueError):
                 continue
+            for field_name in field_names_to_check:
+                try:
+                    field = model._meta.get_field(field_name)
+                    return str(field.verbose_name) or obj.model_field_name
+                except FieldDoesNotExist:
+                    # このモデルにはフィールドがなかったので、次の候補・次のモデルを試す
+                    continue
 
         # モデルフィールドに見つからなかった場合、プロパティをチェック
         if obj.data_type == "goods_receipt" and obj.model_field_name == "remaining_quantity":

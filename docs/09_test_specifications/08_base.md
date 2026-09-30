@@ -41,7 +41,9 @@
 - 各ViewSetの既定`permission_classes`は`[IsAdminUser]`（`is_staff=True`のユーザーのみ）だが、
   `CsvColumnMappingViewSet`の`csv_template`/`import_csv`/`get_task_status`/`cancel_task`、
   `QrCodeActionViewSet`の`execute_action`は`get_permissions()`/`@action(permission_classes=...)`により
-  `IsAuthenticated`（一般ユーザーでも可）へ降格されている。`AppInfoView`/`HealthCheckView`は`AllowAny`。
+  `IsAuthenticated`（一般ユーザーでも可）へ降格されている。`ModelDisplaySettingViewSet`の参照（`list`/`retrieve`）も、
+  一覧画面が表示列を決めるために参照するため`IsAuthenticated`へ降格されている（変更系は`IsAdminUser`のまま）。
+  `AppInfoView`/`HealthCheckView`は`AllowAny`。
 - Celery連携（`import_csv_task.delay`/`AsyncResult(...).revoke(...)`）は`unittest.mock.patch`でモックする
   （テスト実行環境では`redis`コンテナが起動されないため、モックしない場合接続エラーになる）。
 
@@ -78,6 +80,8 @@
 | BASE-MODELFIELDS-03 | 異常系 | `GET base/model-fields/?data_type=customer` | 管理者 | 取得 | 400（`Invalid data_type`） | 既知の不具合：`customer`は`models.DATA_TYPE_CHOICES`上は正式な選択肢だが、`api.py`内のローカルマッピングに含まれていない |
 | BASE-MODELFIELDS-04 | 異常系 | `GET base/model-fields/` | 未認証 | 呼び出し | 401 | |
 | BASE-MODELFIELDS-05 | 異常系 | `GET base/model-fields/` | 一般ユーザー | 呼び出し | 403 | `IsAdminUser` |
+| BASE-MODELFIELDS-06 | 正常系 | `GET base/model-fields/?data_type=purchase_order` | 管理者 | 取得 | 200、外部キー（仕入先・品番・入庫倉庫）は含まれない | CSVマッピング設定は実フィールド名を前提とするため、既定では外部キーを返さない |
+| BASE-MODELFIELDS-07 | 正常系 | `GET base/model-fields/?data_type=purchase_order&include_relations=true` | 管理者 | 取得 | 200、別名を持つ外部キーが別名（`supplier`/`part_number`/`warehouse`）で返り、実フィールド名（`supplier_rel`）は含まれない。別名を持たない外部キー（入庫実績の`operator`/`purchase_order`）は含まれない | 一覧画面の表示設定用 |
 
 ### 5.3 CSV列マッピング CRUD（`CsvColumnMappingViewSet`、`base/tests/test_csv_column_mapping.py`）
 
@@ -145,7 +149,10 @@
 | BASE-MDS-05 | 境界値 | `POST model-display-settings/` | 管理者 | `data_type="inventory"`, `model_field_name="available_quantity"` | 201、`verbose_name`が「利用可能数」 | 同上 |
 | BASE-MDS-06 | 正常系 | `DELETE model-display-settings/{id}/` | 管理者 | 削除 | 204 | |
 | BASE-MDS-07 | 異常系 | `GET model-display-settings/` | 未認証 | 呼び出し | 401 | |
-| BASE-MDS-08 | 異常系 | `GET model-display-settings/` | 一般ユーザー | 呼び出し | 403 | |
+| BASE-MDS-08 | 正常系 | `GET model-display-settings/`, `GET model-display-settings/{id}/` | 一般ユーザー | 呼び出し | 200 | 【2026-09-30 変更】以前は403。一覧画面が表示列を決めるために参照するため`IsAuthenticated`へ降格 |
+| BASE-MDS-09 | 異常系 | `POST`/`PATCH`/`DELETE model-display-settings/` | 一般ユーザー | 呼び出し | いずれも403、設定は変更されない | 変更は`IsAdminUser`のまま |
+| BASE-MDS-10 | 正常系 | `POST model-display-settings/` | 管理者 | 外部キーの別名（`goods_receipt`の`supplier`/`part_number`/`warehouse`、`inventory`の`part_number`、`stock_movement`の`warehouse`） | 201、`verbose_name`が実フィールド（`supplier_rel`等）から解決される | |
+| BASE-MDS-11 | 正常系 | `POST model-display-settings/` | 管理者 | `data_type="stock_movement"`, `model_field_name="movement_date"` | 201、`verbose_name`が「移動日時」 | 入出庫履歴は`models.DATA_TYPE_MODEL_MAPPING`に無いため、シリアライザ側で対象モデルを補っている |
 | BASE-MDSBULK-01 | 正常系 | `POST model-display-settings/bulk-save/?data_type=item` | 管理者、既存設定が存在 | 一括保存 | 200、既存分は削除され新しい内容に置き換わる | |
 | BASE-MDSBULK-02 | 異常系 | 同上 | 一般ユーザー | 呼び出し | 403 | |
 

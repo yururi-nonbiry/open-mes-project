@@ -21,7 +21,11 @@ const AUTH_STATE_FILE = 'e2e/.auth/user.json';
 // (npm run test:e2e:functional が設定する)。日時の表示を検証するためタイムゾーンを固定している。
 const functionalUse = { locale: 'ja-JP', timezoneId: 'Asia/Tokyo' };
 const functionalProjects = [
-  { name: 'functional-hd', testMatch: '**/goods-receipt.spec.ts', use: { ...hdViewport, ...functionalUse } },
+  {
+    name: 'functional-hd',
+    testMatch: ['**/goods-receipt.spec.ts', '**/inventory-lists.spec.ts'],
+    use: { ...hdViewport, ...functionalUse },
+  },
   {
     name: 'functional-smartphone',
     testMatch: '**/goods-receipt-mobile.spec.ts',

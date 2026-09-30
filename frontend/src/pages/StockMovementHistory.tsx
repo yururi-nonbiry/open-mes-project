@@ -11,6 +11,18 @@ const AVAILABLE_MOVEMENT_TYPES = [
     { key: 'adjustment', label: '在庫調整', btnClass: 'btn-outline-danger', default_selected: true },
 ];
 
+// 表示設定が未登録の場合に使用する既定の列
+const DEFAULT_COLUMNS = [
+    { model_field_name: 'movement_date', verbose_name: '移動日時' },
+    { model_field_name: 'part_number', verbose_name: '品番' },
+    { model_field_name: 'warehouse', verbose_name: '倉庫' },
+    { model_field_name: 'movement_type', verbose_name: '移動タイプ' },
+    { model_field_name: 'quantity', verbose_name: '数量' },
+    { model_field_name: 'operator', verbose_name: '記録者' },
+    { model_field_name: 'description', verbose_name: '備考' },
+    { model_field_name: 'reference_document', verbose_name: '参照ドキュメント' },
+];
+
 const getDefaultSelectedTypes = () => {
     const defaultTypes = new Set();
     AVAILABLE_MOVEMENT_TYPES.forEach(type => {
@@ -73,7 +85,7 @@ const StockMovementHistory = () => {
         });
 
         const settingsUrl = '/api/base/model-display-settings/?data_type=stock_movement';
-        const fieldsUrl = '/api/base/model-fields/?data_type=stock_movement';
+        const fieldsUrl = '/api/base/model-fields/?data_type=stock_movement&include_relations=true';
 
         try {
             const [settingsResponse, fieldsResponse, dataResponse] = await Promise.all([
@@ -82,14 +94,15 @@ const StockMovementHistory = () => {
                 authFetch(dataUrl.toString())
             ]);
 
-            if (settingsResponse.ok && fieldsResponse.ok) {
+            if (settingsResponse.ok) {
                 const settings = await settingsResponse.json();
-                const fields = await fieldsResponse.json();
+                // model-fields は管理者限定のため、一般ユーザーでは取得できない(その場合は設定側のverbose_nameを使う)
+                const fields = fieldsResponse.ok ? await fieldsResponse.json() : [];
                 const verboseNameMap = new Map(fields.map(f => [f.name, f.verbose_name]));
 
                 const combinedSettings = settings.map(setting => ({
                     ...setting,
-                    verbose_name: verboseNameMap.get(setting.model_field_name) || setting.model_field_name,
+                    verbose_name: verboseNameMap.get(setting.model_field_name) || setting.verbose_name || setting.model_field_name,
                 }));
 
                 const visibleColumns = combinedSettings
@@ -202,18 +215,13 @@ const StockMovementHistory = () => {
         return `全 ${count} 件中 ${startItem} - ${endItem} 件を表示 (ページ ${currentPage} / ${num_pages})`;
     };
 
+    // 一覧表示対象の設定が無い場合は既定の列で表示する(見出しと明細で同じ列定義を使う)
+    const columns = displaySettings.length > 0 ? displaySettings : DEFAULT_COLUMNS;
+
     const renderTableHeaders = () => {
-        if (loading || displaySettings.length === 0) {
-            return (
-                <tr>
-                    <th>移動日時</th><th>品番</th><th>倉庫</th><th>移動タイプ</th>
-                    <th>数量</th><th>記録者</th><th>備考</th><th>参照ドキュメント</th>
-                </tr>
-            );
-        }
         return (
             <tr>
-                {displaySettings.map(setting => (
+                {columns.map(setting => (
                     <th key={setting.model_field_name}>
                         {setting.display_name || setting.verbose_name}
                     </th>
@@ -223,14 +231,14 @@ const StockMovementHistory = () => {
     };
 
     const renderTableBody = () => {
-        const colSpan = displaySettings.length > 0 ? displaySettings.length : 8;
+        const colSpan = columns.length;
         if (loading) return <tr><td colSpan={colSpan} className="text-center">読み込み中...</td></tr>;
         if (error) return <tr><td colSpan={colSpan} className="text-center text-danger">{error}</td></tr>;
         if (history.length === 0) return <tr><td colSpan={colSpan} className="text-center">データがありません。</td></tr>;
 
         return history.map(item => (
             <tr key={item.id}>
-                {displaySettings.map(setting => {
+                {columns.map(setting => {
                     const fieldName = setting.model_field_name;
                     let cellValue;
 

@@ -45,7 +45,7 @@ Chromiumに固定）。`frontend/src/App.tsx` の `MobileRedirector` はUser-Age
 シナリオ（例: レコード編集時のみ表示されるボタン）への対象拡大は今後の課題。
 
 一覧の明細に項目が表示されること、検索・登録等の画面操作が期待通りに動作することは本書の対象外であり、
-画面機能確認（[11_frontend_e2e_functional.md](./11_frontend_e2e_functional.md)、現時点では入庫画面のみ）で
+画面機能確認（[11_frontend_e2e_functional.md](./11_frontend_e2e_functional.md)、現時点では入庫画面と在庫照会・入出庫履歴の一覧表示）で
 別スイートとして検証する。
 
 ## 3. 事前準備: テストユーザーの作成
