@@ -6,6 +6,19 @@ import './InventoryInquiry.css'; // 既存のCSSを利用してファイル未�
 
 const NUMERIC_FIELDS = ['quantity', 'received_quantity', 'remaining_quantity', 'delivered_quantity'];
 
+// 表示設定が未登録、または取得できない(管理者以外など)場合に使用する既定の列
+const DEFAULT_COLUMNS = [
+  { model_field_name: 'order_number', verbose_name: '発注番号' },
+  { model_field_name: 'supplier', verbose_name: '仕入先' },
+  { model_field_name: 'item', verbose_name: '品目' },
+  { model_field_name: 'product_name', verbose_name: '品名' },
+  { model_field_name: 'quantity', verbose_name: '発注数量' },
+  { model_field_name: 'received_quantity', verbose_name: '入庫済数量' },
+  { model_field_name: 'remaining_quantity', verbose_name: '残数量' },
+  { model_field_name: 'expected_arrival', verbose_name: '入荷予定日' },
+  { model_field_name: 'status', verbose_name: 'ステータス' },
+];
+
 const GoodsReceipt = () => {
   // State for purchase orders, pagination, and loading/error status
   const [purchaseOrders, setPurchaseOrders] = useState([]);
@@ -279,30 +292,15 @@ const GoodsReceipt = () => {
     return date.toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
   };
 
+  // 一覧表示対象の設定が無い場合は既定の列で表示する(ヘッダーと明細で同じ列定義を使う)
+  const columns = displaySettings.length > 0 ? displaySettings : DEFAULT_COLUMNS;
+  const colSpan = columns.length + 1;
+
   // Render logic for table headers
   const renderTableHeaders = () => {
-    const defaultHeaders = (
-      <tr>
-        <th>発注番号</th>
-        <th>仕入先</th>
-        <th>品目</th>
-        <th>品名</th>
-        <th className="text-end">発注数量</th>
-        <th className="text-end">入庫済数量</th>
-        <th className="text-end">残数量</th>
-        <th>入荷予定日</th>
-        <th>ステータス</th>
-        <th className="text-center">操作</th>
-      </tr>
-    );
-
-    if (isLoading || displaySettings.length === 0) {
-      return defaultHeaders;
-    }
-
     return (
       <tr>
-        {displaySettings.map(setting => {
+        {columns.map(setting => {
           const isNumeric = NUMERIC_FIELDS.includes(setting.model_field_name);
           // カスタム表示名がスペースのみの場合も考慮してtrim()し、
           // verbose_nameがなければmodel_field_nameをフォールバックとして使用
@@ -320,12 +318,12 @@ const GoodsReceipt = () => {
 
   // Render logic for table body
   const renderTableBody = () => {
-    if (isLoading) return <tr><td colSpan="10" className="text-center">検索中...</td></tr>;
-    if (error) return <tr><td colSpan="10" className="text-center text-danger">{error}</td></tr>;
-    if (purchaseOrders.length === 0) return <tr><td colSpan="10" className="text-center">該当する入庫予定がありません。</td></tr>;
+    if (isLoading) return <tr><td colSpan={colSpan} className="text-center">検索中...</td></tr>;
+    if (error) return <tr><td colSpan={colSpan} className="text-center text-danger">{error}</td></tr>;
+    if (purchaseOrders.length === 0) return <tr><td colSpan={colSpan} className="text-center">該当する入庫予定がありません。</td></tr>;
 
     return purchaseOrders.map(order => {
-      const cells = displaySettings.map(setting => {
+      const cells = columns.map(setting => {
         const fieldName = setting.model_field_name;
         let cellValue;
 
