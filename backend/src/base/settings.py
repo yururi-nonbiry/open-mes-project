@@ -15,7 +15,7 @@ from pathlib import Path
 
 import environ
 
-VERSION = "0.1.24"
+VERSION = "0.1.25"
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
