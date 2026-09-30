@@ -77,7 +77,7 @@ docker compose exec -it backend python3 manage.py createsuperuser
 
 ## 7. 本番/HTTPS環境での起動
 
-本番相当の構成には、Nginxリバースプロキシを含む `compose.prod.yml`（HTTP、ポート80）や、Let's EncryptによるHTTPS対応を含む `compose.https.yml`（`certbot`コンテナ、`DOMAIN`/`EMAIL`/`CERTBOT_USE_STAGING`の`.env`設定が必要）を使用します。なお、`compose.prod.yml`は`.env`ではなく`.env.prod`を読み込む設定になっているため（`compose.https.yml`は`.env`を使用）、本番構成で起動する前に`.env.prod`を別途作成してください（`.env.prod`は`.gitignore`対象です）。
+本番相当の構成には、Nginxリバースプロキシを含む `compose.prod.yml`（HTTP、ポート80）や、Let's EncryptによるHTTPS対応を含む `compose.https.yml`（`certbot`コンテナ、`DOMAIN`/`EMAIL`/`CERTBOT_USE_STAGING`の`.env`設定が必要）を使用します。どちらの構成も、開発環境と同じくプロジェクトルートの`.env`を読み込みます。本番構成で起動する前に、`.env`の`SECRET_KEY`・`DEBUG`・`ALLOWED_HOSTS`などを本番用の値に変更してください。
 
 ```bash
 docker compose -f compose.prod.yml up -d
@@ -92,7 +92,7 @@ START_DB=0     # DBコンテナを起動しない（DATABASE_URLを外部のDB�
 START_NGINX=0  # Nginxコンテナを起動しない
 ```
 
-**メモ:** この2つはコンテナ内の環境変数ではなく、Docker Composeが`compose.prod.yml`を読み込む際に参照する値です。そのため`.env.prod`ではなく`.env`（または実行時のシェルの環境変数）に記載してください。`0`に変更して`up -d`を実行すると、起動済みの該当コンテナは停止・削除されます（DBのデータボリュームは残ります）。
+**メモ:** この2つはコンテナ内の環境変数ではなく、Docker Composeが`compose.prod.yml`を読み込む際に参照する値です。`.env`のほか、実行時のシェルの環境変数でも指定できます（シェルの環境変数が優先されます）。`0`に変更して`up -d`を実行すると、起動済みの該当コンテナは停止・削除されます（DBのデータボリュームは残ります）。
 
 これらの構成では、ホスト側で事前にビルドしたフロントエンド静的ファイル（`frontend/dist`）を使用するため、起動前に手順4のビルドコマンドを実行しておく必要があります。
 
