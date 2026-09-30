@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import authFetch, { describeError, handleError } from '../../utils/api';
 import inventoryService from '../../services/inventoryService';
 import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library';
+import CameraIcon from '../../components/common/CameraIcon';
 import './MobileLocationTransferPage.css'; // 新しいCSSファイルをインポート
 
 const MobileLocationTransferPage = () => {
@@ -261,7 +262,7 @@ const MobileLocationTransferPage = () => {
           <label htmlFor="source_location_input" className="form-label fw-bold">移動元棚番</label>
           <div className="input-group">
             <input type="text" className="form-control form-control-lg" id="source_location_input" placeholder="移動元をスキャン" value={sourceLocation} onChange={e => setSourceLocation(e.target.value)} required />
-            <button className="btn btn-outline-secondary" type="button" onClick={() => startCameraScan(setSourceLocation)} title="カメラでスキャン">📷</button>
+            <button className="btn btn-outline-secondary" type="button" onClick={() => startCameraScan(setSourceLocation)} title="カメラでスキャン" aria-label="カメラでスキャン"><CameraIcon /></button>
           </div>
         </div>
         {renderMessage(message)}
@@ -302,7 +303,7 @@ const MobileLocationTransferPage = () => {
                   <label htmlFor="targetLocation" className="form-label fw-bold">移動先棚番</label>
                   <div className="input-group">
                     <input type="text" id="targetLocation" name="targetLocation" className="form-control form-control-lg" placeholder="移動先をスキャン" value={targetLocation} onChange={handleModalFormChange} required />
-                    <button className="btn btn-outline-secondary" type="button" onClick={() => startCameraScan(val => setModalState(p => ({ ...p, targetLocation: val })))} title="カメラでスキャン">📷</button>
+                    <button className="btn btn-outline-secondary" type="button" onClick={() => startCameraScan(val => setModalState(p => ({ ...p, targetLocation: val })))} title="カメラでスキャン" aria-label="カメラでスキャン"><CameraIcon /></button>
                   </div>
                 </div>
                 {renderMessage(modalMessage)}

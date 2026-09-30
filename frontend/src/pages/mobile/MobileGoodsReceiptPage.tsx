@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import authFetch, { ApiError, handleError } from '../../utils/api';
 import inventoryService from '../../services/inventoryService';
 import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library';
+import CameraIcon from '../../components/common/CameraIcon';
 import './MobileGoodsReceiptPage.css';
 import './MobileLocationTransferPage.css'; // スタイルを再利用
 
@@ -267,14 +268,14 @@ const MobileGoodsReceiptPage = () => {
               <label htmlFor="warehouse" className="form-label">入庫倉庫</label>
               <div className="input-group">
                 <input type="text" id="warehouse" name="warehouse" value={receiptFormData.warehouse} onChange={handleReceiptFormChange} className="form-control" placeholder="倉庫" />
-                <button className="btn btn-outline-secondary" type="button" onClick={() => startCameraScan(value => setReceiptFormData(prev => ({ ...prev, warehouse: value })))} title="カメラでスキャン">📷</button>
+                <button className="btn btn-outline-secondary" type="button" onClick={() => startCameraScan(value => setReceiptFormData(prev => ({ ...prev, warehouse: value })))} title="カメラでスキャン" aria-label="カメラでスキャン"><CameraIcon /></button>
               </div>
             </div>
             <div className="mb-3">
               <label htmlFor="location" className="form-label">入庫棚番</label>
               <div className="input-group">
                 <input type="text" id="location" name="location" value={receiptFormData.location} onChange={handleReceiptFormChange} className="form-control" placeholder="棚番" />
-                <button className="btn btn-outline-secondary" type="button" onClick={() => startCameraScan(value => setReceiptFormData(prev => ({ ...prev, location: value })))} title="カメラでスキャン">📷</button>
+                <button className="btn btn-outline-secondary" type="button" onClick={() => startCameraScan(value => setReceiptFormData(prev => ({ ...prev, location: value })))} title="カメラでスキャン" aria-label="カメラでスキャン"><CameraIcon /></button>
               </div>
             </div>
             {formError && <div className="alert alert-danger">{formError}</div>}
@@ -292,7 +293,7 @@ const MobileGoodsReceiptPage = () => {
       <div className="mb-3">
         <div className="input-group">
           <input type="search" className="form-control" placeholder="発注番号などで検索..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-          <button className="btn btn-outline-secondary" type="button" onClick={() => startCameraScan(setSearchTerm)} title="カメラでスキャン">📷</button>
+          <button className="btn btn-outline-secondary" type="button" onClick={() => startCameraScan(setSearchTerm)} title="カメラでスキャン" aria-label="カメラでスキャン"><CameraIcon /></button>
         </div>
       </div>
       {renderOrderList()}

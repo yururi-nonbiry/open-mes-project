@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import authFetch, { handleError } from '../../utils/api';
 import inventoryService, { SalesOrder, validateIssueQuantity } from '../../services/inventoryService';
 import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library';
+import CameraIcon from '../../components/common/CameraIcon';
 import './MobileLocationTransferPage.css'; // スタイルを再利用
 
 const MobileGoodsIssuePage = () => {
@@ -277,7 +278,7 @@ const MobileGoodsIssuePage = () => {
                                     value={searchQueryInput}
                                     onChange={(e) => setSearchQueryInput(e.target.value)}
                                 />
-                                <Button variant="outline-secondary" type="button" onClick={() => startCameraScan(setSearchQueryInput)} title="カメラでスキャン">📷</Button>
+                                <Button variant="outline-secondary" type="button" onClick={() => startCameraScan(setSearchQueryInput)} title="カメラでスキャン" aria-label="カメラでスキャン"><CameraIcon /></Button>
                             </InputGroup>
                         </Form.Group>
                     </Col>
