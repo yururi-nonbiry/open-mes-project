@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "type-check": "tsc --noEmit",
     "preview": "vite preview",
-    "test:e2e": "node e2e/run-and-report.mjs"
+    "test:e2e": "node e2e/run-and-report.mjs",
+    "test:e2e:functional": "node e2e/run-and-report.mjs --suite=functional"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",

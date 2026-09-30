@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Playwrightを実行し、結果をMarkdownレポートとして
-// docs/09_test_specifications/reports/frontend_responsive.md に固定ファイル名で
-// 上書き保存するラッパースクリプト。手順は docs/09_test_specifications/10_frontend_e2e.md を参照。
+// docs/09_test_specifications/reports/frontend_responsive.md (画面機能確認は frontend_functional.md) に
+// 固定ファイル名で上書き保存するラッパースクリプト。手順は docs/09_test_specifications/10_frontend_e2e.md、
+// 11_frontend_e2e_functional.md を参照。
 //
 // backend側の script/run_tests.sh + script/generate_test_report.py と同じ方針
 // (レポートは固定パスに上書き、履歴はgit管理に委ねる)に揃えている。
@@ -13,13 +14,21 @@ import { fileURLToPath } from 'node:url';
 const FRONTEND_DIR = path.dirname(fileURLToPath(import.meta.url)) + '/..';
 const ROOT_DIR = path.resolve(FRONTEND_DIR, '..');
 const REPORT_DIR = path.join(ROOT_DIR, 'docs', '09_test_specifications', 'reports');
-const REPORT_FILE = path.join(REPORT_DIR, 'frontend_responsive.md');
+
+// `--suite=functional` を付けると画面機能確認(11_frontend_e2e_functional.md)を実行し、
+// frontend_functional.md に保存する。省略時は従来通りレスポンシブ表示確認を実行する。
+const args = process.argv.slice(2);
+const suite = args.includes('--suite=functional') ? 'functional' : 'responsive';
+const extraArgs = args.filter((a) => !a.startsWith('--suite='));
+const REPORT_NAME = `frontend_${suite}`;
+const REPORT_FILE = path.join(REPORT_DIR, `${REPORT_NAME}.md`);
+const RUN_COMMAND = suite === 'functional' ? 'npm run test:e2e:functional' : 'npm run test:e2e';
 
 mkdirSync(REPORT_DIR, { recursive: true });
 
-const extraArgs = process.argv.slice(2);
 const result = spawnSync('npx', ['playwright', 'test', '--reporter=json', ...extraArgs], {
   cwd: FRONTEND_DIR,
+  env: { ...process.env, E2E_SUITE: suite },
   stdio: ['ignore', 'pipe', 'inherit'],
   encoding: 'utf-8',
   maxBuffer: 1024 * 1024 * 50,
@@ -63,10 +72,10 @@ const overall = failed === 0 && total > 0 ? 'OK' : 'NG';
 const now = new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
 
 const lines = [];
-lines.push('# テスト実行レポート: frontend_responsive');
+lines.push(`# テスト実行レポート: ${REPORT_NAME}`);
 lines.push('');
 lines.push(`- 実行日時: ${now} JST`);
-lines.push('- 実行コマンド: `npm run test:e2e`');
+lines.push(`- 実行コマンド: \`${RUN_COMMAND}\``);
 lines.push(`- 総合結果: **${overall}**`);
 lines.push('');
 lines.push('## サマリー');
@@ -83,12 +92,25 @@ if (nonPass.length > 0) {
   lines.push('| テスト | 結果 | エラー概要 |');
   lines.push('|---|---|---|');
   for (const t of nonPass) {
-    const err = (t.error || '-').split('\n')[0].replace(/\|/g, '\\|');
+    // Playwrightのエラーメッセージに含まれる色付け用のANSIエスケープはMarkdownでは不要なため取り除く
+    const err = (t.error || '-').replace(/\u001b\[[0-9;]*m/g, '').split('\n')[0].replace(/\|/g, '\\|');
     lines.push(`| ${t.title} | ${t.status.toUpperCase()} | ${err} |`);
   }
   lines.push('');
 } else if (total > 0) {
   lines.push('全てのテストが成功しました。');
+  lines.push('');
+}
+
+// 画面機能確認はテストケース(ケースID)単位で結果を突き合わせられるよう、全件の結果を一覧で残す
+if (suite === 'functional' && total > 0) {
+  lines.push('## テスト結果一覧');
+  lines.push('');
+  lines.push('| テスト | 結果 | 実行時間 |');
+  lines.push('|---|---|---|');
+  for (const t of [...tests].sort((a, b) => a.title.localeCompare(b.title))) {
+    lines.push(`| ${t.title.replace(/\|/g, '\\|')} | ${t.status.toUpperCase()} | ${(t.duration / 1000).toFixed(1)}秒 |`);
+  }
   lines.push('');
 }
 

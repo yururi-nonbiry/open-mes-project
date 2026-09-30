@@ -16,6 +16,21 @@ const fullhdViewport = { viewport: { width: 1920, height: 1080 } };
 
 const AUTH_STATE_FILE = 'e2e/.auth/user.json';
 
+// 画面機能確認(docs/09_test_specifications/11_frontend_e2e_functional.md)。テストデータの登録や
+// 表示設定の変更を伴うため、レスポンシブ表示確認とは別スイートとして E2E_SUITE=functional の時だけ実行する
+// (npm run test:e2e:functional が設定する)。日時の表示を検証するためタイムゾーンを固定している。
+const functionalUse = { locale: 'ja-JP', timezoneId: 'Asia/Tokyo' };
+const functionalProjects = [
+  { name: 'functional-hd', testMatch: '**/goods-receipt.spec.ts', use: { ...hdViewport, ...functionalUse } },
+  {
+    name: 'functional-smartphone',
+    testMatch: '**/goods-receipt-mobile.spec.ts',
+    use: { ...smartphoneViewport, ...functionalUse },
+  },
+];
+
+const isFunctionalSuite = process.env.E2E_SUITE === 'functional';
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
@@ -30,7 +45,7 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },
-  projects: [
+  projects: isFunctionalSuite ? functionalProjects : [
     // ログイン画面(未認証)の検証。
     { name: 'login-smartphone', testMatch: '**/login.spec.ts', use: smartphoneViewport },
     { name: 'login-hd', testMatch: '**/login.spec.ts', use: hdViewport },
