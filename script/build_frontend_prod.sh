@@ -13,6 +13,9 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 COMPOSE_FILE="$ROOT_DIR/compose.yml"
+# ビルドにDB・バックエンドは不要なため、--no-deps で依存サービス(backend/db/redis)を起動させない。
+# (起動させると、ホスト側で5432番などが使用中の場合にポート競合でビルドごと失敗する)
+FRONTEND_RUN=(docker compose -f "$COMPOSE_FILE" run --rm --no-deps frontend)
 SKIP_CHECKS=false
 
 for arg in "$@"; do
@@ -33,21 +36,21 @@ if [ ! -f "$ROOT_DIR/.env" ]; then
 fi
 
 echo "==> 依存パッケージをインストールしています(npm ci)..."
-docker compose -f "$COMPOSE_FILE" run --rm frontend npm ci
+"${FRONTEND_RUN[@]}" npm ci
 
 if [ "$SKIP_CHECKS" = false ]; then
   echo "==> Lintを実行しています(結果は参考情報。既存の警告/エラーがあってもビルドは継続します)..."
-  docker compose -f "$COMPOSE_FILE" run --rm frontend npm run lint || true
+  "${FRONTEND_RUN[@]}" npm run lint || true
 
   echo "==> 型チェックを実行しています..."
-  docker compose -f "$COMPOSE_FILE" run --rm frontend npm run type-check
+  "${FRONTEND_RUN[@]}" npm run type-check
 else
   echo "==> --skip-checks が指定されたため、lint・型チェックを省略します。"
 fi
 
 echo "==> 本番用にビルドしています(npm run build)..."
 # コンテナ内はrootで実行されるため、ビルド後に成果物の所有者をホスト側の実行ユーザーに合わせる
-docker compose -f "$COMPOSE_FILE" run --rm frontend \
+"${FRONTEND_RUN[@]}" \
   sh -c "npm run build && chown -R $(id -u):$(id -g) dist"
 
 echo "==> 完了しました: frontend/dist"
