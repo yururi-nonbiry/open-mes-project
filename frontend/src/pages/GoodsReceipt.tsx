@@ -357,7 +357,8 @@ const GoodsReceipt = () => {
             <button
               className="btn btn-sm btn-primary"
               onClick={() => openReceiptModal(order)}
-              disabled={order.status !== 'pending' || (order.quantity - order.received_quantity <= 0)}
+              // 一部入庫の入庫予定も、残数量があれば追加で入庫できる
+              disabled={!['pending', 'partially_received'].includes(order.status) || (order.quantity - order.received_quantity <= 0)}
             >
               入庫
             </button>

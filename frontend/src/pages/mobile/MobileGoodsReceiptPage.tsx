@@ -42,7 +42,7 @@ const MobileGoodsReceiptPage = () => {
       // General search for mobile view
       params.append('search_q', searchTerm);
     }
-    params.append('search_status', 'pending'); // Mobile view is for pending receipts
+    params.append('search_status', 'receivable'); // 未入庫と、残数量のある一部入庫を対象にする
     const apiUrl = `/api/inventory/purchase-orders/?${params.toString()}`;
 
     try {

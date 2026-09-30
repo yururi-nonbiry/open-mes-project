@@ -198,6 +198,9 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
             # フロントエンドから 'received' が来た場合、両方の入庫済みステータスを検索対象とする
             if search_status == "received":
                 filters &= Q(status__in=[PurchaseOrder.Status.PARTIALLY_RECEIVED, PurchaseOrder.Status.FULLY_RECEIVED])
+            # 'receivable' はまだ入庫できる(残数量がある)未入庫・一部入庫の両方を検索対象とする
+            elif search_status == "receivable":
+                filters &= Q(status__in=[PurchaseOrder.Status.PENDING, PurchaseOrder.Status.PARTIALLY_RECEIVED])
             else:
                 filters &= Q(status=search_status)
 

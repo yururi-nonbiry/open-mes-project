@@ -109,6 +109,7 @@
 | PO-CRUD-10 | 異常系 | `PATCH purchase-orders/{id}/` | `received_quantity=4` | `quantity=3`（入庫済数量未満） | 400 | `validate_quantity` |
 | PO-CRUD-11 | 正常系 | `PATCH purchase-orders/{id}/` | `quantity=10, received_quantity=4, status=partially_received` | `quantity=4` | 200、`status="fully_received"` に再計算 | |
 | PO-CRUD-12 | 正常系 | `PATCH purchase-orders/{id}/` | `received_quantity=0` の在庫なしPO | `delivery_date`, `delivered_quantity` | 200、納品日・納品数が保存され、`received_quantity`・`status`・在庫は変わらない | 外部システムでの受領の記録のみ |
+| PO-CRUD-13 | 正常系 | `GET purchase-orders/?search_status=receivable` | `pending`/`partially_received`/`fully_received` のPOが混在 | 検索 | `pending` と `partially_received` のPOだけが返る | モバイル入庫処理画面の一覧で使用（残数量のある入庫予定） |
 
 ### 5.6 入庫処理 `process-receipt`（`POST purchase-orders/process-receipt/`）
 
