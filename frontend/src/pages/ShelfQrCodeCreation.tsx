@@ -5,12 +5,45 @@ import { Card, Form, Container, Row, Col, Button } from 'react-bootstrap';
 const ShelfQrCodeCreation = () => {
   const [warehouse, setWarehouse] = useState('');
   const [shelf, setShelf] = useState('');
+  const [includeLabel, setIncludeLabel] = useState(false);
 
   const qrCodeValue = JSON.stringify({ warehouse, shelf });
 
+  // QRコードの下に倉庫番号・棚番号の文字を描画したキャンバスを作成する
+  const createLabeledCanvas = (qrCanvas: HTMLCanvasElement) => {
+    const padding = 16;
+    const fontSize = 20;
+    const lineHeight = 28;
+    const font = `bold ${fontSize}px sans-serif`;
+    const lines = [`倉庫: ${warehouse}`, `棚番: ${shelf}`];
+
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return qrCanvas;
+
+    ctx.font = font;
+    const textWidth = Math.max(...lines.map((line) => ctx.measureText(line).width));
+    canvas.width = Math.ceil(Math.max(qrCanvas.width, textWidth) + padding * 2);
+    canvas.height = qrCanvas.height + padding * 2 + lineHeight * lines.length;
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(qrCanvas, (canvas.width - qrCanvas.width) / 2, padding);
+
+    ctx.font = font;
+    ctx.fillStyle = '#000000';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    lines.forEach((line, i) => {
+      ctx.fillText(line, canvas.width / 2, qrCanvas.height + padding + 4 + lineHeight * i);
+    });
+    return canvas;
+  };
+
   const handleDownload = () => {
-    const canvas = document.getElementById('qr-code-canvas');
-    if (canvas) {
+    const qrCanvas = document.getElementById('qr-code-canvas') as HTMLCanvasElement | null;
+    if (qrCanvas) {
+      const canvas = includeLabel ? createLabeledCanvas(qrCanvas) : qrCanvas;
       const pngUrl = canvas
         .toDataURL('image/png')
         .replace('image/png', 'image/octet-stream');
@@ -58,6 +91,15 @@ const ShelfQrCodeCreation = () => {
                     />
                   </Col>
                 </Form.Group>
+
+                <Form.Group className="mb-3" controlId="include-label-check">
+                  <Form.Check
+                    type="checkbox"
+                    label="倉庫・棚番を文字で書き出す"
+                    checked={includeLabel}
+                    onChange={(e) => setIncludeLabel(e.target.checked)}
+                  />
+                </Form.Group>
               </Form>
 
               {warehouse && shelf && (
@@ -65,6 +107,12 @@ const ShelfQrCodeCreation = () => {
                   <h4>生成されたQRコード</h4>
                   <div className="d-inline-block p-3 border rounded">
                     <QRCodeCanvas id="qr-code-canvas" value={qrCodeValue} size={256} />
+                    {includeLabel && (
+                      <div className="mt-2 fw-bold">
+                        <div>倉庫: {warehouse}</div>
+                        <div>棚番: {shelf}</div>
+                      </div>
+                    )}
                   </div>
                   <p className="mt-3">QRコードの文字列:</p>
                   <code>{qrCodeValue}</code>
