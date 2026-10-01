@@ -241,11 +241,14 @@ const GoodsReceipt = () => {
   };
 
   // 納品日・納品数の編集(外部システムでの受領の記録のみで、在庫や入庫済数量には反映しない)
+  // 未登録の場合は本日の日付(ローカル日付)と発注数量を初期値とする
   const openDeliveryModal = (order) => {
     setDeliveryModal({ isOpen: true, order, error: '', success: '' });
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     setDeliveryFormData({
-      delivery_date: order.delivery_date || '',
-      delivered_quantity: order.delivered_quantity ?? '',
+      delivery_date: order.delivery_date || today,
+      delivered_quantity: order.delivered_quantity ?? order.quantity ?? '',
     });
     document.body.classList.add('menu-open-no-scroll');
   };
