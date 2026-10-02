@@ -80,3 +80,44 @@ class SalesOrderReservationCrudTests(InventoryAPITestBase):
     def test_so_crud_08_change_item_with_reservation_rejected(self):
         response = self.client.patch(self.url, {"item": self.item2.code}, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class SalesOrderChangeStatusTests(InventoryAPITestBase):
+    """SO-STATUS-* : 出庫予定のキャンセル/キャンセル取り消し(外部連携用)。"""
+
+    def setUp(self):
+        super().setUp()
+        self.inventory = self.create_inventory(quantity=10, reserved=4)
+        self.so = self.create_sales_order(order_number="SO-ST-1", quantity=6, reserved_quantity=4)
+        self.url = reverse("inventory_api:salesorder-change-status", args=[self.so.id])
+
+    def test_so_status_01_cancel_releases_reservation(self):
+        response = self.client.post(self.url, {"status": "canceled"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["status"], "canceled")
+        self.so.refresh_from_db()
+        self.inventory.refresh_from_db()
+        self.assertEqual((self.so.reserved_quantity, self.inventory.reserved), (0, 0))
+
+    def test_so_status_02_cancel_is_idempotent_and_can_be_undone(self):
+        self.client.post(self.url, {"status": "canceled"}, format="json")
+        response = self.client.post(self.url, {"status": "canceled"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        response = self.client.post(self.url, {"status": "pending"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["status"], "pending")
+
+    def test_so_status_03_shipped_order_cannot_be_canceled(self):
+        so = self.create_sales_order(order_number="SO-ST-2", quantity=5, status="shipped", shipped_quantity=5)
+        url = reverse("inventory_api:salesorder-change-status", args=[so.id])
+        response = self.client.post(url, {"status": "canceled"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        response = self.client.post(url, {"status": "pending"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["status"], "shipped")
+
+    def test_so_status_04_invalid_status_rejected(self):
+        for value in ("shipped", ""):
+            with self.subTest(value=value):
+                response = self.client.post(self.url, {"status": value}, format="json")
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

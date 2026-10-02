@@ -623,6 +623,43 @@ def issue_sales_order(order_id, quantity_to_ship, user):
         return sales_order
 
 
+# 外部連携から変更できる出庫予定のステータス(キャンセルとキャンセル取り消しのみ。出庫済みは出庫APIで扱う)
+SALES_ORDER_CHANGEABLE_STATUSES = (SalesOrder.Status.CANCELED, SalesOrder.Status.PENDING)
+
+
+def change_sales_order_status(sales_order_pk, new_status):
+    """出庫予定のキャンセル/キャンセル取り消し。キャンセル時は受注が持っていた引当を解放する。"""
+    if new_status not in SALES_ORDER_CHANGEABLE_STATUSES:
+        raise InventoryServiceError("ステータスに指定できるのは canceled または pending のみです。")
+
+    with transaction.atomic():
+        sales_order = SalesOrder.objects.select_for_update().get(pk=sales_order_pk)
+        if sales_order.is_internal:
+            raise internal_order_error(sales_order)
+
+        if new_status == SalesOrder.Status.CANCELED:
+            if sales_order.status == SalesOrder.Status.CANCELED:
+                return sales_order
+            if sales_order.shipped_quantity > 0:
+                raise InventoryServiceError(f"受注 {sales_order.order_number} は出庫済数量があるためキャンセルできません。")
+            if sales_order.reserved_quantity > 0:
+                rows = lock_inventory_rows(sales_order.item, sales_order.warehouse)
+                release_reserved_fifo(rows, sales_order.reserved_quantity)
+                save_rows(rows)
+                sales_order.reserved_quantity = 0
+            sales_order.status = SalesOrder.Status.CANCELED
+            sales_order.save(update_fields=["status", "reserved_quantity"])
+        elif sales_order.status == SalesOrder.Status.CANCELED:
+            # キャンセル取り消し。管理画面等で出庫後にキャンセルされた場合も考慮する
+            if sales_order.shipped_quantity > 0 and sales_order.remaining_quantity <= 0:
+                sales_order.status = SalesOrder.Status.SHIPPED
+            else:
+                sales_order.status = SalesOrder.Status.PENDING
+            sales_order.save(update_fields=["status"])
+        # キャンセルされていない出庫予定への pending 指定は、出庫の進捗を巻き戻さないよう無視する
+        return sales_order
+
+
 def delete_sales_order(sales_order_pk):
     """受注を削除し、受注が持っていた引当を在庫側からも解放する。"""
     with transaction.atomic():

@@ -170,6 +170,17 @@
 | SO-CRUD-04 | 正常系 | `GET sales-orders/?search_warehouse=` | 部分一致 | |
 | SO-CRUD-05 | 正常系 | `GET sales-orders/?search_status=` | 完全一致（`pending`/`shipped`/`canceled`） | |
 
+### 5.9.1 出庫予定のキャンセル `change-status`（`POST sales-orders/{id}/change-status/`）
+
+外部連携（akita2mes のデータ投入取り消し等）向け。`status` に指定できるのは `canceled` / `pending` のみ。
+
+| ケースID | 分類 | 入力 | 期待結果 | 備考 |
+|---|---|---|---|---|
+| SO-STATUS-01 | 正常系 | 引当を持つ未出庫の受注に `canceled` | 200。`status=canceled`、受注の `reserved_quantity` と在庫の `reserved` が解放される | |
+| SO-STATUS-02 | 正常系 | キャンセル済みに再度 `canceled`、続けて `pending` | どちらも200。キャンセルは冪等で、`pending` でキャンセル取り消し | |
+| SO-STATUS-03 | 異常系 | 出庫済数量がある受注に `canceled` | 400。キャンセルされていない受注への `pending` は無視（ステータスは変わらない） | |
+| SO-STATUS-04 | 異常系 | `status` が `shipped` または空 | 400 | 内部受注（`INT-`）も400 |
+
 ### 5.10 倉庫レイアウト連携 `location-map`（`GET sales-orders/{id}/location-map/`）
 
 | ケースID | 分類 | 前提条件 | 期待結果 | 備考 |

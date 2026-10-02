@@ -365,6 +365,22 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
             return error_response(e.message, e.status_code)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+    @action(detail=True, methods=["post"], url_path="change-status")
+    def change_status(self, request, pk=None):
+        """
+        出庫予定をキャンセル(status=canceled)、またはキャンセル取り消し(status=pending)します。
+        キャンセル時は受注の引当を解放します。出庫済数量がある受注はキャンセルできません。
+        """
+        instance = self.get_object()
+        new_status = request.data.get("status")
+        if not new_status:
+            return error_response("status is required.")
+        try:
+            instance = services.change_sales_order_status(instance.pk, new_status)
+        except services.InventoryServiceError as e:
+            return error_response(e.message, e.status_code)
+        return Response(self.get_serializer(instance).data, status=status.HTTP_200_OK)
+
     @action(detail=True, methods=["get"], url_path="location-map")
     def location_map(self, request, pk=None):
         """
