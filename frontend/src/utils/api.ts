@@ -26,19 +26,30 @@ export interface ApiErrorBody {
     errors?: Record<string, unknown>;
     /** 認証系など、分岐に使う識別子がある場合のみ */
     code?: string;
+    /** ログイン失敗時のみ。次の試行で画像認証(CAPTCHA)が必要かどうか */
+    captcha_required?: boolean;
 }
 
 export class ApiError extends Error {
     status: number;
     errors: Record<string, unknown> | null;
     code?: string;
+    /** 応答本文(JSONでなかった場合は null) */
+    body: ApiErrorBody | null;
 
-    constructor(message: string, status: number, errors: Record<string, unknown> | null = null, code?: string) {
+    constructor(
+        message: string,
+        status: number,
+        errors: Record<string, unknown> | null = null,
+        code?: string,
+        body: ApiErrorBody | null = null,
+    ) {
         super(message);
         this.name = 'ApiError';
         this.status = status;
         this.errors = errors;
         this.code = code;
+        this.body = body;
     }
 }
 
@@ -53,7 +64,7 @@ export const toApiError = async (response: Response, defaultMessage: string): Pr
     } catch {
         // JSON以外の本文は無視する
     }
-    return new ApiError(body?.error || defaultMessage, response.status, body?.errors ?? null, body?.code);
+    return new ApiError(body?.error || defaultMessage, response.status, body?.errors ?? null, body?.code, body);
 };
 
 /**

@@ -11,8 +11,9 @@
 - **範囲外（他アプリ・非対象の責務）**:
   - `users/urls.py`（空、非APIビュー用に予約されているが未使用）、`users/forms.py`
     （`CustomPasswordChangeForm`。どこからも参照されていないテンプレートビュー用フォーム）。
-  - トップレベル `base/urls.py` の `api/token-auth/`（DRF標準の `obtain_auth_token`）は `users` アプリの
-    実装ではないため対象外だが、本書 [7. 既知の懸念事項](#7-既知の懸念事項) で軽く触れる。
+  - トップレベル `base/urls.py` の `api/token-auth/`（DRF標準の `ObtainAuthToken` に画像認証を加えた
+    `CaptchaObtainAuthToken`）は対象外だが、本書 [7. 既知の懸念事項](#7-既知の懸念事項) で軽く触れる。
+    ログイン失敗によるロック・画像認証・監査ログは [09_security.md](./09_security.md) で扱う。
   - `register_user` / `CustomObtainAuthToken`（`rest.py`）はどのURLconfからも参照されていないデッドコードのため、
     テスト対象外（[7. 既知の懸念事項](#7-既知の懸念事項) 参照）。
 

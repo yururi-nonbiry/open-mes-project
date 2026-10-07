@@ -21,6 +21,7 @@
 | 5 | マスタ管理 (`master`) | 品目、取引先、倉庫、倉庫ロケーション（レイアウト）等の基本データ | DRF ViewSet |
 | 6 | ユーザー管理 (`users`) | ユーザーアカウント・権限・認証 | Django Auth 拡張 |
 | 7 | ベース機能 (`base`) | ダッシュボード、共通設定、ナビゲーション等 | Django View |
+| 8 | セキュリティ (`security`) | ログイン失敗によるロック・IPブロック・画像認証、監査ログ | 認証バックエンド + DRF APIView |
 
 各モジュールの詳細な機能境界は、コード調査の上で個別テスト仕様書の冒頭に明記する
 （例: 「倉庫レイアウトのCRUDは `master` の範囲、レイアウト上への在庫可視化は `inventory` の範囲」等、
@@ -37,6 +38,7 @@
 | 品質管理 (quality) | 作成済み・自動テスト実装済み | [06_quality.md](./06_quality.md) |
 | 設備管理 (machine) | 作成済み・自動テスト実装済み | [07_machine.md](./07_machine.md) |
 | ベース機能 (base) | 作成済み・自動テスト実装済み | [08_base.md](./08_base.md) |
+| セキュリティ (security) | 作成済み・自動テスト実装済み | [09_security.md](./09_security.md) |
 | フロントエンド レスポンシブ表示確認 | 作成済み・自動テスト実装済み | [10_frontend_e2e.md](./10_frontend_e2e.md) |
 | フロントエンド 画面機能確認（入庫画面・在庫一覧） | 作成済み・自動テスト実装済み | [11_frontend_e2e_functional.md](./11_frontend_e2e_functional.md) |
 

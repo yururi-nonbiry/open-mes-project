@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { toApiError } from '../../utils/api';
+import LoginCaptcha from '../../components/LoginCaptcha';
+import { useLogin } from '../../hooks/useLogin';
 import './MobileLoginPage.css';
 
 const MobileLoginPage = ({ onLoginSuccess, isAuthenticated }) => {
     const [customId, setCustomId] = useState('');
     const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
+    const { error, captcha, captchaValue, setCaptchaValue, refreshCaptcha, submitting, login } = useLogin(onLoginSuccess);
     const navigate = useNavigate();
 
     // Redirect if already authenticated
@@ -19,32 +20,7 @@ const MobileLoginPage = ({ onLoginSuccess, isAuthenticated }) => {
 
     const handleLogin = async (e) => {
         e.preventDefault();
-        setError('');
-
-        try {
-            const response = await fetch('/api/users/token/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                // CustomUserのUSERNAME_FIELDである'custom_id'をキーとして送信
-                body: JSON.stringify({ custom_id: customId, password }),
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                // トークンをlocalStorageに保存
-                localStorage.setItem('access_token', data.access);
-                localStorage.setItem('refresh_token', data.refresh);
-                await onLoginSuccess();
-            } else {
-                const error = await toApiError(response, 'ログインに失敗しました。ユーザー名とパスワードを確認してください。');
-                setError(error.message);
-            }
-        } catch (err) {
-            console.error('ログインリクエスト失敗:', err);
-            setError('ログイン中にエラーが発生しました。再度試してください。');
-        }
+        await login(customId, password);
     };
 
     if (isAuthenticated) {
@@ -79,8 +55,18 @@ const MobileLoginPage = ({ onLoginSuccess, isAuthenticated }) => {
                         required
                     />
                 </div>
+                {captcha && (
+                    <div className="form-group">
+                        <LoginCaptcha
+                            captcha={captcha}
+                            value={captchaValue}
+                            onChange={setCaptchaValue}
+                            onRefresh={refreshCaptcha}
+                        />
+                    </div>
+                )}
                 <div className="form-group">
-                    <button type="submit">ログイン</button>
+                    <button type="submit" disabled={submitting}>ログイン</button>
                 </div>
             </form>
         </div>

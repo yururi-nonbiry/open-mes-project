@@ -18,6 +18,7 @@
 - [開発・実行環境の前提条件](./06_installation_guide/01_prerequisites.md)
 - [セットアップ手順](./06_installation_guide/02_setup.md)
 - [トラブルシューティング](./06_installation_guide/03_troubleshooting.md)
+- [本番サーバーのセキュリティ設定（アクセス元IP・国別制限・ロック解除）](./06_installation_guide/04_security_host_setup.md)
 
 ### 4. 開発者向けドキュメント
 - [コードベースの構成](./07_developer_guide/01_codebase_structure.md)
@@ -37,6 +38,7 @@
 - [品質管理 (quality)](./09_test_specifications/06_quality.md)
 - [設備管理 (machine)](./09_test_specifications/07_machine.md)
 - [ベース機能 (base)](./09_test_specifications/08_base.md)
+- [セキュリティ (security)](./09_test_specifications/09_security.md)
 - [フロントエンドE2E（レスポンシブ表示確認）](./09_test_specifications/10_frontend_e2e.md)
 - [フロントエンドE2E（画面機能確認: 入庫画面・在庫一覧）](./09_test_specifications/11_frontend_e2e_functional.md)
 

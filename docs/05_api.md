@@ -8,13 +8,14 @@ open-mes-projectは、Django REST Framework (DRF) によるREST APIをバック�
 
 ```python
 urlpatterns = [
-    path("api/token-auth/", authtoken_views.obtain_auth_token, name="api_token_auth"),
+    path("api/token-auth/", CaptchaObtainAuthToken.as_view(), name="api_token_auth"),
     path("api/base/", include("base.api_urls", namespace="base_api")),
     path("api/inventory/", include("inventory.api_urls", namespace="inventory_api")),
     path("api/machine/", include("machine.api_urls", namespace="machine_api")),
     path("api/master/", include("master.api_urls", namespace="master_api")),
     path("api/production/", include("production.api_urls", namespace="production_api")),
     path("api/quality/", include("quality.api_urls", namespace="quality_api")),
+    path("api/security/", include("security.urls", namespace="security_api")),
     path("api/users/", include("users.api_urls", namespace="users_api")),
     path("__debug__/", include("debug_toolbar.urls")),
 ]
@@ -43,6 +44,31 @@ router.register(r"stock-movements", rest_views.StockMovementViewSet, basename="s
   - アクセストークンの有効期限は60分、リフレッシュトークンは14日間（`ROTATE_REFRESH_TOKENS=True`）です。
 - **固定トークン認証**（サブ）: `users.authentication.ScopedTokenAuthentication`（`rest_framework.authentication.TokenAuthentication` のサブクラス）が有効になっており、QRリーダーなど画面を持たないデバイスや外部連携アプリ向けに、`POST /api/token-auth/` で取得できる固定トークンを使った認証が可能です。ユーザー自身のトークンは `GET/POST /api/users/settings/token/` で確認・再発行できます。加えて、管理者は `GET/POST/PATCH /api/users/<uuid:pk>/token/`（`UserViewSet` の `token` アクション）から対象ユーザーのトークン発行・再発行と、`ApiTokenPolicy`（有効フラグ・接続許可IP・アクセス可能APIスコープ）の設定を行えます。ポリシー未設定のユーザーは従来通り無制限にアクセスできます（後方互換）。
 
+### ログインの保護と監査ログ（`security` アプリ）
+
+`AUTHENTICATION_BACKENDS` に `security.backends.LockoutModelBackend` を設定しており、`authenticate()` を経由するログイン（`POST /api/users/token/`、`POST /api/token-auth/`）はすべて次の制限の対象です。固定トークンによる認証（`Authorization: Token ...`）は `authenticate()` を経由しないため対象外です。
+
+- **アカウントのロック**: 5回連続でパスワードを誤るとロックします。ロック期間は 5分 → 30分 → 管理者が解除するまで、と段階的に長くなり、ログインに成功すると最初の段階に戻ります。
+- **IPのブロック**: 30分以内に、ユーザーIDを問わず20回失敗したIPを30分ブロックします。失敗回数は監査ログから数えます。
+- **画像認証（CAPTCHA）**: 同じIPからの失敗が3回に達すると、失敗時の応答に `"captcha_required": true` が付きます。次の送信では `GET /api/security/captcha/` で取得した `key` と、画像の文字を `captcha_key` / `captcha_value` として添えてください。1つの画像で答えられるのは1回だけです。誤りや未入力の場合は `code: "captcha_invalid"`（401）を返します。要否はユーザー単位ではなくIP単位で判定するため、ユーザーIDの有無は推測できません。
+- ロック中・ブロック中は、パスワードが正しくても通常の失敗と同じ401を返します。ロック中の試行は失敗回数に数えないため、ロック期間は延びません。
+- しきい値は `settings.py` の `LOGIN_LOCK_*` / `LOGIN_IP_BLOCK_*` / `LOGIN_CAPTCHA_THRESHOLD`（環境変数で変更可）で設定します。
+
+ログインの成否、ロック・ブロックとその解除、トークン更新の失敗、権限エラー（403）、ユーザー管理・プロフィール・パスワード・APIトークンの変更、CSV取込とその取消、設定変更（CSVマッピング・モデル項目表示設定・QRコードアクション）は監査ログ（`security.AccessLog`）に記録されます。ユーザーの変更は変更前後の値を残し、パスワードは「変更したかどうか」だけを記録します。アクセス元IPは、`TRUST_X_REAL_IP=True` のときは nginx が付ける `X-Real-IP` を、それ以外は `REMOTE_ADDR` を使います（`X-Forwarded-For` は偽装できるため使いません。`ApiTokenPolicy` の接続許可IPの判定も同じです）。
+
+管理者（`is_staff`）向けに次のAPIがあり、画面は「管理者メニュー > セキュリティ」です。
+
+| メソッド・パス | 内容 |
+|---|---|
+| `GET /api/security/access-logs/` | 監査ログの一覧（50件ずつ）。`event_type`（カンマ区切り）、`username`（部分一致）、`ip_address`（前方一致）、`date_from` / `date_to`（`YYYY-MM-DD`）、`page` で絞り込み |
+| `GET /api/security/access-logs/export/` | 上と同じ条件でCSV（BOM付きUTF-8）を出力。出力したことも記録する |
+| `GET /api/security/locks/` | ロック情報のあるアカウントと、ブロック中のIPの一覧 |
+| `POST /api/security/locks/users/<uuid:user_id>/unlock/` | アカウントのロック解除（失敗回数・段階も初期化） |
+| `POST /api/security/locks/ips/<int:id>/unblock/` | IPのブロック解除 |
+| `GET /api/security/captcha/` | ログイン画面用の画像認証（未ログインで利用可）。`{"key", "image"}`（`image` はPNGの data URL） |
+
+サーバー上では `python manage.py unlock_user <ユーザーID>`、`unblock_ip <IPアドレス>`（どちらも `--list` / `--all` に対応）、`purge_access_logs`（保存期間 `ACCESS_LOG_RETENTION_DAYS` を過ぎたログの削除）が使えます。
+
 CORS設定（`django-cors-headers`）により、Vite開発サーバー（別オリジン）からのAPIリクエストも許可されています。
 
 ## 応答形式
@@ -59,11 +85,12 @@ CORS設定（`django-cors-headers`）により、Vite開発サーバー（別オ
   ```
 
   - `errors` は入力値エラー（400）の場合のみ付与され、キーはフィールド名（全体に関わるエラーは `non_field_errors`）です。このとき `error` には最初の項目エラーを添えたメッセージが入ります。
-  - `code` は認証エラーなど、クライアントが分岐に使える識別子がある場合のみ付与されます（例: `not_authenticated`、`token_not_valid`、`password_expired`）。
-  - DRFの例外（`ValidationError`、`NotFound`、`PermissionDenied`、認証エラー等）は、`REST_FRAMEWORK["EXCEPTION_HANDLER"]` に設定した `base.responses.api_exception_handler` がこの形式に変換します。ビューで個別にエラーを返す場合は `base.responses.error_response(message, status_code)` を使います。
+  - `code` は認証エラーなど、クライアントが分岐に使える識別子がある場合のみ付与されます（例: `not_authenticated`、`token_not_valid`、`password_expired`、`captcha_invalid`）。
+  - ログインAPIの失敗時（400/401）に限り、`captcha_required`（真偽値）が付きます。
+  - DRFの例外（`ValidationError`、`NotFound`、`PermissionDenied`、認証エラー等）は、`base.responses.api_exception_handler` がこの形式に変換します（`REST_FRAMEWORK["EXCEPTION_HANDLER"]` には、これを呼び出したうえで403を監査ログに記録する `security.exceptions.audit_exception_handler` を設定しています）。ビューで個別にエラーを返す場合は `base.responses.error_response(message, status_code)` を使います。
   - 想定外の例外も同ハンドラが捕捉し、内部情報を含まない500応答（`error` のみ）を返したうえで、スタックトレースをログへ出力します。
 - 成功時の本文はエンドポイントごとの形式です。マスター系（`master`/`quality`/`machine`、`base.viewsets.CustomSuccessMessageMixin`）は一覧・詳細が `{"data": ...}`、登録・更新が `{"message": ..., "data": ...}`、削除が `{"message": ...}`（HTTP 200）です。それ以外の標準ViewSetはDRF標準（一覧はページネーション形式 `{"count", "next", "previous", "results"}` またはプレーンな配列）、業務処理のカスタムactionは `{"message": ..., ...}` を返します。
-- フロントエンドでは `frontend/src/utils/api.ts` の `apiRequest` / `handleError` / `toApiError` を使い、失敗時は `ApiError`（`message`・`status`・`errors`・`code`）として扱います。
+- フロントエンドでは `frontend/src/utils/api.ts` の `apiRequest` / `handleError` / `toApiError` を使い、失敗時は `ApiError`（`message`・`status`・`errors`・`code`・`body`）として扱います。
 
 ## 外部連携API
 

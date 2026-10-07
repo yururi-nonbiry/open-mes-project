@@ -10,7 +10,11 @@ from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+
+from security.audit import diff, log_event, snapshot
+from security.login_captcha import CaptchaProtectedLoginMixin
+from security.models import AccessLog
 
 from .models import ApiTokenPolicy, CustomUser
 from .serializers import (
@@ -73,10 +77,35 @@ class CustomObtainAuthToken(DefaultObtainAuthToken):
         return Response({"token": token.key, "user": user_data})
 
 
-class CustomTokenObtainPairView(TokenObtainPairView):
-    """認証失敗時のエラーメッセージを日本語化したJWT取得ビュー"""
+class CustomTokenObtainPairView(CaptchaProtectedLoginMixin, TokenObtainPairView):
+    """
+    認証失敗時のエラーメッセージを日本語化したJWT取得ビュー。
+    同じIPからの失敗が続いた場合はCAPTCHAを求める(security/login_captcha.py 参照)。
+    """
 
     serializer_class = CustomTokenObtainPairSerializer
+
+
+class CaptchaObtainAuthToken(CaptchaProtectedLoginMixin, DefaultObtainAuthToken):
+    """固定APIトークンの取得ビュー(/api/token-auth/)。JWT取得と同様にCAPTCHAの対象とする。"""
+
+
+class AuditedTokenRefreshView(TokenRefreshView):
+    """リフレッシュトークンによるアクセストークン更新。失敗を監査ログに記録する。"""
+
+    def handle_exception(self, exc):
+        response = super().handle_exception(exc)
+        if response.status_code in (400, 401):
+            data = response.data if isinstance(response.data, dict) else {}
+            log_event(
+                AccessLog.EventType.TOKEN_REFRESH_FAILED,
+                self.request,
+                user=None,
+                username="",
+                status_code=response.status_code,
+                detail={"error": data.get("error", ""), "code": data.get("code", "")},
+            )
+        return response
 
 
 class APILogoutView(APIView):
@@ -148,9 +177,13 @@ class UserSettingsDetailView(APIView):
         Update the current user's profile.
         """
         user = request.user
+        before = snapshot(user)
         serializer = UserProfileUpdateSerializer(user, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        changes = diff(before, snapshot(user))
+        if changes:
+            log_event(AccessLog.EventType.PROFILE_UPDATED, request, detail={"changes": changes})
         return Response(AdminUserSerializer(user).data)
 
 
@@ -169,6 +202,7 @@ class UserPasswordChangeView(APIView):
         user.save()
         # To keep the user logged in after password change
         update_session_auth_hash(request, user)
+        log_event(AccessLog.EventType.PASSWORD_CHANGED, request, detail={"target": user.get_username()})
         return Response({"message": "パスワードが正常に変更されました。"}, status=status.HTTP_200_OK)
 
 
@@ -187,6 +221,7 @@ class APITokenView(APIView):
         token, _ = Token.objects.get_or_create(user=request.user)
         token.delete()
         new_token = Token.objects.create(user=request.user)
+        log_event(AccessLog.EventType.API_TOKEN_REGENERATED, request, detail={"target": request.user.get_username()})
         return Response({"message": "APIトークンが再生成されました。", "api_token": new_token.key})
 
 
@@ -209,6 +244,36 @@ class UserViewSet(viewsets.ModelViewSet):
     serializer_class = AdminUserSerializer
     permission_classes = [permissions.IsAuthenticated, IsStaffOrSuperuser]
 
+    # 変更前後の値を監査ログに残す。パスワードは値を残さず「変更したかどうか」だけを記録する
+    def perform_create(self, serializer):
+        user = serializer.save()
+        log_event(
+            AccessLog.EventType.USER_CREATED,
+            self.request,
+            detail={"target": user.get_username(), "values": snapshot(user)},
+        )
+
+    def perform_update(self, serializer):
+        before = snapshot(serializer.instance)
+        user = serializer.save()
+        password_changed = bool(serializer.validated_data.get("password"))
+        changes = diff(before, snapshot(user))
+        if changes or password_changed:
+            log_event(
+                AccessLog.EventType.USER_UPDATED,
+                self.request,
+                detail={"target": user.get_username(), "changes": changes, "password_changed": password_changed},
+            )
+
+    def perform_destroy(self, instance):
+        values = snapshot(instance)
+        instance.delete()
+        log_event(
+            AccessLog.EventType.USER_DELETED,
+            self.request,
+            detail={"target": values["custom_id"], "values": values},
+        )
+
     @action(detail=True, methods=["get", "post", "patch"], url_path="token")
     def token(self, request, pk=None):
         """
@@ -224,10 +289,20 @@ class UserViewSet(viewsets.ModelViewSet):
         if request.method == "POST":
             token.delete()
             token = Token.objects.create(user=target_user)
+            log_event(AccessLog.EventType.API_TOKEN_REGENERATED, request, detail={"target": target_user.get_username()})
         elif request.method == "PATCH":
+            policy_fields = ("is_active", "allowed_ips", "scopes")
+            before = snapshot(policy, policy_fields)
             serializer = ApiTokenPolicySerializer(policy, data=request.data, partial=True)
             serializer.is_valid(raise_exception=True)
             policy = serializer.save()
+            changes = diff(before, snapshot(policy, policy_fields))
+            if changes:
+                log_event(
+                    AccessLog.EventType.API_TOKEN_POLICY_UPDATED,
+                    request,
+                    detail={"target": target_user.get_username(), "changes": changes},
+                )
 
         return Response(
             {

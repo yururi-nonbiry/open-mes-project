@@ -83,6 +83,7 @@ INSTALLED_APPS = [
     "django_static_md5url",
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
+    "captcha",
     # Project apps
     "base.apps.BaseConfig",
     "users.apps.UsersConfig",
@@ -91,6 +92,7 @@ INSTALLED_APPS = [
     "machine.apps.MachineConfig",
     "quality.apps.QualityConfig",
     "master.apps.MasterConfig",
+    "security.apps.SecurityConfig",
 ]
 
 MIDDLEWARE = [
@@ -142,6 +144,9 @@ DATABASES = {
     "default": env.db(),
 }
 
+
+# ログイン失敗によるロックと、ログイン成否の監査ログ記録は認証バックエンドで行う(security/backends.py)
+AUTHENTICATION_BACKENDS = ["security.backends.LockoutModelBackend"]
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
@@ -217,8 +222,9 @@ REST_FRAMEWORK = {
         # ApiTokenPolicyによるIP制限・スコープ制限に対応したサブクラスを使用する。
         "users.authentication.ScopedTokenAuthentication",
     ],
-    # エラー応答を {"error": ..., "errors"?: ..., "code"?: ...} に統一する(base/responses.py 参照)
-    "EXCEPTION_HANDLER": "base.responses.api_exception_handler",
+    # エラー応答を {"error": ..., "errors"?: ..., "code"?: ...} に統一する(base/responses.py 参照)。
+    # あわせて権限エラー(403)を監査ログに記録する(security/exceptions.py 参照)
+    "EXCEPTION_HANDLER": "security.exceptions.audit_exception_handler",
 }
 
 # djangorestframework-simplejwt settings
@@ -289,6 +295,29 @@ LOGGING = {
 }
 # 有効期限を無効にする場合は 0 や None を設定
 # PASSWORD_EXPIRATION_DAYS = None
+
+# --- ログインの保護と監査ログ (security アプリ) ---
+# アカウント: 連続で LOGIN_LOCK_THRESHOLD 回失敗するとロックする。ロック期間(分)はロックのたびに次の段階へ進み、
+# 最後の段階を超えると管理者が解除するまでロックしたままにする。ログインに成功すると最初の段階に戻る。
+LOGIN_LOCK_THRESHOLD = env.int("LOGIN_LOCK_THRESHOLD", default=5)
+LOGIN_LOCK_DURATIONS_MINUTES = [int(m) for m in env.list("LOGIN_LOCK_DURATIONS_MINUTES", default=["5", "30"])]
+# IP: LOGIN_IP_BLOCK_WINDOW_MINUTES 分以内に、ユーザーIDを問わず LOGIN_IP_BLOCK_THRESHOLD 回失敗すると
+# LOGIN_IP_BLOCK_MINUTES 分ブロックする
+LOGIN_IP_BLOCK_THRESHOLD = env.int("LOGIN_IP_BLOCK_THRESHOLD", default=20)
+LOGIN_IP_BLOCK_WINDOW_MINUTES = env.int("LOGIN_IP_BLOCK_WINDOW_MINUTES", default=30)
+LOGIN_IP_BLOCK_MINUTES = env.int("LOGIN_IP_BLOCK_MINUTES", default=30)
+# 同じIPからのログイン失敗がこの回数に達すると、ログイン画面でCAPTCHAを求める
+LOGIN_CAPTCHA_THRESHOLD = env.int("LOGIN_CAPTCHA_THRESHOLD", default=3)
+# django-simple-captcha の設定。画像は /api/security/captcha/ から data URL で返す
+CAPTCHA_TIMEOUT = 5  # 分
+CAPTCHA_LENGTH = 5
+CAPTCHA_FONT_SIZE = 30
+CAPTCHA_IMAGE_SIZE = (150, 50)
+# 監査ログの保存日数。期限を過ぎたログは `python manage.py purge_access_logs` で削除する
+ACCESS_LOG_RETENTION_DAYS = env.int("ACCESS_LOG_RETENTION_DAYS", default=365)
+# リバースプロキシ(nginx)が付与する X-Real-IP をアクセス元IPとして信頼するかどうか。
+# nginx を経由せずに Django へ直接アクセスできる構成で有効にすると、IPを偽装されるため注意する
+TRUST_X_REAL_IP = env.bool("TRUST_X_REAL_IP", default=False)
 
 # Celery Configuration Options
 CELERY_BROKER_URL = "redis://redis:6379/0"

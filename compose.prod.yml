@@ -39,6 +39,9 @@ services:
       - static_volume:/open_mes/staticfiles
     env_file:
       - .env # Django設定はこちらを参照
+    environment:
+      # nginx が付ける X-Real-IP をアクセス元IPとして使う(backend はポートを公開せず、nginx 経由でのみ届くため)
+      - TRUST_X_REAL_IP=${TRUST_X_REAL_IP:-True}
     depends_on:
       db:
         condition: service_healthy
@@ -74,8 +77,13 @@ services:
     # .env の START_NGINX で起動するかどうかを切り替えます (1: 起動する, 0: 起動しない)
     scale: ${START_NGINX:-1}
     ports:
-      - "80:80"
+      # 前段にホストの nginx を置く場合は .env で NGINX_BIND=127.0.0.1、NGINX_PORT=8080 などとし、
+      # 外部から直接つながらないようにします
+      - "${NGINX_BIND:-0.0.0.0}:${NGINX_PORT:-80}:80"
       # - "443:443" # SSL化する際に有効化します
+    environment:
+      # X-Real-IP を信頼する前段プロキシのアドレス(CIDR可)。既定値では信頼しない
+      - NGINX_REAL_IP_FROM=${NGINX_REAL_IP_FROM:-127.0.0.1}
     restart: always
     volumes:
       # Djangoの静的ファイル (adminなど)

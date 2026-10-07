@@ -52,6 +52,7 @@ const SideMenu: React.FC<SideMenuProps> = ({ isOpen, isStaffOrSuperuser, onVersi
           <div className="menu-category-title">管理者メニュー</div>
           <Link to="/system/settings" className="menu-subcategory-link" onClick={onLinkClick}>システム設定</Link>
           <Link to="/user/management" className="menu-subcategory-link" onClick={onLinkClick}>ユーザー管理</Link>
+          <Link to="/system/security" className="menu-subcategory-link" onClick={onLinkClick}>セキュリティ</Link>
           <Link to="/system/qr-code-actions" className="menu-subcategory-link" onClick={onLinkClick}>QRコードアクション設定</Link>
           <Link to="/system/shelf-qr-code" className="menu-subcategory-link" onClick={onLinkClick}>倉庫棚番QR作成</Link>
           <Link to="/master/warehouse-layout" className="menu-subcategory-link" onClick={onLinkClick}>倉庫レイアウト管理</Link>

@@ -35,6 +35,7 @@ const UserSettings = lazy(() => import('./pages/UserSettings'));
 const UserManagement = lazy(() => import('./pages/UserManagement'));
 const UserForm = lazy(() => import('./pages/UserForm'));
 const SystemSettings = lazy(() => import('./pages/SystemSettings'));
+const SecurityPage = lazy(() => import('./pages/SecurityPage'));
 const CsvMappingSettings = lazy(() => import('./pages/CsvMappingSettings'));
 const ModelDisplaySettings = lazy(() => import('./pages/ModelDisplaySettings'));
 const PageDisplaySettings = lazy(() => import('./pages/PageDisplaySettings'));
@@ -165,6 +166,7 @@ function AppContent() {
           <Route path="/user/management/create" element={<StaffRoute><UserForm /></StaffRoute>} />
           <Route path="/user/management/edit/:id" element={<StaffRoute><UserForm /></StaffRoute>} />
           <Route path="/system/settings" element={<StaffRoute><SystemSettings /></StaffRoute>} />
+          <Route path="/system/security" element={<StaffRoute><SecurityPage /></StaffRoute>} />
           <Route path="/system/csv-mappings" element={<StaffRoute><CsvMappingSettings /></StaffRoute>} />
           <Route path="/system/model-display-settings" element={<StaffRoute><ModelDisplaySettings /></StaffRoute>} />
           <Route path="/system/page-display-settings" element={<StaffRoute><PageDisplaySettings /></StaffRoute>} />

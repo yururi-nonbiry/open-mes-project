@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { formatFieldErrors, toApiError } from '../utils/api';
+import LoginCaptcha from '../components/LoginCaptcha';
+import { useLogin } from '../hooks/useLogin';
 import './LoginPage.css'; // Add some basic styling
 
 interface LoginPageProps {
@@ -11,7 +12,7 @@ interface LoginPageProps {
 const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, isAuthenticated }) => {
   const [customId, setCustomId] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const { error, captcha, captchaValue, setCaptchaValue, refreshCaptcha, submitting, login } = useLogin(onLoginSuccess);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -25,33 +26,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, isAuthenticated }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-
-    try {
-      const response = await fetch('/api/users/token/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        // CustomUserのUSERNAME_FIELDである'custom_id'をキーとして送信
-        body: JSON.stringify({ custom_id: customId, password }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        // トークンをlocalStorageに保存
-        localStorage.setItem('access_token', data.access);
-        localStorage.setItem('refresh_token', data.refresh);
-        // Appコンポーネントにログイン成功を通知
-        await onLoginSuccess();
-      } else {
-        const error = await toApiError(response, 'Login failed. Please check your credentials and try again.');
-        setError(error.errors ? formatFieldErrors(error.errors) : error.message);
-      }
-    } catch (err) {
-      console.error('Login request failed:', err);
-      setError('An error occurred during login. Please try again later.');
-    }
+    await login(customId, password);
   };
 
   if (isAuthenticated) {
@@ -87,9 +62,21 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, isAuthenticated }
               required
             />
           </div>
+          {captcha && (
+            <div className="form-group">
+              <LoginCaptcha
+                captcha={captcha}
+                value={captchaValue}
+                onChange={setCaptchaValue}
+                onRefresh={refreshCaptcha}
+                inputClassName="form-control"
+              />
+            </div>
+          )}
           <div className="form-group">
             <button
               type="submit"
+              disabled={submitting}
               className="btn btn-primary btn-block"
               style={{ backgroundColor: '#007bff', borderColor: '#007bff' }}
             >

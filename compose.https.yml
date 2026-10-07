@@ -27,6 +27,9 @@ services:
       - static_volume:/open_mes/staticfiles
     env_file:
       - .env # Django設定はこちらを参照
+    environment:
+      # nginx が付ける X-Real-IP をアクセス元IPとして使う(backend はポートを公開せず、nginx 経由でのみ届くため)
+      - TRUST_X_REAL_IP=${TRUST_X_REAL_IP:-True}
     depends_on:
       db:
         condition: service_healthy

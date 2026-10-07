@@ -19,5 +19,5 @@ unfixable = []
 
 [tool.ruff.lint.isort]
 # Ensure these are treated as first-party modules for sorting
-known-first-party = ["base", "users", "inventory", "machine", "quality", "master", "production"]
+known-first-party = ["base", "users", "inventory", "machine", "quality", "master", "production", "security"]
 section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]

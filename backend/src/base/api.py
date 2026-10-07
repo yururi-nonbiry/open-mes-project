@@ -17,6 +17,9 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from security.audit import log_event
+from security.models import AccessLog
+
 from .model_utils import fk_alias_name
 from .models import AsyncTask, CsvColumnMapping, ModelDisplaySetting, QrCodeAction
 from .responses import VALIDATION_ERROR_MESSAGE, error_response
@@ -149,13 +152,41 @@ class IntegrityErrorAsBadRequestMixin:
             return error_response("指定されたデータは既に登録されています。")
 
 
-class CsvColumnMappingViewSet(IntegrityErrorAsBadRequestMixin, viewsets.ModelViewSet):
+class AuditSettingsChangeMixin:
+    """設定系の ViewSet で、登録・更新・削除を監査ログ(設定変更)に記録する。"""
+
+    # 監査ログに残す設定の種類
+    audit_setting_name = ""
+
+    def _log_setting_change(self, operation, pk, name):
+        log_event(
+            AccessLog.EventType.SETTINGS_CHANGED,
+            self.request,
+            detail={"setting": self.audit_setting_name, "operation": operation, "id": str(pk), "name": name},
+        )
+
+    def perform_create(self, serializer):
+        super().perform_create(serializer)
+        self._log_setting_change("create", serializer.instance.pk, str(serializer.instance))
+
+    def perform_update(self, serializer):
+        super().perform_update(serializer)
+        self._log_setting_change("update", serializer.instance.pk, str(serializer.instance))
+
+    def perform_destroy(self, instance):
+        pk, name = instance.pk, str(instance)
+        super().perform_destroy(instance)
+        self._log_setting_change("delete", pk, name)
+
+
+class CsvColumnMappingViewSet(AuditSettingsChangeMixin, IntegrityErrorAsBadRequestMixin, viewsets.ModelViewSet):
     """
     CSV列マッピング設定を管理するためのAPIビューセット。
     """
 
     queryset = CsvColumnMapping.objects.all().order_by("order")
     serializer_class = CsvColumnMappingSerializer
+    audit_setting_name = "csv_column_mapping"
     permission_classes = [permissions.IsAdminUser]
     filter_backends = [DjangoFilterBackend]
     filterset_class = CsvColumnMappingFilter
@@ -214,6 +245,11 @@ class CsvColumnMappingViewSet(IntegrityErrorAsBadRequestMixin, viewsets.ModelVie
         task_id = str(uuid.uuid4())
         AsyncTask.objects.create(task_id=task_id, task_name=f"CSV Import: {data_type}", status="PENDING")
         import_csv_task.apply_async(args=(data_type, file_path), task_id=task_id)
+        log_event(
+            AccessLog.EventType.CSV_IMPORTED,
+            request,
+            detail={"data_type": data_type, "task_id": task_id, "file_name": csv_file.name, "size": csv_file.size},
+        )
 
         return Response({"status": "processing", "task_id": task_id}, status=status.HTTP_202_ACCEPTED)
 
@@ -240,6 +276,11 @@ class CsvColumnMappingViewSet(IntegrityErrorAsBadRequestMixin, viewsets.ModelVie
                 import_csv_task.AsyncResult(task.task_id).revoke(terminate=True)
                 task.status = "REVOKED"
                 task.save()
+                log_event(
+                    AccessLog.EventType.CSV_IMPORT_CANCELLED,
+                    request,
+                    detail={"task_id": task.task_id, "task_name": task.task_name},
+                )
                 return Response({"message": "タスクのキャンセルをリクエストしました。"})
             else:
                 return error_response("このタスクはすでに完了またはキャンセルされています。")
@@ -281,6 +322,16 @@ class CsvColumnMappingViewSet(IntegrityErrorAsBadRequestMixin, viewsets.ModelVie
             CsvColumnMapping.objects.filter(data_type=data_type).delete()
             # 新しいマッピングを一括作成
             CsvColumnMapping.objects.bulk_create(objects_to_create)
+        log_event(
+            AccessLog.EventType.SETTINGS_CHANGED,
+            request,
+            detail={
+                "setting": self.audit_setting_name,
+                "operation": "bulk_save",
+                "data_type": data_type,
+                "count": len(objects_to_create),
+            },
+        )
 
         return Response({"message": f"{data_type} のマッピングを保存しました。"}, status=status.HTTP_200_OK)
 
@@ -303,13 +354,14 @@ REGISTERED_ACTIONS = {
 }
 
 
-class QrCodeActionViewSet(viewsets.ModelViewSet):
+class QrCodeActionViewSet(AuditSettingsChangeMixin, viewsets.ModelViewSet):
     """
     QRコードアクションを管理するためのAPIビューセット。
     """
 
     queryset = QrCodeAction.objects.all().order_by("name")
     serializer_class = QrCodeActionSerializer
+    audit_setting_name = "qr_code_action"
     permission_classes = [permissions.IsAdminUser]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["is_active"]
@@ -346,13 +398,14 @@ class QrCodeActionViewSet(viewsets.ModelViewSet):
         return error_response("No matching action found for the given QR data.", status.HTTP_404_NOT_FOUND)
 
 
-class ModelDisplaySettingViewSet(IntegrityErrorAsBadRequestMixin, viewsets.ModelViewSet):
+class ModelDisplaySettingViewSet(AuditSettingsChangeMixin, IntegrityErrorAsBadRequestMixin, viewsets.ModelViewSet):
     """
     モデル項目表示設定を管理するためのAPIビューセット。
     """
 
     queryset = ModelDisplaySetting.objects.all().order_by("display_order")
     serializer_class = ModelDisplaySettingSerializer
+    audit_setting_name = "model_display_setting"
     permission_classes = [permissions.IsAdminUser]
     filter_backends = [DjangoFilterBackend]
     filterset_class = ModelDisplaySettingFilter
@@ -396,5 +449,15 @@ class ModelDisplaySettingViewSet(IntegrityErrorAsBadRequestMixin, viewsets.Model
         with transaction.atomic():
             ModelDisplaySetting.objects.filter(data_type=data_type).delete()
             ModelDisplaySetting.objects.bulk_create(objects_to_create)
+        log_event(
+            AccessLog.EventType.SETTINGS_CHANGED,
+            request,
+            detail={
+                "setting": self.audit_setting_name,
+                "operation": "bulk_save",
+                "data_type": data_type,
+                "count": len(objects_to_create),
+            },
+        )
 
         return Response({"message": f"{data_type} の表示設定を保存しました。"}, status=status.HTTP_200_OK)

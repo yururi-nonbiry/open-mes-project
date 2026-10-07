@@ -2,6 +2,13 @@ server {
     listen 80;
     server_name localhost;
 
+    # 前段にホストの nginx などのリバースプロキシを置く構成では、そのプロキシが付ける X-Real-IP を信頼して
+    # 本来のアクセス元IPを復元する。信頼するプロキシのアドレスは .env の NGINX_REAL_IP_FROM で指定する。
+    # 既定値の 127.0.0.1 はコンテナ内からの接続だけを指すため、実質的に無効(クライアントの申告は信頼しない)。
+    # 詳細は docs/06_installation_guide/04_security_host_setup.md を参照。
+    set_real_ip_from ${NGINX_REAL_IP_FROM};
+    real_ip_header X-Real-IP;
+
     # Django Adminなどの静的ファイル
     # `static_volume` が /var/www/backend/static にマウントされている
     location /static/ {
@@ -21,6 +28,8 @@ server {
     location ~ ^/(api|admin)/ {
         proxy_pass http://backend:8000;
         proxy_set_header Host $host;
+        # Django はこの値をアクセス元IPとして監査ログ・ログイン制限に使う(TRUST_X_REAL_IP)。
+        # クライアントが送った X-Real-IP は必ずここで上書きする
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;

@@ -3,13 +3,8 @@ import ipaddress
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 
-
-def get_client_ip(request):
-    """nginxが付与する X-Forwarded-For の先頭値、なければ REMOTE_ADDR をクライアントIPとして扱う。"""
-    forwarded = request.META.get("HTTP_X_FORWARDED_FOR")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.META.get("REMOTE_ADDR")
+# X-Forwarded-For はクライアントが任意の値を送れるため、nginx が上書きする X-Real-IP で判定する
+from security.audit import get_client_ip
 
 
 def _ip_allowed(client_ip, allowed_ips_text):

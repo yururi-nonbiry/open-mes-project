@@ -1,3 +1,4 @@
+from django.test import override_settings
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.authtoken.models import Token
@@ -77,14 +78,25 @@ class ScopedTokenAuthenticationTests(UsersAPITestBase):
         response = self.device_client.get(self.settings_url)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
+    @override_settings(TRUST_X_REAL_IP=True)
     def test_usr_scopedauth_03_ip_allowlist_blocks_and_allows(self):
         ApiTokenPolicy.objects.create(user=self.user, allowed_ips="10.0.0.5")
 
         blocked = self.device_client.get(self.settings_url)
         self.assertEqual(blocked.status_code, status.HTTP_401_UNAUTHORIZED)
 
-        allowed = self.device_client.get(self.settings_url, HTTP_X_FORWARDED_FOR="10.0.0.5")
+        allowed = self.device_client.get(self.settings_url, HTTP_X_REAL_IP="10.0.0.5")
         self.assertEqual(allowed.status_code, status.HTTP_200_OK)
+
+    @override_settings(TRUST_X_REAL_IP=True)
+    def test_usr_scopedauth_05_spoofed_forwarded_for_is_ignored(self):
+        """X-Forwarded-For はクライアントが任意に送れるため、許可IPの判定に使わない。"""
+        ApiTokenPolicy.objects.create(user=self.user, allowed_ips="10.0.0.5")
+
+        response = self.device_client.get(
+            self.settings_url, HTTP_X_FORWARDED_FOR="10.0.0.5", HTTP_X_REAL_IP="203.0.113.9"
+        )
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_usr_scopedauth_04_scope_restricts_to_named_apps(self):
         ApiTokenPolicy.objects.create(user=self.user, scopes=["master_api"])

@@ -55,6 +55,7 @@ const TopPage = ({ isAuthenticated, isStaffOrSuperuser, onLogout }) => {
           <ul>
             <li><Link to="/user/management">ユーザー管理</Link></li>
             <li><Link to="/system/settings">システム設定</Link></li>
+            <li><Link to="/system/security">セキュリティ</Link></li>
           </ul>
         </div>
       )}

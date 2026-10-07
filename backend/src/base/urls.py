@@ -16,11 +16,13 @@ Including another URLconf
 """
 
 from django.urls import include, path
-from rest_framework.authtoken import views as authtoken_views  # authtoken の views をインポート
+
+from users.rest import CaptchaObtainAuthToken
 
 urlpatterns = [
     # API Endpoints
-    path("api/token-auth/", authtoken_views.obtain_auth_token, name="api_token_auth"),  # Token authentication endpoint
+    # Token authentication endpoint (ロック・CAPTCHAの対象)
+    path("api/token-auth/", CaptchaObtainAuthToken.as_view(), name="api_token_auth"),
     # API URLs per app (alphabetical order)
     path("api/base/", include("base.api_urls", namespace="base_api")),
     path("api/inventory/", include("inventory.api_urls", namespace="inventory_api")),
@@ -28,6 +30,7 @@ urlpatterns = [
     path("api/master/", include("master.api_urls", namespace="master_api")),
     path("api/production/", include("production.api_urls", namespace="production_api")),
     path("api/quality/", include("quality.api_urls", namespace="quality_api")),
+    path("api/security/", include("security.urls", namespace="security_api")),
     path("api/users/", include("users.api_urls", namespace="users_api")),
     # Debug Toolbar
     path("__debug__/", include("debug_toolbar.urls")),
