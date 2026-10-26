@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from rest_framework import status
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from .test_helpers import UsersAPITestBase
 
@@ -89,3 +90,73 @@ class UserViewSetCrudTests(UsersAPITestBase):
         payload = {"custom_id": "testuser", "username": "dup", "password": "pw12345"}
         response = self.client.post(self.list_url, payload, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class UserViewSetSuperuserProtectionTests(UsersAPITestBase):
+    """USR-VS-GUARD-* : スーパーユーザーでないスタッフによる権限昇格と、自分自身の削除を防ぐ。"""
+
+    def setUp(self):
+        super().setUp()
+        self.list_url = reverse("users_api:user-list")
+
+    def _detail_url(self, user_id):
+        return reverse("users_api:user-detail", args=[user_id])
+
+    def test_usr_vs_guard_01_staff_cannot_change_superuser_password(self):
+        self.client.force_authenticate(user=self.staff_user)
+        response = self.client.patch(self._detail_url(self.superuser.id), {"password": "takeover123"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.superuser.refresh_from_db()
+        self.assertFalse(self.superuser.check_password("takeover123"))
+
+    def test_usr_vs_guard_02_staff_cannot_delete_superuser(self):
+        self.client.force_authenticate(user=self.staff_user)
+        response = self.client.delete(self._detail_url(self.superuser.id))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(User.objects.filter(id=self.superuser.id).exists())
+
+    def test_usr_vs_guard_03_staff_cannot_get_superuser_api_token(self):
+        self.client.force_authenticate(user=self.staff_user)
+        response = self.client.get(reverse("users_api:user-token", args=[self.superuser.id]))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_usr_vs_guard_04_staff_can_retrieve_superuser(self):
+        self.client.force_authenticate(user=self.staff_user)
+        response = self.client.get(self._detail_url(self.superuser.id))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_usr_vs_guard_05_staff_cannot_grant_superuser(self):
+        self.client.force_authenticate(user=self.staff_user)
+        response = self.client.patch(self._detail_url(self.staff_user.id), {"is_superuser": True}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.staff_user.refresh_from_db()
+        self.assertFalse(self.staff_user.is_superuser)
+
+    def test_usr_vs_guard_06_staff_cannot_create_superuser(self):
+        self.client.force_authenticate(user=self.staff_user)
+        payload = {"custom_id": "evil", "password": "pw12345", "is_superuser": True}
+        response = self.client.post(self.list_url, payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(User.objects.filter(custom_id="evil").exists())
+
+    def test_usr_vs_guard_07_superuser_can_grant_superuser(self):
+        self.client.force_authenticate(user=self.superuser)
+        response = self.client.patch(self._detail_url(self.staff_user.id), {"is_superuser": True}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.staff_user.refresh_from_db()
+        self.assertTrue(self.staff_user.is_superuser)
+
+    def test_usr_vs_guard_08_cannot_delete_self(self):
+        self.client.force_authenticate(user=self.superuser)
+        response = self.client.delete(self._detail_url(self.superuser.id))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(User.objects.filter(id=self.superuser.id).exists())
+
+    def test_usr_vs_guard_09_password_change_revokes_refresh_tokens(self):
+        refresh = RefreshToken.for_user(self.user)
+        self.client.force_authenticate(user=self.staff_user)
+        response = self.client.patch(self._detail_url(self.user.id), {"password": "brandnewpw1"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.client.force_authenticate(user=None)
+        response = self.client.post(reverse("users_api:token_refresh"), {"refresh": str(refresh)}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)

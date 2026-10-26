@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import authFetch, { ApiError, apiRequest, handleError } from '../utils/api';
 import Modal from '../components/Modal';
+import { useAuth } from '../hooks/useAuth';
 
 const UserSettings = () => {
+  const { logout } = useAuth();
   // State for forms, data, and UI
   const [profileForm, setProfileForm] = useState({
     username: '',
@@ -110,8 +112,10 @@ const UserSettings = () => {
         method: 'POST',
         body: JSON.stringify(passwordForm),
       }, 'パスワードの変更に失敗しました。');
-      addMessage(data.message || 'パスワードが正常に変更されました。', 'success');
       closePasswordModal();
+      // パスワード変更時はサーバー側で全てのセッション(リフレッシュトークン)が失効するため、再ログインを求める
+      window.alert(`${data.message || 'パスワードが正常に変更されました。'}\n新しいパスワードで再度ログインしてください。`);
+      logout();
     } catch (err) {
       // 項目別のエラーは各入力欄に、全体のメッセージはフォーム上部に表示する
       const fieldErrors = err instanceof ApiError && err.errors ? err.errors : {};

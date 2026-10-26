@@ -97,6 +97,8 @@
 | USR-PWCHANGE-01 | 正常系 | `POST settings/password/` | 認証済み | 正しい旧パスワード＋一致する新パスワード2回 | 200、新パスワードでログイン可能に | |
 | USR-PWCHANGE-02 | 異常系 | `POST settings/password/` | 認証済み | 誤った旧パスワード | 400（`old_password`エラー） | |
 | USR-PWCHANGE-03 | 異常系 | `POST settings/password/` | 認証済み | `new_password1`≠`new_password2` | 400 | |
+| USR-PWCHANGE-04 | 異常系 | `POST settings/password/` | 認証済み | ユーザーIDと似た新パスワード | 400（`new_password1`エラー） | 対象ユーザーを渡してDjangoのパスワードバリデーションを実行 |
+| USR-PWCHANGE-05 | 正常系 | `POST settings/password/` | 認証済み、リフレッシュトークン発行済み | パスワード変更後に旧リフレッシュトークンで`token/refresh/` | 401 | 変更時に未失効のリフレッシュトークンを全て失効させる |
 
 ### 5.5 APIトークン参照・再生成（`users/tests/test_api_token.py`）
 
@@ -139,12 +141,21 @@
 | USR-VS-CRUD-06 | 正常系 | `PATCH /api/users/{id}/` | staff認証 | `password`を更新 | 200、ハッシュ化されて保存（平文と一致しない） | |
 | USR-VS-CRUD-07 | 正常系 | `DELETE /api/users/{id}/` | staff認証 | 削除 | 204、DBから削除される | |
 | USR-VS-CRUD-08 | 異常系 | `POST /api/users/` | staff認証、`custom_id`重複 | 既存と同じ`custom_id`で作成 | 400（一意制約） | |
+| USR-VS-GUARD-01 | 異常系 | `PATCH /api/users/{id}/` | superuserでないstaff認証 | スーパーユーザーの`password`を変更 | 403、パスワードは変わらない | `CanModifyTargetUser`。権限昇格の防止 |
+| USR-VS-GUARD-02 | 異常系 | `DELETE /api/users/{id}/` | superuserでないstaff認証 | スーパーユーザーを削除 | 403 | |
+| USR-VS-GUARD-03 | 異常系 | `GET /api/users/{id}/token/` | superuserでないstaff認証 | スーパーユーザーのAPIトークンを取得 | 403 | トークンの参照もなりすましにつながるため拒否 |
+| USR-VS-GUARD-04 | 正常系 | `GET /api/users/{id}/` | superuserでないstaff認証 | スーパーユーザーの詳細取得 | 200 | 参照は許可 |
+| USR-VS-GUARD-05 | 異常系 | `PATCH /api/users/{id}/` | superuserでないstaff認証 | 自分に`is_superuser: true`を設定 | 400、DBは変わらない | `AdminUserSerializer.validate_is_superuser` |
+| USR-VS-GUARD-06 | 異常系 | `POST /api/users/` | superuserでないstaff認証 | `is_superuser: true`で作成 | 400、作成されない | |
+| USR-VS-GUARD-07 | 正常系 | `PATCH /api/users/{id}/` | superuser認証 | `is_superuser: true`を設定 | 200、DBに反映 | |
+| USR-VS-GUARD-08 | 異常系 | `DELETE /api/users/{id}/` | superuser認証 | 自分自身を削除 | 403、削除されない | |
+| USR-VS-GUARD-09 | 正常系 | `PATCH /api/users/{id}/` | staff認証、対象のリフレッシュトークン発行済み | `password`を変更後、旧リフレッシュトークンで`token/refresh/` | 401 | |
 
 ## 6. シリアライザの read_only_fields 確認
 
 | ケースID | 分類 | 対象 | 内容 |
 |---|---|---|---|
-| USR-VS-CRUD-05（兼) | 正常系 | `AdminUserSerializer` | `read_only_fields = ["id", "date_joined", "last_login", "password_last_changed"]`。`is_staff`/`is_superuser`/`is_active`はread_only指定がなく、staff権限を持つ操作者からは更新可能（意図的な仕様と推測されるが、権限昇格の観点で要注意）。 |
+| USR-VS-CRUD-05（兼) | 正常系 | `AdminUserSerializer` | `read_only_fields = ["id", "date_joined", "last_login", "password_last_changed"]`。`is_staff`/`is_superuser`/`is_active`はread_only指定がなく、staff権限を持つ操作者からは更新可能。ただし`is_superuser`の変更とスーパーユーザーのアカウントの変更・削除はスーパーユーザーのみに制限する（USR-VS-GUARD-*）。 |
 | USR-PROFILE-03（兼) | 正常系 | `UserProfileUpdateSerializer` | `fields = ["username", "email"]`のみで、他フィールドはそもそも受け付けない（read_only_fields指定は不要）。 |
 
 ## 7. 既知の懸念事項

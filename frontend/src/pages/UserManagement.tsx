@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import authFetch, { handleError, toApiError } from '../utils/api';
+import { useAuth } from '../hooks/useAuth';
 
 const UserManagement = () => {
     const [users, setUsers] = useState([]);
@@ -8,6 +9,8 @@ const UserManagement = () => {
     const [message, setMessage] = useState({ text: '', type: '' });
     const location = useLocation();
     const navigate = useNavigate();
+    // スーパーユーザーのアカウントを変更・削除できるのはスーパーユーザーのみ(サーバー側でも拒否される)
+    const { isSuperuser } = useAuth();
 
     // Display messages passed via router state (e.g., after a redirect from create/edit)
     useEffect(() => {
@@ -119,8 +122,14 @@ const UserManagement = () => {
                                 </td>
                                 <td>{formatDate(user.date_joined)}</td>
                                 <td>
-                                    <Link to={`/user/management/edit/${user.id}`} className="btn btn-sm btn-info">編集</Link>
-                                    <button onClick={() => handleDelete(user.id, user.custom_id)} className="btn btn-sm btn-danger ms-1">削除</button>
+                                    {user.is_superuser && !isSuperuser ? (
+                                        <span className="text-muted small">スーパーユーザーのみ操作可</span>
+                                    ) : (
+                                        <>
+                                            <Link to={`/user/management/edit/${user.id}`} className="btn btn-sm btn-info">編集</Link>
+                                            <button onClick={() => handleDelete(user.id, user.custom_id)} className="btn btn-sm btn-danger ms-1">削除</button>
+                                        </>
+                                    )}
                                 </td>
                             </tr>
                         ))

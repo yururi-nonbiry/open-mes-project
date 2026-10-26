@@ -1,13 +1,21 @@
 import ipaddress
 
-from django.contrib.auth import authenticate, get_user_model
+from django.contrib.auth import authenticate, get_user_model, password_validation
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 
 from .models import API_SCOPE_CHOICES, ApiTokenPolicy
 
 CustomUser = get_user_model()
+
+
+def revoke_refresh_tokens(user):
+    """未失効のリフレッシュトークンをすべて失効させ、既存のJWTセッションに再ログインを求める"""
+    outstanding = OutstandingToken.objects.filter(user=user, blacklistedtoken__isnull=True)
+    BlacklistedToken.objects.bulk_create([BlacklistedToken(token=token) for token in outstanding], ignore_conflicts=True)
 
 
 class CustomUserSerializer(serializers.ModelSerializer):
@@ -99,6 +107,14 @@ class AdminUserSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "date_joined", "last_login", "password_last_changed"]
 
+    def validate_is_superuser(self, value):
+        # スーパーユーザーでないスタッフが自分や他人をスーパーユーザーにする権限昇格を防ぐ
+        request = self.context.get("request")
+        current = self.instance.is_superuser if self.instance else False
+        if value != current and not (request and request.user.is_superuser):
+            raise serializers.ValidationError("スーパーユーザー権限を変更できるのはスーパーユーザーのみです。")
+        return value
+
     def create(self, validated_data):
         """暗号化されたパスワードで新しいユーザーを作成して返す"""
         password = validated_data.pop("password", None)
@@ -113,6 +129,8 @@ class AdminUserSerializer(serializers.ModelSerializer):
         if password:
             instance.set_password(password)
             instance.save(update_fields=["password", "password_last_changed"])
+            # 盗まれたトークンが使い続けられないよう、パスワード変更時は既存のセッションを失効させる
+            revoke_refresh_tokens(instance)
         return instance
 
 
@@ -140,9 +158,11 @@ class PasswordChangeSerializer(serializers.Serializer):
     def validate(self, data):
         if data["new_password1"] != data["new_password2"]:
             raise serializers.ValidationError({"new_password2": _("2つのパスワードフィールドが一致しません。")})
-        # ここでDjangoのパスワードバリデーションを呼び出すことも可能です
-        # from django.contrib.auth import password_validation
-        # password_validation.validate_password(data['new_password1'], self.context['request'].user)
+        # ユーザー属性との類似チェックも働くよう、対象ユーザーを渡してDjangoのパスワードバリデーションを行う
+        try:
+            password_validation.validate_password(data["new_password1"], self.context["request"].user)
+        except DjangoValidationError as e:
+            raise serializers.ValidationError({"new_password1": list(e.messages)}) from None
         return data
 
 

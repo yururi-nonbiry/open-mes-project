@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import authFetch, { formatFieldErrors, toApiError } from '../utils/api';
+import { useAuth } from '../hooks/useAuth';
 
 interface UserFormState {
     custom_id: string;
@@ -59,6 +60,7 @@ const UserForm: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const isEdit = !!id;
     const navigate = useNavigate();
+    const { isSuperuser } = useAuth();
 
     const [form, setForm] = useState<UserFormState>(emptyForm);
     const [loading, setLoading] = useState(isEdit);
@@ -327,8 +329,10 @@ const UserForm: React.FC = () => {
                         className="form-check-input"
                         checked={form.is_superuser}
                         onChange={handleChange}
+                        disabled={!isSuperuser}
                     />
                     <label className="form-check-label" htmlFor="is_superuser">スーパーユーザー権限</label>
+                    {!isSuperuser && <div className="form-text">スーパーユーザー権限を変更できるのはスーパーユーザーのみです。</div>}
                 </div>
                 <div className="form-check mb-4">
                     <input

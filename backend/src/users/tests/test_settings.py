@@ -1,5 +1,6 @@
 from django.urls import reverse
 from rest_framework import status
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from .test_helpers import DEFAULT_PASSWORD, UsersAPITestBase
 
@@ -58,3 +59,17 @@ class PasswordChangeTests(UsersAPITestBase):
     def test_usr_pwchange_03_mismatched_new_passwords_rejected(self):
         response = self.client.post(self.url, self._payload(new2="different1"), format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_usr_pwchange_04_weak_password_rejected(self):
+        # ユーザーIDと似たパスワードや短いパスワードはDjangoのパスワードバリデーションで拒否する
+        response = self.client.post(self.url, self._payload(new1="testuser1", new2="testuser1"), format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("new_password1", response.data["errors"])
+
+    def test_usr_pwchange_05_revokes_refresh_tokens(self):
+        refresh = RefreshToken.for_user(self.user)
+        response = self.client.post(self.url, self._payload(), format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.client.force_authenticate(user=None)
+        response = self.client.post(reverse("users_api:token_refresh"), {"refresh": str(refresh)}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)

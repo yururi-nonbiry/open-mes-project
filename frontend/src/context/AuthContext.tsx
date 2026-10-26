@@ -4,6 +4,7 @@ import authFetch from '../utils/api';
 export interface AuthContextType {
   isAuthenticated: boolean;
   isStaff: boolean;
+  isSuperuser: boolean;
   loading: boolean;
   logout: () => void;
   checkAuth: () => Promise<void>;
@@ -14,6 +15,7 @@ export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('access_token'));
   const [isStaff, setIsStaff] = useState(false);
+  const [isSuperuser, setIsSuperuser] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const logout = useCallback(() => {
@@ -22,6 +24,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     localStorage.removeItem('refresh_token');
     setIsAuthenticated(false);
     setIsStaff(false);
+    setIsSuperuser(false);
 
     if (refreshToken) {
       // サーバー側でもrefreshトークンを失効させる（ベストエフォート。失敗してもローカルの状態は既にクリア済み）
@@ -39,6 +42,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setLoading(false);
       setIsAuthenticated(false);
       setIsStaff(false);
+      setIsSuperuser(false);
       return;
     }
 
@@ -48,6 +52,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const json = await res.json();
         setIsAuthenticated(json.isAuthenticated);
         setIsStaff(json.isStaff || json.isSuperuser);
+        setIsSuperuser(!!json.isSuperuser);
       } else {
         logout();
       }
@@ -69,7 +74,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [logout]);
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, isStaff, loading, logout, checkAuth }}>
+    <AuthContext.Provider value={{ isAuthenticated, isStaff, isSuperuser, loading, logout, checkAuth }}>
       {children}
     </AuthContext.Provider>
   );

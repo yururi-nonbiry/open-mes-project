@@ -7,6 +7,7 @@ from rest_framework import permissions, status, viewsets
 from rest_framework.authtoken.models import Token
 from rest_framework.authtoken.views import ObtainAuthToken as DefaultObtainAuthToken
 from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -25,6 +26,7 @@ from .serializers import (
     CustomUserSerializer,
     PasswordChangeSerializer,
     UserProfileUpdateSerializer,
+    revoke_refresh_tokens,
 )
 
 logger = logging.getLogger(__name__)
@@ -200,6 +202,8 @@ class UserPasswordChangeView(APIView):
         user = request.user
         user.set_password(serializer.validated_data["new_password1"])
         user.save()
+        # 他の端末に残っているJWTセッションも失効させる
+        revoke_refresh_tokens(user)
         # To keep the user logged in after password change
         update_session_auth_hash(request, user)
         log_event(AccessLog.EventType.PASSWORD_CHANGED, request, detail={"target": user.get_username()})
@@ -234,6 +238,20 @@ class IsStaffOrSuperuser(permissions.BasePermission):
         return request.user and (request.user.is_staff or request.user.is_superuser)
 
 
+class CanModifyTargetUser(permissions.BasePermission):
+    """
+    スーパーユーザーのアカウントの変更・削除・APIトークンの参照は、スーパーユーザーのみに許可する。
+    スタッフがスーパーユーザーのパスワードやトークンを取得してなりすます権限昇格を防ぐ。
+    """
+
+    message = "スーパーユーザーのアカウントを操作できるのはスーパーユーザーのみです。"
+
+    def has_object_permission(self, request, view, obj):
+        if request.user.is_superuser or not obj.is_superuser:
+            return True
+        return request.method in permissions.SAFE_METHODS and view.action != "token"
+
+
 class UserViewSet(viewsets.ModelViewSet):
     """
     API endpoint that allows users to be viewed or edited.
@@ -242,7 +260,7 @@ class UserViewSet(viewsets.ModelViewSet):
 
     queryset = CustomUser.objects.all().order_by("-date_joined")
     serializer_class = AdminUserSerializer
-    permission_classes = [permissions.IsAuthenticated, IsStaffOrSuperuser]
+    permission_classes = [permissions.IsAuthenticated, IsStaffOrSuperuser, CanModifyTargetUser]
 
     # 変更前後の値を監査ログに残す。パスワードは値を残さず「変更したかどうか」だけを記録する
     def perform_create(self, serializer):
@@ -266,6 +284,8 @@ class UserViewSet(viewsets.ModelViewSet):
             )
 
     def perform_destroy(self, instance):
+        if instance.pk == self.request.user.pk:
+            raise PermissionDenied("自分自身のアカウントは削除できません。")
         values = snapshot(instance)
         instance.delete()
         log_event(
