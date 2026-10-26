@@ -4,7 +4,7 @@
 
 主な実装言語はPython 3系です。主要な依存パッケージ（`backend/image/requirements.txt`）は以下の通りです。
 
-- **Django 5.1.7**: Webアプリケーションフレームワーク。今回はテンプレートレンダリングではなくREST APIサーバーとして使用しています。
+- **Django 5.2.18**: Webアプリケーションフレームワーク。今回はテンプレートレンダリングではなくREST APIサーバーとして使用しています。
 - **djangorestframework 3.15**: REST APIの実装に使用。
 - **djangorestframework-simplejwt 5.3**: JWTによる認証（アクセストークン/リフレッシュトークン、ブラックリスト機能）。
 - **django-filter**: APIのクエリパラメータによる絞り込み。

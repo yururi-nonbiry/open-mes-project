@@ -2,7 +2,7 @@
 
 open-mes-project（生産ナビ）は、バックエンドとフロントエンドが分離された構成のWebアプリケーションです。
 
-- **バックエンド**（`backend/`）: Python / Django 5.1 + Django REST Framework によるREST API サーバです。画面のHTMLは返さず、JSONを返すAPIとして動作します。
+- **バックエンド**（`backend/`）: Python / Django 5.2 + Django REST Framework によるREST API サーバです。画面のHTMLは返さず、JSONを返すAPIとして動作します。
 - **フロントエンド**（`frontend/`）: React 19 + TypeScript + Vite によるSPA（Single Page Application）です。バックエンドのREST APIをJWTで認証しながら呼び出し、画面を描画します。
 - **非同期処理**: Celery ワーカーがバックエンドと同じコードベース（`backend/src`）を使って非同期タスクを実行し、Redisをブローカー兼結果バックエンドとして利用します。
 - **データベース**: PostgreSQLを使用します。DjangoのORMを通じてモデルとテーブルのマッピングが行われます。

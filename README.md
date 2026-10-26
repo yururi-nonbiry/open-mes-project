@@ -12,7 +12,7 @@ Django (Backend / REST API) と React + TypeScript (Frontend) を組み合わせ
 ## 技術スタック
 
 ### バックエンド (`backend/`)
-- **Django 5.1 / Django REST Framework**: REST APIサーバー（画面のHTMLは返さない）
+- **Django 5.2 / Django REST Framework**: REST APIサーバー（画面のHTMLは返さない）
 - **djangorestframework-simplejwt**: JWT認証
 - **Celery / Redis**: 非同期タスク処理（`worker`コンテナ）
 - **PostgreSQL (psycopg2-binary)**: データベース
