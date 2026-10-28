@@ -42,6 +42,7 @@ const PageDisplaySettings = lazy(() => import('./pages/PageDisplaySettings'));
 const QrCodeActionSettings = lazy(() => import('./pages/QrCodeActionSettings'));
 const ShelfQrCodeCreation = lazy(() => import('./pages/ShelfQrCodeCreation'));
 const WarehouseLayoutCreation = lazy(() => import('./pages/WarehouseLayoutCreation'));
+const UsagePage = lazy(() => import('./pages/UsagePage'));
 const MobileTopPage = lazy(() => import('./pages/MobileTopPage'));
 const MobileGoodsReceiptPage = lazy(() => import('./pages/mobile/MobileGoodsReceiptPage'));
 const MobileGoodsIssuePage = lazy(() => import('./pages/mobile/MobileGoodsIssuePage'));
@@ -162,6 +163,7 @@ function AppContent() {
           <Route path="/machine/master-creation" element={<MachineMasterCreation />} />
           <Route path="/data/import" element={<DataImport />} />
           <Route path="/user/settings" element={<UserSettings />} />
+          <Route path="/usage" element={<UsagePage />} />
           <Route path="/user/management" element={<StaffRoute><UserManagement /></StaffRoute>} />
           <Route path="/user/management/create" element={<StaffRoute><UserForm /></StaffRoute>} />
           <Route path="/user/management/edit/:id" element={<StaffRoute><UserForm /></StaffRoute>} />

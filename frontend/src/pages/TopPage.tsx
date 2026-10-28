@@ -66,6 +66,7 @@ const TopPage = ({ isAuthenticated, isStaffOrSuperuser, onLogout }) => {
           {isAuthenticated ? (
             <>
               <li><Link to="/user/settings">ユーザー設定</Link></li>
+              <li><Link to="/usage">使い方</Link></li>
               <li>
                 <button type="button" onClick={onLogout} className="link-button">ログアウト</button>
               </li>

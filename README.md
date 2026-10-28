@@ -168,6 +168,16 @@ script/run_tests.sh inventory production   # バックエンド: 複数アプリ
 cd frontend && npm run test:e2e  # フロントエンド: レスポンシブ表示確認(Playwright、要Node.js)
 ```
 
+### 「使い方」ページの画面キャプチャ更新
+アプリ内の「使い方」ページ（`/usage`）で使う画面キャプチャは、Playwright で自動撮影して `frontend/public/manual/` に保存しています。画面を変更したら、フロントエンドの開発サーバーを起動した状態で次のコマンドで撮り直してください。API はサンプルデータでモックされるため、実データは写らず、データベースも変更されません。
+```bash
+cd frontend
+npm install
+npx playwright install chromium   # 初回のみ
+MANUAL_BASE_URL=http://localhost:5173 npm run capture:manual
+```
+説明文は `frontend/src/pages/UsagePage.tsx` の `SECTIONS` で編集できます。
+
 ### コンテナの停止
 ```bash
 docker compose down

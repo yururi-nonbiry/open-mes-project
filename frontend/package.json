@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "type-check": "tsc --noEmit",
     "preview": "vite preview",
+    "capture:manual": "node scripts/capture-manual.mjs",
     "test:e2e": "node e2e/run-and-report.mjs",
     "test:e2e:functional": "node e2e/run-and-report.mjs --suite=functional"
   },

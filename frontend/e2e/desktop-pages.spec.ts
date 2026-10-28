@@ -32,6 +32,7 @@ const pages: { name: string; path: string }[] = [
   { name: '設備マスタ作成', path: '/machine/master-creation' },
   { name: 'データ取込', path: '/data/import' },
   { name: 'ユーザー設定', path: '/user/settings' },
+  { name: '使い方', path: '/usage' },
   { name: 'ユーザー管理', path: '/user/management' },
   { name: 'ユーザー新規作成', path: '/user/management/create' },
   { name: 'システム設定', path: '/system/settings' },
