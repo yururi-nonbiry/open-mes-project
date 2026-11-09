@@ -63,8 +63,8 @@ const USERS = [
   },
   {
     id: 'u-3',
-    custom_id: 'akita_sync',
-    username: '秋田工業MES連携',
+    custom_id: 'external_sync',
+    username: '外部MES連携',
     email: 'sync@example.com',
     account_type: 'system',
     is_staff: true,
@@ -1137,7 +1137,7 @@ const SECURITY_LOGS = {
       method: 'PATCH',
       path: '/api/users/u-3/token/',
       status_code: 200,
-      detail: { target: 'akita_sync', scopes: ['inventory', 'master', 'production'] },
+      detail: { target: 'external_sync', scopes: ['inventory', 'master', 'production'] },
     },
     {
       id: 1,
@@ -1325,6 +1325,11 @@ const main = async () => {
         localStorage.setItem('access_token', 'fake-access-token');
         localStorage.setItem('refresh_token', 'fake-refresh-token');
       });
+    } else {
+      await context.addInitScript(() => {
+        localStorage.clear();
+        sessionStorage.clear();
+      });
     }
     await context.route((url) => url.pathname.startsWith('/api/'), api);
     return context;
@@ -1387,7 +1392,7 @@ const main = async () => {
 
   // 在庫照会・在庫移動モーダル
   await page.goto(`${BASE_URL}/inventory/inquiry`);
-  await page.getByRole('heading', { name: '在庫照会' }).waitFor();
+  await page.getByRole('heading', { name: /在庫照会/ }).first().waitFor();
   await page.getByRole('button', { name: '移動' }).first().waitFor();
   await shoot(page, '05-inventory-inquiry');
   await page.getByRole('button', { name: '移動' }).first().click();
@@ -1398,28 +1403,28 @@ const main = async () => {
 
   // 入出庫履歴
   await page.goto(`${BASE_URL}/inventory/stock-movement-history`);
-  await page.getByRole('heading', { name: '入出庫履歴', exact: true }).waitFor();
-  await page.locator('#schedule-table tbody tr').first().waitFor();
+  await page.getByRole('heading', { name: /入出庫履歴/ }).first().waitFor();
+  await page.locator('table tbody tr').first().waitFor();
   await shoot(page, '07-stock-movement-history');
 
   // 出庫予定
   await page.goto(`${BASE_URL}/inventory/shipment`);
-  await page.getByRole('heading', { name: '出庫予定一覧' }).waitFor();
+  await page.getByRole('heading', { name: /出庫予定/ }).first().waitFor();
   await page.locator('table tbody tr').first().waitFor();
   await shoot(page, '08-shipment-schedule');
 
   // 入庫処置
   await page.goto(`${BASE_URL}/inventory/purchase`);
-  await page.getByRole('heading', { name: '入庫処置' }).waitFor();
-  await page.getByRole('button', { name: '入庫', exact: true }).first().waitFor();
+  await page.getByRole('heading', { name: /入庫処置/ }).first().waitFor();
+  await page.getByRole('button', { name: '入庫処理' }).first().waitFor();
   await shoot(page, '09-goods-receipt');
-  await page.getByRole('button', { name: '入庫', exact: true }).first().click();
-  await page.getByRole('heading', { name: '入庫処理' }).waitFor();
+  await page.getByRole('button', { name: '入庫処理' }).first().click();
+  await page.locator('.modal-content').waitFor();
   await shoot(page, '10-goods-receipt-modal');
 
   // 出庫処理・ロケーション地図
   await page.goto(`${BASE_URL}/inventory/issue`);
-  await page.getByRole('heading', { name: '出庫処理' }).waitFor();
+  await page.getByRole('heading', { name: /出庫処理/ }).first().waitFor();
   await page.getByRole('button', { name: '地図で確認' }).first().waitFor();
   await shoot(page, '11-goods-issue');
   await page.getByRole('button', { name: '地図で確認' }).first().click();
@@ -1429,49 +1434,50 @@ const main = async () => {
 
   // 生産計画・中間品手配・材料引当
   await page.goto(`${BASE_URL}/production/plan`);
-  await page.getByRole('heading', { name: '生産計画検索' }).waitFor();
-  await page.getByRole('button', { name: '材料引当' }).first().waitFor();
+  await page.getByRole('heading', { name: /生産計画/ }).first().waitFor();
+  await page.getByRole('button', { name: /材料引当/ }).first().waitFor();
   await shoot(page, '13-production-plan');
   await page.getByRole('button', { name: /中間品/ }).first().click();
   await page.getByRole('heading', { name: /中間品の手配/ }).waitFor();
-  await page.getByRole('button', { name: '子計画を立てる' }).waitFor();
+  await page.getByRole('button', { name: /子計画を立てる/ }).waitFor();
   await shoot(page, '14-production-plan-intermediates');
   await page.locator('.modal-content').getByRole('button', { name: '閉じる' }).click();
-  await page.getByRole('button', { name: '材料引当' }).first().click();
+  await page.waitForTimeout(300);
+  await page.getByRole('button', { name: /材料引当/ }).first().click();
   await page.getByRole('heading', { name: '材料引き当て' }).waitFor();
   await page.getByRole('button', { name: '引き当て実行' }).waitFor();
   await shoot(page, '15-production-plan-allocate');
 
   // 使用部品マスター・多階層展開
   await page.goto(`${BASE_URL}/production/bom-master`);
-  await page.getByRole('heading', { name: '使用部品マスター管理' }).waitFor();
+  await page.getByRole('heading', { name: /使用部品マスター/ }).first().waitFor();
   await page.locator('table tbody tr').first().waitFor();
   await shoot(page, '16-bom-master');
-  await page.locator('table').getByRole('button', { name: '展開' }).first().click();
+  await page.locator('table').getByRole('button', { name: '構成展開' }).first().click();
   await page.getByRole('heading', { name: '部品構成の展開（多階層）' }).waitFor();
   await page.getByText('最下位の材料の合計所要量').waitFor();
   await shoot(page, '17-bom-explode');
 
   // 材料引当ステータス一覧
   await page.goto(`${BASE_URL}/production/material-allocation`);
-  await page.getByRole('heading', { name: '材料引当ステータス一覧' }).waitFor();
+  await page.getByRole('heading', { name: /材料引当/ }).first().waitFor();
   await page.locator('table tbody tr').first().waitFor();
   await shoot(page, '18-material-allocation');
 
   // 部品供給シミュレーション
   await page.goto(`${BASE_URL}/production/parts-supply-simulation`);
-  await page.getByRole('heading', { name: '部品供給シミュレーション' }).waitFor();
+  await page.getByRole('heading', { name: /部品供給/ }).first().waitFor();
   await page.getByRole('button', { name: 'シミュレーション実行' }).click();
   await page.getByText('生産計画別の生産可否（納期順）').waitFor();
   await shoot(page, '19-parts-supply-simulation', { fullPage: true });
 
   // 作業進捗
   await page.goto(`${BASE_URL}/production/work-progress`);
-  await page.getByRole('heading', { name: '作業進捗 - 生産計画一覧' }).waitFor();
-  await page.getByRole('button', { name: '進捗確認' }).first().waitFor();
+  await page.getByRole('heading', { name: /作業進捗/ }).first().waitFor();
+  await page.getByRole('button', { name: '進捗・完了登録' }).first().waitFor();
   await shoot(page, '20-work-progress');
-  await page.getByRole('button', { name: '進捗確認' }).first().click();
-  await page.getByRole('heading', { name: /作業進捗確認/ }).waitFor();
+  await page.getByRole('button', { name: '進捗・完了登録' }).first().click();
+  await page.locator('.modal-content').waitFor();
   await page.locator('.modal-content').getByRole('button', { name: '完了' }).click();
   await page.locator('#modalActualQuantity').fill('20');
   await page.locator('#modalDefectiveQuantity').fill('1');
@@ -1479,10 +1485,10 @@ const main = async () => {
 
   // 工程内検査・検査実施モーダル
   await page.goto(`${BASE_URL}/quality/process-inspection`);
-  await page.getByRole('heading', { name: '工程内検査 登録' }).waitFor();
-  await page.locator('table tbody button').first().waitFor();
+  await page.getByRole('heading', { name: /工程内検査/ }).first().waitFor();
+  await page.getByRole('button', { name: '検査入力' }).first().waitFor();
   await shoot(page, '22-process-inspection');
-  await page.locator('table tbody button').first().click();
+  await page.getByRole('button', { name: '検査入力' }).first().click();
   await page.getByRole('heading', { name: /検査実施:/ }).waitFor();
   await page.locator('#id_part_number').fill('71020-AK100');
   await page.locator('#id_lot_number').fill('LOT-20261028-01');
@@ -1493,7 +1499,7 @@ const main = async () => {
 
   // 検査項目マスター管理
   await page.goto(`${BASE_URL}/quality/master-creation`);
-  await page.getByRole('heading', { name: '検査項目マスター管理' }).waitFor();
+  await page.getByRole('heading', { name: /検査マスター作成/ }).first().waitFor();
   await page.getByRole('button', { name: '変更' }).first().waitFor();
   await shoot(page, '24-quality-master');
   await page.getByRole('button', { name: '変更' }).first().click();
@@ -1502,25 +1508,25 @@ const main = async () => {
 
   // 始業点検・点検履歴・設備マスター
   await page.goto(`${BASE_URL}/machine/start-inspection`);
-  await page.getByRole('heading', { name: '始業点検 (点検開始)' }).waitFor();
-  await page.locator('.list-group-item').first().click();
+  await page.getByRole('heading', { name: /始業点検/ }).first().waitFor();
+  await page.locator('.machine-select-item').first().click();
   await page.getByRole('button', { name: '点検開始' }).first().waitFor();
   await shoot(page, '26-start-inspection');
 
   await page.goto(`${BASE_URL}/machine/inspection-history`);
-  await page.getByRole('heading', { name: '点検・検査履歴' }).waitFor();
+  await page.getByRole('heading', { name: /点検・検査履歴/ }).first().waitFor();
   await page.locator('table tbody tr').first().click();
   await page.getByText('測定値・判定結果内訳').waitFor();
   await shoot(page, '27-inspection-history', { fullPage: true });
 
   await page.goto(`${BASE_URL}/machine/master-creation`);
-  await page.getByRole('heading', { name: 'マスター作成（設備管理）' }).waitFor();
+  await page.getByRole('heading', { name: /設備マスター作成/ }).first().waitFor();
   await page.locator('table tbody tr').first().waitFor();
   await shoot(page, '28-machine-master');
 
   // データ投入
   await page.goto(`${BASE_URL}/data/import`);
-  await page.getByRole('heading', { name: 'データインポート・管理' }).waitFor();
+  await page.getByRole('heading', { name: /データ投入/ }).first().waitFor();
   await page.locator('#csvDataType').selectOption('item');
   await shoot(page, '29-data-import', { fullPage: true });
   await page.getByRole('button', { name: '一覧表示' }).first().click();
@@ -1529,7 +1535,7 @@ const main = async () => {
 
   // ユーザー設定
   await page.goto(`${BASE_URL}/user/settings`);
-  await page.getByRole('heading', { name: 'ユーザー設定' }).waitFor();
+  await page.getByRole('heading', { name: /ユーザー設定/ }).first().waitFor();
   await page.waitForFunction(() => {
     const el = document.querySelector('#username');
     return el && el.value.length > 0;
@@ -1538,16 +1544,16 @@ const main = async () => {
 
   // ユーザー管理・外部連携APIトークン・セキュリティ
   await page.goto(`${BASE_URL}/user/management`);
-  await page.getByRole('heading', { name: 'ユーザー管理' }).waitFor();
+  await page.getByRole('heading', { name: /ユーザー管理/ }).first().waitFor();
   await page.locator('table tbody tr').first().waitFor();
   await shoot(page, '32-user-management');
   await page.getByRole('link', { name: '編集' }).nth(2).click();
-  await page.getByRole('heading', { name: 'ユーザー編集' }).waitFor();
-  await page.getByRole('heading', { name: 'APIトークン管理（外部システム連携用）' }).waitFor();
+  await page.getByText(/ユーザー情報の編集/).waitFor();
+  await page.getByText(/APIトークン管理（外部システム連携用）/).waitFor();
   await shoot(page, '33-user-edit-token', { fullPage: true });
 
   await page.goto(`${BASE_URL}/system/security`);
-  await page.getByRole('heading', { name: 'セキュリティ' }).waitFor();
+  await page.getByRole('heading', { name: /セキュリティ管理/ }).first().waitFor();
   await page.getByText('takahashi_02').waitFor();
   await shoot(page, '34-security');
   await page.getByRole('tab', { name: 'アクセスログ' }).click();
@@ -1556,21 +1562,21 @@ const main = async () => {
 
   // システム設定・項目表示・QR・倉庫レイアウト
   await page.goto(`${BASE_URL}/system/settings`);
-  await page.getByRole('heading', { name: 'システム設定' }).waitFor();
+  await page.getByRole('heading', { name: /システム設定/ }).first().waitFor();
   await shoot(page, '36-system-settings');
 
   await page.goto(`${BASE_URL}/system/page-display-settings`);
-  await page.getByRole('heading', { name: 'ページ項目表示設定' }).waitFor();
+  await page.getByRole('heading', { name: /システム設定/ }).first().waitFor();
   await page.locator('table tbody tr').first().waitFor();
   await shoot(page, '37-page-display-settings', { fullPage: true });
 
   await page.goto(`${BASE_URL}/system/qr-code-actions`);
-  await page.getByRole('heading', { name: 'QRコードアクション設定' }).waitFor();
+  await page.getByRole('heading', { name: /QRコードアクション設定/ }).first().waitFor();
   await page.locator('table tbody tr').first().waitFor();
   await shoot(page, '38-qr-code-actions');
 
   await page.goto(`${BASE_URL}/system/shelf-qr-code`);
-  await page.getByRole('heading', { name: '倉庫棚番QR作成' }).waitFor();
+  await page.getByRole('heading', { name: /倉庫棚番QR作成/ }).first().waitFor();
   await page.locator('#warehouse-input').fill('第1倉庫');
   await page.locator('#shelf-input').fill('A-01-02');
   await page.locator('#include-label-check').check();
@@ -1578,7 +1584,7 @@ const main = async () => {
   await shoot(page, '39-shelf-qr-code');
 
   await page.goto(`${BASE_URL}/master/warehouse-layout`);
-  await page.getByRole('heading', { name: '倉庫レイアウト管理' }).waitFor();
+  await page.getByRole('heading', { name: /倉庫レイアウト管理/ }).first().waitFor();
   await page.locator('svg').first().waitFor();
   await shoot(page, '40-warehouse-layout');
 

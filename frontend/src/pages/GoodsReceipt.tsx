@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Modal, Button, Spinner, Alert } from 'react-bootstrap';
 import authFetch, { ApiError } from '../utils/api';
 import inventoryService from '../services/inventoryService';
-import Modal from '../components/Modal';
-import './InventoryInquiry.css'; // 既存のCSSを利用してファイル未発見エラーを回避
+import { NavIcon } from '../config/navigationConfig';
+import './InventoryInquiry.css';
 
 const NUMERIC_FIELDS = ['quantity', 'received_quantity', 'remaining_quantity', 'delivered_quantity'];
 
@@ -10,19 +11,47 @@ const NUMERIC_FIELDS = ['quantity', 'received_quantity', 'remaining_quantity', '
 const DEFAULT_COLUMNS = [
   { model_field_name: 'order_number', verbose_name: '発注番号' },
   { model_field_name: 'supplier', verbose_name: '仕入先' },
-  { model_field_name: 'item', verbose_name: '品目' },
+  { model_field_name: 'item', verbose_name: '品番・品目' },
   { model_field_name: 'product_name', verbose_name: '品名' },
-  { model_field_name: 'quantity', verbose_name: '発注数量' },
-  { model_field_name: 'received_quantity', verbose_name: '入庫済数量' },
-  { model_field_name: 'remaining_quantity', verbose_name: '残数量' },
+  { model_field_name: 'warehouse', verbose_name: '入庫倉庫' },
+  { model_field_name: 'location', verbose_name: '棚番' },
+  { model_field_name: 'quantity', verbose_name: '発注数' },
+  { model_field_name: 'received_quantity', verbose_name: '入庫済' },
+  { model_field_name: 'remaining_quantity', verbose_name: '未入庫残' },
   { model_field_name: 'expected_arrival', verbose_name: '入荷予定日' },
-  { model_field_name: 'status', verbose_name: 'ステータス' },
+  { model_field_name: 'status', verbose_name: '状態' },
 ];
 
-const GoodsReceipt = () => {
-  // State for purchase orders, pagination, and loading/error status
-  const [purchaseOrders, setPurchaseOrders] = useState([]);
-  const [pagination, setPagination] = useState({
+const DEFAULT_SEARCH_FIELDS = [
+  { model_field_name: 'order_number', verbose_name: '発注番号', display_name: '発注番号' },
+  { model_field_name: 'item', verbose_name: '品番・品目', display_name: '品番・品目' },
+  { model_field_name: 'supplier', verbose_name: '仕入先', display_name: '仕入先' },
+];
+
+const STATUS_TABS = [
+  { value: 'pending', label: '未入庫', badgeClass: 'status-tab-pending' },
+  { value: 'partially_received', label: '一部入庫', badgeClass: 'status-tab-partial' },
+  { value: 'fully_received', label: '全量入庫済み', badgeClass: 'status-tab-full' },
+  { value: '', label: 'すべて表示', badgeClass: 'status-tab-all' },
+  { value: 'canceled', label: 'キャンセル', badgeClass: 'status-tab-canceled' },
+];
+
+const STATUS_META: Record<string, { label: string; className: string }> = {
+  pending: { label: '未入庫', className: 'receipt-status-badge status-pending' },
+  partially_received: { label: '一部入庫', className: 'receipt-status-badge status-partial' },
+  fully_received: { label: '全量入庫済み', className: 'receipt-status-badge status-completed' },
+  canceled: { label: 'キャンセル', className: 'receipt-status-badge status-canceled' },
+};
+
+const GoodsReceipt: React.FC = () => {
+  const [purchaseOrders, setPurchaseOrders] = useState<any[]>([]);
+  const [pagination, setPagination] = useState<{
+    count: number;
+    next: string | null;
+    previous: string | null;
+    currentPage: number;
+    totalPages: number;
+  }>({
     count: 0,
     next: null,
     previous: null,
@@ -30,41 +59,53 @@ const GoodsReceipt = () => {
     totalPages: 1,
   });
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [displaySettings, setDisplaySettings] = useState([]); // For dynamic columns
-  const [searchFields, setSearchFields] = useState([]); // State for dynamic search fields
+  const [error, setError] = useState<string | null>(null);
+  const [displaySettings, setDisplaySettings] = useState<any[]>([]);
+  const [searchFields, setSearchFields] = useState<any[]>([]);
 
-  // State for search filters
-  const [filters, setFilters] = useState({
-    // Dynamic fields will be added here
-    status: 'pending', // Default to pending orders
+  const [filters, setFilters] = useState<Record<string, string>>({
+    status: 'pending',
   });
 
-  // State for the receipt processing modal
-  const [receiptModal, setReceiptModal] = useState({ isOpen: false, order: null, error: '', success: '' });
-  const [receiptFormData, setReceiptFormData] = useState({ received_quantity: '', location: '', warehouse: '' });
+  // 入庫処理モーダル
+  const [receiptModal, setReceiptModal] = useState<{
+    isOpen: boolean;
+    order: any | null;
+    error: string;
+    success: string;
+  }>({ isOpen: false, order: null, error: '', success: '' });
+  const [receiptFormData, setReceiptFormData] = useState({
+    received_quantity: '',
+    location: '',
+    warehouse: '',
+  });
 
-  // State for the delivery (納品) edit modal
-  const [deliveryModal, setDeliveryModal] = useState({ isOpen: false, order: null, error: '', success: '' });
-  const [deliveryFormData, setDeliveryFormData] = useState({ delivery_date: '', delivered_quantity: '' });
+  // 納品記録モーダル
+  const [deliveryModal, setDeliveryModal] = useState<{
+    isOpen: boolean;
+    order: any | null;
+    error: string;
+    success: string;
+  }>({ isOpen: false, order: null, error: '', success: '' });
+  const [deliveryFormData, setDeliveryFormData] = useState({
+    delivery_date: '',
+    delivered_quantity: '',
+  });
 
-  // API call to fetch purchase order data and display settings
-  const fetchPurchaseOrders = useCallback(async (pageUrl = null) => {
+  const fetchPurchaseOrders = useCallback(async (pageUrl: string | null = null) => {
     setIsLoading(true);
     setError(null);
 
-    let dataApiUrl;
+    let dataApiUrl: string;
     if (pageUrl) {
       try {
-        // APIが返す完全なURLから、ホスト名を除いたパス部分だけを取得する
         const url = new URL(pageUrl);
         dataApiUrl = url.pathname + url.search;
-      } catch (e) {
-        dataApiUrl = pageUrl; // パースに失敗した場合はそのまま使用
+      } catch {
+        dataApiUrl = pageUrl;
       }
     } else {
       const params = new URLSearchParams();
-      // Dynamic filter parameter construction
       for (const [key, value] of Object.entries(filters)) {
         if (value) {
           params.append(`search_${key}`, value);
@@ -73,10 +114,8 @@ const GoodsReceipt = () => {
       dataApiUrl = `/api/inventory/purchase-orders/?${params.toString()}`;
     }
 
-    // 「入庫処置」ページは入庫予定(purchase_order)と入庫実績(goods_receipt)の両方の設定を参照する
     const poSettingsUrl = '/api/base/model-display-settings/?data_type=purchase_order';
     const grSettingsUrl = '/api/base/model-display-settings/?data_type=goods_receipt';
-    // model-fields は管理者限定のため、一般ユーザーでは取得できない(その場合は設定側のverbose_nameを使う)
     const poFieldsUrl = '/api/base/model-fields/?data_type=purchase_order&include_relations=true';
     const grFieldsUrl = '/api/base/model-fields/?data_type=goods_receipt&include_relations=true';
 
@@ -89,59 +128,51 @@ const GoodsReceipt = () => {
         authFetch(grFieldsUrl),
       ]);
 
-      // レスポンスのJSONボディは一度しか読み取れないため、先にパースして変数に格納します
       const poSettings = poSettingsResponse.ok ? await poSettingsResponse.json() : [];
       const grSettings = grSettingsResponse.ok ? await grSettingsResponse.json() : [];
       const poFields = poFieldsResponse.ok ? await poFieldsResponse.json() : [];
       const grFields = grFieldsResponse.ok ? await grFieldsResponse.json() : [];
 
-      // model-fields をマージして、model_field_name -> verbose_name のマップを作成
       const verboseNameMap = new Map();
       const fieldTypeMap = new Map();
 
-      poFields.forEach(field => {
+      poFields.forEach((field: any) => {
         verboseNameMap.set(field.name, field.verbose_name);
         fieldTypeMap.set(field.name, field.field_type);
       });
-      grFields.forEach(field => {
-          if (!verboseNameMap.has(field.name)) {
-              verboseNameMap.set(field.name, field.verbose_name);
-              fieldTypeMap.set(field.name, field.field_type);
-          }
+      grFields.forEach((field: any) => {
+        if (!verboseNameMap.has(field.name)) {
+          verboseNameMap.set(field.name, field.verbose_name);
+          fieldTypeMap.set(field.name, field.field_type);
+        }
       });
 
       if (poSettingsResponse.ok && grSettingsResponse.ok) {
-        // 両方の設定をマージする。同じフィールド名がある場合は入庫実績(grSettings)を優先する
         const settingsMap = new Map();
-        poSettings.forEach(setting => {
-            settingsMap.set(setting.model_field_name, setting);
+        poSettings.forEach((setting: any) => {
+          settingsMap.set(setting.model_field_name, setting);
         });
-        grSettings.forEach(setting => {
-            settingsMap.set(setting.model_field_name, setting);
+        grSettings.forEach((setting: any) => {
+          settingsMap.set(setting.model_field_name, setting);
         });
 
         const mergedSettings = Array.from(settingsMap.values());
-
-        // マージした設定に verbose_name と field_type を追加
-        const combinedSettings = mergedSettings.map(setting => ({
-            ...setting,
-            verbose_name: verboseNameMap.get(setting.model_field_name) || setting.verbose_name || setting.model_field_name,
-            field_type: fieldTypeMap.get(setting.model_field_name) || 'Unknown',
+        const combinedSettings = mergedSettings.map((setting: any) => ({
+          ...setting,
+          verbose_name: verboseNameMap.get(setting.model_field_name) || setting.verbose_name || setting.model_field_name,
+          field_type: fieldTypeMap.get(setting.model_field_name) || 'Unknown',
         }));
 
         const visibleColumns = combinedSettings
-          .filter(s => s.is_list_display)
-          .sort((a, b) => a.display_order - b.display_order);
+          .filter((s: any) => s.is_list_display)
+          .sort((a: any, b: any) => a.display_order - b.display_order);
         setDisplaySettings(visibleColumns);
 
         const searchableFields = combinedSettings
-          .filter(s => s.is_search_field)
-          .sort((a, b) => a.search_order - b.search_order);
+          .filter((s: any) => s.is_search_field)
+          .sort((a: any, b: any) => a.search_order - b.search_order);
         setSearchFields(searchableFields);
-
       } else {
-        console.error('表示設定の取得に失敗しました。');
-        // Fallback to empty, which will render default columns
         setDisplaySettings([]);
         setSearchFields([]);
       }
@@ -150,76 +181,71 @@ const GoodsReceipt = () => {
         throw new Error(`Network response was not ok: ${dataResponse.statusText}`);
       }
       const data = await dataResponse.json();
-      setPurchaseOrders(data.results);
+      setPurchaseOrders(data.results || []);
       setPagination({
-        count: data.count,
-        next: data.next,
-        previous: data.previous,
-        currentPage: data.current_page,
-        totalPages: data.total_pages,
+        count: data.count ?? 0,
+        next: data.next ?? null,
+        previous: data.previous ?? null,
+        currentPage: data.current_page ?? 1,
+        totalPages: data.total_pages ?? 1,
       });
     } catch (err) {
-      setError('データの取得中にエラーが発生しました。');
+      setError('入庫予定データの取得中にエラーが発生しました。');
       console.error('Error fetching data:', err);
     } finally {
       setIsLoading(false);
     }
   }, [filters]);
 
-  // Initial data fetch on component mount
   useEffect(() => {
     fetchPurchaseOrders();
   }, [fetchPurchaseOrders]);
-  
-  // Cleanup effect for modal
-  useEffect(() => {
-    return () => {
-      document.body.classList.remove('menu-open-no-scroll');
-    };
-  }, []);
 
-  // Handlers for filter changes and search
-  const handleFilterChange = (e) => {
+  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFilters(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleStatusTabClick = (statusValue: string) => {
+    setFilters(prev => ({ ...prev, status: statusValue }));
+  };
+
+  const handleClearFilters = () => {
+    setFilters({ status: 'pending' });
   };
 
   const handleSearch = () => {
     fetchPurchaseOrders();
   };
 
-  // Modal control functions
-  const openReceiptModal = (order) => {
-    const remainingQuantity = order.quantity - order.received_quantity;
+  // 入庫処理モーダルの開閉
+  const openReceiptModal = (order: any) => {
+    const remainingQuantity = (order.quantity ?? 0) - (order.received_quantity ?? 0);
     setReceiptModal({ isOpen: true, order, error: '', success: '' });
     setReceiptFormData({
-      received_quantity: remainingQuantity > 0 ? remainingQuantity : '',
+      received_quantity: remainingQuantity > 0 ? String(remainingQuantity) : '',
       location: order.location || '',
       warehouse: order.warehouse || '',
     });
-    document.body.classList.add('menu-open-no-scroll');
   };
 
   const closeReceiptModal = () => {
     setReceiptModal({ isOpen: false, order: null, error: '', success: '' });
-    document.body.classList.remove('menu-open-no-scroll');
   };
 
-  // Handler for form data changes in the modal
-  const handleReceiptFormChange = (e) => {
+  const handleReceiptFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setReceiptFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  // Handler for submitting the receipt form
-  const handleReceiptSubmit = async (e) => {
+  const handleReceiptSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setReceiptModal(prev => ({ ...prev, error: '', success: '' }));
-    
-    const receivedQuantity = parseInt(receiptFormData.received_quantity, 10);
+
+    const receivedQuantity = parseInt(String(receiptFormData.received_quantity), 10);
     if (isNaN(receivedQuantity) || receivedQuantity <= 0) {
-        setReceiptModal(prev => ({ ...prev, error: '入庫数量は正の整数である必要があります。' }));
-        return;
+      setReceiptModal(prev => ({ ...prev, error: '入庫数量は1以上の整数を入力してください。' }));
+      return;
     }
 
     try {
@@ -229,48 +255,51 @@ const GoodsReceipt = () => {
         location: receiptFormData.location.trim(),
         warehouse: receiptFormData.warehouse.trim(),
       });
-      setReceiptModal(prev => ({ ...prev, success: `発注 ${result.order_number} の入庫処理が正常に完了しました。` }));
+      setReceiptModal(prev => ({
+        ...prev,
+        success: `発注番号「${result.order_number || receiptModal.order.order_number}」の入庫処理が完了し、在庫へ反映されました。`,
+      }));
       setTimeout(() => {
         closeReceiptModal();
-        fetchPurchaseOrders(); // Refresh data
-      }, 1500);
+        fetchPurchaseOrders();
+      }, 1200);
     } catch (err) {
       console.error('Error submitting purchase receipt:', err);
-      setReceiptModal(prev => ({ ...prev, error: err instanceof ApiError ? err.message : '入庫処理中に通信エラーが発生しました。' }));
+      setReceiptModal(prev => ({
+        ...prev,
+        error: err instanceof ApiError ? err.message : '入庫処理中に通信エラーが発生しました。',
+      }));
     }
   };
 
-  // 納品日・納品数の編集(外部システムでの受領の記録のみで、在庫や入庫済数量には反映しない)
-  // 未登録の場合は本日の日付(ローカル日付)と発注数量を初期値とする
-  const openDeliveryModal = (order) => {
+  // 納品記録モーダルの開閉
+  const openDeliveryModal = (order: any) => {
     setDeliveryModal({ isOpen: true, order, error: '', success: '' });
     const now = new Date();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     setDeliveryFormData({
       delivery_date: order.delivery_date || today,
-      delivered_quantity: order.delivered_quantity ?? order.quantity ?? '',
+      delivered_quantity: String(order.delivered_quantity ?? order.quantity ?? ''),
     });
-    document.body.classList.add('menu-open-no-scroll');
   };
 
   const closeDeliveryModal = () => {
     setDeliveryModal({ isOpen: false, order: null, error: '', success: '' });
-    document.body.classList.remove('menu-open-no-scroll');
   };
 
-  const handleDeliveryFormChange = (e) => {
+  const handleDeliveryFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setDeliveryFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleDeliverySubmit = async (e) => {
+  const handleDeliverySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setDeliveryModal(prev => ({ ...prev, error: '', success: '' }));
 
     const quantityText = String(deliveryFormData.delivered_quantity).trim();
     const deliveredQuantity = quantityText === '' ? null : parseInt(quantityText, 10);
     if (deliveredQuantity !== null && (isNaN(deliveredQuantity) || deliveredQuantity < 0)) {
-      setDeliveryModal(prev => ({ ...prev, error: '納品数は0以上の整数である必要があります。' }));
+      setDeliveryModal(prev => ({ ...prev, error: '納品数は0以上の整数を入力してください。' }));
       return;
     }
 
@@ -279,98 +308,156 @@ const GoodsReceipt = () => {
         delivery_date: deliveryFormData.delivery_date || null,
         delivered_quantity: deliveredQuantity,
       });
-      setDeliveryModal(prev => ({ ...prev, success: `発注 ${deliveryModal.order.order_number} の納品情報を更新しました。` }));
+      setDeliveryModal(prev => ({
+        ...prev,
+        success: `発注番号「${deliveryModal.order.order_number}」の納品記録を保存しました。`,
+      }));
       setTimeout(() => {
         closeDeliveryModal();
-        fetchPurchaseOrders(); // Refresh data
-      }, 1500);
+        fetchPurchaseOrders();
+      }, 1200);
     } catch (err) {
       console.error('Error updating delivery info:', err);
-      setDeliveryModal(prev => ({ ...prev, error: err instanceof ApiError ? err.message : '納品情報の更新中に通信エラーが発生しました。' }));
+      setDeliveryModal(prev => ({
+        ...prev,
+        error: err instanceof ApiError ? err.message : '納品記録の更新中に通信エラーが発生しました。',
+      }));
     }
   };
 
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return '—';
     const date = new Date(dateString);
-    return date.toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+    if (isNaN(date.getTime())) return String(dateString);
+    return date.toLocaleDateString('ja-JP', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
   };
 
-  // 一覧表示対象の設定が無い場合は既定の列で表示する(ヘッダーと明細で同じ列定義を使う)
   const columns = displaySettings.length > 0 ? displaySettings : DEFAULT_COLUMNS;
+  const activeSearchFields =
+    searchFields.filter((f: any) => f.model_field_name !== 'status').length > 0
+      ? searchFields.filter((f: any) => f.model_field_name !== 'status')
+      : DEFAULT_SEARCH_FIELDS;
   const colSpan = columns.length + 1;
 
-  // Render logic for table headers
-  const renderTableHeaders = () => {
-    return (
-      <tr>
-        {columns.map(setting => {
-          const isNumeric = NUMERIC_FIELDS.includes(setting.model_field_name);
-          // カスタム表示名がスペースのみの場合も考慮してtrim()し、
-          // verbose_nameがなければmodel_field_nameをフォールバックとして使用
-          const headerText = (setting.display_name || '').trim() || setting.verbose_name || setting.model_field_name;
-          return (
-            <th key={setting.model_field_name} className={isNumeric ? 'text-end' : ''}>
-              {headerText}
-            </th>
-          );
-        })}
-        <th className="text-center">操作</th>
-      </tr>
-    );
-  };
+  const renderTableHeaders = () => (
+    <tr>
+      {columns.map((setting: any) => {
+        const isNumeric = NUMERIC_FIELDS.includes(setting.model_field_name);
+        const headerText = (setting.display_name || '').trim() || setting.verbose_name || setting.model_field_name;
+        return (
+          <th key={setting.model_field_name} className={isNumeric ? 'text-end' : ''}>
+            {headerText}
+          </th>
+        );
+      })}
+      <th className="text-center" style={{ width: '170px' }}>入庫・操作</th>
+    </tr>
+  );
 
-  // Render logic for table body
   const renderTableBody = () => {
-    if (isLoading) return <tr><td colSpan={colSpan} className="text-center">検索中...</td></tr>;
-    if (error) return <tr><td colSpan={colSpan} className="text-center text-danger">{error}</td></tr>;
-    if (purchaseOrders.length === 0) return <tr><td colSpan={colSpan} className="text-center">該当する入庫予定がありません。</td></tr>;
+    if (isLoading) {
+      return (
+        <tr>
+          <td colSpan={colSpan} className="text-center py-5">
+            <Spinner animation="border" variant="primary" size="sm" className="me-2" />
+            <span className="text-muted">入庫予定データを読み込んでいます...</span>
+          </td>
+        </tr>
+      );
+    }
+    if (error) {
+      return (
+        <tr>
+          <td colSpan={colSpan} className="text-center text-danger py-4 fw-bold">
+            {error}
+          </td>
+        </tr>
+      );
+    }
+    if (purchaseOrders.length === 0) {
+      return (
+        <tr>
+          <td colSpan={colSpan} className="text-center py-5 text-muted">
+            <div className="fw-bold mb-1">該当する入庫予定データがありません</div>
+            <div className="small">上のステータスタブ（「すべて表示」など）や検索条件を切り替えてご確認ください。</div>
+          </td>
+        </tr>
+      );
+    }
 
-    return purchaseOrders.map(order => {
-      const cells = columns.map(setting => {
+    return purchaseOrders.map((order: any) => {
+      const remainingQty = (order.quantity ?? 0) - (order.received_quantity ?? 0);
+      const canReceive = ['pending', 'partially_received'].includes(order.status) && remainingQty > 0;
+
+      const cells = columns.map((setting: any) => {
         const fieldName = setting.model_field_name;
-        let cellValue;
 
-        // Handle special cases and formatting
         if (fieldName === 'remaining_quantity') {
-          cellValue = order.quantity - order.received_quantity;
-        } else if (fieldName === 'expected_arrival' || fieldName === 'order_date') {
-          cellValue = formatDate(order[fieldName]);
-        } else if (fieldName === 'status') {
-          const statusMap = {
-            pending: '未入庫',
-            partially_received: '一部入庫',
-            fully_received: '全量入庫済み',
-            canceled: 'キャンセル',
-          };
-          cellValue = statusMap[order.status] || order.status;
-        } else {
-          cellValue = order[fieldName];
+          return (
+            <td key={fieldName} className="text-end">
+              <span className={remainingQty > 0 ? 'receipt-remaining-qty has-remaining' : 'receipt-remaining-qty zero'}>
+                {remainingQty}
+              </span>
+            </td>
+          );
         }
 
-        const isNumeric = NUMERIC_FIELDS.includes(fieldName);
-        const className = isNumeric ? 'text-end' : '';
+        if (fieldName === 'expected_arrival' || fieldName === 'order_date') {
+          return <td key={fieldName}>{formatDate(order[fieldName])}</td>;
+        }
 
-        return <td key={fieldName} className={className}>{cellValue ?? 'N/A'}</td>;
+        if (fieldName === 'status') {
+          const meta = STATUS_META[order.status] || {
+            label: order.status || '—',
+            className: 'receipt-status-badge',
+          };
+          return (
+            <td key={fieldName}>
+              <span className={meta.className}>{meta.label}</span>
+            </td>
+          );
+        }
+
+        if (fieldName === 'order_number') {
+          return (
+            <td key={fieldName} className="fw-bold text-dark">
+              {order[fieldName] || '—'}
+            </td>
+          );
+        }
+
+        const rawVal = order[fieldName];
+        const isNumeric = NUMERIC_FIELDS.includes(fieldName);
+        return (
+          <td key={fieldName} className={isNumeric ? 'text-end fw-semibold' : ''}>
+            {rawVal !== null && rawVal !== undefined && rawVal !== '' ? rawVal : '—'}
+          </td>
+        );
       });
 
       return (
-        <tr key={order.id}>
+        <tr key={order.id} className={canReceive ? '' : 'receipt-row-completed'}>
           {cells}
-          <td className="text-center">
+          <td className="text-center text-nowrap">
             <button
-              className="btn btn-sm btn-primary"
+              type="button"
+              className={`btn btn-sm fw-bold ${canReceive ? 'btn-primary' : 'btn-outline-secondary'}`}
               onClick={() => openReceiptModal(order)}
-              // 一部入庫の入庫予定も、残数量があれば追加で入庫できる
-              disabled={!['pending', 'partially_received'].includes(order.status) || (order.quantity - order.received_quantity <= 0)}
+              disabled={!canReceive}
             >
-              入庫
+              {canReceive ? '入庫処理' : '入庫済'}
             </button>
             <button
+              type="button"
               className="btn btn-sm btn-outline-secondary ms-1"
               onClick={() => openDeliveryModal(order)}
+              title="仕入先からの納品日・納品数の控えを記録します"
             >
-              納品
+              納品記録
             </button>
           </td>
         </tr>
@@ -378,137 +465,367 @@ const GoodsReceipt = () => {
     });
   };
 
+  const activeOrderRemaining = receiptModal.order
+    ? (receiptModal.order.quantity ?? 0) - (receiptModal.order.received_quantity ?? 0)
+    : 0;
+
   return (
-    <div className="inventory-inquiry goods-receipt">
-      <h2 className="inventory-inquiry-title">入庫処置</h2>
-
-      {/* Filters */}
-      <div className="goods-receipt-filters d-flex flex-wrap gap-2 align-items-center mb-3">
-        {searchFields
-          .filter(field => field.model_field_name !== 'status') // statusは固定で表示するので除外
-          .map(field => (
-            <input
-              key={field.model_field_name}
-              type="text"
-              name={field.model_field_name}
-              value={filters[field.model_field_name] || ''}
-              onChange={handleFilterChange}
-              className="form-control"
-              style={{ width: 'auto', flexGrow: 1 }}
-              placeholder={`${(field.display_name || '').trim() || field.verbose_name || field.model_field_name}で検索...`}
-            />
-          ))
-        }
-        <select name="status" value={filters.status} onChange={handleFilterChange} className="form-select" style={{ width: 'auto' }}>
-            <option value="">全てのステータス</option>
-            <option value="pending">未入庫</option>
-            <option value="partially_received">一部入庫</option>
-            <option value="fully_received">全量入庫済み</option>
-            <option value="canceled">キャンセル</option>
-        </select>
-        <button onClick={handleSearch} className="btn btn-primary">検索</button>
-      </div>
-
-      {/* Table */}
-      <div className="table-responsive">
-        <table className="table table-striped table-bordered table-hover mb-0">
-          <thead>
-            {renderTableHeaders()}
-          </thead>
-          <tbody>{renderTableBody()}</tbody>
-        </table>
-      </div>
-
-      {/* Pagination */}
-      <div className="pagination-controls d-flex justify-content-center align-items-center mt-3">
-        <button onClick={() => fetchPurchaseOrders(pagination.previous)} className="btn btn-outline-primary" disabled={!pagination.previous}>前へ</button>
-        <span className="mx-3">
-          {pagination.count > 0 ? `ページ ${pagination.currentPage} / ${pagination.totalPages} (全 ${pagination.count} 件)` : ''}
-        </span>
-        <button onClick={() => fetchPurchaseOrders(pagination.next)} className="btn btn-outline-primary" disabled={!pagination.next}>次へ</button>
-      </div>
-
-      {/* Receipt Processing Modal */}
-      <Modal isOpen={receiptModal.isOpen} onClose={closeReceiptModal}>
-        <div className="inventory-modal-content">
-            <h2>入庫処理</h2>
-            <form onSubmit={handleReceiptSubmit}>
-              <table className="table table-sm table-bordered mb-3">
-                <tbody>
-                  <tr>
-                    <td style={{ width: '35%' }}><label className="mb-0">発注番号:</label></td>
-                    <td><p className="mb-0">{receiptModal.order?.order_number}</p></td>
-                  </tr>
-                  <tr>
-                    <td><label className="mb-0">品名:</label></td>
-                    <td><p className="mb-0">{receiptModal.order?.product_name || receiptModal.order?.item}</p></td>
-                  </tr>
-                  <tr>
-                    <td><label className="mb-0">残数量:</label></td>
-                    <td><p className="mb-0">{receiptModal.order ? (receiptModal.order.quantity - receiptModal.order.received_quantity) : ''}</p></td>
-                  </tr>
-                  <tr>
-                    <td><label htmlFor="modal_received_quantity_input" className="mb-0">入庫数量:</label></td>
-                    <td><input type="number" id="modal_received_quantity_input" name="received_quantity" value={receiptFormData.received_quantity} onChange={handleReceiptFormChange} className="form-control form-control-sm text-end" required min="1" max={receiptModal.order ? (receiptModal.order.quantity - receiptModal.order.received_quantity) : undefined} /></td>
-                  </tr>
-                  <tr>
-                    <td><label htmlFor="modal_warehouse_input" className="mb-0">入庫倉庫:</label></td>
-                    <td><input type="text" id="modal_warehouse_input" name="warehouse" value={receiptFormData.warehouse} onChange={handleReceiptFormChange} className="form-control form-control-sm" placeholder="POの倉庫 (変更可)" /></td>
-                  </tr>
-                  <tr>
-                    <td><label htmlFor="modal_location_input" className="mb-0">入庫棚番:</label></td>
-                    <td><input type="text" id="modal_location_input" name="location" value={receiptFormData.location} onChange={handleReceiptFormChange} className="form-control form-control-sm" placeholder="POの棚番 (変更可)" /></td>
-                  </tr>
-                </tbody>
-              </table>
-              {receiptModal.error && <div className="alert alert-danger">{receiptModal.error}</div>}
-              {receiptModal.success && <div className="alert alert-success">{receiptModal.success}</div>}
-              <div className="mt-3 text-end">
-                <button type="submit" className="btn btn-primary btn-sm">入庫実行</button>
-                <button type="button" className="btn btn-secondary btn-sm ms-2" onClick={closeReceiptModal}>キャンセル</button>
-              </div>
-            </form>
+    <div className="inventory-inquiry goods-receipt-page">
+      {/* 絞り込み・検索パネル */}
+      <div className="goods-receipt-filter-panel">
+        <div className="receipt-status-tabs-row">
+          <span className="filter-section-label">状態フィルタ：</span>
+          <div className="receipt-status-tabs" role="tablist" aria-label="入庫状態フィルタ">
+            {STATUS_TABS.map(tab => {
+              const isActive = (filters.status ?? '') === tab.value;
+              return (
+                <button
+                  key={tab.value || 'all'}
+                  type="button"
+                  className={`receipt-status-tab ${tab.badgeClass} ${isActive ? 'active' : ''}`}
+                  onClick={() => handleStatusTabClick(tab.value)}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+          <span className="receipt-result-count ms-auto">
+            対象件数：<strong>{pagination.count}</strong> 件
+          </span>
         </div>
+
+        <div className="receipt-search-inputs-row">
+          {activeSearchFields.map((field: any) => {
+            const labelText = (field.display_name || '').trim() || field.verbose_name || field.model_field_name;
+            return (
+              <div key={field.model_field_name} className="receipt-search-field">
+                <label className="receipt-search-label" htmlFor={`search-${field.model_field_name}`}>
+                  {labelText}
+                </label>
+                <input
+                  id={`search-${field.model_field_name}`}
+                  type="text"
+                  name={field.model_field_name}
+                  value={filters[field.model_field_name] || ''}
+                  onChange={handleFilterChange}
+                  className="form-control form-control-sm"
+                  placeholder={`${labelText}を入力...`}
+                />
+              </div>
+            );
+          })}
+          <div className="receipt-search-actions">
+            <button type="button" onClick={handleSearch} className="btn btn-primary btn-sm fw-bold px-3">
+              検索
+            </button>
+            <button type="button" onClick={handleClearFilters} className="btn btn-outline-secondary btn-sm">
+              条件リセット
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 入庫予定テーブル */}
+      <div className="goods-receipt-table-card">
+        <div className="table-responsive mb-0">
+          <table className="table table-hover align-middle goods-receipt-table mb-0">
+            <thead>{renderTableHeaders()}</thead>
+            <tbody>{renderTableBody()}</tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ページネーション */}
+      <div className="pagination-controls d-flex justify-content-center align-items-center mt-3">
+        <button
+          type="button"
+          onClick={() => fetchPurchaseOrders(pagination.previous)}
+          className="btn btn-outline-primary btn-sm"
+          disabled={!pagination.previous}
+        >
+          ← 前へ
+        </button>
+        <span className="mx-3 small fw-semibold text-secondary">
+          {pagination.count > 0
+            ? `ページ ${pagination.currentPage} / ${pagination.totalPages} （全 ${pagination.count} 件）`
+            : '0 件'}
+        </span>
+        <button
+          type="button"
+          onClick={() => fetchPurchaseOrders(pagination.next)}
+          className="btn btn-outline-primary btn-sm"
+          disabled={!pagination.next}
+        >
+          次へ →
+        </button>
+      </div>
+
+      {/* 入庫処理の登録ポップアップ */}
+      <Modal
+        show={receiptModal.isOpen}
+        onHide={closeReceiptModal}
+        size="lg"
+        centered
+        scrollable
+        className="mes-clean-modal"
+      >
+        <Modal.Header closeButton className="mes-modal-header">
+          <div className="mes-modal-title-wrap">
+            <span className="mes-modal-icon-box" aria-hidden="true">
+              <NavIcon name="receipt" size={20} />
+            </span>
+            <div className="mes-modal-title-text">
+              <div className="mes-modal-title-row">
+                <Modal.Title className="mes-modal-title">入庫処理の登録</Modal.Title>
+                <span className="mes-modal-tag-pill">実在庫へ反映</span>
+              </div>
+              <p className="mes-modal-subtitle">
+                今回入荷した数量と、入庫先の倉庫・棚番を確認して「入庫を確定する」を押してください。
+              </p>
+            </div>
+          </div>
+        </Modal.Header>
+        <form onSubmit={handleReceiptSubmit}>
+          <Modal.Body className="mes-modal-body">
+            {receiptModal.order && (
+              <div className="receipt-modal-summary-card mb-3">
+                <div className="receipt-summary-grid">
+                  <div className="receipt-summary-item">
+                    <span className="summary-label">発注番号</span>
+                    <span className="summary-value fw-bold">{receiptModal.order.order_number || '—'}</span>
+                  </div>
+                  <div className="receipt-summary-item">
+                    <span className="summary-label">品番 / 品名</span>
+                    <span className="summary-value fw-bold">
+                      {receiptModal.order.item || '—'}
+                      {receiptModal.order.product_name ? ` （${receiptModal.order.product_name}）` : ''}
+                    </span>
+                  </div>
+                  <div className="receipt-summary-item">
+                    <span className="summary-label">仕入先</span>
+                    <span className="summary-value">{receiptModal.order.supplier || '—'}</span>
+                  </div>
+                  <div className="receipt-summary-item">
+                    <span className="summary-label">発注数量 / 入庫済</span>
+                    <span className="summary-value">
+                      {receiptModal.order.quantity ?? 0} / {receiptModal.order.received_quantity ?? 0}
+                    </span>
+                  </div>
+                  <div className="receipt-summary-item highlight">
+                    <span className="summary-label">未入庫の残数量</span>
+                    <span className="summary-value text-primary fw-bold fs-6">{activeOrderRemaining}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="row g-3">
+              <div className="col-12">
+                <div className="mes-modal-field-group">
+                  <label htmlFor="modal_received_quantity_input" className="mes-modal-field-label">
+                    <span>今回の入庫数量</span>
+                    <span className="mes-field-badge required">必須</span>
+                  </label>
+                  <div className="d-flex align-items-center gap-2">
+                    <input
+                      type="number"
+                      id="modal_received_quantity_input"
+                      name="received_quantity"
+                      value={receiptFormData.received_quantity}
+                      onChange={handleReceiptFormChange}
+                      className="form-control mes-modal-input text-end fw-bold"
+                      required
+                      min="1"
+                      max={activeOrderRemaining > 0 ? activeOrderRemaining : undefined}
+                    />
+                    {activeOrderRemaining > 0 && (
+                      <button
+                        type="button"
+                        className="btn btn-outline-primary btn-sm text-nowrap fw-bold"
+                        onClick={() =>
+                          setReceiptFormData(prev => ({
+                            ...prev,
+                            received_quantity: String(activeOrderRemaining),
+                          }))
+                        }
+                      >
+                        残数（{activeOrderRemaining}）をセット
+                      </button>
+                    )}
+                  </div>
+                  <span className="mes-modal-field-help">
+                    1〜{activeOrderRemaining} の範囲で今回入庫する数量を入力します（分納の場合は入荷分のみ入力可能）
+                  </span>
+                </div>
+              </div>
+
+              <div className="col-12 col-md-6">
+                <div className="mes-modal-field-group">
+                  <label htmlFor="modal_warehouse_input" className="mes-modal-field-label">
+                    <span>入庫先の倉庫番号</span>
+                    <span className="mes-field-badge optional">変更可</span>
+                  </label>
+                  <input
+                    type="text"
+                    id="modal_warehouse_input"
+                    name="warehouse"
+                    value={receiptFormData.warehouse}
+                    onChange={handleReceiptFormChange}
+                    className="form-control mes-modal-input"
+                    placeholder="例：FG-MAIN / W001"
+                  />
+                  <span className="mes-modal-field-help">発注時の指定倉庫から変更する場合に入力します</span>
+                </div>
+              </div>
+
+              <div className="col-12 col-md-6">
+                <div className="mes-modal-field-group">
+                  <label htmlFor="modal_location_input" className="mes-modal-field-label">
+                    <span>入庫先の棚番</span>
+                    <span className="mes-field-badge optional">変更可</span>
+                  </label>
+                  <input
+                    type="text"
+                    id="modal_location_input"
+                    name="location"
+                    value={receiptFormData.location}
+                    onChange={handleReceiptFormChange}
+                    className="form-control mes-modal-input"
+                    placeholder="例：A-01"
+                  />
+                  <span className="mes-modal-field-help">保管するロケーション（棚番）を入力します</span>
+                </div>
+              </div>
+            </div>
+
+            {receiptModal.error && (
+              <Alert variant="danger" className="mt-3 mb-0 py-2 small">
+                {receiptModal.error}
+              </Alert>
+            )}
+            {receiptModal.success && (
+              <Alert variant="success" className="mt-3 mb-0 py-2 small fw-bold">
+                {receiptModal.success}
+              </Alert>
+            )}
+          </Modal.Body>
+          <Modal.Footer className="mes-modal-footer">
+            <Button variant="outline-secondary" onClick={closeReceiptModal}>
+              キャンセル
+            </Button>
+            <Button type="submit" variant="primary" className="fw-bold px-4">
+              入庫を確定する
+            </Button>
+          </Modal.Footer>
+        </form>
       </Modal>
 
-      {/* Delivery (納品) Edit Modal */}
-      <Modal isOpen={deliveryModal.isOpen} onClose={closeDeliveryModal}>
-        <div className="inventory-modal-content">
-            <h2>納品情報の編集</h2>
-            <p className="text-muted small">仕入先側での受領の記録です。在庫や入庫済数量には反映されません。</p>
-            <form onSubmit={handleDeliverySubmit}>
-              <table className="table table-sm table-bordered mb-3">
-                <tbody>
-                  <tr>
-                    <td style={{ width: '35%' }}><label className="mb-0">発注番号:</label></td>
-                    <td><p className="mb-0">{deliveryModal.order?.order_number}</p></td>
-                  </tr>
-                  <tr>
-                    <td><label className="mb-0">品名:</label></td>
-                    <td><p className="mb-0">{deliveryModal.order?.product_name || deliveryModal.order?.item}</p></td>
-                  </tr>
-                  <tr>
-                    <td><label className="mb-0">発注数量:</label></td>
-                    <td><p className="mb-0">{deliveryModal.order?.quantity}</p></td>
-                  </tr>
-                  <tr>
-                    <td><label htmlFor="modal_delivery_date_input" className="mb-0">納品日:</label></td>
-                    <td><input type="date" id="modal_delivery_date_input" name="delivery_date" value={deliveryFormData.delivery_date} onChange={handleDeliveryFormChange} className="form-control form-control-sm" /></td>
-                  </tr>
-                  <tr>
-                    <td><label htmlFor="modal_delivered_quantity_input" className="mb-0">納品数:</label></td>
-                    <td><input type="number" id="modal_delivered_quantity_input" name="delivered_quantity" value={deliveryFormData.delivered_quantity} onChange={handleDeliveryFormChange} className="form-control form-control-sm text-end" min="0" /></td>
-                  </tr>
-                </tbody>
-              </table>
-              {deliveryModal.error && <div className="alert alert-danger">{deliveryModal.error}</div>}
-              {deliveryModal.success && <div className="alert alert-success">{deliveryModal.success}</div>}
-              <div className="mt-3 text-end">
-                <button type="submit" className="btn btn-primary btn-sm">保存</button>
-                <button type="button" className="btn btn-secondary btn-sm ms-2" onClick={closeDeliveryModal}>キャンセル</button>
+      {/* 納品記録（受領メモ）の編集ポップアップ */}
+      <Modal
+        show={deliveryModal.isOpen}
+        onHide={closeDeliveryModal}
+        centered
+        scrollable
+        className="mes-clean-modal"
+      >
+        <Modal.Header closeButton className="mes-modal-header">
+          <div className="mes-modal-title-wrap">
+            <span className="mes-modal-icon-box" aria-hidden="true">
+              <NavIcon name="clipboard-check" size={20} />
+            </span>
+            <div className="mes-modal-title-text">
+              <div className="mes-modal-title-row">
+                <Modal.Title className="mes-modal-title">納品記録の編集</Modal.Title>
+                <span className="mes-modal-tag-pill">受領メモ（在庫反映なし）</span>
               </div>
-            </form>
-        </div>
+              <p className="mes-modal-subtitle">
+                仕入先からの納品日・納品数の控えを記録します（※実在庫を増やす場合は「入庫処理」を行ってください）。
+              </p>
+            </div>
+          </div>
+        </Modal.Header>
+        <form onSubmit={handleDeliverySubmit}>
+          <Modal.Body className="mes-modal-body">
+            {deliveryModal.order && (
+              <div className="receipt-modal-summary-card mb-3">
+                <div className="receipt-summary-grid">
+                  <div className="receipt-summary-item">
+                    <span className="summary-label">発注番号</span>
+                    <span className="summary-value fw-bold">{deliveryModal.order.order_number || '—'}</span>
+                  </div>
+                  <div className="receipt-summary-item">
+                    <span className="summary-label">品番 / 品名</span>
+                    <span className="summary-value fw-bold">
+                      {deliveryModal.order.item || '—'}
+                      {deliveryModal.order.product_name ? ` （${deliveryModal.order.product_name}）` : ''}
+                    </span>
+                  </div>
+                  <div className="receipt-summary-item">
+                    <span className="summary-label">発注数量</span>
+                    <span className="summary-value fw-bold">{deliveryModal.order.quantity ?? 0}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="row g-3">
+              <div className="col-12 col-md-6">
+                <div className="mes-modal-field-group">
+                  <label htmlFor="modal_delivery_date_input" className="mes-modal-field-label">
+                    <span>納品日</span>
+                    <span className="mes-field-badge optional">任意</span>
+                  </label>
+                  <input
+                    type="date"
+                    id="modal_delivery_date_input"
+                    name="delivery_date"
+                    value={deliveryFormData.delivery_date}
+                    onChange={handleDeliveryFormChange}
+                    className="form-control mes-modal-input"
+                  />
+                </div>
+              </div>
+
+              <div className="col-12 col-md-6">
+                <div className="mes-modal-field-group">
+                  <label htmlFor="modal_delivered_quantity_input" className="mes-modal-field-label">
+                    <span>納品数</span>
+                    <span className="mes-field-badge optional">任意</span>
+                  </label>
+                  <input
+                    type="number"
+                    id="modal_delivered_quantity_input"
+                    name="delivered_quantity"
+                    value={deliveryFormData.delivered_quantity}
+                    onChange={handleDeliveryFormChange}
+                    className="form-control mes-modal-input text-end fw-bold"
+                    min="0"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {deliveryModal.error && (
+              <Alert variant="danger" className="mt-3 mb-0 py-2 small">
+                {deliveryModal.error}
+              </Alert>
+            )}
+            {deliveryModal.success && (
+              <Alert variant="success" className="mt-3 mb-0 py-2 small fw-bold">
+                {deliveryModal.success}
+              </Alert>
+            )}
+          </Modal.Body>
+          <Modal.Footer className="mes-modal-footer">
+            <Button variant="outline-secondary" onClick={closeDeliveryModal}>
+              キャンセル
+            </Button>
+            <Button type="submit" variant="primary" className="fw-bold px-4">
+              納品記録を保存する
+            </Button>
+          </Modal.Footer>
+        </form>
       </Modal>
     </div>
   );

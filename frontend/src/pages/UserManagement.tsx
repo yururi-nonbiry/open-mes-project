@@ -73,71 +73,92 @@ const UserManagement = () => {
     };
 
     return (
-        <div>
-            <h1>ユーザー管理</h1>
-
+        <div className="goods-receipt-page">
             {message.text && (
-                <div className={`alert alert-${message.type} alert-dismissible fade show`} role="alert">
+                <div className={`alert alert-${message.type} alert-dismissible fade show shadow-sm`} role="alert">
                     {message.text}
                     <button type="button" className="btn-close" data-bs-dismiss="alert" aria-label="Close" onClick={() => setMessage({ text: '', type: '' })}></button>
                 </div>
             )}
 
-            <div className="mb-3">
-                <Link to="/user/management/create" className="btn btn-primary">新規ユーザー作成</Link>
+            <div className="goods-receipt-filter-panel mb-3">
+                <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                    <div className="d-flex align-items-center gap-2">
+                        <span className="receipt-filter-label mb-0">登録アカウント一覧</span>
+                        <span className="badge rounded-pill bg-light text-secondary border px-2 py-1">
+                            全 {users.length} 名
+                        </span>
+                    </div>
+                    <div className="d-flex gap-2">
+                        <button type="button" className="btn btn-outline-secondary btn-sm px-3 fw-bold" onClick={fetchUsers} disabled={loading}>
+                            再読み込み
+                        </button>
+                        <Link to="/user/management/create" className="btn btn-primary btn-sm px-3 fw-bold shadow-sm">
+                            ＋ 新規ユーザー作成
+                        </Link>
+                    </div>
+                </div>
             </div>
 
-            <table className="table table-striped table-bordered table-hover table-sm">
-                <thead className="table-light">
-                    <tr>
-                        <th>専用ID</th>
-                        <th>ユーザー名</th>
-                        <th>メールアドレス</th>
-                        <th className="text-center">区分</th>
-                        <th className="text-center">スタッフ権限</th>
-                        <th className="text-center">有効</th>
-                        <th>登録日時</th>
-                        <th>操作</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {loading ? (
-                        <tr><td colSpan="8" className="text-center">読み込み中...</td></tr>
-                    ) : users.length > 0 ? (
-                        users.map(user => (
-                            <tr key={user.id}>
-                                <td>{user.custom_id}</td>
-                                <td>{user.username || '-'}</td>
-                                <td>{user.email || '-'}</td>
-                                <td className="text-center">
-                                    {user.account_type === 'system'
-                                        ? <span className="badge bg-info text-dark">システム連携用</span>
-                                        : <span className="badge bg-light text-dark">通常ユーザー</span>}
-                                </td>
-                                <td className="text-center">
-                                    {user.is_staff ? <span className="badge bg-success">Yes</span> : <span className="badge bg-secondary">No</span>}
-                                </td>
-                                <td className="text-center">
-                                    {user.is_active ? <span className="badge bg-success">Yes</span> : <span className="badge bg-danger">No</span>}
-                                </td>
-                                <td>{formatDate(user.date_joined)}</td>
-                                <td>
-                                    {user.is_superuser && !isSuperuser ? (
-                                        <span className="text-muted small">スーパーユーザーのみ操作可</span>
-                                    ) : (
-                                        <>
-                                            <Link to={`/user/management/edit/${user.id}`} className="btn btn-sm btn-info">編集</Link>
-                                            <button onClick={() => handleDelete(user.id, user.custom_id)} className="btn btn-sm btn-danger ms-1">削除</button>
-                                        </>
-                                    )}
-                                </td>
+            <div className="goods-receipt-table-card">
+                <div className="table-responsive">
+                    <table className="table table-hover align-middle mb-0 goods-receipt-table">
+                        <thead>
+                            <tr>
+                                <th>専用ID</th>
+                                <th>ユーザー名</th>
+                                <th>メールアドレス</th>
+                                <th className="text-center">アカウント区分</th>
+                                <th className="text-center">管理者・スタッフ権限</th>
+                                <th className="text-center">有効状態</th>
+                                <th>登録日時</th>
+                                <th className="text-center" style={{ width: '160px' }}>操作</th>
                             </tr>
-                        ))
-                    ) : (
-                        <tr><td colSpan="8" className="text-center">該当するユーザーがいません。</td></tr>
-                    )}
-                </tbody>
-            </table>
+                        </thead>
+                        <tbody>
+                            {loading ? (
+                                <tr><td colSpan="8" className="text-center py-5 text-muted">読み込み中...</td></tr>
+                            ) : users.length > 0 ? (
+                                users.map(user => (
+                                    <tr key={user.id}>
+                                        <td className="fw-bold text-primary font-monospace">{user.custom_id}</td>
+                                        <td className="fw-bold text-dark">{user.username || '-'}</td>
+                                        <td className="text-secondary small">{user.email || '-'}</td>
+                                        <td className="text-center">
+                                            {user.account_type === 'system'
+                                                ? <span className="receipt-status-badge status-in-progress">システム連携用</span>
+                                                : <span className="badge bg-light text-secondary border">通常ユーザー</span>}
+                                        </td>
+                                        <td className="text-center">
+                                            {user.is_staff
+                                                ? <span className="status-mono-badge is-active">あり</span>
+                                                : <span className="status-mono-badge is-inactive">なし</span>}
+                                        </td>
+                                        <td className="text-center">
+                                            {user.is_active
+                                                ? <span className="status-mono-badge is-active">有効</span>
+                                                : <span className="receipt-status-badge status-cancelled">無効</span>}
+                                        </td>
+                                        <td className="text-secondary small">{formatDate(user.date_joined)}</td>
+                                        <td className="text-center">
+                                            {user.is_superuser && !isSuperuser ? (
+                                                <span className="text-muted small">特権管理者のみ操作可</span>
+                                            ) : (
+                                                <div className="d-flex justify-content-center gap-1">
+                                                    <Link to={`/user/management/edit/${user.id}`} className="btn btn-sm btn-outline-primary fw-bold">編集</Link>
+                                                    <button onClick={() => handleDelete(user.id, user.custom_id)} className="btn btn-sm btn-outline-danger fw-bold">削除</button>
+                                                </div>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr><td colSpan="8" className="text-center py-5 text-muted">該当するユーザーがいません。</td></tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     );
 };

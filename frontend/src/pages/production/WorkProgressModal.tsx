@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import Modal from '../../components/Modal';
+import { Modal, Button, Alert } from 'react-bootstrap';
 import productionService from '../../services/productionService';
 import { ProductionPlan } from '../../types/production';
+import { NavIcon } from '../../config/navigationConfig';
 
 interface WorkProgressModalProps {
     isOpen: boolean;
@@ -23,10 +24,13 @@ const WorkProgressModal: React.FC<WorkProgressModalProps> = ({
         if (isOpen && plan) {
             setModalStatus(plan.status);
             setModalError('');
-            setModalQuantities({ actual: '', good: '', defective: '' });
+            setModalQuantities({
+                actual: String(plan.planned_quantity ?? ''),
+                good: String(plan.planned_quantity ?? ''),
+                defective: '0',
+            });
 
             if (plan.status === 'COMPLETED') {
-                // 実際に報告された実績数量を取得する（未取得だと計画数量で誤って上書きしてしまう）
                 productionService.getWorkProgressForPlan(plan.id)
                     .then(records => {
                         const overall = records.find(r => r.process_step === 'Overall Plan Progress') || records[0];
@@ -35,13 +39,6 @@ const WorkProgressModal: React.FC<WorkProgressModalProps> = ({
                                 actual: (overall.actual_reported_quantity ?? overall.quantity_completed).toString(),
                                 good: overall.quantity_completed.toString(),
                                 defective: (overall.defective_reported_quantity ?? 0).toString(),
-                            });
-                        } else {
-                            // 実績レコードがまだ無い場合のみ計画数量をフォールバックとして使用
-                            setModalQuantities({
-                                actual: plan.planned_quantity.toString(),
-                                good: plan.planned_quantity.toString(),
-                                defective: '0',
                             });
                         }
                     })
@@ -99,66 +96,142 @@ const WorkProgressModal: React.FC<WorkProgressModalProps> = ({
     if (!plan) return null;
 
     const formatDate = (dateString: string) => {
-        if (!dateString) return '';
+        if (!dateString) return '—';
         const date = new Date(dateString);
         return date.toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' });
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose}>
-            <div className="modal-header d-flex justify-content-between align-items-center w-100 p-0 mb-3 border-bottom pb-2">
-                <h5 className="modal-title m-0">作業進捗確認 - 計画ID: {plan.id}</h5>
-            </div>
-            <div className="modal-body p-0">
-                <p><strong>計画名:</strong> {plan.plan_name}</p>
-                <p><strong>製品コード:</strong> {plan.product_code}</p>
-                <p><strong>計画数量:</strong> {plan.planned_quantity}</p>
-                <p><strong>計画開始日:</strong> {formatDate(plan.planned_start_datetime)}</p>
-                <p><strong>現在のステータス:</strong> {availableStatuses.find(s => s.key === plan.status)?.label}</p>
-                <hr />
-                <form onSubmit={(e) => e.preventDefault()}>
-                    <div className="mb-3">
-                        <label className="form-label">ステータス変更</label>
-                        <div>
-                            {availableStatuses.map(statusInfo => (
-                                <button
-                                    key={statusInfo.key}
-                                    type="button"
-                                    className={`btn btn-sm me-1 mb-1 ${modalStatus === statusInfo.key ? statusInfo.btnClass : statusInfo.btnOutlineClass}`}
-                                    onClick={() => setModalStatus(statusInfo.key)}
-                                >
-                                    {statusInfo.label}
-                                </button>
-                            ))}
+        <Modal show={isOpen} onHide={onClose} size="lg" centered scrollable className="mes-clean-modal">
+            <Modal.Header closeButton className="mes-modal-header">
+                <div className="mes-modal-title-wrap">
+                    <span className="mes-modal-icon-box" aria-hidden="true">
+                        <NavIcon name="progress" size={20} />
+                    </span>
+                    <div className="mes-modal-title-text">
+                        <div className="mes-modal-title-row">
+                            <Modal.Title className="mes-modal-title">作業進捗・完了の登録</Modal.Title>
+                            <span className="mes-modal-tag-pill">完成品入庫・材料消費</span>
+                        </div>
+                        <p className="mes-modal-subtitle">
+                            ステータスを「完了」にして製作数量・NG数量を登録すると、OK数量分の完成品が自動入庫されます。
+                        </p>
+                    </div>
+                </div>
+            </Modal.Header>
+            <Modal.Body className="mes-modal-body">
+                <div className="receipt-modal-summary-card mb-3">
+                    <div className="receipt-summary-grid">
+                        <div className="receipt-summary-item">
+                            <span className="summary-label">計画名</span>
+                            <span className="summary-value fw-bold">{plan.plan_name}</span>
+                        </div>
+                        <div className="receipt-summary-item">
+                            <span className="summary-label">製品コード（品番）</span>
+                            <span className="summary-value fw-bold">{plan.product_code}</span>
+                        </div>
+                        <div className="receipt-summary-item">
+                            <span className="summary-label">開始予定日</span>
+                            <span className="summary-value">{formatDate(plan.planned_start_datetime)}</span>
+                        </div>
+                        <div className="receipt-summary-item highlight">
+                            <span className="summary-label">計画数量</span>
+                            <span className="summary-value text-primary fw-bold fs-6">{plan.planned_quantity}</span>
                         </div>
                     </div>
+                </div>
 
-                    {modalStatus === 'COMPLETED' && (
-                        <div>
-                            <h5>進捗数量入力</h5>
-                            <div className="mb-3">
-                                <label htmlFor="modalActualQuantity" className="form-label">製作数量</label>
-                                <input type="number" className="form-control" id="modalActualQuantity" name="actual" value={modalQuantities.actual} onChange={handleQuantityChange} min="0" />
-                            </div>
-                            <div className="mb-3">
-                                <label htmlFor="modalDefectiveQuantity" className="form-label">NG数量</label>
-                                <input type="number" className="form-control" id="modalDefectiveQuantity" name="defective" value={modalQuantities.defective} onChange={handleQuantityChange} min="0" />
-                            </div>
-                            <div className="mb-3">
-                                <label htmlFor="modalGoodQuantity" className="form-label">OK数量</label>
-                                <input type="number" className="form-control" id="modalGoodQuantity" name="good" value={modalQuantities.good} readOnly />
+                <div className="mes-modal-field-group mb-3">
+                    <label className="mes-modal-field-label">
+                        <span>進捗ステータスの選択</span>
+                        <span className="mes-field-badge required">必須</span>
+                    </label>
+                    <div className="receipt-status-tabs mt-1">
+                        {availableStatuses.map(statusInfo => (
+                            <button
+                                key={statusInfo.key}
+                                type="button"
+                                className={`receipt-status-tab ${modalStatus === statusInfo.key ? 'active' : ''}`}
+                                onClick={() => setModalStatus(statusInfo.key)}
+                            >
+                                {statusInfo.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {modalStatus === 'COMPLETED' && (
+                    <div className="row g-3">
+                        <div className="col-12 col-md-4">
+                            <div className="mes-modal-field-group">
+                                <label htmlFor="modalActualQuantity" className="mes-modal-field-label">
+                                    <span>製作数量（総数）</span>
+                                    <span className="mes-field-badge required">必須</span>
+                                </label>
+                                <input
+                                    type="number"
+                                    className="form-control mes-modal-input text-end fw-bold"
+                                    id="modalActualQuantity"
+                                    name="actual"
+                                    value={modalQuantities.actual}
+                                    onChange={handleQuantityChange}
+                                    min="0"
+                                />
+                                <span className="mes-modal-field-help">実際に製造した総数</span>
                             </div>
                         </div>
-                    )}
-                    {modalError && <div className="alert alert-danger mt-2">{modalError}</div>}
-                </form>
-            </div>
-            <div className="modal-footer border-top pt-3 mt-3 d-flex justify-content-end gap-2">
-                <button type="button" className="btn btn-secondary" onClick={onClose}>閉じる</button>
-                <button type="button" className="btn btn-primary" onClick={handleSubmit} disabled={submitting}>
-                    {submitting ? '登録中...' : '進捗を登録'}
-                </button>
-            </div>
+                        <div className="col-12 col-md-4">
+                            <div className="mes-modal-field-group">
+                                <label htmlFor="modalDefectiveQuantity" className="mes-modal-field-label">
+                                    <span>NG数量（不良数）</span>
+                                    <span className="mes-field-badge required">必須</span>
+                                </label>
+                                <input
+                                    type="number"
+                                    className="form-control mes-modal-input text-end fw-bold"
+                                    id="modalDefectiveQuantity"
+                                    name="defective"
+                                    value={modalQuantities.defective}
+                                    onChange={handleQuantityChange}
+                                    min="0"
+                                />
+                                <span className="mes-modal-field-help">不良品の数量（0以上）</span>
+                            </div>
+                        </div>
+                        <div className="col-12 col-md-4">
+                            <div className="mes-modal-field-group">
+                                <label htmlFor="modalGoodQuantity" className="mes-modal-field-label">
+                                    <span>OK数量（良品入庫数）</span>
+                                    <span className="mes-field-badge optional">自動計算</span>
+                                </label>
+                                <input
+                                    type="number"
+                                    className="form-control mes-modal-input text-end fw-bold bg-light"
+                                    id="modalGoodQuantity"
+                                    name="good"
+                                    value={modalQuantities.good}
+                                    readOnly
+                                />
+                                <span className="mes-modal-field-help">製作数量 − NG数量（完成品入庫数）</span>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {modalError && (
+                    <Alert variant="danger" className="mt-3 mb-0 py-2 small">
+                        {modalError}
+                    </Alert>
+                )}
+            </Modal.Body>
+            <Modal.Footer className="mes-modal-footer">
+                <Button variant="outline-secondary" onClick={onClose}>
+                    キャンセル
+                </Button>
+                <Button variant="primary" className="fw-bold px-4" onClick={handleSubmit} disabled={submitting}>
+                    {submitting ? '登録中...' : '進捗を保存する'}
+                </Button>
+            </Modal.Footer>
         </Modal>
     );
 };

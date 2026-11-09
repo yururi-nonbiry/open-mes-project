@@ -38,9 +38,7 @@ const ProductionPlan: React.FC = () => {
     const closeAllocateModal = () => setAllocateModal({ isOpen: false, plan: null });
 
     return (
-        <div className="container mt-4">
-            <h2 className="text-center mb-4">生産計画検索</h2>
-            
+        <div className="goods-receipt-page">
             <ProductionPlanFilters 
                 filters={filters}
                 onFilterChange={handleFilterChange}

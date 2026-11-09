@@ -234,167 +234,186 @@ const UserForm: React.FC = () => {
     };
 
     if (loading) {
-        return <div className="container mt-4">読み込み中...</div>;
+        return <div className="goods-receipt-page text-center py-5 text-muted">読み込み中...</div>;
     }
 
     return (
-        <div className="container mt-4" style={{ maxWidth: '600px' }}>
-            <h1>{isEdit ? 'ユーザー編集' : '新規ユーザー作成'}</h1>
-
-            {error && <div className="alert alert-danger">{error}</div>}
-
-            <form onSubmit={handleSubmit}>
-                <div className="mb-3">
-                    <label htmlFor="custom_id" className="form-label">専用ID</label>
-                    <input
-                        type="text"
-                        id="custom_id"
-                        name="custom_id"
-                        className="form-control"
-                        value={form.custom_id}
-                        onChange={handleChange}
-                        required
-                    />
+        <div className="goods-receipt-page" style={{ maxWidth: '720px' }}>
+            <div className="goods-receipt-filter-panel mb-3 d-flex justify-content-between align-items-center">
+                <div className="fw-bold text-dark">
+                    {isEdit ? `ユーザー情報の編集（ID: ${form.custom_id}）` : '新規ユーザーアカウント作成'}
                 </div>
-                <div className="mb-3">
-                    <label htmlFor="username" className="form-label">ユーザー名</label>
-                    <input
-                        type="text"
-                        id="username"
-                        name="username"
-                        className="form-control"
-                        value={form.username}
-                        onChange={handleChange}
-                    />
-                </div>
-                <div className="mb-3">
-                    <label htmlFor="email" className="form-label">メールアドレス</label>
-                    <input
-                        type="email"
-                        id="email"
-                        name="email"
-                        className="form-control"
-                        value={form.email}
-                        onChange={handleChange}
-                    />
-                </div>
-                <div className="mb-3">
-                    <label htmlFor="password" className="form-label">
-                        {isEdit ? '新しいパスワード（変更する場合のみ入力）' : 'パスワード'}
-                    </label>
-                    <input
-                        type="password"
-                        id="password"
-                        name="password"
-                        className="form-control"
-                        value={form.password}
-                        onChange={handleChange}
-                        minLength={5}
-                        required={!isEdit}
-                        autoComplete="new-password"
-                    />
-                </div>
-                <div className="mb-3">
-                    <label htmlFor="account_type" className="form-label">アカウント区分</label>
-                    <select
-                        id="account_type"
-                        name="account_type"
-                        className="form-select"
-                        value={form.account_type}
-                        onChange={handleChange}
-                    >
-                        <option value="human">通常ユーザー</option>
-                        <option value="system">システム連携用</option>
-                    </select>
-                    <div className="form-text">
-                        「システム連携用」は、外部システムからAPIトークンで接続するための専用アカウントであることを示す区分です。
-                    </div>
-                </div>
-                <div className="form-check mb-2">
-                    <input
-                        type="checkbox"
-                        id="is_staff"
-                        name="is_staff"
-                        className="form-check-input"
-                        checked={form.is_staff}
-                        onChange={handleChange}
-                    />
-                    <label className="form-check-label" htmlFor="is_staff">スタッフ権限</label>
-                </div>
-                <div className="form-check mb-2">
-                    <input
-                        type="checkbox"
-                        id="is_superuser"
-                        name="is_superuser"
-                        className="form-check-input"
-                        checked={form.is_superuser}
-                        onChange={handleChange}
-                        disabled={!isSuperuser}
-                    />
-                    <label className="form-check-label" htmlFor="is_superuser">スーパーユーザー権限</label>
-                    {!isSuperuser && <div className="form-text">スーパーユーザー権限を変更できるのはスーパーユーザーのみです。</div>}
-                </div>
-                <div className="form-check mb-4">
-                    <input
-                        type="checkbox"
-                        id="is_active"
-                        name="is_active"
-                        className="form-check-input"
-                        checked={form.is_active}
-                        onChange={handleChange}
-                    />
-                    <label className="form-check-label" htmlFor="is_active">有効</label>
-                </div>
-
-                <button type="submit" className="btn btn-primary" disabled={submitting}>
-                    {submitting ? '保存中...' : '保存'}
-                </button>
                 <button
                     type="button"
-                    className="btn btn-secondary ms-2"
+                    className="btn btn-outline-secondary btn-sm fw-bold"
                     onClick={() => navigate('/user/management')}
                 >
-                    キャンセル
+                    ← ユーザー一覧に戻る
                 </button>
-            </form>
+            </div>
+
+            {error && <div className="alert alert-danger shadow-sm">{error}</div>}
+
+            <div className="goods-receipt-table-card p-4">
+                <form onSubmit={handleSubmit}>
+                    <div className="mb-3">
+                        <label htmlFor="custom_id" className="receipt-filter-label">専用ID <span className="text-danger">*</span></label>
+                        <input
+                            type="text"
+                            id="custom_id"
+                            name="custom_id"
+                            className="form-control"
+                            value={form.custom_id}
+                            onChange={handleChange}
+                            required
+                        />
+                    </div>
+                    <div className="mb-3">
+                        <label htmlFor="username" className="receipt-filter-label">ユーザー名</label>
+                        <input
+                            type="text"
+                            id="username"
+                            name="username"
+                            className="form-control"
+                            value={form.username}
+                            onChange={handleChange}
+                        />
+                    </div>
+                    <div className="mb-3">
+                        <label htmlFor="email" className="receipt-filter-label">メールアドレス</label>
+                        <input
+                            type="email"
+                            id="email"
+                            name="email"
+                            className="form-control"
+                            value={form.email}
+                            onChange={handleChange}
+                        />
+                    </div>
+                    <div className="mb-3">
+                        <label htmlFor="password" className="receipt-filter-label">
+                            {isEdit ? '新しいパスワード（変更する場合のみ入力）' : 'パスワード'} {!isEdit && <span className="text-danger">*</span>}
+                        </label>
+                        <input
+                            type="password"
+                            id="password"
+                            name="password"
+                            className="form-control"
+                            value={form.password}
+                            onChange={handleChange}
+                            minLength={5}
+                            required={!isEdit}
+                            autoComplete="new-password"
+                        />
+                    </div>
+                    <div className="mb-3">
+                        <label htmlFor="account_type" className="receipt-filter-label">アカウント区分</label>
+                        <select
+                            id="account_type"
+                            name="account_type"
+                            className="form-select"
+                            value={form.account_type}
+                            onChange={handleChange}
+                        >
+                            <option value="human">通常ユーザー</option>
+                            <option value="system">システム連携用</option>
+                        </select>
+                        <div className="form-text">
+                            「システム連携用」は、外部システムからAPIトークンで接続するための専用アカウントであることを示す区分です。
+                        </div>
+                    </div>
+                    <div className="p-3 rounded-3 bg-light border mb-4">
+                        <div className="form-check mb-2">
+                            <input
+                                type="checkbox"
+                                id="is_staff"
+                                name="is_staff"
+                                className="form-check-input"
+                                checked={form.is_staff}
+                                onChange={handleChange}
+                            />
+                            <label className="form-check-label fw-bold text-dark" htmlFor="is_staff">スタッフ権限（管理画面・設定メニューへのアクセス可）</label>
+                        </div>
+                        <div className="form-check mb-2">
+                            <input
+                                type="checkbox"
+                                id="is_superuser"
+                                name="is_superuser"
+                                className="form-check-input"
+                                checked={form.is_superuser}
+                                onChange={handleChange}
+                                disabled={!isSuperuser}
+                            />
+                            <label className="form-check-label fw-bold text-dark" htmlFor="is_superuser">スーパーユーザー権限</label>
+                            {!isSuperuser && <div className="form-text">スーパーユーザー権限を変更できるのはスーパーユーザーのみです。</div>}
+                        </div>
+                        <div className="form-check">
+                            <input
+                                type="checkbox"
+                                id="is_active"
+                                name="is_active"
+                                className="form-check-input"
+                                checked={form.is_active}
+                                onChange={handleChange}
+                            />
+                            <label className="form-check-label fw-bold text-dark" htmlFor="is_active">アカウントを有効にする</label>
+                        </div>
+                    </div>
+
+                    <div className="d-flex justify-content-end gap-2">
+                        <button
+                            type="button"
+                            className="btn btn-outline-secondary px-4 fw-bold"
+                            onClick={() => navigate('/user/management')}
+                        >
+                            キャンセル
+                        </button>
+                        <button type="submit" className="btn btn-primary px-4 fw-bold shadow-sm" disabled={submitting}>
+                            {submitting ? '保存中...' : '保存する'}
+                        </button>
+                    </div>
+                </form>
+            </div>
 
             {isEdit && (
-                <div className="card mt-4">
-                    <div className="card-header">
-                        <h3 className="h5 mb-0">APIトークン管理（外部システム連携用）</h3>
-                    </div>
-                    <div className="card-body">
+                <div className="goods-receipt-table-card p-4 mt-4">
+                    <h5 className="fw-bold text-dark mb-3 pb-2 border-bottom" style={{ fontSize: '0.98rem' }}>
+                        APIトークン管理（外部システム連携用）
+                    </h5>
+                    <div>
                         {tokenMessage.text && (
                             <div className={`alert alert-${tokenMessage.type}`}>{tokenMessage.text}</div>
                         )}
                         {tokenLoading ? (
-                            <p>読み込み中...</p>
+                            <p className="text-muted">読み込み中...</p>
                         ) : (
                             <>
-                                <p>
-                                    <strong>APIトークン:</strong>
-                                    <span style={{ wordBreak: 'break-all' }} className="ms-2 font-monospace">
-                                        {apiToken ? (isTokenVisible ? apiToken : '•'.repeat(40)) : 'トークンが見つかりません。'}
-                                    </span>
-                                    <button
-                                        type="button"
-                                        className="btn btn-sm btn-outline-secondary ms-2"
-                                        onClick={() => setIsTokenVisible(!isTokenVisible)}
-                                        disabled={!apiToken}
-                                    >
-                                        {isTokenVisible ? '非表示' : '表示する'}
-                                    </button>
-                                </p>
-                                <button
-                                    type="button"
-                                    className="btn btn-warning btn-sm mb-3"
-                                    onClick={handleRegenerateToken}
-                                    disabled={regenerating}
-                                >
-                                    {regenerating ? '再生成中...' : 'トークンを発行/再生成'}
-                                </button>
-
-                                <hr />
+                                <div className="p-3 bg-light rounded-3 border mb-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
+                                    <div>
+                                        <span className="small fw-bold text-secondary d-block mb-1">現在のAPIトークン</span>
+                                        <span style={{ wordBreak: 'break-all' }} className="font-monospace text-dark fw-semibold">
+                                            {apiToken ? (isTokenVisible ? apiToken : '•'.repeat(40)) : 'トークンが見つかりません。'}
+                                        </span>
+                                    </div>
+                                    <div className="d-flex gap-2">
+                                        <button
+                                            type="button"
+                                            className="btn btn-sm btn-outline-secondary fw-bold"
+                                            onClick={() => setIsTokenVisible(!isTokenVisible)}
+                                            disabled={!apiToken}
+                                        >
+                                            {isTokenVisible ? '非表示' : '表示する'}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="btn btn-outline-warning btn-sm fw-bold"
+                                            onClick={handleRegenerateToken}
+                                            disabled={regenerating}
+                                        >
+                                            {regenerating ? '再生成中...' : 'トークンを発行/再生成'}
+                                        </button>
+                                    </div>
+                                </div>
 
                                 <form onSubmit={handlePolicySubmit}>
                                     <div className="form-check mb-3">
@@ -405,16 +424,16 @@ const UserForm: React.FC = () => {
                                             checked={tokenPolicy.is_active}
                                             onChange={(e) => setTokenPolicy(prev => ({ ...prev, is_active: e.target.checked }))}
                                         />
-                                        <label className="form-check-label" htmlFor="policy_is_active">
+                                        <label className="form-check-label fw-bold text-dark" htmlFor="policy_is_active">
                                             このトークンを有効にする
                                         </label>
                                     </div>
 
                                     <div className="mb-3">
-                                        <label htmlFor="policy_allowed_ips" className="form-label">接続許可IPアドレス</label>
+                                        <label htmlFor="policy_allowed_ips" className="receipt-filter-label">接続許可IPアドレス</label>
                                         <textarea
                                             id="policy_allowed_ips"
-                                            className="form-control"
+                                            className="form-control font-monospace"
                                             rows={3}
                                             placeholder="例: 203.0.113.10&#10;198.51.100.0/24"
                                             value={tokenPolicy.allowed_ips}
@@ -424,25 +443,29 @@ const UserForm: React.FC = () => {
                                     </div>
 
                                     <div className="mb-3">
-                                        <label className="form-label d-block">アクセス許可API（スコープ）</label>
-                                        {API_SCOPE_CHOICES.map(([key, label]) => (
-                                            <div className="form-check form-check-inline" key={key}>
-                                                <input
-                                                    type="checkbox"
-                                                    className="form-check-input"
-                                                    id={`scope_${key}`}
-                                                    checked={tokenPolicy.scopes.includes(key)}
-                                                    onChange={() => handleScopeToggle(key)}
-                                                />
-                                                <label className="form-check-label" htmlFor={`scope_${key}`}>{label}</label>
-                                            </div>
-                                        ))}
+                                        <label className="receipt-filter-label d-block">アクセス許可API（スコープ）</label>
+                                        <div className="d-flex flex-wrap gap-3 p-2 bg-light rounded border">
+                                            {API_SCOPE_CHOICES.map(([key, label]) => (
+                                                <div className="form-check mb-0" key={key}>
+                                                    <input
+                                                        type="checkbox"
+                                                        className="form-check-input"
+                                                        id={`scope_${key}`}
+                                                        checked={tokenPolicy.scopes.includes(key)}
+                                                        onChange={() => handleScopeToggle(key)}
+                                                    />
+                                                    <label className="form-check-label text-dark" htmlFor={`scope_${key}`}>{label}</label>
+                                                </div>
+                                            ))}
+                                        </div>
                                         <div className="form-text">未選択（すべて外す）の場合は全アプリにアクセス可能です。</div>
                                     </div>
 
-                                    <button type="submit" className="btn btn-primary btn-sm" disabled={policySubmitting}>
-                                        {policySubmitting ? '保存中...' : 'アクセス制御ポリシーを保存'}
-                                    </button>
+                                    <div className="d-flex justify-content-end">
+                                        <button type="submit" className="btn btn-primary btn-sm px-3 fw-bold shadow-sm" disabled={policySubmitting}>
+                                            {policySubmitting ? '保存中...' : 'アクセス制御ポリシーを保存'}
+                                        </button>
+                                    </div>
                                 </form>
                             </>
                         )}

@@ -38,9 +38,11 @@ const ProductionPlanMaterialsModal: React.FC<ProductionPlanMaterialsModalProps> 
         if (!plan) return;
         setLoading(true);
         try {
-            setMaterials(await productionService.getPlanMaterials(plan.id));
+            const data = await productionService.getPlanMaterials(plan.id);
+            setMaterials(Array.isArray(data) ? data : Array.isArray((data as any)?.results) ? (data as any).results : []);
         } catch (e) {
             setMessage({ text: errorText(e), type: 'danger' });
+            setMaterials([]);
         } finally {
             setLoading(false);
         }

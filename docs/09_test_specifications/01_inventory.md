@@ -172,7 +172,7 @@
 
 ### 5.9.1 出庫予定のキャンセル `change-status`（`POST sales-orders/{id}/change-status/`）
 
-外部連携（akita2mes のデータ投入取り消し等）向け。`status` に指定できるのは `canceled` / `pending` のみ。
+外部連携（外部MES等のデータ投入取り消し等）向け。`status` に指定できるのは `canceled` / `pending` のみ。
 
 | ケースID | 分類 | 入力 | 期待結果 | 備考 |
 |---|---|---|---|---|

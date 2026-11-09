@@ -148,16 +148,16 @@ const UserSettings = () => {
 
   // Render logic
   if (loading) {
-    return <div className="container mt-4"><h2>ユーザー設定</h2><p>読み込み中...</p></div>;
+    return <div className="goods-receipt-page text-center py-5 text-muted">読み込み中...</div>;
   }
 
   if (error) {
-    return <div className="container mt-4"><h2>ユーザー設定</h2><div className="alert alert-danger">{error}</div></div>;
+    return <div className="goods-receipt-page"><div className="alert alert-danger">{error}</div></div>;
   }
 
   const renderMessages = () => {
     return messages.map(msg => (
-      <div key={msg.id} className={`alert alert-${msg.type} alert-dismissible fade show`} role="alert">
+      <div key={msg.id} className={`alert alert-${msg.type} alert-dismissible fade show shadow-sm`} role="alert">
         {msg.text}
         <button type="button" className="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
       </div>
@@ -165,83 +165,92 @@ const UserSettings = () => {
   };
 
   return (
-    <div className="container mt-4">
-      <h2>ユーザー設定</h2>
+    <div className="goods-receipt-page" style={{ maxWidth: '820px' }}>
       {renderMessages()}
 
       {/* Profile Edit Form */}
-      <div className="card mb-4">
-        <div className="card-header">
-          <h3>プロフィール編集</h3>
-        </div>
-        <div className="card-body">
+      <div className="goods-receipt-table-card p-4 mb-3">
+        <h5 className="fw-bold text-dark mb-3 pb-2 border-bottom" style={{ fontSize: '0.98rem' }}>
+          ① プロフィール情報の編集
+        </h5>
+        <div>
           <form onSubmit={handleProfileSubmit}>
             {profileErrors.non_field_errors && <div className="alert alert-danger">{profileErrors.non_field_errors.join(' ')}</div>}
-            <div className="row mb-3">
-              <label htmlFor="custom_id" className="col-sm-3 col-form-label fw-bold">専用ID</label>
+            <div className="row mb-3 align-items-center">
+              <label htmlFor="custom_id" className="col-sm-3 col-form-label fw-bold text-secondary small">専用ID</label>
               <div className="col-sm-9">
-                <input type="text" id="custom_id" name="custom_id" className="form-control" value={profileForm.custom_id} readOnly disabled />
+                <input type="text" id="custom_id" name="custom_id" className="form-control bg-light font-monospace" value={profileForm.custom_id} readOnly disabled />
                 {profileErrors.custom_id && <div className="invalid-feedback">{profileErrors.custom_id.join(' ')}</div>}
               </div>
             </div>
-            <div className="row mb-3">
-              <label htmlFor="username" className="col-sm-3 col-form-label fw-bold">ユーザー名</label>
+            <div className="row mb-3 align-items-center">
+              <label htmlFor="username" className="col-sm-3 col-form-label fw-bold text-secondary small">ユーザー名</label>
               <div className="col-sm-9">
                 <input type="text" id="username" name="username" className={`form-control ${profileErrors.username ? 'is-invalid' : ''}`} value={profileForm.username} onChange={handleProfileChange} required />
                 {profileErrors.username && <div className="invalid-feedback">{profileErrors.username.join(' ')}</div>}
               </div>
             </div>
-            <div className="row mb-3">
-              <label htmlFor="email" className="col-sm-3 col-form-label fw-bold">メールアドレス</label>
+            <div className="row mb-3 align-items-center">
+              <label htmlFor="email" className="col-sm-3 col-form-label fw-bold text-secondary small">メールアドレス</label>
               <div className="col-sm-9">
                 <input type="email" id="email" name="email" className={`form-control ${profileErrors.email ? 'is-invalid' : ''}`} value={profileForm.email} onChange={handleProfileChange} />
                 {profileErrors.email && <div className="invalid-feedback">{profileErrors.email.join(' ')}</div>}
               </div>
             </div>
-            <div className="row mt-4">
-              <div className="col-sm-9 offset-sm-3">
-                <button type="submit" className="btn btn-primary">プロフィール情報を保存</button>
-              </div>
+            <div className="d-flex justify-content-end mt-3">
+              <button type="submit" className="btn btn-primary px-4 fw-bold shadow-sm">プロフィール情報を保存</button>
             </div>
           </form>
         </div>
       </div>
 
       {/* Password Change */}
-      <div className="card mb-4">
-        <div className="card-header">
-          <h3>パスワード変更</h3>
+      <div className="goods-receipt-table-card p-4 mb-3 d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div>
+          <h5 className="fw-bold text-dark mb-1" style={{ fontSize: '0.98rem' }}>
+            ② パスワード変更
+          </h5>
+          <p className="text-secondary small mb-0">ログイン用パスワードを新しいものに変更します。</p>
         </div>
-        <div className="card-body">
-          <button type="button" className="btn btn-secondary" onClick={openPasswordModal}>
-            パスワードを変更する
-          </button>
-        </div>
+        <button type="button" className="btn btn-outline-primary px-3 fw-bold" onClick={openPasswordModal}>
+          パスワードを変更する
+        </button>
       </div>
 
       {/* API Token Management */}
-      <div className="card">
-        <div className="card-header">
-          <h3>APIトークン</h3>
-        </div>
-        <div className="card-body">
-          <p><strong>現在のトークン:</strong>
-            <span id="apiTokenDisplay" style={{ wordBreak: 'break-all' }} className="ms-2 font-monospace">
-              {apiToken ? (isTokenVisible ? apiToken : '•'.repeat(40)) : 'トークンが見つかりません。'}
-            </span>
-            <button
-              id="toggleTokenVisibility"
-              className="btn btn-sm btn-outline-secondary ms-2"
-              onClick={() => setIsTokenVisible(!isTokenVisible)}
-              disabled={!apiToken}
-            >
-              {isTokenVisible ? '非表示' : '表示する'}
-            </button>
-          </p>
-          <form onSubmit={(e) => { e.preventDefault(); handleRegenerateToken(); }} className="mt-2">
-            <button type="submit" name="regenerate_token" className="btn btn-warning">トークンを再生成</button>
-          </form>
-          <p className="mt-2"><small>トークンを再生成すると、現在のトークンは無効になり、新しいトークンが作成されます。</small></p>
+      <div className="goods-receipt-table-card p-4">
+        <h5 className="fw-bold text-dark mb-3 pb-2 border-bottom" style={{ fontSize: '0.98rem' }}>
+          ③ APIトークン管理
+        </h5>
+        <div>
+          <div className="p-3 bg-light rounded-3 border mb-2 d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div>
+              <span className="small fw-bold text-secondary d-block mb-1">現在のトークン</span>
+              <span id="apiTokenDisplay" style={{ wordBreak: 'break-all' }} className="font-monospace text-dark fw-semibold">
+                {apiToken ? (isTokenVisible ? apiToken : '•'.repeat(40)) : 'トークンが見つかりません。'}
+              </span>
+            </div>
+            <div className="d-flex gap-2">
+              <button
+                id="toggleTokenVisibility"
+                type="button"
+                className="btn btn-sm btn-outline-secondary fw-bold"
+                onClick={() => setIsTokenVisible(!isTokenVisible)}
+                disabled={!apiToken}
+              >
+                {isTokenVisible ? '非表示' : '表示する'}
+              </button>
+              <button
+                type="button"
+                name="regenerate_token"
+                className="btn btn-sm btn-outline-warning fw-bold"
+                onClick={handleRegenerateToken}
+              >
+                トークンを再生成
+              </button>
+            </div>
+          </div>
+          <p className="mb-0 text-secondary small">トークンを再生成すると、現在のトークンは無効になり、新しいトークンが作成されます。</p>
         </div>
       </div>
 

@@ -54,17 +54,8 @@ const PartsSupplySimulationPage = () => {
     const overdueParts = shortageParts.filter(p => p.order_overdue);
 
     return (
-        <div className="container mt-4">
-            <div className="mb-4">
-                <h2 className="fw-bold text-dark">部品供給シミュレーション</h2>
-                <p className="text-muted mb-0">
-                    複数の生産計画（納入品番）を横断し、共通部品の在庫が納期順にどこまで賄えるかを判定します。
-                    比較したい生産計画だけに絞り込むことで「単独なら」「同時なら」の違いを確認できます。
-                    中間品などの生産予定（未着手・進行中の生産計画）は、対象の選択に関係なく計画終了日時に入荷する見込みとして数えます。
-                </p>
-            </div>
-
-            <div className="card border-0 shadow-sm rounded-3 mb-4">
+        <div className="goods-receipt-page">
+            <div className="goods-receipt-filter-panel mb-3">
                 <div className="card-body p-4">
                     <div className="mb-3">
                         <label className="form-label fw-semibold text-secondary">対象ステータス（生産計画IDを指定しない場合に使用）</label>

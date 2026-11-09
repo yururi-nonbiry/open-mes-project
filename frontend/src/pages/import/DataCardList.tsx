@@ -1,44 +1,69 @@
 import React from 'react';
 import { Row, Col, Card, Button } from 'react-bootstrap';
-
-interface CardInfo {
-    id: string;
-    title: string;
-    icon: string;
-    description: string;
-}
+import { DataCardItem } from '../../config/dataImportConfigs';
+import { NavIcon } from '../../config/navigationConfig';
 
 interface DataCardListProps {
     title: string;
-    cards: CardInfo[];
+    cards: DataCardItem[];
     onRegister: (id: string) => void;
     onList: (id: string) => void;
 }
 
 const DataCardList: React.FC<DataCardListProps> = ({ title, cards, onRegister, onList }) => {
+    const isBusiness = title === '業務データ';
     return (
-        <>
-            <h3 className={title === '業務データ' ? 'mt-5' : ''}>{title}</h3>
-            <Row>
+        <div className="data-card-section mb-4">
+            <div className="data-card-section-header">
+                <span className="data-card-section-icon">
+                    <NavIcon name={isBusiness ? 'plan' : 'master'} size={18} />
+                </span>
+                <h3 className="mb-0">{title}</h3>
+                <span className="data-card-section-badge">{cards.length} 項目</span>
+            </div>
+            <Row className="g-3">
                 {cards.map(card => (
-                    <Col key={card.id} md={4} className="mb-4">
-                        <Card className="h-100 shadow-sm border-0">
-                            <Card.Body className="d-flex flex-column">
-                                <div className="d-flex align-items-center mb-3">
-                                    <span className="fs-2 me-3">{card.icon}</span>
-                                    <Card.Title className="mb-0 fw-bold">{card.title}</Card.Title>
+                    <Col key={card.id} md={4}>
+                        <Card className="h-100 data-mgmt-card">
+                            <Card.Body className="d-flex flex-column p-3">
+                                <div className="d-flex align-items-center justify-content-between mb-2">
+                                    <div className="d-flex align-items-center gap-2">
+                                        <span className="data-mgmt-icon-box">
+                                            <NavIcon name={card.icon} size={20} />
+                                        </span>
+                                        <Card.Title className="mb-0 fw-bold fs-6">{card.title}</Card.Title>
+                                    </div>
+                                    {card.tag && (
+                                        <span className="data-mgmt-tag">{card.tag}</span>
+                                    )}
                                 </div>
-                                <Card.Text className="flex-grow-1 text-muted small">{card.description}</Card.Text>
-                                <div className="d-grid gap-2 mt-3">
-                                    <Button variant="outline-primary" size="sm" onClick={() => onRegister(card.id)}>新規作成</Button>
-                                    <Button variant="outline-secondary" size="sm" onClick={() => onList(card.id)}>一覧表示</Button>
+                                <Card.Text className="flex-grow-1 text-muted small mb-3">
+                                    {card.description}
+                                </Card.Text>
+                                <div className="d-flex gap-2 mt-auto">
+                                    <Button
+                                        variant="primary"
+                                        size="sm"
+                                        className="flex-grow-1 fw-bold"
+                                        onClick={() => onRegister(card.id)}
+                                    >
+                                        ＋ 新規作成
+                                    </Button>
+                                    <Button
+                                        variant="outline-secondary"
+                                        size="sm"
+                                        className="flex-grow-1 fw-bold"
+                                        onClick={() => onList(card.id)}
+                                    >
+                                        一覧表示
+                                    </Button>
                                 </div>
                             </Card.Body>
                         </Card>
                     </Col>
                 ))}
             </Row>
-        </>
+        </div>
     );
 };
 

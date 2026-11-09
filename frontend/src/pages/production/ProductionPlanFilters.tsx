@@ -14,47 +14,103 @@ interface ProductionPlanFiltersProps {
     onClear: () => void;
 }
 
+const PLAN_STATUS_TABS = [
+    { value: '', label: 'すべて表示' },
+    { value: 'PENDING', label: '未着手' },
+    { value: 'IN_PROGRESS', label: '進行中' },
+    { value: 'COMPLETED', label: '完了' },
+    { value: 'ON_HOLD', label: '保留' },
+    { value: 'CANCELLED', label: '中止' },
+];
+
 const ProductionPlanFilters: React.FC<ProductionPlanFiltersProps> = ({
     filters, onFilterChange, onSearch, onClear
 }) => {
+    const handleTabSelect = (val: string) => {
+        const syntheticEvent = {
+            target: { name: 'status', value: val },
+        } as React.ChangeEvent<HTMLSelectElement>;
+        onFilterChange(syntheticEvent);
+    };
+
+    const handleFormSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        onSearch(e);
+    };
+
     return (
-        <div className="card card-body bg-light mb-4 shadow-sm">
-            <form onSubmit={onSearch}>
-                <div className="row gx-2 gy-2 mb-3">
-                    <div className="col-md">
-                        <input type="text" name="plan_name" value={filters.plan_name} onChange={onFilterChange} className="form-control form-control-sm" placeholder="計画名" />
-                    </div>
-                    <div className="col-md">
-                        <input type="text" name="product_code" value={filters.product_code} onChange={onFilterChange} className="form-control form-control-sm" placeholder="製品コード" />
-                    </div>
-                    <div className="col-md">
-                        <select name="status" value={filters.status} onChange={onFilterChange} className="form-select form-select-sm">
-                            <option value="">ステータス (すべて)</option>
-                            <option value="PENDING">未着手</option>
-                            <option value="IN_PROGRESS">進行中</option>
-                            <option value="COMPLETED">完了</option>
-                            <option value="ON_HOLD">保留</option>
-                            <option value="CANCELLED">中止</option>
-                        </select>
-                    </div>
-                    <div className="col-md">
-                        <input type="text" name="parent_plan_ref" value={filters.parent_plan_ref} onChange={onFilterChange} className="form-control form-control-sm" placeholder="親計画ID" />
+        <div className="goods-receipt-filter-panel mb-3">
+            <form onSubmit={handleFormSubmit}>
+                <div className="receipt-status-tabs-row mb-2">
+                    <span className="filter-section-label">状態フィルタ：</span>
+                    <div className="receipt-status-tabs" role="tablist">
+                        {PLAN_STATUS_TABS.map(tab => (
+                            <button
+                                key={tab.value || 'all'}
+                                type="button"
+                                className={`receipt-status-tab ${filters.status === tab.value ? 'active' : ''}`}
+                                onClick={() => handleTabSelect(tab.value)}
+                            >
+                                {tab.label}
+                            </button>
+                        ))}
                     </div>
                 </div>
-                <div className="row gx-2 gy-2 align-items-end">
-                    <div className="col-md-auto">
-                        <label className="form-label mb-0 me-1">計画開始日:</label>
+
+                <div className="receipt-search-inputs-row">
+                    <div className="receipt-search-field">
+                        <label className="receipt-search-label" htmlFor="plan-filter-name">計画名</label>
+                        <input
+                            id="plan-filter-name"
+                            type="text"
+                            name="plan_name"
+                            value={filters.plan_name}
+                            onChange={onFilterChange}
+                            className="form-control form-control-sm"
+                            placeholder="計画名を入力..."
+                        />
                     </div>
-                    <div className="col-md">
-                        <input type="date" name="planned_start_from" value={filters.planned_start_from} onChange={onFilterChange} className="form-control form-control-sm" />
+                    <div className="receipt-search-field">
+                        <label className="receipt-search-label" htmlFor="plan-filter-product">製品コード（品番）</label>
+                        <input
+                            id="plan-filter-product"
+                            type="text"
+                            name="product_code"
+                            value={filters.product_code}
+                            onChange={onFilterChange}
+                            className="form-control form-control-sm"
+                            placeholder="製品コードを入力..."
+                        />
                     </div>
-                    <div className="col-md-auto text-center px-1">～</div>
-                    <div className="col-md">
-                        <input type="date" name="planned_start_to" value={filters.planned_start_to} onChange={onFilterChange} className="form-control form-control-sm" />
+                    <div className="receipt-search-field">
+                        <label className="receipt-search-label" htmlFor="plan-filter-from">開始予定日（以降）</label>
+                        <input
+                            id="plan-filter-from"
+                            type="date"
+                            name="planned_start_from"
+                            value={filters.planned_start_from}
+                            onChange={onFilterChange}
+                            className="form-control form-control-sm"
+                        />
                     </div>
-                    <div className="col-md-auto ms-md-2 mt-2 mt-md-0">
-                        <button type="submit" className="btn btn-success btn-sm me-1">検索</button>
-                        <button type="button" onClick={onClear} className="btn btn-danger btn-sm">クリア</button>
+                    <div className="receipt-search-field">
+                        <label className="receipt-search-label" htmlFor="plan-filter-to">開始予定日（以前）</label>
+                        <input
+                            id="plan-filter-to"
+                            type="date"
+                            name="planned_start_to"
+                            value={filters.planned_start_to}
+                            onChange={onFilterChange}
+                            className="form-control form-control-sm"
+                        />
+                    </div>
+                    <div className="receipt-search-actions">
+                        <button type="submit" className="btn btn-primary btn-sm fw-bold px-3">
+                            検索
+                        </button>
+                        <button type="button" onClick={onClear} className="btn btn-outline-secondary btn-sm">
+                            条件リセット
+                        </button>
                     </div>
                 </div>
             </form>

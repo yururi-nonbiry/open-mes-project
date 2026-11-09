@@ -64,54 +64,80 @@ const WarehouseLayoutCreation: React.FC = () => {
     };
 
     return (
-        <div className="container mt-4">
-            <h2 className="mb-4">倉庫レイアウト管理</h2>
-
-            <div className="row mb-3">
-                <div className="col-md-4">
-                    <label className="form-label fw-bold small">倉庫</label>
-                    <select
-                        className="form-select form-select-sm"
-                        value={selectedWarehouseNumber}
-                        onChange={(e) => setSelectedWarehouseNumber(e.target.value)}
-                    >
-                        {warehouses.map((w) => (
-                            <option key={w.warehouse_number} value={w.warehouse_number}>
-                                {w.warehouse_number} - {w.name}
-                            </option>
-                        ))}
-                    </select>
-                </div>
-                <div className="col-md-2">
-                    <label className="form-label fw-bold small">列数</label>
-                    <input type="number" min={1} className="form-control form-control-sm" value={cols} onChange={(e) => setCols(Number(e.target.value))} />
-                </div>
-                <div className="col-md-2">
-                    <label className="form-label fw-bold small">行数</label>
-                    <input type="number" min={1} className="form-control form-control-sm" value={rows} onChange={(e) => setRows(Number(e.target.value))} />
-                </div>
-                <div className="col-md-2 d-flex align-items-end">
-                    <button className="btn btn-secondary btn-sm" onClick={handleSaveSize} disabled={sizeSaving || !selectedWarehouse}>
-                        {sizeSaving ? '保存中...' : 'サイズを保存'}
-                    </button>
+        <div className="goods-receipt-page">
+            <div className="goods-receipt-filter-panel">
+                <div className="receipt-search-inputs-row">
+                    <div className="receipt-search-field">
+                        <label className="receipt-search-label" htmlFor="warehouse-layout-select">対象倉庫</label>
+                        <select
+                            id="warehouse-layout-select"
+                            className="form-select form-select-sm"
+                            value={selectedWarehouseNumber}
+                            onChange={(e) => setSelectedWarehouseNumber(e.target.value)}
+                        >
+                            {warehouses.map((w) => (
+                                <option key={w.warehouse_number} value={w.warehouse_number}>
+                                    {w.warehouse_number} - {w.name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="receipt-search-field" style={{ maxWidth: '140px' }}>
+                        <label className="receipt-search-label" htmlFor="warehouse-cols-input">横マス数（列数）</label>
+                        <input
+                            id="warehouse-cols-input"
+                            type="number"
+                            min={1}
+                            className="form-control form-control-sm"
+                            value={cols}
+                            onChange={(e) => setCols(Number(e.target.value))}
+                        />
+                    </div>
+                    <div className="receipt-search-field" style={{ maxWidth: '140px' }}>
+                        <label className="receipt-search-label" htmlFor="warehouse-rows-input">縦マス数（行数）</label>
+                        <input
+                            id="warehouse-rows-input"
+                            type="number"
+                            min={1}
+                            className="form-control form-control-sm"
+                            value={rows}
+                            onChange={(e) => setRows(Number(e.target.value))}
+                        />
+                    </div>
+                    <div className="receipt-search-actions">
+                        <button
+                            type="button"
+                            className="btn btn-primary btn-sm fw-bold px-3"
+                            onClick={handleSaveSize}
+                            disabled={sizeSaving || !selectedWarehouse}
+                        >
+                            {sizeSaving ? '保存中...' : 'マップサイズを保存'}
+                        </button>
+                    </div>
+                    <span className="receipt-result-count ms-auto">
+                        登録棚番：<strong>{locations.length}</strong> 箇所
+                    </span>
                 </div>
             </div>
-
-            <p className="text-muted small">空いているマスをクリックするとロケーションを新規登録できます。既存のロケーションをクリックすると編集・削除できます。</p>
 
             {loading && <div className="text-center p-4"><div className="spinner-border text-primary" role="status"></div></div>}
             {error && <div className="alert alert-danger">エラーが発生しました: {error}</div>}
 
             {!loading && !error && selectedWarehouse && (
-                <div className="table-responsive">
-                    <WarehouseLayoutGrid
-                        cols={selectedWarehouse.layout_cols}
-                        rows={selectedWarehouse.layout_rows}
-                        locations={locations}
-                        mode="edit"
-                        onCellClick={handleCellClick}
-                        onLocationClick={(loc) => handleLocationClick(loc as WarehouseLocation)}
-                    />
+                <div className="goods-receipt-table-card p-3">
+                    <div className="small text-secondary fw-semibold mb-2">
+                        ※ 空いているマスをクリックすると棚番（ロケーション）を新規登録できます。配置済みの棚番をクリックすると編集・削除できます。
+                    </div>
+                    <div className="table-responsive">
+                        <WarehouseLayoutGrid
+                            cols={selectedWarehouse.layout_cols}
+                            rows={selectedWarehouse.layout_rows}
+                            locations={locations}
+                            mode="edit"
+                            onCellClick={handleCellClick}
+                            onLocationClick={(loc) => handleLocationClick(loc as WarehouseLocation)}
+                        />
+                    </div>
                 </div>
             )}
 

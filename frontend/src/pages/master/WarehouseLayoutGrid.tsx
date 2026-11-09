@@ -48,23 +48,31 @@ const WarehouseLayoutGrid: React.FC<WarehouseLayoutGridProps> = ({
     const locationFill = (loc: GridLocation) => {
         const mapEntry = loc as WarehouseLocationMapEntry;
         if (mode === 'view') {
-            return mapEntry.highlighted ? '#f0ad4e' : '#e9ecef';
+            return mapEntry.highlighted ? '#fde68a' : '#f1f5f9';
         }
-        return '#6ea8fe';
+        return '#bae6fd';
+    };
+
+    const locationStroke = (loc: GridLocation) => {
+        const mapEntry = loc as WarehouseLocationMapEntry;
+        if (mode === 'view') {
+            return mapEntry.highlighted ? '#d97706' : '#94a3b8';
+        }
+        return '#0284c7';
     };
 
     return (
         <svg
             width={width}
             height={height}
-            style={{ border: '1px solid #adb5bd', cursor: mode === 'edit' ? 'pointer' : 'default', background: '#fff' }}
+            style={{ border: '1.5px solid #93c5fd', borderRadius: '6px', cursor: mode === 'edit' ? 'pointer' : 'default', background: '#ffffff' }}
             onClick={handleSvgClick}
         >
             {Array.from({ length: cols + 1 }).map((_, i) => (
-                <line key={`v-${i}`} x1={i * cellSize} y1={0} x2={i * cellSize} y2={height} stroke="#dee2e6" strokeWidth={1} />
+                <line key={`v-${i}`} x1={i * cellSize} y1={0} x2={i * cellSize} y2={height} stroke="#e2e8f0" strokeWidth={1} />
             ))}
             {Array.from({ length: rows + 1 }).map((_, i) => (
-                <line key={`h-${i}`} x1={0} y1={i * cellSize} x2={width} y2={i * cellSize} stroke="#dee2e6" strokeWidth={1} />
+                <line key={`h-${i}`} x1={0} y1={i * cellSize} x2={width} y2={i * cellSize} stroke="#e2e8f0" strokeWidth={1} />
             ))}
 
             {locations.map((loc) => {
@@ -76,9 +84,10 @@ const WarehouseLayoutGrid: React.FC<WarehouseLayoutGridProps> = ({
                             y={loc.pos_y * cellSize + 1}
                             width={loc.width * cellSize - 2}
                             height={loc.height * cellSize - 2}
+                            rx={3}
                             fill={locationFill(loc)}
-                            stroke="#495057"
-                            strokeWidth={1}
+                            stroke={locationStroke(loc)}
+                            strokeWidth={1.5}
                             style={{ cursor: 'pointer' }}
                         />
                         <text
@@ -87,7 +96,8 @@ const WarehouseLayoutGrid: React.FC<WarehouseLayoutGridProps> = ({
                             textAnchor="middle"
                             dominantBaseline="middle"
                             fontSize={11}
-                            fill="#212529"
+                            fontWeight={700}
+                            fill="#0f172a"
                             pointerEvents="none"
                         >
                             {loc.code}

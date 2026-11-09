@@ -13,25 +13,22 @@ const ProcessInspection: React.FC = () => {
     };
 
     return (
-        <div className="container mt-4">
-            <h3>工程内検査 登録</h3>
-            <p className="text-muted">検査する項目を選択してください。</p>
-
-            {loading && <p>読み込み中...</p>}
+        <div className="goods-receipt-page">
+            {loading && <div className="text-center py-5 text-muted">読み込み中...</div>}
             {error && <div className="alert alert-danger">エラー: {error}</div>}
-            
+
             {!loading && !error && (
-                <InspectionItemTable 
-                    items={items} 
-                    onItemClick={setSelectedItem} 
+                <InspectionItemTable
+                    items={items}
+                    onItemClick={setSelectedItem}
                 />
             )}
 
             {selectedItem && (
-                <InspectionResultModal 
-                    item={selectedItem} 
-                    onClose={() => setSelectedItem(null)} 
-                    onSuccess={handleSuccess} 
+                <InspectionResultModal
+                    item={selectedItem}
+                    onClose={() => setSelectedItem(null)}
+                    onSuccess={handleSuccess}
                 />
             )}
         </div>

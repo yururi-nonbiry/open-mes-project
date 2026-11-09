@@ -1,5 +1,11 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+import {
+  NAV_CATEGORIES,
+  NavIcon,
+  getCircledNumber,
+  resolveCurrentNavigation,
+} from '../config/navigationConfig';
 
 interface SideMenuProps {
   isOpen: boolean;
@@ -10,66 +16,109 @@ interface SideMenuProps {
   isAuthenticated: boolean;
 }
 
-const SideMenu: React.FC<SideMenuProps> = ({ isOpen, isStaffOrSuperuser, onVersionClick, onLinkClick, onLogout }) => {
+const SideMenu: React.FC<SideMenuProps> = ({
+  isOpen,
+  isStaffOrSuperuser,
+  onVersionClick,
+  onLinkClick,
+  onLogout,
+}) => {
+  const location = useLocation();
+  const { isTopPage, category: activeCategory, item: activeItem } =
+    resolveCurrentNavigation(location.pathname);
+
   const handleLogoutClick = (e: React.MouseEvent) => {
     e.preventDefault();
     onLinkClick(); // Close menu on click
     onLogout();
   };
 
+  const visibleCategories = NAV_CATEGORIES.filter(
+    (cat) => !cat.staffOnly || isStaffOrSuperuser
+  );
+
   return (
-    <nav id="menu-bar" className={isOpen ? 'open' : ''}>
-      <Link to="/" onClick={onLinkClick}>トップページ</Link>
-      <div className="menu-category-title">在庫管理</div>
-      <Link to="/inventory/inquiry" className="menu-subcategory-link" onClick={onLinkClick}>在庫照会</Link>
-      <Link to="/inventory/stock-movement-history" className="menu-subcategory-link" onClick={onLinkClick}>入出庫履歴</Link>
-      <Link to="/inventory/shipment" className="menu-subcategory-link" onClick={onLinkClick}>出庫予定</Link>
-      <Link to="/inventory/purchase" className="menu-subcategory-link" onClick={onLinkClick}>入庫処置</Link>
-      <Link to="/inventory/issue" className="menu-subcategory-link" onClick={onLinkClick}>出庫処理</Link>
+    <nav id="menu-bar" className={isOpen ? 'open' : ''} aria-label="サイドメニュー">
+      <div className="side-menu-header">
+        <span className="side-menu-header-title">
+          <NavIcon name="compass" size={16} />
+          <span>業務メニュー一覧</span>
+        </span>
+      </div>
 
-      <div className="menu-category-title">生産管理</div>
-      <Link to="/production/plan" className="menu-subcategory-link" onClick={onLinkClick}>生産計画</Link>
-      <Link to="/production/bom-master" className="menu-subcategory-link" onClick={onLinkClick}>使用部品マスター</Link>
-      <Link to="/production/material-allocation" className="menu-subcategory-link" onClick={onLinkClick}>材料引当</Link>
-      <Link to="/production/parts-supply-simulation" className="menu-subcategory-link" onClick={onLinkClick}>部品供給シミュレーション</Link>
-      <Link to="/production/work-progress" className="menu-subcategory-link" onClick={onLinkClick}>作業進捗</Link>
-
-      <div className="menu-category-title">品質管理</div>
-      <Link to="/quality/process-inspection" className="menu-subcategory-link" onClick={onLinkClick}>工程内検査</Link>
-      <Link to="/quality/acceptance-inspection" className="menu-subcategory-link" onClick={onLinkClick}>受入検査</Link>
-      <Link to="/quality/master-creation" className="menu-subcategory-link" onClick={onLinkClick}>マスター作成</Link>
-
-      <div className="menu-category-title">設備管理</div>
-      <Link to="/machine/start-inspection" className="menu-subcategory-link" onClick={onLinkClick}>始業点検</Link>
-      <Link to="/machine/inspection-history" className="menu-subcategory-link" onClick={onLinkClick}>点検履歴</Link>
-      <Link to="/machine/master-creation" className="menu-subcategory-link" onClick={onLinkClick}>マスター作成</Link>
-
-      <div className="menu-category-title">データメンテナンス</div>
-      <Link to="/data/import" className="menu-subcategory-link" onClick={onLinkClick}>データ投入</Link>
-
-      {isStaffOrSuperuser && (
-        <>
-          <div className="menu-category-title">管理者メニュー</div>
-          <Link to="/system/settings" className="menu-subcategory-link" onClick={onLinkClick}>システム設定</Link>
-          <Link to="/user/management" className="menu-subcategory-link" onClick={onLinkClick}>ユーザー管理</Link>
-          <Link to="/system/security" className="menu-subcategory-link" onClick={onLinkClick}>セキュリティ</Link>
-          <Link to="/system/qr-code-actions" className="menu-subcategory-link" onClick={onLinkClick}>QRコードアクション設定</Link>
-          <Link to="/system/shelf-qr-code" className="menu-subcategory-link" onClick={onLinkClick}>倉庫棚番QR作成</Link>
-          <Link to="/master/warehouse-layout" className="menu-subcategory-link" onClick={onLinkClick}>倉庫レイアウト管理</Link>
-        </>
-      )}
-
-      <div className="menu-category-title">アカウント設定</div>
-      <Link to="/user/settings" className="menu-subcategory-link" onClick={onLinkClick}>ユーザー設定</Link>
-      <Link to="/usage" className="menu-subcategory-link" onClick={onLinkClick}>使い方</Link>
-      <a
-        href="#"
-        onClick={(e) => { e.preventDefault(); onLinkClick(); onVersionClick(); }}
-        className="menu-subcategory-link"
+      <Link
+        to="/"
+        className={`side-menu-top-link ${isTopPage ? 'active' : ''}`}
+        onClick={onLinkClick}
       >
-        バージョン情報
-      </a>
-      <button onClick={handleLogoutClick} className="menu-logout-button">ログアウト</button>
+        <NavIcon name="home" size={17} />
+        <span>トップページ</span>
+      </Link>
+
+      {visibleCategories.map((cat) => {
+        const isCatActive = activeCategory?.id === cat.id;
+        return (
+          <div
+            key={cat.id}
+            className={`side-menu-category-group ${isCatActive ? 'active-group' : ''}`}
+            style={
+              {
+                '--side-cat-color': cat.theme.primary,
+                '--side-cat-secondary': cat.theme.secondary,
+              } as React.CSSProperties
+            }
+          >
+            <div className="menu-category-title">
+              <span
+                className="menu-category-color-pill"
+                style={{ backgroundColor: cat.theme.primary }}
+              >
+                <NavIcon name={cat.icon} size={14} />
+              </span>
+              <span className="menu-category-label-text">
+                {cat.id === 'account' ? 'アカウント設定' : cat.label}
+              </span>
+              {isCatActive && <span className="side-cat-active-badge">選択中</span>}
+            </div>
+
+            {cat.items.map((stepItem, idx) => {
+              const isItemActive = activeItem?.path === stepItem.path;
+              return (
+                <Link
+                  key={stepItem.path}
+                  to={stepItem.path}
+                  className={`menu-subcategory-link ${isItemActive ? 'active' : ''}`}
+                  onClick={onLinkClick}
+                >
+                  <span className="side-circled-num">{getCircledNumber(idx)}</span>
+                  <NavIcon name={stepItem.icon} size={15} />
+                  <span className="side-link-text">{stepItem.label}</span>
+                  <span className="side-link-subtag">{stepItem.stepTag}</span>
+                </Link>
+              );
+            })}
+          </div>
+        );
+      })}
+
+      <div className="side-menu-footer">
+        <a
+          href="#"
+          onClick={(e) => {
+            e.preventDefault();
+            onLinkClick();
+            onVersionClick();
+          }}
+          className="menu-subcategory-link side-version-link"
+        >
+          <NavIcon name="info" size={15} />
+          <span className="side-link-text">バージョン情報</span>
+        </a>
+        <button onClick={handleLogoutClick} className="menu-logout-button">
+          <NavIcon name="logout" size={16} />
+          <span>ログアウト</span>
+        </button>
+      </div>
     </nav>
   );
 };

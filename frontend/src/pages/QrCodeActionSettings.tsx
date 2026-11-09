@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Container, Table, Button, Modal, Form, Spinner, Alert, Row, Col } from 'react-bootstrap';
+import { Table, Button, Modal, Form, Spinner, Alert, Row, Col } from 'react-bootstrap';
 import authFetch, { ApiError, apiRequest } from '../utils/api';
+import { NavIcon } from '../config/navigationConfig';
 
 const ACTION_TEMPLATES = {
     'モバイル入庫処理（検索）': {
@@ -175,62 +176,108 @@ const QrCodeActionSettings = () => {
     };
 
     return (
-        <Container fluid className="mt-4">
-            <Row className="align-items-center mb-3">
-                <Col>
-                    <h2>QRコードアクション設定</h2>
-                    <p>QRコードを読み取った際の動作を定義します。正規表現にマッチした最初の有効なアクションが実行されます。</p>
-                </Col>
-                <Col xs="auto">
-                    <Button variant="primary" onClick={() => handleShowModal()}>新規作成</Button>
-                </Col>
-            </Row>
+        <div className="goods-receipt-page">
+            <div className="goods-receipt-filter-panel">
+                <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <div className="d-flex align-items-center gap-2">
+                        <Button variant="primary" size="sm" className="fw-bold px-3" onClick={() => handleShowModal()}>
+                            ＋ 新規アクション作成
+                        </Button>
+                        <span className="small text-secondary">
+                            ※ QRコード読取時、正規表現またはスクリプトに一致した最初の有効アクションが実行されます。
+                        </span>
+                    </div>
+                    <span className="receipt-result-count">
+                        登録ルール数：<strong>{actions.length}</strong> 件
+                    </span>
+                </div>
+            </div>
 
-            {loading && <Spinner animation="border" />}
+            {loading && (
+                <div className="text-center py-4">
+                    <Spinner animation="border" variant="primary" size="sm" className="me-2" />
+                    <span className="text-muted">アクション設定を読み込んでいます...</span>
+                </div>
+            )}
             {error && <Alert variant="danger">{error}</Alert>}
 
             {!loading && !error && (
-                <Table striped bordered hover responsive>
-                    <thead>
-                        <tr>
-                            <th>アクション名</th>
-                            <th>QRコードパターン (正規表現)</th>
-                            <th>説明</th>
-                            <th className="text-center">有効</th>
-                            <th className="text-center">操作</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {actions.map(action => (
-                            <tr key={action.id}>
-                                <td>{action.name}</td>
-                                <td><code>{action.qr_code_pattern}</code></td>
-                                <td>{action.description}</td>
-                                <td className="text-center">{action.is_active ? '✔️' : '❌'}</td>
-                                <td className="text-center">
-                                    <Button variant="info" size="sm" onClick={() => handleShowModal(action)}>編集</Button>
-                                    <Button variant="danger" size="sm" className="ms-2" onClick={() => handleDelete(action.id)}>削除</Button>
-                                </td>
+                <div className="goods-receipt-table-card">
+                    <Table hover responsive className="goods-receipt-table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>アクション名</th>
+                                <th>QRコードパターン (正規表現)</th>
+                                <th>説明</th>
+                                <th className="text-center">有効状態</th>
+                                <th className="text-center" style={{ width: '160px' }}>操作</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </Table>
+                        </thead>
+                        <tbody>
+                            {actions.length === 0 ? (
+                                <tr>
+                                    <td colSpan={5} className="text-center py-5 text-muted">
+                                        登録されているQRコードアクションはありません。
+                                    </td>
+                                </tr>
+                            ) : actions.map(action => (
+                                <tr key={action.id}>
+                                    <td className="fw-bold text-dark">{action.name}</td>
+                                    <td><code className="px-2 py-1 bg-light border rounded text-dark">{action.qr_code_pattern || '（スクリプト判定）'}</code></td>
+                                    <td>{action.description}</td>
+                                    <td className="text-center">
+                                        {action.is_active ? (
+                                            <span className="status-mono-badge is-active" title="有効">
+                                                <NavIcon name="check-circle" size={15} />
+                                                <span>有効</span>
+                                            </span>
+                                        ) : (
+                                            <span className="status-mono-badge is-inactive" title="無効">
+                                                <NavIcon name="x-circle" size={15} />
+                                                <span>無効</span>
+                                            </span>
+                                        )}
+                                    </td>
+                                    <td className="text-center text-nowrap">
+                                        <Button variant="outline-primary" size="sm" className="fw-bold" onClick={() => handleShowModal(action)}>編集</Button>
+                                        <Button variant="outline-danger" size="sm" className="fw-bold ms-2" onClick={() => handleDelete(action.id)}>削除</Button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </Table>
+                </div>
             )}
 
             {currentAction &&
-                <Modal show={showModal} onHide={handleCloseModal} size="lg" backdrop="static" centered>
+                <Modal show={showModal} onHide={handleCloseModal} size="lg" backdrop="static" centered className="mes-clean-modal">
                     <Form onSubmit={handleSave}>
-                        <Modal.Header closeButton>
-                            <Modal.Title>{currentAction.id ? 'アクションの編集' : '新規アクションの作成'}</Modal.Title>
+                        <Modal.Header closeButton className="mes-modal-header">
+                            <div className="mes-modal-title-wrap">
+                                <span className="mes-modal-icon-box" aria-hidden="true">
+                                    <NavIcon name="qr-action" size={20} />
+                                </span>
+                                <div className="mes-modal-title-text">
+                                    <div className="mes-modal-title-row">
+                                        <Modal.Title className="mes-modal-title">
+                                            {currentAction.id ? 'QRコードアクションの編集' : '新規QRコードアクションの作成'}
+                                        </Modal.Title>
+                                        <span className="mes-modal-tag-pill">QR読取ルール</span>
+                                    </div>
+                                    <p className="mes-modal-subtitle">
+                                        QRコードを読み取った際の判定パターンと実行動作を設定してください。
+                                    </p>
+                                </div>
+                            </div>
                         </Modal.Header>
-                        <Modal.Body>
+                        <Modal.Body className="mes-modal-body">
                             {formErrors.non_field_errors && <Alert variant="danger">{formErrors.non_field_errors}</Alert>}
 
                             <Form.Group as={Row} className="mb-3" controlId="formAction">
-                                <Form.Label column sm={3}>{currentAction.id ? 'アクション名' : 'アクション'}</Form.Label>
+                                <Form.Label column sm={3} className="fw-bold">{currentAction.id ? 'アクション名' : 'アクション'}</Form.Label>
                                 <Col sm={9}>
                                     {currentAction.id ? (
-                                        <Form.Control plaintext readOnly value={currentAction.name} />
+                                        <div className="fw-bold text-dark py-1">{currentAction.name}</div>
                                     ) : (
                                         <Form.Select name="name" value={currentAction.name} onChange={handleFormChange} isInvalid={!!formErrors.name} required>
                                             {Object.keys(ACTION_TEMPLATES).map(templateName => (
@@ -243,7 +290,7 @@ const QrCodeActionSettings = () => {
                             </Form.Group>
 
                             <Form.Group as={Row} className="mb-3" controlId="formActionType">
-                                <Form.Label column sm={3}>アクションタイプ</Form.Label>
+                                <Form.Label column sm={3} className="fw-bold">アクションタイプ</Form.Label>
                                 <Col sm={9} className="d-flex align-items-center">
                                     <Form.Check
                                         inline
@@ -269,7 +316,7 @@ const QrCodeActionSettings = () => {
                             </Form.Group>
 
                             <Form.Group as={Row} className="mb-3" controlId="formDescription">
-                                <Form.Label column sm={3}>説明</Form.Label>
+                                <Form.Label column sm={3} className="fw-bold">説明</Form.Label>
                                 <Col sm={9}>
                                     <Form.Control as="textarea" rows={2} name="description" value={currentAction.description} onChange={handleFormChange} isInvalid={!!formErrors.description} />
                                     <Form.Control.Feedback type="invalid">{formErrors.description}</Form.Control.Feedback>
@@ -278,7 +325,7 @@ const QrCodeActionSettings = () => {
 
                             {currentAction.action_type === 'regex' && (
                                 <Form.Group as={Row} className="mb-3" controlId="formPattern">
-                                    <Form.Label column sm={3}>QRコードパターン</Form.Label>
+                                    <Form.Label column sm={3} className="fw-bold">QRコードパターン</Form.Label>
                                     <Col sm={9}>
                                         <Form.Control type="text" name="qr_code_pattern" value={currentAction.qr_code_pattern} onChange={handleFormChange} isInvalid={!!formErrors.qr_code_pattern} required />
                                         <Form.Text className="text-muted">マッチング対象のQRコードの正規表現パターン。例: ^ITEM-.+</Form.Text>
@@ -288,7 +335,7 @@ const QrCodeActionSettings = () => {
                             )}
                             {currentAction.action_type === 'script' && (
                                 <Form.Group className="mb-3" controlId="formScript">
-                                    <Form.Label>実行スクリプト (Python)</Form.Label>
+                                    <Form.Label className="fw-bold">実行スクリプト (Python)</Form.Label>
                                     <Form.Text className="text-muted d-block mb-2">
                                         スクリプト内でQRデータの内容を判定し、条件に合致すれば処理内容を辞書として<code>return</code>してください。合致しない場合は<code>None</code>を返してください。
                                     </Form.Text>
@@ -305,19 +352,19 @@ const QrCodeActionSettings = () => {
                                     <Form.Control.Feedback type="invalid">{formErrors.script}</Form.Control.Feedback>
                                 </Form.Group>
                             )}
-                            <Form.Group className="mb-3" controlId="formIsActive">
+                            <Form.Group className="mb-1" controlId="formIsActive">
                                 <Form.Check type="switch" name="is_active" label="このアクションを有効にする" checked={currentAction.is_active} onChange={handleFormChange} />
                             </Form.Group>
                         </Modal.Body>
-                        <Modal.Footer>
-                            <Button variant="secondary" onClick={handleCloseModal}>キャンセル</Button>
-                            <Button variant="primary" type="submit" disabled={isSaving}>
-                                {isSaving ? <><Spinner as="span" animation="border" size="sm" /> 保存中...</> : '保存'}
+                        <Modal.Footer className="mes-modal-footer">
+                            <Button variant="outline-secondary" onClick={handleCloseModal}>キャンセル</Button>
+                            <Button variant="primary" className="fw-bold px-4" type="submit" disabled={isSaving}>
+                                {isSaving ? <><Spinner as="span" animation="border" size="sm" /> 保存中...</> : '保存する'}
                             </Button>
                         </Modal.Footer>
                     </Form>
                 </Modal>}
-        </Container>
+        </div>
     );
 };
 

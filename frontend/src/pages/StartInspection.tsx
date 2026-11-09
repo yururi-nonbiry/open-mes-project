@@ -45,12 +45,7 @@ const StartInspection = () => {
   };
 
   return (
-    <div className="container mt-4 mb-5">
-      <div className="mb-4">
-        <h2 className="fw-bold text-dark">始業点検 (点検開始)</h2>
-        <p className="text-muted">点検対象の設備を選択し、登録されている設備点検項目に従って点検結果を記録します。</p>
-      </div>
-
+    <div className="goods-receipt-page">
       {error && <div className="alert alert-danger">{error}</div>}
 
       {loading ? (
@@ -64,38 +59,39 @@ const StartInspection = () => {
         <div className="row g-4">
           {/* Machines list (Left Panel) */}
           <div className="col-md-6">
-            <div className="card border-0 shadow-sm rounded-3 h-100">
-              <div className="card-header bg-white border-bottom-0 pt-4 px-4 pb-2">
-                <h5 className="card-title fw-bold text-dark mb-0">
-                  <i className="bi bi-cpu me-2 text-primary"></i>設備一覧
-                </h5>
-                <p className="small text-muted mb-0">点検を行う設備を選択してください。</p>
+            <div className="goods-receipt-table-card h-100">
+              <div className="p-3 border-bottom bg-light">
+                <h6 className="fw-bold text-dark mb-1">① 対象設備の選択</h6>
+                <p className="small text-secondary mb-0">点検を行う設備を選択してください。</p>
               </div>
-              <div className="card-body p-4">
+              <div className="p-3">
                 {machines.length === 0 ? (
                   <p className="text-muted text-center py-4">登録されている設備がありません。</p>
                 ) : (
-                  <div className="list-group list-group-flush border-top border-bottom">
-                    {machines.map((machine) => (
-                      <button
-                        key={machine.id}
-                        type="button"
-                        className={`list-group-item list-group-item-action border-0 py-3 px-3 rounded-2 my-1 d-flex justify-content-between align-items-center ${
-                          selectedMachine?.id === machine.id ? 'bg-primary text-white' : ''
-                        }`}
-                        onClick={() => setSelectedMachine(machine)}
-                      >
-                        <div>
-                          <div className="fw-bold">{machine.name}</div>
-                          <small className={`${selectedMachine?.id === machine.id ? 'text-white-50' : 'text-muted'}`}>
-                            設備番号: {machine.machine_number} | 設置場所: {machine.location || '未設定'}
-                          </small>
-                        </div>
-                        {selectedMachine?.id === machine.id && (
-                          <span className="badge bg-white text-primary rounded-pill px-3 py-2 small">選択中</span>
-                        )}
-                      </button>
-                    ))}
+                  <div>
+                    {machines.map((machine) => {
+                      const isSelected = selectedMachine?.id === machine.id;
+                      return (
+                        <button
+                          key={machine.id}
+                          type="button"
+                          className={`machine-select-item d-flex justify-content-between align-items-center ${
+                            isSelected ? 'active' : ''
+                          }`}
+                          onClick={() => setSelectedMachine(machine)}
+                        >
+                          <div>
+                            <div className="fw-bold">{machine.name}</div>
+                            <small className="machine-meta-text">
+                              設備番号: {machine.machine_number} | 設置場所: {machine.location || '未設定'}
+                            </small>
+                          </div>
+                          {isSelected && (
+                            <span className="status-mono-badge is-active">選択中</span>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -104,19 +100,16 @@ const StartInspection = () => {
 
           {/* Inspection Items list (Right Panel) */}
           <div className="col-md-6">
-            <div className="card border-0 shadow-sm rounded-3 h-100">
-              <div className="card-header bg-white border-bottom-0 pt-4 px-4 pb-2">
-                <h5 className="card-title fw-bold text-dark mb-0">
-                  <i className="bi bi-clipboard-check me-2 text-primary"></i>点検項目一覧
-                </h5>
-                <p className="small text-muted mb-0">
+            <div className="goods-receipt-table-card h-100">
+              <div className="p-3 border-bottom bg-light">
+                <h6 className="fw-bold text-dark mb-1">② 点検項目の選択・記録</h6>
+                <p className="small text-secondary mb-0">
                   {selectedMachine ? `「${selectedMachine.name}」で実行する点検項目を選んでください。` : '設備を選択すると、ここに点検項目が表示されます。'}
                 </p>
               </div>
-              <div className="card-body p-4">
+              <div className="p-3">
                 {!selectedMachine ? (
                   <div className="text-center py-5 text-muted">
-                    <i className="bi bi-arrow-left-circle fs-2 d-block mb-2 text-primary"></i>
                     まず左側の設備一覧から対象設備を選択してください。
                   </div>
                 ) : inspectionItems.length === 0 ? (
@@ -125,21 +118,19 @@ const StartInspection = () => {
                   <div className="row g-3">
                     {inspectionItems.map((item) => (
                       <div key={item.id} className="col-12">
-                        <div className="card border border-light-subtle h-100 shadow-sm hover-shadow-sm rounded-2">
-                          <div className="card-body p-3 d-flex justify-content-between align-items-center">
-                            <div>
-                              <span className="badge bg-info text-dark mb-2 small">{item.inspection_type_display || item.inspection_type}</span>
-                              <h6 className="fw-bold text-dark mb-1">{item.name}</h6>
-                              <small className="text-muted">{item.description || '説明なし'}</small>
-                            </div>
-                            <button
-                              type="button"
-                              className="btn btn-primary btn-sm px-3 py-2 fw-semibold"
-                              onClick={() => setActiveModalItem(item)}
-                            >
-                              点検開始
-                            </button>
+                        <div className="p-3 border rounded-3 bg-white d-flex justify-content-between align-items-center">
+                          <div>
+                            <span className="receipt-status-badge status-in-progress mb-2">{item.inspection_type_display || item.inspection_type}</span>
+                            <h6 className="fw-bold text-dark mb-1">{item.name}</h6>
+                            <small className="text-secondary">{item.description || '説明なし'}</small>
                           </div>
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-sm px-3 py-2 fw-bold shadow-sm"
+                            onClick={() => setActiveModalItem(item)}
+                          >
+                            点検開始
+                          </button>
                         </div>
                       </div>
                     ))}

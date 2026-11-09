@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import Modal from '../../components/Modal';
+import { Modal, Button, Alert } from 'react-bootstrap';
 import bomService, { BillOfMaterial, MasterItem, isConsumableItem, isProducibleItem, itemTypeLabel } from '../../services/bomService';
+import { NavIcon } from '../../config/navigationConfig';
 
 interface BomMasterModalProps {
     isOpen: boolean;
@@ -30,7 +31,6 @@ const BomMasterModal: React.FC<BomMasterModalProps> = ({ isOpen, onClose, onSucc
         const loadItems = async () => {
             try {
                 const list = await bomService.getItems();
-                // 中間品は親(自身の構成を持つ)にも子(上位品目の部品)にもなれる
                 setProductOptions(list.filter(isProducibleItem));
                 setMaterialOptions(list.filter(isConsumableItem));
             } catch (e) {
@@ -66,7 +66,7 @@ const BomMasterModal: React.FC<BomMasterModalProps> = ({ isOpen, onClose, onSucc
             } else {
                 await bomService.createBillOfMaterial(payload);
             }
-            setGlobalMessage({ text: '保存しました。', type: 'success' });
+            setGlobalMessage({ text: '使用部品構成を保存しました。', type: 'success' });
             setTimeout(() => {
                 onSuccess();
                 onClose();
@@ -84,74 +84,137 @@ const BomMasterModal: React.FC<BomMasterModalProps> = ({ isOpen, onClose, onSucc
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} maxWidth="600px">
-            <div className="p-2">
-                <h3>{editingItem ? '使用部品構成 変更' : '使用部品構成 新規登録'}</h3>
-                <hr />
-                <form onSubmit={handleSubmit} noValidate>
-                    <div className="form-group">
-                        <label htmlFor="bom_product">親品目（製品・中間品）*</label>
-                        <select
-                            id="bom_product" name="product"
-                            value={currentItem.product} onChange={handleChange}
-                            className={`form-control ${formErrors.product ? 'is-invalid' : ''}`}
-                            required
-                        >
-                            <option value="">-- 親品目を選択 --</option>
-                            {productOptions.map((item) => (
-                                <option key={item.id} value={item.code}>[{item.code}] {item.name}（{itemTypeLabel(item.item_type)}）</option>
-                            ))}
-                        </select>
-                        <div className="invalid-feedback">{formErrors.product}</div>
+        <Modal show={isOpen} onHide={onClose} size="lg" centered scrollable className="mes-clean-modal">
+            <Modal.Header closeButton className="mes-modal-header">
+                <div className="mes-modal-title-wrap">
+                    <span className="mes-modal-icon-box" aria-hidden="true">
+                        <NavIcon name="bom" size={20} />
+                    </span>
+                    <div className="mes-modal-title-text">
+                        <div className="mes-modal-title-row">
+                            <Modal.Title className="mes-modal-title">
+                                {editingItem ? '使用部品構成の編集' : '使用部品構成の新規登録'}
+                            </Modal.Title>
+                            <span className="mes-modal-tag-pill">部品構成（BOM）</span>
+                        </div>
+                        <p className="mes-modal-subtitle">
+                            親品目（製品・中間品）1個を製造するために必要な使用部品と所要数量を設定します。
+                        </p>
+                    </div>
+                </div>
+            </Modal.Header>
+            <form onSubmit={handleSubmit} noValidate>
+                <Modal.Body className="mes-modal-body">
+                    <div className="row g-3">
+                        <div className="col-12 col-md-6">
+                            <div className="mes-modal-field-group">
+                                <label htmlFor="bom_product" className="mes-modal-field-label">
+                                    <span>親品目（製品・中間品）</span>
+                                    <span className="mes-field-badge required">必須</span>
+                                </label>
+                                <select
+                                    id="bom_product"
+                                    name="product"
+                                    value={currentItem.product}
+                                    onChange={handleChange}
+                                    className={`form-select mes-modal-input ${formErrors.product ? 'is-invalid' : ''}`}
+                                    required
+                                >
+                                    <option value="">-- 親品目を選択してください --</option>
+                                    {productOptions.map(item => (
+                                        <option key={item.id} value={item.code}>
+                                            [{item.code}] {item.name}（{itemTypeLabel(item.item_type)}）
+                                        </option>
+                                    ))}
+                                </select>
+                                {formErrors.product && <div className="invalid-feedback d-block">{formErrors.product}</div>}
+                                <span className="mes-modal-field-help">生産計画で製造する側の品目</span>
+                            </div>
+                        </div>
+
+                        <div className="col-12 col-md-6">
+                            <div className="mes-modal-field-group">
+                                <label htmlFor="bom_material" className="mes-modal-field-label">
+                                    <span>使用部品（材料・中間品）</span>
+                                    <span className="mes-field-badge required">必須</span>
+                                </label>
+                                <select
+                                    id="bom_material"
+                                    name="material"
+                                    value={currentItem.material}
+                                    onChange={handleChange}
+                                    className={`form-select mes-modal-input ${formErrors.material ? 'is-invalid' : ''}`}
+                                    required
+                                >
+                                    <option value="">-- 使用部品を選択してください --</option>
+                                    {materialOptions.map(item => (
+                                        <option key={item.id} value={item.code}>
+                                            [{item.code}] {item.name}（{itemTypeLabel(item.item_type)}）
+                                        </option>
+                                    ))}
+                                </select>
+                                {formErrors.material && <div className="invalid-feedback d-block">{formErrors.material}</div>}
+                                <span className="mes-modal-field-help">製造に使用する部品・材料</span>
+                            </div>
+                        </div>
+
+                        <div className="col-12 col-md-6">
+                            <div className="mes-modal-field-group">
+                                <label htmlFor="bom_quantity" className="mes-modal-field-label">
+                                    <span>所要数量（親品目1個あたり）</span>
+                                    <span className="mes-field-badge required">必須</span>
+                                </label>
+                                <input
+                                    type="number"
+                                    id="bom_quantity"
+                                    name="quantity"
+                                    step="0.001"
+                                    min="0.001"
+                                    value={currentItem.quantity}
+                                    onChange={handleChange}
+                                    className={`form-control mes-modal-input text-end fw-bold ${formErrors.quantity ? 'is-invalid' : ''}`}
+                                    placeholder="例：2"
+                                    required
+                                />
+                                {formErrors.quantity && <div className="invalid-feedback d-block">{formErrors.quantity}</div>}
+                                <span className="mes-modal-field-help">親品目1単位を作るのに必要な数量</span>
+                            </div>
+                        </div>
+
+                        <div className="col-12 col-md-6">
+                            <div className="mes-modal-field-group">
+                                <label htmlFor="bom_remarks" className="mes-modal-field-label">
+                                    <span>備考</span>
+                                    <span className="mes-field-badge optional">任意</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    id="bom_remarks"
+                                    name="remarks"
+                                    value={currentItem.remarks || ''}
+                                    onChange={handleChange}
+                                    className={`form-control mes-modal-input ${formErrors.remarks ? 'is-invalid' : ''}`}
+                                    placeholder="補足事項があれば入力"
+                                />
+                            </div>
+                        </div>
                     </div>
 
-                    <div className="form-group">
-                        <label htmlFor="bom_material">使用部品（材料・中間品）*</label>
-                        <select
-                            id="bom_material" name="material"
-                            value={currentItem.material} onChange={handleChange}
-                            className={`form-control ${formErrors.material ? 'is-invalid' : ''}`}
-                            required
-                        >
-                            <option value="">-- 部品を選択 --</option>
-                            {materialOptions.map((item) => (
-                                <option key={item.id} value={item.code}>[{item.code}] {item.name}（{itemTypeLabel(item.item_type)}）</option>
-                            ))}
-                        </select>
-                        <div className="invalid-feedback">{formErrors.material}</div>
-                    </div>
-
-                    <div className="form-group">
-                        <label htmlFor="bom_quantity">所要数量（親品目1個あたり）*</label>
-                        <input
-                            type="number" id="bom_quantity" name="quantity" step="0.001" min="0.001"
-                            value={currentItem.quantity} onChange={handleChange}
-                            className={`form-control ${formErrors.quantity ? 'is-invalid' : ''}`}
-                            required
-                        />
-                        <div className="invalid-feedback">{formErrors.quantity}</div>
-                    </div>
-
-                    <div className="form-group">
-                        <label htmlFor="bom_remarks">備考</label>
-                        <textarea
-                            id="bom_remarks" name="remarks" rows={3}
-                            value={currentItem.remarks || ''} onChange={handleChange}
-                            className={`form-control ${formErrors.remarks ? 'is-invalid' : ''}`}
-                        />
-                        <div className="invalid-feedback">{formErrors.remarks}</div>
-                    </div>
-
-                    {globalMessage.text && <div className={`alert alert-${globalMessage.type} mt-3`}>{globalMessage.text}</div>}
-
-                    <div className="mt-4 text-right border-top pt-3">
-                        <button type="submit" className="btn btn-primary" disabled={submitting}>
-                            {submitting ? '保存中...' : '保存'}
-                        </button>
-                        <button type="button" className="btn btn-secondary ml-2" onClick={onClose}>閉じる</button>
-                    </div>
-                </form>
-            </div>
+                    {globalMessage.text && (
+                        <Alert variant={globalMessage.type === 'success' ? 'success' : 'danger'} className="mt-3 mb-0 py-2 small fw-bold">
+                            {globalMessage.text}
+                        </Alert>
+                    )}
+                </Modal.Body>
+                <Modal.Footer className="mes-modal-footer">
+                    <Button variant="outline-secondary" onClick={onClose}>
+                        キャンセル
+                    </Button>
+                    <Button type="submit" variant="primary" className="fw-bold px-4" disabled={submitting}>
+                        {submitting ? '保存中...' : '構成を保存する'}
+                    </Button>
+                </Modal.Footer>
+            </form>
         </Modal>
     );
 };

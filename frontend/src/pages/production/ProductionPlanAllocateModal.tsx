@@ -17,11 +17,11 @@ interface ProductionPlanAllocateModalProps {
 }
 
 const availableIn = (part: RequiredPart, warehouse: string) =>
-    part.warehouses.find(w => w.warehouse === warehouse)?.available_quantity ?? 0;
+    (part.warehouses || []).find(w => w.warehouse === warehouse)?.available_quantity ?? 0;
 
 /** 未引当の所要数と、選んだ倉庫の引当可能数の小さい方を既定の引当数量にする */
 const defaultQuantity = (part: RequiredPart, warehouse: string) => {
-    const stillNeeded = Math.max(0, part.required_quantity - part.already_allocated_quantity);
+    const stillNeeded = Math.max(0, (part.required_quantity || 0) - (part.already_allocated_quantity || 0));
     return Math.max(0, Math.min(stillNeeded, availableIn(part, warehouse)));
 };
 
@@ -39,11 +39,18 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
                 setLoading(true);
                 setError(null);
                 try {
-                    const data = await productionService.getRequiredParts(plan.id);
-                    setRequiredParts(data.map(part => {
+                    const raw = await productionService.getRequiredParts(plan.id);
+                    const list = Array.isArray(raw) ? raw : Array.isArray((raw as any)?.parts) ? (raw as any).parts : [];
+                    setRequiredParts(list.map((part: any) => {
+                        const warehouses = Array.isArray(part.warehouses) ? part.warehouses : Array.isArray(part.inventories) ? part.inventories : [];
+                        const normalizedPart: RequiredPart = {
+                            ...part,
+                            already_allocated_quantity: part.already_allocated_quantity ?? part.allocated_quantity ?? 0,
+                            warehouses,
+                        };
                         // 候補は引当可能数の多い順に並んでいるため、先頭を既定の倉庫にする
-                        const warehouse = part.warehouses[0]?.warehouse ?? '';
-                        return { ...part, selected_warehouse: warehouse, quantity_to_allocate: defaultQuantity(part, warehouse) };
+                        const warehouse = warehouses[0]?.warehouse ?? '';
+                        return { ...normalizedPart, selected_warehouse: warehouse, quantity_to_allocate: defaultQuantity(normalizedPart, warehouse) };
                     }));
                 } catch (e: any) {
                     setError(e.message);

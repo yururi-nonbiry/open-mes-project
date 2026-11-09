@@ -39,9 +39,10 @@ const ProductionPlanIntermediatesModal: React.FC<ProductionPlanIntermediatesModa
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
-    const applyRows = (list: IntermediateRequirement[]) => {
+    const applyRows = (rawList: IntermediateRequirement[]) => {
+        const list = Array.isArray(rawList) ? rawList : Array.isArray((rawList as any)?.requirements) ? (rawList as any).requirements : [];
         setRows(list);
-        setQuantities(Object.fromEntries(list.map(row => [row.material_code, defaultChildQuantity(row)])));
+        setQuantities(Object.fromEntries(list.map((row: IntermediateRequirement) => [row.material_code, defaultChildQuantity(row)])));
     };
 
     const load = useCallback(async () => {

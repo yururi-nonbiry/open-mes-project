@@ -29,10 +29,21 @@ const ProductionPlanAdditionalIssueModal: React.FC<ProductionPlanAdditionalIssue
     const load = async (planId: string) => {
         setLoading(true);
         try {
-            const parts = await productionService.getRequiredParts(planId);
-            setRows(parts.map(part => ({ ...part, selected_warehouse: part.warehouses[0]?.warehouse ?? '', quantity: '' })));
+            const raw = await productionService.getRequiredParts(planId);
+            const parts = Array.isArray(raw) ? raw : Array.isArray((raw as any)?.parts) ? (raw as any).parts : [];
+            setRows(parts.map((part: any) => {
+                const warehouses = Array.isArray(part.warehouses) ? part.warehouses : Array.isArray(part.inventories) ? part.inventories : [];
+                return {
+                    ...part,
+                    already_allocated_quantity: part.already_allocated_quantity ?? part.allocated_quantity ?? 0,
+                    warehouses,
+                    selected_warehouse: warehouses[0]?.warehouse ?? '',
+                    quantity: '',
+                };
+            }));
         } catch (e) {
             setMessage({ text: describeError(e), type: 'danger' });
+            setRows([]);
         } finally {
             setLoading(false);
         }

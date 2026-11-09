@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Container, Table, Button, Form, Spinner, Alert, Row, Col, Tooltip, OverlayTrigger } from 'react-bootstrap';
+import { Link } from 'react-router-dom';
+import { Table, Button, Form, Spinner, Alert, Tooltip, OverlayTrigger } from 'react-bootstrap';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import authFetch, { apiRequest, describeError } from '../utils/api';
 
@@ -136,91 +137,108 @@ const CsvMappingSettings = () => {
     };
 
     return (
-        <Container fluid className="mt-4">
-            <h2>CSVマッピング設定</h2>
-            <p>CSVインポート時の列（ヘッダー）とシステムの項目を紐付けます。モデルの各項目に対して、CSVファイルのどの列を割り当てるかを設定してください。</p>
+        <div className="goods-receipt-page">
+            <div className="system-subnav-bar">
+                <Link to="/system/settings" className="system-subnav-link">← システム設定一覧</Link>
+                <Link to="/system/csv-mappings" className="system-subnav-link active">① CSVマッピング設定</Link>
+                <Link to="/system/model-display-settings" className="system-subnav-link">② モデル項目表示設定</Link>
+                <Link to="/system/page-display-settings" className="system-subnav-link">③ ページ項目表示設定</Link>
+                <Link to="/system/qr-code-actions" className="system-subnav-link">④ QRコードアクション設定</Link>
+            </div>
 
-            <Row className="my-3 p-3 bg-light border rounded align-items-center">
-                <Col md={4}>
-                    <Form.Group>
-                        <Form.Label>データ種別</Form.Label>
-                        <Form.Select value={selectedDataType} onChange={e => setSelectedDataType(e.target.value)}>
-                            {DATA_TYPE_CHOICES.map(choice => (
-                                <option key={choice.value} value={choice.value}>{choice.label}</option>
-                            ))}
-                        </Form.Select>
-                    </Form.Group>
-                </Col>
-                <Col>
-                    <Button variant="primary" onClick={handleSave} disabled={loading}>
-                        {loading ? <><Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" /> 保存中...</> : 'この設定で保存'}
-                    </Button>
-                </Col>
-            </Row>
+            <div className="goods-receipt-filter-panel">
+                <div className="receipt-status-tabs-row">
+                    <span className="filter-section-label">対象データ種別：</span>
+                    <div className="receipt-status-tabs" role="tablist">
+                        {DATA_TYPE_CHOICES.map(choice => (
+                            <button
+                                key={choice.value}
+                                type="button"
+                                className={`receipt-status-tab ${selectedDataType === choice.value ? 'active' : ''}`}
+                                onClick={() => setSelectedDataType(choice.value)}
+                            >
+                                {choice.label}
+                            </button>
+                        ))}
+                    </div>
+                    <div className="ms-auto">
+                        <Button variant="primary" size="sm" className="fw-bold px-3" onClick={handleSave} disabled={loading}>
+                            {loading ? <><Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" /> 保存中...</> : 'この設定で保存'}
+                        </Button>
+                    </div>
+                </div>
+            </div>
 
             {saveStatus.show && <Alert variant={saveStatus.variant} onClose={() => setSaveStatus(prev => ({ ...prev, show: false }))} dismissible>{saveStatus.message}</Alert>}
-            {loading && <Spinner animation="border" />}
+            {loading && (
+                <div className="text-center py-4">
+                    <Spinner animation="border" variant="primary" size="sm" className="me-2" />
+                    <span className="text-muted">マッピング設定を読み込んでいます...</span>
+                </div>
+            )}
             {error && <Alert variant="danger">{error}</Alert>}
 
             {!loading && !error && (
-                <DragDropContext onDragEnd={handleDragEnd}>
-                    <Table striped bordered hover responsive>
-                        <thead>
-                            <tr>
-                                <th style={{ width: '60px' }}></th>
-                                <th style={{ minWidth: '80px' }}>有効</th>
-                                <th style={{ minWidth: '180px' }}>モデル項目</th>
-                                <th style={{ minWidth: '200px' }}>カスタム表示名</th>
-                                <th style={{ minWidth: '200px' }}>CSVヘッダー名</th>
-                                <th style={{ minWidth: '120px' }}>上書きキー</th>
-                            </tr>
-                        </thead>
-                        <Droppable droppableId="csv-mapping-droppable">
-                            {(provided) => (
-                                <tbody {...provided.droppableProps} ref={provided.innerRef}>
-                                    {combinedData.map((item, index) => (
-                                        <Draggable key={item.model_field_name} draggableId={item.model_field_name} index={index}>
-                                            {(provided, snapshot) => (
-                                                <tr
-                                                    ref={provided.innerRef}
-                                                    {...provided.draggableProps}
-                                                    className={`${!item.is_active ? 'text-muted' : ''} ${snapshot.isDragging ? 'table-info' : ''}`}
-                                                    style={{ ...provided.draggableProps.style }}
-                                                >
-                                                    <td className="text-center align-middle" {...provided.dragHandleProps} style={{ cursor: 'grab' }}>
-                                                        <span title="ドラッグして順序を変更">↕</span>
-                                                    </td>
-                                                    <td className="text-center align-middle">
-                                                        <Form.Check type="switch" id={`is_active-${index}`} name="is_active" checked={item.is_active} onChange={(e) => handleInputChange(index, e)} />
-                                                    </td>
-                                                    <td className="align-middle">
-                                                        <OverlayTrigger placement="top" overlay={<Tooltip id={`tooltip-${index}`}>{`フィールド名: ${item.model_field_name}`}<br />{`必須(モデル): ${item.is_model_required ? 'はい' : 'いいえ'}`}<br />{`デフォルト値: ${item.default_value || 'なし'}`}<br />{`ヘルプ: ${item.help_text || 'なし'}`}</Tooltip>}>
-                                                            <span>{item.verbose_name}</span>
-                                                        </OverlayTrigger>
-                                                    </td>
-                                                    <td className="align-middle">
-                                                        {item.custom_display_name || item.verbose_name}
-                                                    </td>
-                                                    <td className="align-middle">
-                                                        <Form.Control type="text" name="csv_header" value={item.csv_header} onChange={(e) => handleInputChange(index, e)} disabled={!item.is_active} />
-                                                    </td>
-                                                    <td className="text-center align-middle">
-                                                        <OverlayTrigger placement="top" overlay={<Tooltip>インポート時にこの項目を使って既存のデータを検索し、上書きします。</Tooltip>}>
-                                                            <Form.Check type="checkbox" id={`is_update_key-${index}`} name="is_update_key" checked={item.is_update_key} onChange={(e) => handleInputChange(index, e)} disabled={!item.is_active} />
-                                                        </OverlayTrigger>
-                                                    </td>
-                                                </tr>
-                                            )}
-                                        </Draggable>
-                                    ))}
-                                    {provided.placeholder}
-                                </tbody>
-                            )}
-                        </Droppable>
-                    </Table>
-                </DragDropContext>
+                <div className="goods-receipt-table-card">
+                    <DragDropContext onDragEnd={handleDragEnd}>
+                        <Table hover responsive className="goods-receipt-table align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th className="text-center" style={{ width: '60px' }}>順序</th>
+                                    <th className="text-center" style={{ minWidth: '80px' }}>有効</th>
+                                    <th style={{ minWidth: '180px' }}>モデル項目</th>
+                                    <th style={{ minWidth: '200px' }}>カスタム表示名</th>
+                                    <th style={{ minWidth: '200px' }}>CSVヘッダー名</th>
+                                    <th className="text-center" style={{ minWidth: '120px' }}>上書きキー</th>
+                                </tr>
+                            </thead>
+                            <Droppable droppableId="csv-mapping-droppable">
+                                {(provided) => (
+                                    <tbody {...provided.droppableProps} ref={provided.innerRef}>
+                                        {combinedData.map((item, index) => (
+                                            <Draggable key={item.model_field_name} draggableId={item.model_field_name} index={index}>
+                                                {(provided, snapshot) => (
+                                                    <tr
+                                                        ref={provided.innerRef}
+                                                        {...provided.draggableProps}
+                                                        className={`${!item.is_active ? 'receipt-row-completed' : ''} ${snapshot.isDragging ? 'table-info' : ''}`}
+                                                        style={{ ...provided.draggableProps.style }}
+                                                    >
+                                                        <td className="text-center align-middle fw-bold text-secondary" {...provided.dragHandleProps} style={{ cursor: 'grab' }}>
+                                                            <span title="ドラッグして順序を変更">↕</span>
+                                                        </td>
+                                                        <td className="text-center align-middle">
+                                                            <Form.Check type="switch" id={`is_active-${index}`} name="is_active" checked={item.is_active} onChange={(e) => handleInputChange(index, e)} />
+                                                        </td>
+                                                        <td className="align-middle fw-bold text-dark">
+                                                            <OverlayTrigger placement="top" overlay={<Tooltip id={`tooltip-${index}`}>{`フィールド名: ${item.model_field_name}`}<br />{`必須(モデル): ${item.is_model_required ? 'はい' : 'いいえ'}`}<br />{`デフォルト値: ${item.default_value || 'なし'}`}<br />{`ヘルプ: ${item.help_text || 'なし'}`}</Tooltip>}>
+                                                                <span>{item.verbose_name}</span>
+                                                            </OverlayTrigger>
+                                                        </td>
+                                                        <td className="align-middle">
+                                                            {item.custom_display_name || item.verbose_name}
+                                                        </td>
+                                                        <td className="align-middle">
+                                                            <Form.Control size="sm" type="text" name="csv_header" value={item.csv_header} onChange={(e) => handleInputChange(index, e)} disabled={!item.is_active} />
+                                                        </td>
+                                                        <td className="text-center align-middle">
+                                                            <OverlayTrigger placement="top" overlay={<Tooltip>インポート時にこの項目を使って既存のデータを検索し、上書きします。</Tooltip>}>
+                                                                <Form.Check type="checkbox" id={`is_update_key-${index}`} name="is_update_key" checked={item.is_update_key} onChange={(e) => handleInputChange(index, e)} disabled={!item.is_active} />
+                                                            </OverlayTrigger>
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                            </Draggable>
+                                        ))}
+                                        {provided.placeholder}
+                                    </tbody>
+                                )}
+                            </Droppable>
+                        </Table>
+                    </DragDropContext>
+                </div>
             )}
-        </Container>
+        </div>
     );
 };
 

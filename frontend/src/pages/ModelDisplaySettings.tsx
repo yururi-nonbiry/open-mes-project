@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Container, Table, Button, Form, Spinner, Alert, Row, Col, Tooltip, OverlayTrigger } from 'react-bootstrap';
+import { Link } from 'react-router-dom';
+import { Table, Button, Form, Spinner, Alert, Tooltip, OverlayTrigger } from 'react-bootstrap';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import authFetch, { apiRequest, describeError } from '../utils/api';
 
@@ -128,89 +129,106 @@ const ModelDisplaySettings = () => {
     };
 
     return (
-        <Container fluid className="mt-4">
-            <h2>モデル項目表示設定</h2>
-            <p>各データ種別の一覧画面で表示する項目、順序、検索やフィルタの対象をカスタマイズします。</p>
+        <div className="goods-receipt-page">
+            <div className="system-subnav-bar">
+                <Link to="/system/settings" className="system-subnav-link">← システム設定一覧</Link>
+                <Link to="/system/csv-mappings" className="system-subnav-link">① CSVマッピング設定</Link>
+                <Link to="/system/model-display-settings" className="system-subnav-link active">② モデル項目表示設定</Link>
+                <Link to="/system/page-display-settings" className="system-subnav-link">③ ページ項目表示設定</Link>
+                <Link to="/system/qr-code-actions" className="system-subnav-link">④ QRコードアクション設定</Link>
+            </div>
 
-            <Row className="my-3 p-3 bg-light border rounded align-items-center">
-                <Col md={4}>
-                    <Form.Group>
-                        <Form.Label>データ種別</Form.Label>
-                        <Form.Select value={selectedDataType} onChange={e => setSelectedDataType(e.target.value)}>
-                            {DATA_TYPE_CHOICES.map(choice => (
-                                <option key={choice.value} value={choice.value}>{choice.label}</option>
-                            ))}
-                        </Form.Select>
-                    </Form.Group>
-                </Col>
-                <Col>
-                    <Button variant="primary" onClick={handleSave} disabled={loading || isSaving}>
-                        {isSaving ? <><Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" /> 保存中...</> : 'この設定で保存'}
-                    </Button>
-                </Col>
-            </Row>
+            <div className="goods-receipt-filter-panel">
+                <div className="receipt-status-tabs-row">
+                    <span className="filter-section-label">対象データ種別：</span>
+                    <div className="receipt-status-tabs" role="tablist">
+                        {DATA_TYPE_CHOICES.map(choice => (
+                            <button
+                                key={choice.value}
+                                type="button"
+                                className={`receipt-status-tab ${selectedDataType === choice.value ? 'active' : ''}`}
+                                onClick={() => setSelectedDataType(choice.value)}
+                            >
+                                {choice.label}
+                            </button>
+                        ))}
+                    </div>
+                    <div className="ms-auto">
+                        <Button variant="primary" size="sm" className="fw-bold px-3" onClick={handleSave} disabled={loading || isSaving}>
+                            {isSaving ? <><Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" /> 保存中...</> : 'この設定で保存'}
+                        </Button>
+                    </div>
+                </div>
+            </div>
 
             {saveStatus.show && <Alert variant={saveStatus.variant} onClose={() => setSaveStatus(prev => ({ ...prev, show: false }))} dismissible>{saveStatus.message}</Alert>}
-            {loading && <Spinner animation="border" />}
+            {loading && (
+                <div className="text-center py-4">
+                    <Spinner animation="border" variant="primary" size="sm" className="me-2" />
+                    <span className="text-muted">項目表示設定を読み込んでいます...</span>
+                </div>
+            )}
             {error && <Alert variant="danger">{error}</Alert>}
 
             {!loading && !error && (
-                <DragDropContext onDragEnd={handleDragEnd}>
-                    <Table striped bordered hover responsive>
-                        <thead>
-                            <tr>
-                                <th style={{ width: '60px' }}>順序</th>
-                                <th style={{ minWidth: '180px' }}>モデル項目</th>
-                                <th style={{ minWidth: '180px' }}>カスタム表示名</th>
-                                <th style={{ minWidth: '100px' }}>一覧表示</th>
-                                <th style={{ minWidth: '100px' }}>検索対象</th>
-                                <th style={{ minWidth: '100px' }}>フィルタ対象</th>
-                            </tr>
-                        </thead>
-                        <Droppable droppableId="model-display-droppable">
-                            {(provided) => (
-                                <tbody {...provided.droppableProps} ref={provided.innerRef}>
-                                    {fieldsData.map((item, index) => (
-                                        <Draggable key={item.model_field_name} draggableId={item.model_field_name} index={index}>
-                                            {(provided, snapshot) => (
-                                                <tr
-                                                    ref={provided.innerRef}
-                                                    {...provided.draggableProps}
-                                                    className={`${snapshot.isDragging ? 'table-info' : ''}`}
-                                                    style={{ ...provided.draggableProps.style }}
-                                                >
-                                                    <td className="text-center align-middle" {...provided.dragHandleProps} style={{ cursor: 'grab' }}>
-                                                        <span title="ドラッグして順序を変更">↕</span>
-                                                    </td>
-                                                    <td className="align-middle">
-                                                        <OverlayTrigger placement="top" overlay={<Tooltip id={`tooltip-${index}`}>{`フィールド名: ${item.model_field_name}`}<br />{`ヘルプ: ${item.help_text || 'なし'}`}</Tooltip>}>
-                                                            <span>{item.verbose_name}</span>
-                                                        </OverlayTrigger>
-                                                    </td>
-                                                    <td className="align-middle">
-                                                        <Form.Control type="text" name="display_name" value={item.display_name || ''} onChange={(e) => handleInputChange(index, e)} placeholder={item.verbose_name} />
-                                                    </td>
-                                                    <td className="text-center align-middle">
-                                                        <Form.Check type="switch" id={`is_list_display-${index}`} name="is_list_display" checked={item.is_list_display} onChange={(e) => handleInputChange(index, e)} />
-                                                    </td>
-                                                    <td className="text-center align-middle">
-                                                        <Form.Check type="switch" id={`is_search_field-${index}`} name="is_search_field" checked={item.is_search_field} onChange={(e) => handleInputChange(index, e)} />
-                                                    </td>
-                                                    <td className="text-center align-middle">
-                                                        <Form.Check type="switch" id={`is_list_filter-${index}`} name="is_list_filter" checked={item.is_list_filter} onChange={(e) => handleInputChange(index, e)} />
-                                                    </td>
-                                                </tr>
-                                            )}
-                                        </Draggable>
-                                    ))}
-                                    {provided.placeholder}
-                                </tbody>
-                            )}
-                        </Droppable>
-                    </Table>
-                </DragDropContext>
+                <div className="goods-receipt-table-card">
+                    <DragDropContext onDragEnd={handleDragEnd}>
+                        <Table hover responsive className="goods-receipt-table align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th className="text-center" style={{ width: '60px' }}>順序</th>
+                                    <th style={{ minWidth: '180px' }}>モデル項目</th>
+                                    <th style={{ minWidth: '180px' }}>カスタム表示名</th>
+                                    <th className="text-center" style={{ minWidth: '100px' }}>一覧表示</th>
+                                    <th className="text-center" style={{ minWidth: '100px' }}>検索対象</th>
+                                    <th className="text-center" style={{ minWidth: '100px' }}>フィルタ対象</th>
+                                </tr>
+                            </thead>
+                            <Droppable droppableId="model-display-droppable">
+                                {(provided) => (
+                                    <tbody {...provided.droppableProps} ref={provided.innerRef}>
+                                        {fieldsData.map((item, index) => (
+                                            <Draggable key={item.model_field_name} draggableId={item.model_field_name} index={index}>
+                                                {(provided, snapshot) => (
+                                                    <tr
+                                                        ref={provided.innerRef}
+                                                        {...provided.draggableProps}
+                                                        className={`${snapshot.isDragging ? 'table-info' : ''}`}
+                                                        style={{ ...provided.draggableProps.style }}
+                                                    >
+                                                        <td className="text-center align-middle fw-bold text-secondary" {...provided.dragHandleProps} style={{ cursor: 'grab' }}>
+                                                            <span title="ドラッグして順序を変更">↕</span>
+                                                        </td>
+                                                        <td className="align-middle fw-bold text-dark">
+                                                            <OverlayTrigger placement="top" overlay={<Tooltip id={`tooltip-${index}`}>{`フィールド名: ${item.model_field_name}`}<br />{`ヘルプ: ${item.help_text || 'なし'}`}</Tooltip>}>
+                                                                <span>{item.verbose_name}</span>
+                                                            </OverlayTrigger>
+                                                        </td>
+                                                        <td className="align-middle">
+                                                            <Form.Control size="sm" type="text" name="display_name" value={item.display_name || ''} onChange={(e) => handleInputChange(index, e)} placeholder={item.verbose_name} />
+                                                        </td>
+                                                        <td className="text-center align-middle">
+                                                            <Form.Check type="switch" id={`is_list_display-${index}`} name="is_list_display" checked={item.is_list_display} onChange={(e) => handleInputChange(index, e)} />
+                                                        </td>
+                                                        <td className="text-center align-middle">
+                                                            <Form.Check type="switch" id={`is_search_field-${index}`} name="is_search_field" checked={item.is_search_field} onChange={(e) => handleInputChange(index, e)} />
+                                                        </td>
+                                                        <td className="text-center align-middle">
+                                                            <Form.Check type="switch" id={`is_list_filter-${index}`} name="is_list_filter" checked={item.is_list_filter} onChange={(e) => handleInputChange(index, e)} />
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                            </Draggable>
+                                        ))}
+                                        {provided.placeholder}
+                                    </tbody>
+                                )}
+                            </Droppable>
+                        </Table>
+                    </DragDropContext>
+                </div>
             )}
-        </Container>
+        </div>
     );
 };
 

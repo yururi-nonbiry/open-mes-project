@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocat
 import './App.css';
 import Header from './components/Header';
 import SideMenu from './components/SideMenu';
+import PageContextBanner from './components/PageContextBanner';
 import ProtectedRoute from './components/ProtectedRoute';
 import LoginPage from './pages/LoginPage';
 import VersionModal from './components/VersionModal';
@@ -126,7 +127,12 @@ function AppContent() {
           element={
             <ProtectedRoute isAuthenticated={isAuthenticated}>
               <>
-                <Header onMenuClick={toggleMenu} isMenuOpen={menuOpen} isAuthenticated={isAuthenticated} />
+                <Header
+                  onMenuClick={toggleMenu}
+                  isMenuOpen={menuOpen}
+                  isAuthenticated={isAuthenticated}
+                  isStaffOrSuperuser={isStaff}
+                />
                 <SideMenu
                   isOpen={menuOpen}
                   isStaffOrSuperuser={isStaff}
@@ -137,6 +143,7 @@ function AppContent() {
                 />
                 {menuOpen && <div id="menu-overlay" onClick={closeMenu} />}
                 <main className='main-contents container'>
+                  <PageContextBanner />
                   <Outlet />
                 </main>
               </>

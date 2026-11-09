@@ -167,12 +167,7 @@ const InspectionHistory = () => {
   const failCount = filteredResults.filter(r => r.judgment === 'fail').length;
 
   return (
-    <div className="container mt-4 mb-5">
-      <div className="mb-4">
-        <h2 className="fw-bold text-dark">点検・検査履歴</h2>
-        <p className="text-muted">受入、工程内、最終製品、および設備始業点検の実績履歴を一覧表示します。</p>
-      </div>
-
+    <div className="goods-receipt-page">
       {/* Summary Stats Row */}
       <div className="row g-3 mb-4">
         <div className="col-md-4">

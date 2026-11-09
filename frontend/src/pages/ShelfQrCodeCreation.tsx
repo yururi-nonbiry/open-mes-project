@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { QRCodeCanvas } from 'qrcode.react';
-import { Card, Form, Container, Row, Col, Button } from 'react-bootstrap';
+import { Form, Button } from 'react-bootstrap';
 
 const ShelfQrCodeCreation = () => {
   const [warehouse, setWarehouse] = useState('');
@@ -57,77 +57,74 @@ const ShelfQrCodeCreation = () => {
   };
 
   return (
-    <Container className="mt-4">
-      <Row className="justify-content-md-center">
-        <Col md={6}>
-          <Card>
-            <Card.Body>
-              <Card.Title as="h2" className="text-center mb-4">倉庫棚番QR作成</Card.Title>
-              <Form>
-                <Form.Group as={Row} className="mb-3" controlId="warehouse-input">
-                  <Form.Label column sm={3}>
-                    倉庫番号
-                  </Form.Label>
-                  <Col sm={9}>
-                    <Form.Control
-                      type="text"
-                      value={warehouse}
-                      onChange={(e) => setWarehouse(e.target.value)}
-                      placeholder="倉庫番号を入力"
-                    />
-                  </Col>
-                </Form.Group>
+    <div className="goods-receipt-page">
+      <div className="goods-receipt-filter-panel">
+        <div className="receipt-search-inputs-row">
+          <div className="receipt-search-field">
+            <label htmlFor="warehouse-input" className="receipt-search-label">倉庫番号</label>
+            <Form.Control
+              id="warehouse-input"
+              size="sm"
+              type="text"
+              value={warehouse}
+              onChange={(e) => setWarehouse(e.target.value)}
+              placeholder="例: W01"
+            />
+          </div>
+          <div className="receipt-search-field">
+            <label htmlFor="shelf-input" className="receipt-search-label">棚番号</label>
+            <Form.Control
+              id="shelf-input"
+              size="sm"
+              type="text"
+              value={shelf}
+              onChange={(e) => setShelf(e.target.value)}
+              placeholder="例: A-01-01"
+            />
+          </div>
+          <div className="d-flex align-items-center pt-3">
+            <Form.Check
+              id="include-label-check"
+              type="checkbox"
+              label="画像下部に倉庫・棚番の文字を入れる"
+              checked={includeLabel}
+              onChange={(e) => setIncludeLabel(e.target.checked)}
+              className="fw-semibold small text-secondary"
+            />
+          </div>
+        </div>
+      </div>
 
-                <Form.Group as={Row} className="mb-3" controlId="shelf-input">
-                  <Form.Label column sm={3}>
-                    棚番号
-                  </Form.Label>
-                  <Col sm={9}>
-                    <Form.Control
-                      type="text"
-                      value={shelf}
-                      onChange={(e) => setShelf(e.target.value)}
-                      placeholder="棚番号を入力"
-                    />
-                  </Col>
-                </Form.Group>
-
-                <Form.Group className="mb-3" controlId="include-label-check">
-                  <Form.Check
-                    type="checkbox"
-                    label="倉庫・棚番を文字で書き出す"
-                    checked={includeLabel}
-                    onChange={(e) => setIncludeLabel(e.target.checked)}
-                  />
-                </Form.Group>
-              </Form>
-
-              {warehouse && shelf && (
-                <div className="text-center mt-4">
-                  <h4>生成されたQRコード</h4>
-                  <div className="d-inline-block p-3 border rounded">
-                    <QRCodeCanvas id="qr-code-canvas" value={qrCodeValue} size={256} />
-                    {includeLabel && (
-                      <div className="mt-2 fw-bold">
-                        <div>倉庫: {warehouse}</div>
-                        <div>棚番: {shelf}</div>
-                      </div>
-                    )}
-                  </div>
-                  <p className="mt-3">QRコードの文字列:</p>
-                  <code>{qrCodeValue}</code>
-                  <div className="mt-3">
-                    <Button variant="primary" onClick={handleDownload}>
-                      PNGでダウンロード
-                    </Button>
-                  </div>
+      <div className="goods-receipt-table-card p-4 text-center">
+        {warehouse && shelf ? (
+          <div>
+            <div className="fw-bold text-dark mb-3">生成された棚番QRコード</div>
+            <div className="d-inline-block p-3 border rounded bg-white shadow-sm">
+              <QRCodeCanvas id="qr-code-canvas" value={qrCodeValue} size={220} />
+              {includeLabel && (
+                <div className="mt-2 fw-bold text-dark">
+                  <div>倉庫: {warehouse}</div>
+                  <div>棚番: {shelf}</div>
                 </div>
               )}
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
-    </Container>
+            </div>
+            <div className="mt-3 small text-secondary">
+              QRデータ文字列: <code className="ms-1 px-2 py-1 bg-light border rounded text-dark">{qrCodeValue}</code>
+            </div>
+            <div className="mt-3">
+              <Button variant="primary" className="fw-bold px-4" onClick={handleDownload}>
+                PNG画像でダウンロード
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="py-4 text-muted">
+            <div className="fw-bold mb-1">上の入力欄に「倉庫番号」と「棚番号」を入力してください</div>
+            <div className="small">入力するとリアルタイムに棚番ラベル用のQRコードが生成されます。</div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 };
 

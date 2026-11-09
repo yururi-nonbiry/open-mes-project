@@ -4,9 +4,13 @@ import { getCookie } from './cookies';
  * オブジェクトをクエリ文字列に変換します。
  * undefined, null, 空文字の値を自動的に除外します。
  */
-export const buildQueryString = (params: Record<string, any>): string => {
+export const buildQueryString = (params: Record<string, any> | URLSearchParams): string => {
+    if (params instanceof URLSearchParams) {
+        const qs = params.toString();
+        return qs ? `?${qs}` : '';
+    }
     const searchParams = new URLSearchParams();
-    Object.entries(params).forEach(([key, value]) => {
+    Object.entries(params || {}).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
             searchParams.append(key, value.toString());
         }

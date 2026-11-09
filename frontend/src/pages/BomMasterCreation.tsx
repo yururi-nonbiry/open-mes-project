@@ -30,26 +30,23 @@ const BomMasterCreation: React.FC = () => {
     if (error) return <div className="container mt-4"><div className="alert alert-danger">{error}</div></div>;
 
     return (
-        <div className="container-fluid mt-4">
-            <h4>使用部品マスター管理</h4>
-            <p className="text-muted">
-                製品・中間品ごとに、1個を作るのに必要な使用部品（材料・中間品）と数量を登録します。
-                中間品にも構成を登録することで多階層の構成になります。生産計画の作成時に、ここでの構成（1階層目）が計画の部品構成としてコピーされます。
-            </p>
-            <button
-                type="button"
-                className="btn btn-primary mb-3"
-                onClick={() => openModal(null)}
-            >
-                <i className="fas fa-plus"></i> 新規登録
-            </button>
-            <button
-                type="button"
-                className="btn btn-secondary mb-3 ml-2"
-                onClick={() => setExplodeTarget({ isOpen: true })}
-            >
-                構成の展開
-            </button>
+        <div className="container-fluid mt-2">
+            <div className="d-flex flex-wrap gap-2 mb-3">
+                <button
+                    type="button"
+                    className="btn btn-primary fw-bold"
+                    onClick={() => openModal(null)}
+                >
+                    ＋ 新規登録
+                </button>
+                <button
+                    type="button"
+                    className="btn btn-outline-secondary fw-bold"
+                    onClick={() => setExplodeTarget({ isOpen: true })}
+                >
+                    構成の展開
+                </button>
+            </div>
 
             <BomMasterTable
                 items={items}

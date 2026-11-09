@@ -30,9 +30,7 @@ const InventoryInquiry: React.FC = () => {
     const closeMoveModal = () => setMoveModal({ isOpen: false, item: null });
 
     return (
-        <div className="inventory-inquiry container mt-4">
-            <h2 className="inventory-inquiry-title mb-4">在庫照会</h2>
-
+        <div className="inventory-inquiry container mt-2">
             <InventoryFilters 
                 filters={filters}
                 searchFields={searchFields}

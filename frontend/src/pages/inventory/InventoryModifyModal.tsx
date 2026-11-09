@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import Modal from '../../components/Modal';
+import { Modal, Button, Alert } from 'react-bootstrap';
 import inventoryService, { InventoryItem } from '../../services/inventoryService';
+import { NavIcon } from '../../config/navigationConfig';
 
 interface InventoryModifyModalProps {
     isOpen: boolean;
@@ -23,7 +24,7 @@ const InventoryModifyModal: React.FC<InventoryModifyModalProps> = ({
     useEffect(() => {
         if (isOpen && item) {
             setFormData({
-                location: item.location === '-' ? '' : item.location,
+                location: item.location === '-' ? '' : (item.location || ''),
                 quantity: item.quantity,
             });
             setError('');
@@ -49,11 +50,11 @@ const InventoryModifyModal: React.FC<InventoryModifyModalProps> = ({
                 quantity: formData.quantity,
                 location: (formData.location || '').trim(),
             });
-            setSuccess(result.message || '在庫を更新しました。');
+            setSuccess(result.message || '在庫数量・棚番を更新しました。');
             setTimeout(() => {
                 onSuccess();
                 onClose();
-            }, 1500);
+            }, 1200);
         } catch (err: any) {
             setError(err.message || '在庫の更新に失敗しました。');
         } finally {
@@ -64,48 +65,98 @@ const InventoryModifyModal: React.FC<InventoryModifyModalProps> = ({
     if (!item) return null;
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose}>
-            <div className="inventory-modal-content">
-                <h2 className="mb-3">在庫修正</h2>
-                <form onSubmit={handleSubmit}>
-                    <table className="table table-sm table-bordered mb-3">
-                        <tbody>
-                            <tr>
-                                <td style={{ width: '35%' }}><label className="mb-0">製品/材料名:</label></td>
-                                <td><p className="mb-0">{item.part_number}</p></td>
-                            </tr>
-                            <tr>
-                                <td><label className="mb-0">倉庫 (変更不可):</label></td>
-                                <td><p className="form-control-plaintext form-control-sm ps-2 mb-0">{item.warehouse}</p></td>
-                            </tr>
-                            <tr>
-                                <td><label htmlFor="modal_location_input" className="mb-0">場所:</label></td>
-                                <td><input type="text" id="modal_location_input" name="location" value={formData.location} onChange={handleFormChange} className="form-control form-control-sm" /></td>
-                            </tr>
-                            <tr>
-                                <td><label htmlFor="modal_quantity_input" className="mb-0">在庫数:</label></td>
-                                <td><input type="number" id="modal_quantity_input" name="quantity" value={formData.quantity} onChange={handleFormChange} className="form-control form-control-sm text-end" required /></td>
-                            </tr>
-                            <tr>
-                                <td><label className="mb-0">引当在庫 (変更不可):</label></td>
-                                <td><p className="mb-0 text-end" style={{ paddingRight: '0.5rem' }}>{item.reserved}</p></td>
-                            </tr>
-                            <tr>
-                                <td><label className="mb-0">利用可能数 (参考):</label></td>
-                                <td><p className="mb-0 text-end" style={{ paddingRight: '0.5rem' }}>{item.available_quantity}</p></td>
-                            </tr>
-                        </tbody>
-                    </table>
-                    {error && <div className="alert alert-danger p-2 small">{error}</div>}
-                    {success && <div className="alert alert-success p-2 small">{success}</div>}
-                    <div className="mt-3 text-end">
-                        <button type="submit" className="btn btn-primary btn-sm" disabled={submitting}>
-                            {submitting ? '保存中...' : '保存'}
-                        </button>
-                        <button type="button" className="btn btn-secondary btn-sm ms-2" onClick={onClose}>キャンセル</button>
+        <Modal show={isOpen} onHide={onClose} centered scrollable className="mes-clean-modal">
+            <Modal.Header closeButton className="mes-modal-header">
+                <div className="mes-modal-title-wrap">
+                    <span className="mes-modal-icon-box" aria-hidden="true">
+                        <NavIcon name="inquiry" size={20} />
+                    </span>
+                    <div className="mes-modal-title-text">
+                        <div className="mes-modal-title-row">
+                            <Modal.Title className="mes-modal-title">在庫数量・棚番の修正</Modal.Title>
+                            <span className="mes-modal-tag-pill">在庫調整</span>
+                        </div>
+                        <p className="mes-modal-subtitle">
+                            実地棚卸や保管場所の整理に伴い、現在庫数または棚番を直接修正します。
+                        </p>
                     </div>
-                </form>
-            </div>
+                </div>
+            </Modal.Header>
+            <form onSubmit={handleSubmit}>
+                <Modal.Body className="mes-modal-body">
+                    <div className="receipt-modal-summary-card mb-3">
+                        <div className="receipt-summary-grid">
+                            <div className="receipt-summary-item">
+                                <span className="summary-label">品番</span>
+                                <span className="summary-value fw-bold">{item.part_number}</span>
+                            </div>
+                            <div className="receipt-summary-item">
+                                <span className="summary-label">倉庫（変更不可）</span>
+                                <span className="summary-value fw-bold">{item.warehouse}</span>
+                            </div>
+                            <div className="receipt-summary-item">
+                                <span className="summary-label">引当済在庫</span>
+                                <span className="summary-value">{item.reserved}</span>
+                            </div>
+                            <div className="receipt-summary-item highlight">
+                                <span className="summary-label">利用可能数（参考）</span>
+                                <span className="summary-value text-primary fw-bold">{item.available_quantity}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="row g-3">
+                        <div className="col-12 col-md-6">
+                            <div className="mes-modal-field-group">
+                                <label htmlFor="modal_quantity_input" className="mes-modal-field-label">
+                                    <span>修正後の在庫数</span>
+                                    <span className="mes-field-badge required">必須</span>
+                                </label>
+                                <input
+                                    type="number"
+                                    id="modal_quantity_input"
+                                    name="quantity"
+                                    value={formData.quantity}
+                                    onChange={handleFormChange}
+                                    className="form-control mes-modal-input text-end fw-bold"
+                                    required
+                                />
+                                <span className="mes-modal-field-help">実在庫の数量を入力してください</span>
+                            </div>
+                        </div>
+
+                        <div className="col-12 col-md-6">
+                            <div className="mes-modal-field-group">
+                                <label htmlFor="modal_location_input" className="mes-modal-field-label">
+                                    <span>棚番（ロケーション）</span>
+                                    <span className="mes-field-badge optional">任意</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    id="modal_location_input"
+                                    name="location"
+                                    value={formData.location}
+                                    onChange={handleFormChange}
+                                    className="form-control mes-modal-input"
+                                    placeholder="例：A-01"
+                                />
+                                <span className="mes-modal-field-help">保管している棚番を入力します</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {error && <Alert variant="danger" className="mt-3 mb-0 py-2 small">{error}</Alert>}
+                    {success && <Alert variant="success" className="mt-3 mb-0 py-2 small fw-bold">{success}</Alert>}
+                </Modal.Body>
+                <Modal.Footer className="mes-modal-footer">
+                    <Button variant="outline-secondary" onClick={onClose}>
+                        キャンセル
+                    </Button>
+                    <Button type="submit" variant="primary" className="fw-bold px-4" disabled={submitting}>
+                        {submitting ? '保存中...' : '修正内容を保存する'}
+                    </Button>
+                </Modal.Footer>
+            </form>
         </Modal>
     );
 };

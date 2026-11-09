@@ -1,54 +1,231 @@
-/* --- Styles from base.html for Layout --- */
+/* --- Layout & Global Base --- */
 body.menu-open-no-scroll {
     overflow: hidden;
 }
 
-/* Header Styles */
-header {
-    background-color: #007bff;
-    /* Blue */
-    color: #fff;
-    padding: 0.4rem 0;
-    text-align: center;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+/* モーダル（ポップアップ）がスティッキーヘッダー・リボンの背後に隠れないよう最前面に表示 */
+.modal-backdrop {
+    z-index: 1200 !important;
+}
+
+.modal {
+    z-index: 1210 !important;
+}
+
+body {
+    background-color: #f1f5f9;
+    color: #1e293b;
+}
+
+.nav-mono-icon {
+    display: inline-block;
+    vertical-align: middle;
+    flex-shrink: 0;
+}
+
+/* ==========================================================================
+   Header & Ribbon Styles (青ベース＋水色グラデーション＋カテゴリ別カラーリボン)
+   ========================================================================== */
+header.app-header {
+    background: linear-gradient(135deg, #0a4da6 0%, #0284c7 65%, #0ea5e9 100%);
+    color: #ffffff;
+    box-shadow: 0 3px 10px rgba(2, 132, 199, 0.2);
     position: sticky;
-    /* Make header sticky */
     top: 0;
     z-index: 1101;
+    border-bottom: 3px solid var(--active-category-color, #0ea5e9);
+}
+
+.header-top-bar {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 0.4rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 46px;
+}
+
+.header-left-group {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    min-width: 0;
+}
+
+.header-brand-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #ffffff !important;
+    text-decoration: none;
+    padding: 2px 4px;
+    background: transparent;
+    border: none;
+    transition: opacity 0.2s ease;
+}
+
+.header-brand-link:hover {
+    background: transparent;
+    color: #ffffff !important;
+    text-decoration: none;
+    opacity: 0.88;
+}
+
+.header-brand-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #bae6fd;
 }
 
 #title {
     margin: 0;
-    font-size: 1.6rem;
+    font-size: 1.3rem;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    color: #ffffff;
+    line-height: 1.2;
+}
+
+/* 選択中カテゴリ＆現在画面インジケーター（リボン上部） */
+.header-active-indicator {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.header-category-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 11px;
+    border-radius: 999px;
+    font-size: 0.84rem;
+    font-weight: 700;
+    color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.55);
+}
+
+.header-category-badge.is-top {
+    background-color: rgba(15, 23, 42, 0.22);
+    border-color: rgba(186, 230, 253, 0.5);
+}
+
+.header-page-crumb {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.14);
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: #f0f9ff;
+}
+
+.header-crumb-sep {
+    opacity: 0.8;
     font-weight: bold;
 }
 
-/* Hamburger Menu Icon */
+.header-step-pill {
+    background: #e0f2fe;
+    color: #0369a1;
+    font-size: 0.7rem;
+    font-weight: 800;
+    padding: 1px 7px;
+    border-radius: 999px;
+    letter-spacing: 0.03em;
+}
+
+.header-page-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: #ffffff;
+    font-weight: 700;
+}
+
+.header-subpage-name {
+    color: #bae6fd;
+    font-size: 0.82rem;
+}
+
+/* 右側アクション＆右配置ハンバーガーメニュー */
+.header-right-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
+}
+
+.header-help-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: #f0f9ff !important;
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    padding: 4px 11px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.header-help-link:hover {
+    background: rgba(255, 255, 255, 0.25);
+    color: #ffffff !important;
+    text-decoration: none;
+}
+
+/* Hamburger Menu Icon (右側配置) */
 #hamburger-menu {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    left: 15px;
+    position: relative;
+    right: 0;
+    left: auto;
     display: flex;
     flex-direction: column;
     justify-content: space-around;
-    width: 28px;
-    height: 22px;
+    width: 36px;
+    height: 32px;
+    padding: 6px 7px;
+    box-sizing: border-box;
     cursor: pointer;
     z-index: 1102;
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 7px;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+#hamburger-menu:hover {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: #ffffff;
 }
 
 #hamburger-menu span {
     display: block;
     width: 100%;
     height: 2px;
-    background-color: #fff;
+    background-color: #ffffff;
     border-radius: 3px;
     transition: all 0.3s ease-in-out;
 }
 
+#hamburger-menu.open {
+    background: #1e293b;
+    border-color: #7dd3fc;
+}
+
 #hamburger-menu.open span:nth-child(1) {
-    transform: rotate(45deg) translate(4px, 4px);
+    transform: rotate(45deg) translate(4.5px, 4.5px);
 }
 
 #hamburger-menu.open span:nth-child(2) {
@@ -56,94 +233,401 @@ header {
 }
 
 #hamburger-menu.open span:nth-child(3) {
-    transform: rotate(-45deg) translate(6px, -5px);
+    transform: rotate(-45deg) translate(5px, -5px);
 }
 
-/* Slide-out Menu Bar Styles */
+/* ==========================================================================
+   中段：管理カテゴリ判別リボン（在庫管理・生産管理・品質管理…を色分け表示）
+   ========================================================================== */
+.header-ribbon-bar {
+    background: rgba(15, 23, 42, 0.22);
+    border-top: 1px solid rgba(255, 255, 255, 0.18);
+    padding: 5px 1rem;
+}
+
+.ribbon-category-list {
+    max-width: 1440px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.ribbon-category-tab {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 0.83rem;
+    font-weight: 600;
+    color: #f0f9ff !important;
+    background: rgba(15, 23, 42, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    text-decoration: none;
+    transition: all 0.18s ease;
+    overflow: hidden;
+}
+
+.ribbon-cat-color-bar {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
+}
+
+.ribbon-category-tab:hover {
+    background: rgba(255, 255, 255, 0.92);
+    color: var(--cat-color, #0284c7) !important;
+    border-color: #ffffff;
+    text-decoration: none;
+}
+
+.ribbon-category-tab.active {
+    background: #ffffff;
+    color: var(--cat-color, #0284c7) !important;
+    border: 2px solid var(--cat-color, #0284c7);
+    font-weight: 800;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+
+.ribbon-active-dot {
+    font-size: 0.68rem;
+    font-weight: 800;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background-color: var(--cat-color, #0284c7);
+    color: #ffffff;
+    margin-left: 2px;
+}
+
+/* ==========================================================================
+   下段：選択中カテゴリの作業ステップ順序サブリボン
+   ========================================================================== */
+.header-workflow-subribbon {
+    background-color: var(--active-category-bg-light, #f0f9ff);
+    border-top: 1px solid var(--active-category-border, #7dd3fc);
+    color: var(--active-category-text, #075985);
+    padding: 6px 1rem;
+}
+
+.subribbon-inner {
+    max-width: 1440px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+}
+
+.subribbon-category-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 6px;
+    color: #ffffff;
+    font-size: 0.78rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.subribbon-steps-track {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px 6px;
+}
+
+.subribbon-step-arrow {
+    color: var(--active-category-color, #0284c7);
+    font-weight: 800;
+    font-size: 0.85rem;
+    opacity: 0.75;
+    user-select: none;
+}
+
+.subribbon-step-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--active-category-text, #075985) !important;
+    background: #ffffff;
+    border: 1px solid var(--active-category-border, #7dd3fc);
+    text-decoration: none;
+    transition: all 0.18s ease;
+}
+
+.subribbon-step-link:hover {
+    background: var(--active-category-color, #0284c7);
+    color: #ffffff !important;
+    border-color: var(--active-category-color, #0284c7);
+    text-decoration: none;
+}
+
+.subribbon-step-link:hover .subribbon-step-num,
+.subribbon-step-link:hover .subribbon-step-circled,
+.subribbon-step-link:hover .subribbon-step-tag {
+    background: rgba(255, 255, 255, 0.22);
+    color: #ffffff;
+}
+
+.subribbon-step-link.current {
+    background: var(--active-category-color, #0284c7);
+    color: #ffffff !important;
+    border-color: var(--active-category-color, #0284c7);
+    font-weight: 800;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.subribbon-step-circled {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.88rem;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--active-category-color, #0284c7);
+}
+
+.subribbon-step-link.current .subribbon-step-circled {
+    color: #ffffff;
+}
+
+.subribbon-step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    font-size: 0.72rem;
+    font-weight: 800;
+    background: var(--active-category-bg-light, #e0f2fe);
+    color: var(--active-category-color, #0284c7);
+}
+
+.subribbon-step-link.current .subribbon-step-num {
+    background: #ffffff;
+    color: var(--active-category-color, #0284c7);
+}
+
+.subribbon-step-tag {
+    font-size: 0.7rem;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: rgba(2, 132, 199, 0.08);
+    color: var(--active-category-text, #075985);
+    font-weight: 500;
+}
+
+.subribbon-step-link.current .subribbon-step-tag {
+    background: rgba(255, 255, 255, 0.22);
+    color: #ffffff;
+}
+
+/* ==========================================================================
+   右側スライドアウト・サイドメニュー (#menu-bar)
+   ========================================================================== */
 #menu-bar {
     position: fixed;
     top: 0;
-    left: -280px;
-    width: 250px;
+    right: -320px;
+    left: auto;
+    width: 290px;
     height: 100%;
-    background-color: #343a40;
+    background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
     box-sizing: border-box;
-    padding: 60px 15px 20px;
-    /* Top padding to clear header */
+    padding: 64px 14px 24px;
     display: flex;
     flex-direction: column;
-    gap: 0px;
+    gap: 2px;
     z-index: 1100;
-    transition: left 0.3s ease-in-out;
+    transition: right 0.3s ease-in-out;
     overflow-y: auto;
-    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.2);
+    box-shadow: -4px 0 16px rgba(15, 23, 42, 0.38);
+    border-left: 2px solid #0284c7;
 }
 
 #menu-bar.open {
-    left: 0;
+    right: 0;
+}
+
+.side-menu-header {
+    padding: 4px 10px 10px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+    margin-bottom: 6px;
+}
+
+.side-menu-header-title {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: #38bdf8;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
 }
 
 #menu-bar a {
-    color: #fff;
+    color: #e2e8f0;
     text-decoration: none;
-    padding: 5px 15px;
-    border-radius: 5px;
-    transition: background-color 0.3s ease;
-    display: block;
-}
-
-#menu-bar form#logout-form {
-    margin: 0;
-    padding: 0;
+    padding: 7px 12px;
+    border-radius: 6px;
+    transition: background-color 0.2s ease, color 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 #menu-bar a:hover {
-    background-color: #555;
+    background-color: rgba(56, 189, 248, 0.16);
+    color: #ffffff;
+}
+
+.side-menu-top-link {
+    font-weight: 700;
+    background: rgba(2, 132, 199, 0.2);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    margin-bottom: 4px;
+}
+
+.side-menu-top-link.active {
+    background: #0284c7 !important;
+    color: #ffffff !important;
+}
+
+.side-menu-category-group {
+    margin-top: 8px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(148, 163, 184, 0.18);
 }
 
 .menu-category-title {
-    color: #cccccc;
-    padding: 8px 15px;
-    display: block;
-    font-weight: bold;
-    font-size: 1.1em;
-    border-top: 1px solid #495057;
-    margin-top: 8px;
+    color: #f8fafc;
+    padding: 6px 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    font-size: 0.92rem;
 }
 
-#menu-bar>.menu-category-title:first-of-type {
-    border-top: none;
-    margin-top: 0;
+.menu-category-color-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    color: #ffffff;
+    flex-shrink: 0;
+}
+
+.menu-category-label-text {
+    flex: 1;
+}
+
+.side-cat-active-badge {
+    font-size: 0.68rem;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: var(--side-cat-color, #0284c7);
+    color: #ffffff;
 }
 
 .menu-subcategory-link {
-    padding-left: 30px !important;
-    font-size: 0.95em;
+    padding-left: 14px !important;
+    font-size: 0.88rem;
+}
+
+.menu-subcategory-link.active {
+    background: var(--side-cat-color, #0284c7) !important;
+    color: #ffffff !important;
+    font-weight: 700;
+}
+
+.side-step-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    font-size: 0.7rem;
+    font-weight: 800;
+    flex-shrink: 0;
+}
+
+.side-circled-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.92rem;
+    font-weight: 700;
+    line-height: 1;
+    flex-shrink: 0;
+    opacity: 0.9;
+}
+
+.side-link-text {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.side-link-subtag {
+    font-size: 0.68rem;
+    color: #94a3b8;
+    background: rgba(15, 23, 42, 0.45);
+    padding: 1px 6px;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.menu-subcategory-link.active .side-link-subtag {
+    color: #f8fafc;
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.side-menu-footer {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(148, 163, 184, 0.25);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
 }
 
 .menu-logout-button {
-    background-color: transparent !important;
-    /* Override index.css light mode background */
-    border: none;
-    color: #fff;
+    background-color: rgba(225, 29, 72, 0.15) !important;
+    border: 1px solid rgba(244, 63, 94, 0.4);
+    color: #fecdd3;
     cursor: pointer;
-    padding: 10px 15px;
-    border-radius: 5px;
+    padding: 9px 14px;
+    border-radius: 6px;
     text-align: left;
     width: 100%;
-    font-size: inherit;
+    font-size: 0.9rem;
+    font-weight: 600;
     font-family: inherit;
-    display: block;
-    transition: background-color 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 .menu-logout-button:hover {
-    background-color: #555 !important;
-}
-
-#menu-bar>form#logout-form {
-    border-top: 1px solid #495057;
-    margin-top: 8px;
+    background-color: #e11d48 !important;
+    color: #ffffff;
 }
 
 /* Menu Overlay */
@@ -154,129 +638,2417 @@ header {
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
+    background-color: rgba(15, 23, 42, 0.5);
     z-index: 1099;
 }
 
-/* Container Styles */
+/* ==========================================================================
+   Main Container Styles
+   ========================================================================== */
 .container {
-    /* Re-introduce max-width and auto margin to center the content */
     max-width: 1400px;
-    margin: 1.5rem auto;
+    margin: 1.25rem auto;
     flex-grow: 1;
     padding: 0 1rem;
 }
 
-/* Main Content Styles */
 .main-contents {
-    background-color: #fff;
-    padding: 1rem;
-    border-radius: 5px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    background-color: #ffffff;
+    padding: 1.25rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06);
+    border: 1px solid #e2e8f0;
 }
-
-/* --- End of styles from base.html --- */
 
 #root {
     text-align: left;
-    /* padding is now handled by .container and .main-contents */
 }
 
+/* ==========================================================================
+   TopPage: 全体業務フローバナー ＆ カテゴリ別ステップメニュー
+   ========================================================================== */
 .top-page-container {
-    /* このコンテナのパディングは、親要素の .main-contents で管理されるため不要です。 */
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
 }
 
-.top-page-container h2 {
-    text-align: center;
-    margin-bottom: 20px;
-    /* h2の下マージンを減らす */
-    color: #4A5568;
-    font-size: 1.8em;
+/* 1. 全体業務フローバナー（青×水色ベース） */
+.overall-workflow-banner {
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 55%, #eff6ff 100%);
+    border: 1.5px solid #7dd3fc;
+    border-radius: 12px;
+    padding: 16px 18px;
+    box-shadow: 0 3px 10px rgba(2, 132, 199, 0.08);
+}
+
+.workflow-banner-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #bae6fd;
+}
+
+.workflow-banner-title-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    min-width: 260px;
+}
+
+.workflow-banner-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #0284c7, #1d4ed8);
+    color: #ffffff;
+    flex-shrink: 0;
+    box-shadow: 0 2px 6px rgba(2, 132, 199, 0.28);
+}
+
+.overall-workflow-banner h2 {
+    text-align: left;
+    margin: 0 0 2px 0;
+    color: #0c4a6e;
+    font-size: 1.18rem;
+    font-weight: 800;
+}
+
+.workflow-banner-subtitle {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #0369a1;
+    line-height: 1.45;
+}
+
+.workflow-manual-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: 8px;
+    background: #0284c7;
+    color: #ffffff !important;
+    font-size: 0.84rem;
+    font-weight: 700;
+    text-decoration: none;
+    box-shadow: 0 2px 5px rgba(2, 132, 199, 0.22);
+    transition: background-color 0.2s ease, transform 0.15s ease;
+    flex-shrink: 0;
+}
+
+.workflow-manual-btn:hover {
+    background: #0369a1;
+    color: #ffffff !important;
+    text-decoration: none;
+}
+
+/* 2本立てフローコンテナ（①データ投入から入庫まで ／ ②生産から出庫まで） */
+.workflow-tracks-container {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.workflow-track-block {
+    background: rgba(255, 255, 255, 0.82);
+    border: 1.5px solid var(--track-border, #7dd3fc);
+    border-left: 5px solid var(--track-accent, #0284c7);
+    border-radius: 10px;
+    padding: 12px 14px;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
+}
+
+.workflow-track-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    margin-bottom: 10px;
+    padding-bottom: 7px;
+    border-bottom: 1px dashed var(--track-border, #bae6fd);
+}
+
+.workflow-track-title-row {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+
+.workflow-track-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    color: #ffffff;
+    font-size: 0.76rem;
+    font-weight: 800;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.workflow-track-title {
+    margin: 0;
+    font-size: 1.02rem;
+    font-weight: 800;
+    color: #0f172a;
+}
+
+.workflow-track-subtitle {
+    display: block;
+    font-size: 0.79rem;
+    color: #334155;
+    font-weight: 500;
+    margin-top: 2px;
+}
+
+.workflow-track-start-btns {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.track-start-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: 0.76rem;
+    font-weight: 800;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: all 0.18s ease;
+    box-shadow: 0 2px 5px rgba(15, 23, 42, 0.08);
+}
+
+.track-start-btn.is-standalone {
+    background: #4f46e5;
+    color: #ffffff !important;
+    border: 1.5px solid #4338ca;
+}
+
+.track-start-btn.is-standalone:hover {
+    background: #4338ca;
+    color: #ffffff !important;
+    transform: translateY(-1px);
+    text-decoration: none;
+}
+
+.track-start-btn.is-external {
+    background: #ffffff;
+    color: var(--track-accent, #0284c7) !important;
+    border: 1.5px solid var(--track-accent, #0284c7);
+}
+
+.track-start-btn.is-external:hover {
+    background: var(--track-accent, #0284c7);
+    color: #ffffff !important;
+    transform: translateY(-1px);
+    text-decoration: none;
+}
+
+.overall-workflow-grid {
+    display: flex;
+    align-items: stretch;
+    flex-wrap: nowrap;
+    gap: 6px;
+}
+
+.workflow-phase-connector {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #0284c7;
+    padding: 0;
+    flex-shrink: 0;
+}
+
+.workflow-phase-card {
+    flex: 1 1 0;
+    min-width: 0;
+    background: #ffffff;
+    border: 1.5px solid var(--phase-border, #93c5fd);
+    border-top: 4px solid var(--phase-color, #0284c7);
+    border-radius: 10px;
+    padding: 10px 11px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.05);
+}
+
+.workflow-phase-card.has-data-guide {
+    flex: 1.25 1 0;
+}
+
+/* データ投入カード内の「他アプリを使う場合／使わない場合」分岐表示 */
+.data-input-mode-box {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin: 2px 0;
+}
+
+.data-input-mode-item {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 5px 7px;
+    border-radius: 6px;
+    font-size: 0.73rem;
+    line-height: 1.35;
+}
+
+.data-input-mode-item.is-external {
+    background: #f0f9ff;
+    border: 1px solid #bae6fd;
+}
+
+.data-input-mode-item.is-standalone {
+    background: #eef2ff;
+    border: 1px solid #c7d2fe;
+}
+
+.mode-pill {
+    display: inline-block;
+    align-self: flex-start;
+    font-size: 0.67rem;
+    font-weight: 800;
+    padding: 1px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+.mode-pill.external {
+    background: #0284c7;
+    color: #ffffff;
+}
+
+.mode-pill.standalone {
+    background: #4f46e5;
+    color: #ffffff;
+}
+
+.mode-desc {
+    color: #1e293b;
+    font-weight: 500;
+}
+
+.mode-inline-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 3px;
+}
+
+.workflow-quick-chip.mode-chip-standalone {
+    background: #ffffff;
+    color: #4338ca !important;
+    border: 1.5px solid #818cf8;
+    font-weight: 700;
+}
+
+.workflow-quick-chip.mode-chip-standalone.is-primary-chip {
+    background: #4f46e5;
+    color: #ffffff !important;
+    border-color: #4338ca;
+    box-shadow: 0 2px 4px rgba(79, 70, 229, 0.2);
+}
+
+.workflow-quick-chip.mode-chip-standalone:hover {
+    background: #4338ca;
+    color: #ffffff !important;
+    border-color: #3730a3;
+}
+
+.workflow-quick-chip.mode-chip-external {
+    background: #ffffff;
+    color: #0369a1 !important;
+    border: 1.5px solid #38bdf8;
+    font-weight: 700;
+}
+
+.workflow-quick-chip.mode-chip-external:hover {
+    background: #0284c7;
+    color: #ffffff !important;
+    border-color: #0369a1;
+}
+
+/* データ投入画面上部の2モード比較カード */
+.data-import-usage-modes {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 12px;
+}
+
+.usage-mode-card {
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    line-height: 1.45;
+}
+
+.usage-mode-card.mode-external {
+    background: #f0f9ff;
+    border: 1px solid #7dd3fc;
+    border-left: 5px solid #0284c7;
+}
+
+.usage-mode-card.mode-standalone {
+    background: #eef2ff;
+    border: 1px solid #a5b4fc;
+    border-left: 5px solid #4f46e5;
+}
+
+.usage-mode-header {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.usage-mode-short-desc {
+    color: #1e293b;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.usage-mode-body {
+    color: #1e293b;
+}
+
+.workflow-phase-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    flex-wrap: nowrap;
+}
+
+.workflow-phase-badge {
+    background: var(--phase-color, #0284c7);
+    color: #ffffff;
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 999px;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.workflow-phase-cat {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--phase-color, #0284c7);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.workflow-phase-title {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.9rem;
+    font-weight: 800;
+    color: #0f172a;
+    white-space: nowrap;
+}
+
+.workflow-phase-title .nav-mono-icon {
+    color: var(--phase-color, #0284c7);
+}
+
+.workflow-phase-summary {
+    margin: 0;
+    font-size: 0.77rem;
+    color: #475569;
+    line-height: 1.4;
+}
+
+.workflow-phase-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: auto;
+    padding-top: 4px;
+}
+
+.workflow-quick-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: var(--phase-bg, #f0f9ff);
+    color: var(--phase-color, #0284c7) !important;
+    border: 1px solid var(--phase-border, #bae6fd);
+    text-decoration: none;
+    transition: all 0.15s ease;
+}
+
+.workflow-quick-chip:hover {
+    background: var(--phase-color, #0284c7);
+    color: #ffffff !important;
+    text-decoration: none;
+}
+
+/* 2. カテゴリ別セクション（在庫管理〜管理者メニュー・アカウント） */
+.category-sections-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
 }
 
 .menu-section {
-    margin-bottom: 15px;
-    /* 各セクション間のマージンを減らす */
-    padding: 12px 15px;
-    /* セクション内の上下paddingを少し減らす */
-    background-color: #FFFFFF;
-    /* 白背景 */
-    border: 1px solid #E2E8F0;
-    /* 薄いボーダー */
-    border-radius: 5px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    margin-bottom: 0;
+    padding: 14px 16px;
+    background-color: #ffffff;
+    border: 1.5px solid var(--cat-border, #7dd3fc);
+    border-left: 6px solid var(--cat-primary, #0284c7);
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+.menu-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    margin-bottom: 12px;
+    padding: 6px 10px;
+    background: var(--cat-bg-light, #f0f9ff);
+    border-radius: 8px;
+    border: 1px solid var(--cat-bg-soft, #e0f2fe);
+}
+
+.menu-section-title-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.menu-section-icon-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background-color: var(--cat-primary, #0284c7);
+    color: #ffffff;
+    box-shadow: 0 2px 4px rgba(15, 23, 42, 0.12);
+    flex-shrink: 0;
 }
 
 .menu-section h3 {
-    margin-top: 0;
-    margin-bottom: 8px;
-    /* h3の下マージンを減らす */
-    color: #007bff;
-    border-bottom: 2px solid #007bff;
-    /* タイトルの下線を強調 */
-    padding-bottom: 6px;
-    /* h3の下paddingを減らす */
-    font-size: 1.3em;
+    margin: 0;
+    color: var(--cat-text-dark, #075985);
+    border-bottom: none;
+    padding-bottom: 0;
+    font-size: 1.12rem;
+    font-weight: 800;
 }
 
-.menu-section ul {
+.menu-section-count-pill {
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background-color: #ffffff;
+    color: var(--cat-primary, #0284c7);
+    border: 1px solid var(--cat-border, #7dd3fc);
+    white-space: nowrap;
+}
+
+.menu-section-flow-summary {
+    margin: 0;
+    font-size: 0.8rem;
+    color: #334155;
+    font-weight: 600;
+}
+
+/* 並列カードリスト（デスクトップでは横1列にすっきり収める） */
+.menu-section ul.workflow-steps-list {
     list-style-type: none;
     padding-left: 0;
+    margin: 0;
     display: flex;
-    /* 小項目を横並びにする */
+    align-items: stretch;
+    flex-wrap: nowrap;
+    gap: 10px;
+}
+
+/* 管理者メニューは6項目を3列×2段の整理グリッドで表示 */
+.menu-section ul.workflow-steps-list.admin-grid-list {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.menu-section ul.workflow-steps-list.admin-grid-list .workflow-step-item {
+    max-width: none;
+}
+
+/* データメンテナンス（1項目）は広がりすぎないサイズに整理 */
+.menu-section ul.workflow-steps-list.single-item-list .workflow-step-item {
+    max-width: 440px;
+}
+
+/* アカウントメニューは3項目横並び */
+.menu-section ul.workflow-steps-list.account-steps-list .workflow-step-item {
+    max-width: 340px;
+}
+
+.workflow-step-arrow-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    flex-shrink: 0;
+}
+
+.step-connector-arrow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background-color: var(--cat-bg-soft, #e0f2fe);
+    color: var(--cat-primary, #0284c7);
+}
+
+/* 生産管理の「基本手順(1〜3)」と「補助・試算メニュー」の区切り線 */
+.workflow-step-divider-item {
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+    padding: 4px 3px;
+    flex-shrink: 0;
+}
+
+.step-group-divider {
+    width: 2px;
+    background: repeating-linear-gradient(to bottom,
+            var(--cat-border, #93c5fd) 0,
+            var(--cat-border, #93c5fd) 5px,
+            transparent 5px,
+            transparent 9px);
+    border-radius: 2px;
+}
+
+.workflow-step-item {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+}
+
+.menu-section ul li a.workflow-step-card,
+.link-button.logout-step-card {
+    width: 100%;
+    text-decoration: none;
+    color: var(--cat-text-dark, #075985) !important;
+    background: linear-gradient(180deg, #ffffff 0%, var(--cat-bg-light, #f0f9ff) 100%) !important;
+    padding: 10px 11px;
+    border-radius: 9px;
+    border: 1.5px solid var(--cat-border, #7dd3fc);
+    border-top: 3.5px solid var(--cat-primary, #0284c7);
+    transition: all 0.18s ease-in-out;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    text-align: left;
+    box-sizing: border-box;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
+}
+
+/* 補助・試算アイテムは少し控えめな上部ラインで基本手順と区別 */
+.workflow-step-item.is-aux-item a.workflow-step-card {
+    background: #ffffff !important;
+    border-top: 3.5px solid var(--cat-secondary, #60a5fa);
+}
+
+.menu-section ul li a.workflow-step-card:hover,
+.link-button.logout-step-card:hover {
+    background: var(--cat-bg-soft, #e0f2fe) !important;
+    border-color: var(--cat-primary, #0284c7);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08);
+    text-decoration: none;
+}
+
+.step-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+}
+
+.step-card-badges {
+    display: flex;
+    align-items: center;
     flex-wrap: wrap;
-    /* 画面幅に応じて折り返す */
-    gap: 10px 15px;
-    /* 縦方向のgapを少し減らし、横方向は維持 */
+    gap: 4px;
+    min-width: 0;
 }
 
-.menu-section ul li {
-    /* margin-bottom: 8px; Flexboxのgapプロパティで間隔を調整するため不要に */
-    /* 各リンクアイテムのスタイル調整のため、li自体にもスタイルを適用できるようにする */
+.step-number-badge {
+    background-color: var(--cat-primary, #0284c7);
+    color: #ffffff;
+    font-size: 0.78rem;
+    font-weight: 800;
+    padding: 1px 7px;
+    border-radius: 999px;
+    line-height: 1.25;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
-.menu-section ul li a {
-    text-decoration: none;
-    color: #0056b3;
-    background-color: #EBF8FF;
-    padding: 6px 10px;
-    /* リンクの上下paddingを少し減らす */
+.step-aux-badge {
+    background-color: var(--cat-bg-soft, #e0f2fe);
+    color: var(--cat-text-dark, #075985);
+    border: 1px solid var(--cat-border, #7dd3fc);
+    font-size: 0.67rem;
+    font-weight: 800;
+    padding: 1px 6px;
+    border-radius: 999px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.step-tag-label {
+    font-size: 0.69rem;
+    font-weight: 700;
+    color: var(--cat-primary, #0284c7);
+    background: #ffffff;
+    padding: 1px 6px;
     border-radius: 4px;
-    /* 角を丸める */
-    border: 1px solid #BEE3F8;
-    /* 薄い青のボーダー */
-    transition: all 0.2s ease-in-out;
-    /* トランジションをallに */
-    display: inline-block;
-    /* paddingなどを正しく適用するため */
-    font-size: 0.95em;
+    border: 1px solid var(--cat-border, #bae6fd);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.menu-section ul li a:hover,
-.link-button:hover {
-    color: #003d82;
-    background-color: #C3DAFE;
-    /* ホバー時の背景色 */
-    border-color: #A3BFFA;
-    /* ホバー時のボーダー色 */
-    text-decoration: none;
-    /* 下線は不要に */
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    /* ホバー時に軽い影 */
+.step-card-chevron {
+    color: var(--cat-primary, #0284c7);
+    font-size: 1rem;
+    font-weight: 800;
+    line-height: 1;
+    opacity: 0.65;
+    flex-shrink: 0;
+    transition: transform 0.15s ease, opacity 0.15s ease;
 }
 
-.link-button {
-    background-color: #EBF8FF !important;
-    /* Force background to ensure contrast */
-    border: 1px solid #BEE3F8;
-    border-radius: 4px;
-    color: #0056b3 !important;
-    /* Force color to ensure visibility */
+.workflow-step-card:hover .step-card-chevron,
+.logout-step-card:hover .step-card-chevron {
+    transform: translateX(2px);
+    opacity: 1;
+}
+
+.step-card-main {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.step-card-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 7px;
+    background: var(--cat-bg-soft, #e0f2fe);
+    color: var(--cat-primary, #0284c7);
+    border: 1px solid var(--cat-border, #bae6fd);
+    flex-shrink: 0;
+}
+
+.workflow-step-card:hover .step-card-icon {
+    background: #ffffff;
+}
+
+.step-card-title {
+    font-size: 0.94rem;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.25;
+}
+
+.step-card-desc {
+    font-size: 0.74rem;
+    color: #475569;
+    line-height: 1.35;
+}
+
+/* ログアウトカード用アクセント */
+.link-button.logout-step-card {
+    --cat-primary: #e11d48;
+    --cat-bg-light: #fff1f2;
+    --cat-bg-soft: #ffe4e6;
+    --cat-border: #fda4af;
+    --cat-text-dark: #881337;
     cursor: pointer;
-    display: inline-block;
-    font: inherit;
-    font-size: 0.95em;
-    padding: 6px 10px;
+}
+
+/* データ投入画面（DataCardList）の単色アイコン＆カード整理スタイル */
+.data-card-section-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid #e0e7ff;
+}
+
+.data-card-section-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 7px;
+    background: #eef2ff;
+    color: #4f46e5;
+    border: 1px solid #c7d2fe;
+}
+
+.data-card-section-header h3 {
+    font-size: 1.08rem;
+    font-weight: 800;
+    color: #1e293b;
+}
+
+.data-card-section-badge {
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: #eef2ff;
+    color: #4338ca;
+    border: 1px solid #c7d2fe;
+}
+
+.data-mgmt-card {
+    border: 1.5px solid #cbd5e1 !important;
+    border-top: 3.5px solid #4f46e5 !important;
+    border-radius: 9px !important;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04) !important;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.data-mgmt-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08) !important;
+    border-color: #818cf8 !important;
+}
+
+.data-mgmt-icon-box {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    background: #eef2ff;
+    color: #4f46e5;
+    border: 1px solid #c7d2fe;
+    flex-shrink: 0;
+}
+
+.data-mgmt-tag {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: #f8fafc;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+    white-space: nowrap;
+}
+
+/* QRコードアクション設定等の単色ステータスバッジ */
+.status-mono-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 0.76rem;
+    font-weight: 700;
+}
+
+.status-mono-badge.is-active {
+    background: #ecfdf5;
+    color: #047857;
+    border: 1px solid #6ee7b7;
+}
+
+.status-mono-badge.is-inactive {
+    background: #f1f5f9;
+    color: #64748b;
+    border: 1px solid #cbd5e1;
+}
+
+/* システム設定画面のカードグリッド */
+.system-settings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 12px;
+}
+
+.system-setting-card {
     text-decoration: none;
-    transition: all 0.2s ease-in-out;
+    color: #0c4a6e !important;
+    background: linear-gradient(180deg, #ffffff 0%, #f0f9ff 100%);
+    padding: 12px 14px;
+    border-radius: 9px;
+    border: 1.5px solid #7dd3fc;
+    border-top: 3.5px solid #0369a1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: all 0.18s ease;
+}
+
+.system-setting-card:hover {
+    background: #e0f2fe;
+    border-color: #0284c7;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08);
+    text-decoration: none;
+}
+
+/* ==========================================================================
+   フロー選択時のステップバイステップ・ナビゲーションウィザード (.guided-flow-wizard)
+   目に優しい淡い水色×白のすっきりしたデザイン
+   ========================================================================== */
+.page-context-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.page-context-wrapper .page-context-banner {
+    margin-bottom: 0;
+}
+
+.guided-flow-wizard {
+    background: #f0f9ff;
+    color: #1e293b;
+    border-radius: 10px;
+    padding: 10px 14px;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+    border: 1.5px solid #bae6fd;
+    border-left: 5px solid var(--wizard-color, #0284c7);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.guided-wizard-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #bae6fd;
+}
+
+.guided-wizard-title-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.guided-wizard-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: var(--wizard-color, #0284c7);
+    color: #ffffff;
+    font-size: 0.72rem;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.guided-wizard-track-name {
+    font-size: 0.85rem;
+    color: #0c4a6e;
+}
+
+.guided-wizard-steps-rail {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.wizard-rail-arrow {
+    color: #64748b;
+    font-size: 0.75rem;
+    font-weight: bold;
+}
+
+.wizard-rail-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: #475569 !important;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+}
+
+.wizard-rail-pill:hover {
+    background: #e0f2fe;
+    color: #0369a1 !important;
+    border-color: #7dd3fc;
+    text-decoration: none;
+}
+
+.wizard-rail-pill.done {
+    background: #ecfdf5;
+    border-color: #6ee7b7;
+    color: #047857 !important;
+}
+
+.wizard-rail-pill.current {
+    background: var(--wizard-color, #0284c7);
+    color: #ffffff !important;
+    border-color: var(--wizard-color, #0284c7);
+    font-weight: 800;
+}
+
+.wizard-check-mark {
+    color: #059669;
+    font-weight: 900;
+}
+
+.guided-wizard-close-link {
+    font-size: 0.74rem;
+    color: #475569 !important;
+    background: #ffffff;
+    padding: 2px 8px;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.guided-wizard-close-link:hover {
+    background: #f1f5f9;
+    color: #0f172a !important;
+    text-decoration: none;
+}
+
+.guided-wizard-body {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    background: #ffffff;
+    color: #1e293b;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #e0f2fe;
+}
+
+.guided-wizard-instruction-col {
+    flex: 1 1 320px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.guided-step-heading {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.guided-step-count-pill {
+    background: #e0f2fe;
+    color: #0369a1;
+    border: 1px solid #7dd3fc;
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 1px 8px;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+.guided-step-title-text {
+    font-size: 0.94rem;
+    font-weight: 800;
+    color: #0f172a;
+}
+
+/* 短文ステップチップ（① ... → ② ... → ③ ...） */
+.guided-action-steps {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.guided-action-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 9px;
+    border-radius: 6px;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    color: #1e293b;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.guided-action-arrow {
+    color: #64748b;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.guided-step-subbuttons {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 2px;
+}
+
+.subbuttons-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #64748b;
+}
+
+.guided-sub-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 0.76rem;
+    font-weight: 700;
+    background: #eef2ff;
+    color: #4338ca !important;
+    border: 1px solid #a5b4fc;
+    text-decoration: none;
+    transition: all 0.15s ease;
+}
+
+.guided-sub-btn.is-primary,
+.guided-sub-btn:hover {
+    background: #4f46e5;
+    color: #ffffff !important;
+    border-color: #4338ca;
+    text-decoration: none;
+}
+
+.guided-wizard-action-col {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.guided-prev-btn {
+    padding: 6px 11px;
+    border-radius: 7px;
+    font-size: 0.76rem;
+    font-weight: 700;
+    background: #f8fafc;
+    color: #475569 !important;
+    border: 1px solid #cbd5e1;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.guided-prev-btn:hover {
+    background: #e2e8f0;
+    color: #1e293b !important;
+    text-decoration: none;
+}
+
+.guided-next-btn {
+    display: inline-flex;
+    flex-direction: column;
+    padding: 6px 14px;
+    border-radius: 8px;
+    background: var(--wizard-color, #0284c7);
+    color: #ffffff !important;
+    border: 1px solid rgba(15, 23, 42, 0.1);
+    text-decoration: none;
+    box-shadow: 0 2px 6px rgba(2, 132, 199, 0.2);
+    transition: all 0.15s ease;
+}
+
+.guided-next-btn.is-complete {
+    background: #0d9488;
+}
+
+.guided-next-btn:hover {
+    filter: brightness(0.95);
+    transform: translateY(-1px);
+    color: #ffffff !important;
+    text-decoration: none;
+}
+
+.guided-next-sub {
+    font-size: 0.66rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.88);
+}
+
+.guided-next-main {
+    font-size: 0.84rem;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.context-flow-launchers {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.flow-launcher-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.71rem;
+    font-weight: 700;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.flow-launcher-chip.receipt {
+    background: #f0f9ff;
+    color: #0369a1 !important;
+    border: 1px solid #bae6fd;
+}
+
+.flow-launcher-chip.production {
+    background: #eff6ff;
+    color: #1d4ed8 !important;
+    border: 1px solid #bfdbfe;
+}
+
+.flow-launcher-chip:hover {
+    background: #0284c7;
+    color: #ffffff !important;
+    border-color: #0284c7;
+    text-decoration: none;
+}
+
+/* ==========================================================================
+   各画面上部のコンテキスト＆前後ステップ案内バナー (.page-context-banner)
+   ========================================================================== */
+.page-context-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    padding: 9px 14px;
+    margin-bottom: 14px;
+    background-color: var(--banner-bg-light, #f0f9ff);
+    border: 1px solid var(--banner-border, #7dd3fc);
+    border-left: 5px solid var(--banner-primary, #0284c7);
+    border-radius: 8px;
+}
+
+.page-context-left {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 240px;
+    flex: 1;
+}
+
+.page-context-badges {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.page-context-subrow {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+}
+
+.page-context-cat-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background-color: var(--banner-primary, #0284c7);
+    color: #ffffff;
+    font-size: 0.73rem;
+    font-weight: 800;
+}
+
+.page-context-step-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background-color: #ffffff;
+    color: var(--banner-text-dark, #075985);
+    border: 1px solid var(--banner-border, #7dd3fc);
+    font-size: 0.73rem;
+    font-weight: 700;
+}
+
+.page-context-item-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: var(--banner-text-dark, #075985);
+}
+
+.page-context-item-desc {
+    color: #334155;
+    font-size: 0.81rem;
+}
+
+.page-context-manual-hint {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 5px;
+    font-size: 0.77rem;
+    color: #334155;
+}
+
+.manual-hint-badge {
+    background-color: var(--banner-bg-soft, #e0f2fe);
+    color: var(--banner-text-dark, #075985);
+    border: 1px solid var(--banner-border, #7dd3fc);
+    font-size: 0.69rem;
+    font-weight: 800;
+    padding: 1px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+.page-context-nav-links {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.page-context-step-btn {
+    display: inline-flex;
+    flex-direction: column;
+    padding: 4px 11px;
+    border-radius: 7px;
+    background: #ffffff;
+    border: 1.5px solid var(--banner-border, #7dd3fc);
+    color: var(--banner-text-dark, #075985) !important;
+    text-decoration: none;
+    transition: all 0.16s ease;
+    line-height: 1.25;
+}
+
+.page-context-step-btn.highlight-action {
+    background: var(--banner-primary, #0284c7);
+    border-color: var(--banner-primary, #0284c7);
+    color: #ffffff !important;
+    box-shadow: 0 2px 5px rgba(2, 132, 199, 0.2);
+}
+
+.page-context-step-btn.highlight-action .step-btn-dir {
+    color: rgba(255, 255, 255, 0.88);
+}
+
+.page-context-step-btn:hover {
+    background: var(--banner-primary, #0284c7);
+    color: #ffffff !important;
+    border-color: var(--banner-primary, #0284c7);
+    text-decoration: none;
+    transform: translateY(-1px);
+}
+
+.page-context-step-btn:hover .step-btn-dir {
+    color: rgba(255, 255, 255, 0.88);
+}
+
+.step-btn-dir {
+    font-size: 0.67rem;
+    font-weight: 700;
+    color: var(--banner-primary, #0284c7);
+}
+
+.step-btn-name {
+    font-size: 0.79rem;
+    font-weight: 800;
+}
+
+/* 生産計画画面内の3ステップガイドバー */
+.plan-page-step-guide {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+    padding: 8px 12px;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-left: 4px solid #2563eb;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    color: #334155;
+}
+
+.plan-guide-step {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1 1 200px;
+}
+
+.plan-guide-num {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+    font-size: 0.7rem;
+    font-weight: 800;
+    padding: 1px 7px;
+    border-radius: 999px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.plan-guide-arrow {
+    color: #94a3b8;
+    font-weight: 800;
+}
+
+/* ==========================================================================
+   データ登録・一覧モーダル (.mes-clean-modal)
+   ========================================================================== */
+.mes-clean-modal .modal-dialog {
+    max-height: calc(100vh - 3rem);
+    display: flex;
+    flex-direction: column;
+}
+
+@media (max-width: 576px) {
+    .mes-clean-modal .modal-dialog {
+        max-height: calc(100vh - 1rem);
+        margin: 0.5rem;
+    }
+}
+
+.mes-clean-modal .modal-content {
+    border: 1.5px solid #93c5fd;
+    border-radius: 12px;
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
+    overflow: hidden;
+    max-height: calc(100vh - 3rem);
+    display: flex;
+    flex-direction: column;
+}
+
+@media (max-width: 576px) {
+    .mes-clean-modal .modal-content {
+        max-height: calc(100vh - 1rem);
+    }
+}
+
+/* ヘッダー・フッターは常に縮小させず固定表示 */
+.mes-clean-modal .modal-header,
+.mes-modal-header,
+.mes-clean-modal .modal-footer,
+.mes-modal-footer {
+    flex-shrink: 0;
+}
+
+/* <Modal> 直下に <form> を配置した場合の flex コンテナ設定（はみ出し防止・内部スクロール保証） */
+.mes-clean-modal form,
+.mes-clean-modal .modal-content > form {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.mes-modal-header {
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    border-bottom: 1.5px solid #bae6fd;
+    padding: 14px 20px;
+    align-items: flex-start;
+}
+
+.mes-modal-title-wrap {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    flex: 1;
+    min-width: 0;
+}
+
+.mes-modal-icon-box {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 9px;
+    background: #0284c7;
+    color: #ffffff;
+    flex-shrink: 0;
+    box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);
+}
+
+.mes-modal-title-text {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.mes-modal-title-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.mes-modal-title {
+    font-size: 1.12rem;
+    font-weight: 800;
+    color: #0c4a6e;
+    margin: 0;
+    line-height: 1.3;
+}
+
+.mes-modal-tag-pill {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #0369a1;
+    background: #ffffff;
+    border: 1px solid #7dd3fc;
+    padding: 2px 8px;
+    border-radius: 999px;
+}
+
+.mes-modal-count-pill {
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: #ffffff;
+    background: #0284c7;
+    padding: 2px 9px;
+    border-radius: 999px;
+}
+
+.mes-modal-subtitle {
+    margin: 0;
+    font-size: 0.8rem;
+    color: #334155;
+    line-height: 1.4;
+}
+
+.mes-clean-modal .modal-body,
+.mes-modal-body {
+    padding: 18px 20px;
+    background: #ffffff;
+    overflow-y: auto !important;
+    flex: 1 1 auto;
+    min-height: 0;
+    -webkit-overflow-scrolling: touch;
+}
+
+.mes-modal-field-group {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 10px 12px;
+    height: 100%;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.mes-modal-field-group:focus-within {
+    background: #f0f9ff;
+    border-color: #38bdf8;
+}
+
+.mes-modal-field-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    font-size: 0.84rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 6px;
+}
+
+.mes-field-badge {
+    font-size: 0.68rem;
+    font-weight: 800;
+    padding: 1px 6px;
+    border-radius: 4px;
+    line-height: 1.3;
+}
+
+.mes-field-badge.required {
+    background: #fee2e2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+}
+
+.mes-field-badge.optional {
+    background: #e2e8f0;
+    color: #475569;
+}
+
+.mes-modal-input {
+    font-size: 0.88rem;
+    border-color: #cbd5e1;
+    border-radius: 6px;
+}
+
+.mes-modal-input:focus {
+    border-color: #0284c7;
+    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+}
+
+.mes-modal-field-help {
+    display: block;
+    margin-top: 4px;
+    font-size: 0.74rem;
+    color: #64748b;
+}
+
+.mes-modal-footer {
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    padding: 12px 20px;
+}
+
+.mes-modal-table {
+    font-size: 0.84rem;
+    border: 1px solid #e2e8f0;
+}
+
+.mes-modal-table thead th {
+    background: #f0f9ff;
+    color: #0c4a6e;
+    font-weight: 700;
+    border-bottom: 2px solid #bae6fd;
+    white-space: nowrap;
+}
+
+.mes-modal-empty-state {
+    text-align: center;
+    padding: 32px 16px;
+    background: #f8fafc;
+    border: 1.5px dashed #cbd5e1;
+    border-radius: 8px;
+}
+
+/* ==========================================================================
+   入庫処置ページ (.goods-receipt-page)
+   ========================================================================== */
+.goods-receipt-page {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.goods-receipt-header-bar {
+    background: linear-gradient(135deg, var(--page-hdr-bg-light, #f0f9ff) 0%, var(--page-hdr-bg-soft, #e0f2fe) 100%);
+    border: 1.5px solid var(--page-hdr-border, #7dd3fc);
+    border-radius: 12px;
+    padding: 14px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.goods-receipt-header-main {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.goods-receipt-title-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.goods-receipt-title-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    background: var(--page-hdr-primary, #0284c7);
+    color: #ffffff;
+    flex-shrink: 0;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.16);
+}
+
+.goods-receipt-main-title {
+    margin: 0;
+    font-size: 1.22rem;
+    font-weight: 800;
+    color: var(--page-hdr-text-dark, #0c4a6e);
+}
+
+.goods-receipt-subtitle {
+    margin: 2px 0 0;
+    font-size: 0.82rem;
+    color: #334155;
+}
+
+.goods-receipt-quick-links {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.header-quick-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 13px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 800;
+    text-decoration: none !important;
+    line-height: 1.3;
+    transition: all 0.16s ease;
+    white-space: nowrap;
+}
+
+.header-quick-action-btn.is-highlight {
+    background-color: var(--page-hdr-primary, #0284c7) !important;
+    border: 1.5px solid var(--page-hdr-primary, #0284c7) !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 5px rgba(2, 132, 199, 0.22);
+}
+
+.header-quick-action-btn.is-highlight:hover,
+.header-quick-action-btn.is-highlight:focus,
+.header-quick-action-btn.is-highlight:active {
+    background-color: var(--page-hdr-text-dark, #0369a1) !important;
+    border-color: var(--page-hdr-text-dark, #0369a1) !important;
+    color: #ffffff !important;
+    transform: translateY(-1px);
+}
+
+.header-quick-action-btn.is-secondary {
+    background-color: #ffffff !important;
+    border: 1.5px solid var(--page-hdr-border, #7dd3fc) !important;
+    color: var(--page-hdr-text-dark, #0c4a6e) !important;
+}
+
+.header-quick-action-btn.is-secondary:hover,
+.header-quick-action-btn.is-secondary:focus,
+.header-quick-action-btn.is-secondary:active {
+    background-color: var(--page-hdr-primary, #0284c7) !important;
+    border-color: var(--page-hdr-primary, #0284c7) !important;
+    color: #ffffff !important;
+    transform: translateY(-1px);
+}
+
+.goods-receipt-step-strip {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--page-hdr-border, #7dd3fc);
+}
+
+.receipt-guide-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #ffffff;
+    border: 1px solid var(--page-hdr-border, #bae6fd);
+    border-radius: 8px;
+    padding: 5px 12px;
+    font-size: 0.8rem;
+    color: #0f172a;
+}
+
+.receipt-guide-num {
+    font-size: 0.92rem;
+    font-weight: 800;
+    color: var(--page-hdr-primary, #0284c7);
+    line-height: 1;
+}
+
+.goods-receipt-filter-panel {
+    background: #ffffff;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 10px;
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
+}
+
+.receipt-status-tabs-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.filter-section-label {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #475569;
+}
+
+.receipt-status-tabs {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+button.receipt-status-tab,
+.receipt-status-tab {
+    border: 1.5px solid #cbd5e1 !important;
+    background-color: #f8fafc !important;
+    color: #334155 !important;
+    font-size: 0.8rem !important;
+    font-weight: 700 !important;
+    padding: 5px 14px !important;
+    border-radius: 999px !important;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    line-height: 1.3;
+}
+
+button.receipt-status-tab:hover,
+.receipt-status-tab:hover {
+    background-color: #e0f2fe !important;
+    border-color: #38bdf8 !important;
+    color: #0369a1 !important;
+}
+
+button.receipt-status-tab.active,
+.receipt-status-tab.active {
+    background-color: #0284c7 !important;
+    border-color: #0284c7 !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 5px rgba(2, 132, 199, 0.25);
+}
+
+.receipt-result-count {
+    font-size: 0.82rem;
+    color: #475569;
+}
+
+.receipt-search-inputs-row {
+    display: flex;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.receipt-search-field {
+    flex: 1 1 180px;
+    max-width: 280px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.receipt-search-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #475569;
+    margin: 0;
+}
+
+.receipt-search-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.goods-receipt-table-card {
+    background: #ffffff;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+}
+
+.goods-receipt-table {
+    font-size: 0.86rem;
+}
+
+.goods-receipt-table thead th {
+    background: #f0f9ff;
+    color: #0c4a6e;
+    font-weight: 800;
+    border-bottom: 2px solid #bae6fd;
+    padding: 10px 12px;
+    white-space: nowrap;
+}
+
+.goods-receipt-table tbody td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.goods-receipt-table tbody tr.receipt-row-completed {
+    background-color: #f8fafc;
+    color: #64748b;
+}
+
+.receipt-status-badge {
+    display: inline-block;
+    font-size: 0.74rem;
+    font-weight: 800;
+    padding: 3px 9px;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+.receipt-status-badge.status-pending {
+    background: #fef3c7;
+    color: #b45309;
+    border: 1px solid #fde68a;
+}
+
+.receipt-status-badge.status-partial {
+    background: #e0f2fe;
+    color: #0369a1;
+    border: 1px solid #7dd3fc;
+}
+
+.receipt-status-badge.status-completed {
+    background: #dcfce7;
+    color: #15803d;
+    border: 1px solid #86efac;
+}
+
+.receipt-status-badge.status-canceled {
+    background: #f1f5f9;
+    color: #64748b;
+    border: 1px solid #cbd5e1;
+}
+
+.receipt-remaining-qty.has-remaining {
+    display: inline-block;
+    font-weight: 800;
+    color: #0284c7;
+    background: #f0f9ff;
+    border: 1px solid #bae6fd;
+    padding: 1px 8px;
+    border-radius: 6px;
+}
+
+.receipt-remaining-qty.zero {
+    color: #94a3b8;
+}
+
+/* モーダル内の対象発注サマリカード */
+.receipt-modal-summary-card {
+    background: #f0f9ff;
+    border: 1px solid #bae6fd;
+    border-radius: 8px;
+    padding: 12px 14px;
+}
+
+.receipt-summary-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 18px;
+}
+
+.receipt-summary-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 110px;
+}
+
+.receipt-summary-item.highlight {
+    background: #ffffff;
+    border: 1px solid #7dd3fc;
+    border-radius: 6px;
+    padding: 4px 10px;
+    margin-left: auto;
+}
+
+.receipt-summary-item .summary-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #475569;
+}
+
+.receipt-summary-item .summary-value {
+    font-size: 0.88rem;
+    color: #0f172a;
+}
+
+/* ==========================================================================
+   全画面共通のテーブル・カード・カスタムモーダル統一デザイン
+   ========================================================================== */
+main .table-responsive {
+    background: #ffffff;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 10px;
+    overflow-x: auto;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+}
+
+/* 既に .goods-receipt-table-card 内にある場合は二重枠を防ぐ */
+.goods-receipt-table-card .table-responsive,
+.modal-body .table-responsive,
+.modal-content .table-responsive {
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+main .table thead th,
+.modal-content .table thead th {
+    background: #f0f9ff !important;
+    color: #0c4a6e !important;
+    font-weight: 800;
+    border-bottom: 2px solid #bae6fd !important;
+    padding: 10px 12px;
+    white-space: nowrap;
+}
+
+main .table tbody td {
+    padding: 9px 12px;
+    vertical-align: middle;
+}
+
+main .card {
+    border: 1.5px solid #cbd5e1;
+    border-radius: 10px;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+}
+
+main .card > .card-header {
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    color: #0c4a6e;
+    font-weight: 800;
+    border-bottom: 1.5px solid #bae6fd;
+}
+
+/* カスタム Modal (components/Modal.tsx) のモダン化 */
+.modal-overlay .modal-content {
+    border: 1.5px solid #93c5fd;
+    border-radius: 12px;
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
+    padding: 20px 24px;
+    color: #1e293b;
+}
+
+.modal-overlay .modal-content h5,
+.modal-overlay .modal-content h4,
+.modal-overlay .modal-content h3,
+.modal-overlay .modal-content h2 {
+    font-weight: 800;
+    color: #0c4a6e;
+}
+
+/* ==========================================================================
+   全画面共通のボタン・バッジ・タブ配色統一（白文字化・透明化防止＆青/スレート系デザイン）
+   ========================================================================== */
+.btn {
+    border-radius: 7px;
+    font-weight: 700;
+    transition: all 0.15s ease;
+}
+
+/* Primary: スカイブルー〜ロイヤルブルー */
+.btn-primary {
+    background-color: #0284c7 !important;
+    border-color: #0284c7 !important;
+    color: #ffffff !important;
+    box-shadow: 0 1px 3px rgba(2, 132, 199, 0.2);
+}
+
+.btn-primary:hover,
+.btn-primary:focus,
+.btn-primary:active {
+    background-color: #0369a1 !important;
+    border-color: #0369a1 !important;
+    color: #ffffff !important;
+}
+
+.btn-primary:disabled,
+.btn-primary.disabled {
+    background-color: #93c5fd !important;
+    border-color: #93c5fd !important;
+    color: #ffffff !important;
+    opacity: 0.75;
+}
+
+/* Outline Primary: 淡い水色枠 × 濃紺青テキスト → ホバーで青塗り＋白文字 */
+.btn-outline-primary {
+    background-color: #ffffff !important;
+    border: 1.5px solid #38bdf8 !important;
+    color: #0369a1 !important;
+}
+
+.btn-outline-primary:hover,
+.btn-outline-primary:focus,
+.btn-outline-primary:active {
+    background-color: #0284c7 !important;
+    border-color: #0284c7 !important;
+    color: #ffffff !important;
+}
+
+.btn-outline-primary:disabled,
+.btn-outline-primary.disabled {
+    background-color: #f8fafc !important;
+    border-color: #cbd5e1 !important;
+    color: #94a3b8 !important;
+}
+
+/* Secondary: 落ち着いたスレート */
+.btn-secondary {
+    background-color: #475569 !important;
+    border-color: #475569 !important;
+    color: #ffffff !important;
+}
+
+.btn-secondary:hover,
+.btn-secondary:focus,
+.btn-secondary:active {
+    background-color: #334155 !important;
+    border-color: #334155 !important;
+    color: #ffffff !important;
+}
+
+/* Outline Secondary: 白〜淡グレー背景 × 濃色テキスト（ホバー時も濃色テキストを維持し白文字化を完全防止） */
+.btn-outline-secondary {
+    background-color: #ffffff !important;
+    border: 1.5px solid #cbd5e1 !important;
+    color: #334155 !important;
+}
+
+.btn-outline-secondary:hover,
+.btn-outline-secondary:focus,
+.btn-outline-secondary:active {
+    background-color: #e2e8f0 !important;
+    border-color: #94a3b8 !important;
+    color: #0f172a !important;
+}
+
+.btn-outline-secondary:disabled,
+.btn-outline-secondary.disabled {
+    background-color: #f8fafc !important;
+    border-color: #e2e8f0 !important;
+    color: #94a3b8 !important;
+}
+
+/* Info (編集・変更ボタン等): 蛍光水色を廃止し、スカイブルー系の清潔なソフトボタンに統一 */
+.btn-info,
+.btn-outline-info {
+    background-color: #e0f2fe !important;
+    border: 1.5px solid #38bdf8 !important;
+    color: #0369a1 !important;
+}
+
+.btn-info:hover,
+.btn-info:focus,
+.btn-info:active,
+.btn-outline-info:hover,
+.btn-outline-info:focus,
+.btn-outline-info:active {
+    background-color: #0284c7 !important;
+    border-color: #0284c7 !important;
+    color: #ffffff !important;
+}
+
+/* Success (追加・アップロード等): ティール・エメラルド系に統一 */
+.btn-success {
+    background-color: #0d9488 !important;
+    border-color: #0d9488 !important;
+    color: #ffffff !important;
+}
+
+.btn-success:hover,
+.btn-success:focus,
+.btn-success:active {
+    background-color: #0f766e !important;
+    border-color: #0f766e !important;
+    color: #ffffff !important;
+}
+
+.btn-outline-success {
+    background-color: #f0fdfa !important;
+    border: 1.5px solid #5eead4 !important;
+    color: #0f766e !important;
+}
+
+.btn-outline-success:hover,
+.btn-outline-success:focus,
+.btn-outline-success:active {
+    background-color: #0d9488 !important;
+    border-color: #0d9488 !important;
+    color: #ffffff !important;
+}
+
+/* Warning (トークン再生成・追加出庫等): 原色黄色を廃止し視認性の高いアンバー系に統一 */
+.btn-warning,
+.btn-outline-warning {
+    background-color: #fef3c7 !important;
+    border: 1.5px solid #f59e0b !important;
+    color: #92400e !important;
+}
+
+.btn-warning:hover,
+.btn-warning:focus,
+.btn-warning:active,
+.btn-outline-warning:hover,
+.btn-outline-warning:focus,
+.btn-outline-warning:active {
+    background-color: #d97706 !important;
+    border-color: #d97706 !important;
+    color: #ffffff !important;
+}
+
+/* Danger (削除・解除等): ソフトローズ＆ローズレッド */
+.btn-danger {
+    background-color: #e11d48 !important;
+    border-color: #e11d48 !important;
+    color: #ffffff !important;
+}
+
+.btn-danger:hover,
+.btn-danger:focus,
+.btn-danger:active {
+    background-color: #be123c !important;
+    border-color: #be123c !important;
+    color: #ffffff !important;
+}
+
+.btn-outline-danger {
+    background-color: #fff1f2 !important;
+    border: 1.5px solid #fda4af !important;
+    color: #be123c !important;
+}
+
+.btn-outline-danger:hover,
+.btn-outline-danger:focus,
+.btn-outline-danger:active {
+    background-color: #e11d48 !important;
+    border-color: #e11d48 !important;
+    color: #ffffff !important;
+}
+
+/* Bootstrap 4 旧クラス (.badge-*) が残っている箇所の白文字透明化防止フォールバック */
+.badge.badge-success {
+    background-color: #dcfce7 !important;
+    color: #15803d !important;
+    border: 1px solid #86efac;
+}
+
+.badge.badge-secondary {
+    background-color: #f1f5f9 !important;
+    color: #475569 !important;
+    border: 1px solid #cbd5e1;
+}
+
+.badge.badge-danger {
+    background-color: #fee2e2 !important;
+    color: #b91c1c !important;
+    border: 1px solid #fecaca;
+}
+
+.badge.badge-warning {
+    background-color: #fef3c7 !important;
+    color: #92400e !important;
+    border: 1px solid #fde68a;
+}
+
+.badge.badge-info,
+.badge.badge-primary {
+    background-color: #e0f2fe !important;
+    color: #0369a1 !important;
+    border: 1px solid #7dd3fc;
+}
+
+/* タブ (SecurityPage 等の nav-tabs) のモダン化・白文字化防止 */
+.nav-tabs {
+    border-bottom: 2px solid #bae6fd;
+    gap: 6px;
+}
+
+.nav-tabs .nav-link {
+    border: 1.5px solid #cbd5e1 !important;
+    border-bottom: none !important;
+    border-radius: 8px 8px 0 0 !important;
+    background-color: #f8fafc !important;
+    color: #475569 !important;
+    font-weight: 700;
+    padding: 8px 18px;
+}
+
+.nav-tabs .nav-link:hover {
+    background-color: #e0f2fe !important;
+    color: #0369a1 !important;
+}
+
+.nav-tabs .nav-link.active {
+    background-color: #0284c7 !important;
+    border-color: #0284c7 !important;
+    color: #ffffff !important;
+}
+
+/* 始業点検等の設備選択リストアイテム（白文字透明化防止） */
+.machine-select-item {
+    border: 1.5px solid #e2e8f0 !important;
+    background-color: #ffffff !important;
+    color: #1e293b !important;
+    border-radius: 8px !important;
+    margin-bottom: 8px;
+    padding: 12px 14px !important;
+    transition: all 0.15s ease;
+    text-align: left;
+    width: 100%;
+}
+
+.machine-select-item:hover {
+    background-color: #f0f9ff !important;
+    border-color: #7dd3fc !important;
+    color: #0c4a6e !important;
+}
+
+.machine-select-item.active {
+    background-color: #e0f2fe !important;
+    border: 2px solid #0284c7 !important;
+    color: #0c4a6e !important;
+    box-shadow: 0 2px 6px rgba(2, 132, 199, 0.15);
+}
+
+.machine-select-item .machine-meta-text {
+    color: #475569;
+    font-size: 0.8rem;
+}
+
+.machine-select-item.active .machine-meta-text {
+    color: #0369a1;
+    font-weight: 600;
+}
+
+/* システム設定サブナビゲーションバー */
+.system-subnav-bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px 12px;
+    background: #ffffff;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 10px;
+}
+
+.system-subnav-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 13px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #334155 !important;
+    background: #f8fafc;
+    border: 1.5px solid #cbd5e1;
+    text-decoration: none !important;
+    transition: all 0.15s ease;
+}
+
+.system-subnav-link:hover {
+    background: #e0f2fe;
+    border-color: #38bdf8;
+    color: #0369a1 !important;
+}
+
+.system-subnav-link.active {
+    background: #0284c7;
+    border-color: #0284c7;
+    color: #ffffff !important;
+}
+
+@media (max-width: 992px) {
+
+    .overall-workflow-grid,
+    .menu-section ul.workflow-steps-list {
+        flex-wrap: wrap;
+    }
+
+    .workflow-phase-card,
+    .workflow-step-item {
+        flex: 1 1 220px;
+        max-width: none;
+    }
+
+    .menu-section ul.workflow-steps-list.admin-grid-list {
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+
+    .workflow-phase-connector,
+    .workflow-step-arrow-item,
+    .workflow-step-divider-item {
+        display: none;
+    }
 }
