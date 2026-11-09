@@ -3,13 +3,13 @@ body.menu-open-no-scroll {
     overflow: hidden;
 }
 
-/* モーダル（ポップアップ）がスティッキーヘッダー・リボンの背後に隠れないよう最前面に表示 */
+/* モーダル（ポップアップ）がスティッキーヘッダー・リボン・サイドメニューの背後に隠れないよう最前面に表示 */
 .modal-backdrop {
-    z-index: 1200 !important;
+    z-index: 1400 !important;
 }
 
 .modal {
-    z-index: 1210 !important;
+    z-index: 1410 !important;
 }
 
 body {
@@ -435,6 +435,7 @@ header.app-header {
 
 /* ==========================================================================
    右側スライドアウト・サイドメニュー (#menu-bar)
+   ヘッダーやリボンの手前に最前面ドロワーとして表示
    ========================================================================== */
 #menu-bar {
     position: fixed;
@@ -445,14 +446,14 @@ header.app-header {
     height: 100%;
     background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
     box-sizing: border-box;
-    padding: 64px 14px 24px;
+    padding: 14px 14px 24px;
     display: flex;
     flex-direction: column;
     gap: 2px;
-    z-index: 1100;
+    z-index: 1300 !important;
     transition: right 0.3s ease-in-out;
     overflow-y: auto;
-    box-shadow: -4px 0 16px rgba(15, 23, 42, 0.38);
+    box-shadow: -4px 0 20px rgba(15, 23, 42, 0.45);
     border-left: 2px solid #0284c7;
 }
 
@@ -461,9 +462,12 @@ header.app-header {
 }
 
 .side-menu-header {
-    padding: 4px 10px 10px;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
-    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 2px 4px 10px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+    margin-bottom: 8px;
 }
 
 .side-menu-header-title {
@@ -471,9 +475,32 @@ header.app-header {
     align-items: center;
     gap: 7px;
     color: #38bdf8;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     font-weight: 700;
     letter-spacing: 0.03em;
+}
+
+.side-menu-close-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 6px;
+    color: #e2e8f0;
+    cursor: pointer;
+    font-size: 1.1rem;
+    line-height: 1;
+    transition: all 0.2s ease;
+}
+
+.side-menu-close-btn:hover {
+    background: rgba(239, 68, 68, 0.25);
+    border-color: #f87171;
+    color: #ffffff;
 }
 
 #menu-bar a {
@@ -630,7 +657,7 @@ header.app-header {
     color: #ffffff;
 }
 
-/* Menu Overlay */
+/* Menu Overlay (ヘッダーやリボンの上に半透明オーバーレイを表示) */
 #menu-overlay {
     display: block;
     position: fixed;
@@ -638,8 +665,9 @@ header.app-header {
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(15, 23, 42, 0.5);
-    z-index: 1099;
+    background-color: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(2px);
+    z-index: 1290 !important;
 }
 
 /* ==========================================================================

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   NAV_CATEGORIES,
@@ -37,6 +37,18 @@ const SideMenu: React.FC<SideMenuProps> = ({
     (cat) => !cat.staffOnly || isStaffOrSuperuser
   );
 
+  // Escキーでサイドメニューを閉じる
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onLinkClick();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onLinkClick]);
+
   return (
     <nav id="menu-bar" className={isOpen ? 'open' : ''} aria-label="サイドメニュー">
       <div className="side-menu-header">
@@ -44,6 +56,15 @@ const SideMenu: React.FC<SideMenuProps> = ({
           <NavIcon name="compass" size={16} />
           <span>業務メニュー一覧</span>
         </span>
+        <button
+          type="button"
+          className="side-menu-close-btn"
+          onClick={onLinkClick}
+          aria-label="メニューを閉じる"
+          title="閉じる (Esc)"
+        >
+          ✕
+        </button>
       </div>
 
       <Link
