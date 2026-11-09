@@ -1,5 +1,6 @@
 import React from 'react';
 import styles from './UsagePage.module.css';
+import { NavIcon, NavIconName } from '../config/navigationConfig';
 
 // 画面キャプチャは `npm run capture:manual` で public/manual/ に再生成できます
 interface ManualShot {
@@ -9,6 +10,8 @@ interface ManualShot {
 
 interface ManualSection {
   id: string;
+  categoryLabel?: string;
+  categoryColor?: string;
   title: string;
   summary: string;
   shots: ManualShot[];
@@ -377,7 +380,123 @@ const SECTIONS: ManualSection[] = [
   },
 ];
 
+interface TocGroup {
+  id: string;
+  categoryLabel: string;
+  categoryBadge: string;
+  icon: NavIconName;
+  color: string;
+  bgColor: string;
+  borderColor: string;
+  sectionIds: string[];
+}
+
+const TOC_GROUPS: TocGroup[] = [
+  {
+    id: 'group-intro',
+    categoryLabel: '基本操作・業務ナビ',
+    categoryBadge: '全体ナビ',
+    icon: 'compass',
+    color: '#0284c7',
+    bgColor: '#f0f9ff',
+    borderColor: '#bae6fd',
+    sectionIds: ['login', 'menu'],
+  },
+  {
+    id: 'group-inventory',
+    categoryLabel: '在庫管理（受入・入庫・保管・出庫）',
+    categoryBadge: 'フロー① 入庫 / フロー② 出庫',
+    icon: 'inventory',
+    color: '#0284c7',
+    bgColor: '#f0f9ff',
+    borderColor: '#7dd3fc',
+    sectionIds: [
+      'inventory-inquiry',
+      'stock-movement-history',
+      'shipment-schedule',
+      'goods-receipt',
+      'goods-issue',
+    ],
+  },
+  {
+    id: 'group-production',
+    categoryLabel: '生産管理（製造計画・材料引当・進捗・BOM）',
+    categoryBadge: 'フロー② 製造',
+    icon: 'production',
+    color: '#4338ca',
+    bgColor: '#eef2ff',
+    borderColor: '#c7d2fe',
+    sectionIds: [
+      'production-plan',
+      'bom-master',
+      'material-allocation',
+      'parts-supply-simulation',
+      'work-progress',
+    ],
+  },
+  {
+    id: 'group-quality-machine',
+    categoryLabel: '品質管理・設備点検',
+    categoryBadge: '品質・保全',
+    icon: 'quality',
+    color: '#059669',
+    bgColor: '#ecfdf5',
+    borderColor: '#a7f3d0',
+    sectionIds: ['quality-inspection', 'quality-master', 'machine-inspection'],
+  },
+  {
+    id: 'group-data-user',
+    categoryLabel: 'データ投入・ユーザー設定',
+    categoryBadge: 'マスター・設定',
+    icon: 'data',
+    color: '#7c3aed',
+    bgColor: '#f5f3ff',
+    borderColor: '#ddd6fe',
+    sectionIds: ['data-import', 'user-settings'],
+  },
+  {
+    id: 'group-admin',
+    categoryLabel: '管理者専用メニュー',
+    categoryBadge: '管理者限定',
+    icon: 'admin',
+    color: '#334155',
+    bgColor: '#f8fafc',
+    borderColor: '#cbd5e1',
+    sectionIds: ['admin-users-security', 'admin-system-warehouse'],
+  },
+  {
+    id: 'group-mobile',
+    categoryLabel: '現場専用モバイルアプリ',
+    categoryBadge: 'スマホ・現場',
+    icon: 'qr',
+    color: '#0284c7',
+    bgColor: '#f0f9ff',
+    borderColor: '#38bdf8',
+    sectionIds: ['mobile'],
+  },
+];
+
 const UsagePage: React.FC = () => {
+  // セクションIDから通し番号（1〜）とセクション情報を高速検索するマップ
+  const sectionMap = React.useMemo(() => {
+    const map = new Map<string, { section: ManualSection; index: number; group: TocGroup }>();
+    SECTIONS.forEach((s, idx) => {
+      const group = TOC_GROUPS.find(g => g.sectionIds.includes(s.id)) || TOC_GROUPS[0];
+      map.set(s.id, { section: s, index: idx + 1, group });
+    });
+    return map;
+  }, []);
+
+  // スティッキーヘッダー＋リボン（約135px）に隠れないスムーズスクロール
+  const handleScrollTo = (e: React.MouseEvent<HTMLAnchorElement>, targetId: string) => {
+    e.preventDefault();
+    const el = document.getElementById(targetId);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      window.history.pushState(null, '', `#${targetId}`);
+    }
+  };
+
   return (
     <div className={styles.container}>
       <div className={styles.header}>
@@ -385,53 +504,149 @@ const UsagePage: React.FC = () => {
         <p>生産ナビの全体業務フローや各画面の操作手順、操作ポイントをわかりやすく説明します。</p>
       </div>
 
-      <nav id="toc" className={styles.toc} aria-label="目次">
-        <h2>目次</h2>
-        <ol>
-          {SECTIONS.map(section => (
-            <li key={section.id}>
-              <a href={`#${section.id}`}>{section.title}</a>
-            </li>
+      {/* 業務カテゴリ別に整理したモダンな目次ナビゲーション */}
+      <nav id="toc" className={styles.toc} aria-label="使い方ガイド目次">
+        <div className={styles.tocHeader}>
+          <div className={styles.tocTitleGroup}>
+            <h2 className={styles.tocTitle}>
+              <NavIcon name="book" size={20} />
+              <span>目次（業務別インデックス）</span>
+            </h2>
+            <span className={styles.tocBadge}>全{SECTIONS.length}画面・機能</span>
+          </div>
+          <p className={styles.tocSubtitle}>
+            業務フローや管理カテゴリごとに目的の操作手順を素早く探せます。各項目をクリックすると該当手順へスムーズに移動します。
+          </p>
+        </div>
+
+        {/* クイックカテゴリナビ */}
+        <div className={styles.tocQuickNav} aria-label="カテゴリジャンプ">
+          {TOC_GROUPS.map((group) => (
+            <a
+              key={group.id}
+              href={`#${group.id}`}
+              onClick={(e) => handleScrollTo(e, group.id)}
+              className={styles.tocQuickBtn}
+            >
+              <NavIcon name={group.icon} size={14} />
+              <span>{group.categoryLabel.split('（')[0]}</span>
+            </a>
           ))}
-        </ol>
+        </div>
+
+        {/* カテゴリ別カードグリッド */}
+        <div className={styles.tocGrid}>
+          {TOC_GROUPS.map((group) => {
+            const groupSections = group.sectionIds
+              .map(id => sectionMap.get(id))
+              .filter((item): item is { section: ManualSection; index: number; group: TocGroup } => Boolean(item));
+
+            return (
+              <div
+                key={group.id}
+                id={group.id}
+                className={styles.tocCard}
+                style={{
+                  '--cat-color': group.color,
+                  '--cat-bg': group.bgColor,
+                  '--cat-border': group.borderColor,
+                } as React.CSSProperties}
+              >
+                <div className={styles.tocCardHeader}>
+                  <h3 className={styles.tocCardTitle}>
+                    <NavIcon name={group.icon} size={16} />
+                    <span>{group.categoryLabel}</span>
+                  </h3>
+                  <span className={styles.tocCardBadge}>{group.categoryBadge}</span>
+                </div>
+
+                <ul className={styles.tocCardList}>
+                  {groupSections.map(({ section, index }) => (
+                    <li key={section.id}>
+                      <a
+                        href={`#${section.id}`}
+                        onClick={(e) => handleScrollTo(e, section.id)}
+                        className={styles.tocItemLink}
+                      >
+                        <span className={styles.tocItemNum}>
+                          {index < 10 ? `0${index}` : index}
+                        </span>
+                        <span className={styles.tocItemText}>{section.title}</span>
+                        <span className={styles.tocItemArrow}>›</span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
+        </div>
       </nav>
 
-      {SECTIONS.map((section, index) => (
-        <section key={section.id} id={section.id} className={styles.section}>
-          <h2>
-            <span className={styles.sectionNo}>{index + 1}</span>
-            {section.title}
-          </h2>
-          <p className={styles.summary}>{section.summary}</p>
+      {/* 各画面・機能の詳細マニュアルセクション */}
+      {SECTIONS.map((section, index) => {
+        const itemInfo = sectionMap.get(section.id);
+        const group = itemInfo?.group;
 
-          <div className={styles.shots}>
-            {section.shots.map(shot => (
-              <figure key={shot.src} className={styles.figure}>
-                <a href={shot.src} target="_blank" rel="noreferrer">
-                  <img src={shot.src} alt={shot.caption} loading="lazy" />
-                </a>
-                <figcaption>{shot.caption}</figcaption>
-              </figure>
-            ))}
-          </div>
-
-          <h3>操作手順</h3>
-          <ol className={styles.steps}>
-            {section.steps.map(step => <li key={step}>{step}</li>)}
-          </ol>
-
-          {section.notes && (
-            <div className={styles.notes}>
-              <h3>操作のポイント</h3>
-              <ul>
-                {section.notes.map(note => <li key={note}>{note}</li>)}
-              </ul>
+        return (
+          <section key={section.id} id={section.id} className={styles.section}>
+            <div className={styles.sectionHeaderGroup}>
+              {group && (
+                <div
+                  className={styles.sectionCategoryBadge}
+                  style={{
+                    backgroundColor: group.bgColor,
+                    borderColor: group.borderColor,
+                    color: group.color,
+                  }}
+                >
+                  <NavIcon name={group.icon} size={13} />
+                  <span>{group.categoryLabel}</span>
+                  {group.categoryBadge && <span>・ {group.categoryBadge}</span>}
+                </div>
+              )}
+              <h2>
+                <span className={styles.sectionNo}>{index + 1}</span>
+                <span>{section.title}</span>
+              </h2>
             </div>
-          )}
+            <p className={styles.summary}>{section.summary}</p>
 
-          <a href="#toc" className={styles.backToTop}>▲ 目次へ戻る</a>
-        </section>
-      ))}
+            <div className={styles.shots}>
+              {section.shots.map(shot => (
+                <figure key={shot.src} className={styles.figure}>
+                  <a href={shot.src} target="_blank" rel="noreferrer">
+                    <img src={shot.src} alt={shot.caption} loading="lazy" />
+                  </a>
+                  <figcaption>{shot.caption}</figcaption>
+                </figure>
+              ))}
+            </div>
+
+            <h3>操作手順</h3>
+            <ol className={styles.steps}>
+              {section.steps.map(step => <li key={step}>{step}</li>)}
+            </ol>
+
+            {section.notes && (
+              <div className={styles.notes}>
+                <h3>操作のポイント</h3>
+                <ul>
+                  {section.notes.map(note => <li key={note}>{note}</li>)}
+                </ul>
+              </div>
+            )}
+
+            <a
+              href="#toc"
+              onClick={(e) => handleScrollTo(e, 'toc')}
+              className={styles.backToTop}
+            >
+              ▲ 目次へ戻る
+            </a>
+          </section>
+        );
+      })}
     </div>
   );
 };
