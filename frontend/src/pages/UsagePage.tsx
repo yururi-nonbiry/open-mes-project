@@ -612,9 +612,12 @@ const UsagePage: React.FC = () => {
             </div>
             <p className={styles.summary}>{section.summary}</p>
 
-            <div className={styles.shots}>
+            <div className={section.id === 'mobile' ? styles.mobileShots : styles.shots}>
               {section.shots.map(shot => (
-                <figure key={shot.src} className={styles.figure}>
+                <figure
+                  key={shot.src}
+                  className={section.id === 'mobile' ? styles.mobileFigure : styles.figure}
+                >
                   <a href={shot.src} target="_blank" rel="noreferrer">
                     <img src={shot.src} alt={shot.caption} loading="lazy" />
                   </a>
