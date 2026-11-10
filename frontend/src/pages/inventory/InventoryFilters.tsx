@@ -12,6 +12,7 @@ const DEFAULT_SEARCH_FIELDS: DisplaySetting[] = [
     { model_field_name: 'part_number', display_name: '品番', verbose_name: '品番', is_list_display: true, is_search_field: true, display_order: 1, search_order: 1 },
     { model_field_name: 'warehouse', display_name: '倉庫', verbose_name: '倉庫', is_list_display: true, is_search_field: true, display_order: 2, search_order: 2 },
     { model_field_name: 'location', display_name: '棚番', verbose_name: '棚番', is_list_display: true, is_search_field: true, display_order: 3, search_order: 3 },
+    { model_field_name: 'purpose', display_name: '用途', verbose_name: '用途', is_list_display: true, is_search_field: true, display_order: 4, search_order: 4 },
 ];
 
 const InventoryFilters: React.FC<InventoryFiltersProps> = ({
@@ -68,7 +69,7 @@ const InventoryFilters: React.FC<InventoryFiltersProps> = ({
                                 value={filters[field.model_field_name] || ''}
                                 onChange={onFilterChange}
                                 className="form-control form-control-sm"
-                                placeholder={`${labelText}を入力...`}
+                                placeholder={field.model_field_name === 'purpose' ? '用途コード（汎用は none）' : `${labelText}を入力...`}
                             />
                         </div>
                     );

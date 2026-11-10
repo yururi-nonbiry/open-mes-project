@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Modal, Button, Spinner, Alert } from 'react-bootstrap';
+import { useStockPurposes } from '../hooks/useStockPurposes';
 import ReceiptLocationMap from '../components/common/ReceiptLocationMap';
 import authFetch, { ApiError } from '../utils/api';
 import inventoryService from '../services/inventoryService';
@@ -75,10 +76,12 @@ const GoodsReceipt: React.FC = () => {
     error: string;
     success: string;
   }>({ isOpen: false, order: null, error: '', success: '' });
+  const stockPurposes = useStockPurposes();
   const [receiptFormData, setReceiptFormData] = useState({
     received_quantity: '',
     location: '',
     warehouse: '',
+    purpose: '',
   });
 
   // 納品記録モーダル
@@ -227,6 +230,7 @@ const GoodsReceipt: React.FC = () => {
       received_quantity: remainingQuantity > 0 ? String(remainingQuantity) : '',
       location: order.location || '',
       warehouse: order.warehouse || '',
+      purpose: order.purpose || '',
     });
   };
 
@@ -255,6 +259,7 @@ const GoodsReceipt: React.FC = () => {
         received_quantity: receivedQuantity,
         location: receiptFormData.location.trim(),
         warehouse: receiptFormData.warehouse.trim(),
+        purpose: receiptFormData.purpose,
       });
       setReceiptModal(prev => ({
         ...prev,
@@ -696,6 +701,27 @@ const GoodsReceipt: React.FC = () => {
                     placeholder="例：A-01"
                   />
                   <span className="mes-modal-field-help">保管するロケーション（棚番）を入力します</span>
+                </div>
+              </div>
+
+              <div className="col-12 col-md-6">
+                <div className="mes-modal-field-group">
+                  <label htmlFor="modal_purpose_select" className="mes-modal-field-label">
+                    <span>用途</span>
+                    <span className="mes-field-badge optional">変更可</span>
+                  </label>
+                  <select
+                    id="modal_purpose_select"
+                    className="form-select mes-modal-input"
+                    value={receiptFormData.purpose}
+                    onChange={e => setReceiptFormData(prev => ({ ...prev, purpose: e.target.value }))}
+                  >
+                    <option value="">汎用（用途の指定なし）</option>
+                    {stockPurposes.map(p => (
+                      <option key={p.code} value={p.code}>{p.code} - {p.name}</option>
+                    ))}
+                  </select>
+                  <span className="mes-modal-field-help">何用の部品として入庫するか。用途ごとに別の在庫として管理されます</span>
                 </div>
               </div>
 

@@ -131,6 +131,17 @@ class StockMovement(models.Model):
 
     warehouse = fk_id_alias("warehouse_rel")
     location = models.CharField(max_length=255, blank=True, null=True, verbose_name="棚番")  # どの棚番に関連する移動か
+    # 在庫の用途(何用の部品か)。空(NULL)は汎用。
+    purpose_rel = models.ForeignKey(
+        "master.StockPurpose",
+        to_field="code",
+        db_column="purpose",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        verbose_name="用途",
+    )
+    purpose = fk_id_alias("purpose_rel")
     movement_type = models.CharField(
         max_length=20, choices=MOVEMENT_TYPE_CHOICES, verbose_name="移動タイプ"
     )  # 入庫・出庫・使用
@@ -210,6 +221,17 @@ class PurchaseOrder(models.Model):
     location = models.CharField(
         max_length=255, blank=True, null=True, verbose_name="入庫棚番"
     )  # どの棚番に入庫するかを追加
+    # 入庫時に在庫へ引き継ぐ用途(何用の部品か)。空(NULL)は汎用。入庫時に変更できる。
+    purpose_rel = models.ForeignKey(
+        "master.StockPurpose",
+        to_field="code",
+        db_column="purpose",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        verbose_name="用途",
+    )
+    purpose = fk_id_alias("purpose_rel")
     # 外部システム(仕入先側)で受領された記録。在庫・入庫済数量には反映しない
     delivery_date = models.DateField(blank=True, null=True, verbose_name="納品日")
     delivered_quantity = models.PositiveIntegerField(blank=True, null=True, verbose_name="納品数")
@@ -260,6 +282,17 @@ class Receipt(models.Model):
     warehouse = fk_id_alias("warehouse_rel")
 
     location = models.CharField(max_length=255, blank=True, null=True, verbose_name="入庫棚番")
+    # 在庫の用途(何用の部品か)。空(NULL)は汎用。
+    purpose_rel = models.ForeignKey(
+        "master.StockPurpose",
+        to_field="code",
+        db_column="purpose",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        verbose_name="用途",
+    )
+    purpose = fk_id_alias("purpose_rel")
     operator = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="作業者"
     )

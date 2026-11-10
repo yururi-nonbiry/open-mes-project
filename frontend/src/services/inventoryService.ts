@@ -7,6 +7,8 @@ export interface InventoryItem {
     part_name?: string;
     warehouse: string;
     location: string;
+    /** 用途コード。null は汎用。 */
+    purpose?: string | null;
     quantity: number;
     reserved: number;
     available_quantity: number;
@@ -128,6 +130,8 @@ const inventoryService = {
         received_quantity: number;
         warehouse: string;
         location: string;
+        /** 用途コード。空文字は汎用。省略すると発注の用途を引き継ぐ。 */
+        purpose?: string;
     }) =>
         apiRequest<{ message: string; order_number: string }>(
             '/api/inventory/purchase-orders/process-receipt/',

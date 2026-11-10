@@ -70,6 +70,12 @@ class InventoryViewSet(viewsets.ModelViewSet):
             filters &= Q(warehouse_rel__warehouse_number__icontains=warehouse_query)
         if location_query:
             filters &= Q(location__icontains=location_query)
+        # 用途で絞り込む。"none" は汎用(用途なし)のみ。
+        purpose_query = self.request.query_params.get("purpose_query")
+        if purpose_query == "none":
+            filters &= Q(purpose_rel__isnull=True)
+        elif purpose_query:
+            filters &= Q(purpose_rel__code__icontains=purpose_query)
 
         queryset = Inventory.objects.filter(filters).select_related("part_number_rel", "warehouse_rel")
 
@@ -244,6 +250,11 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
                 str(request.data.get("warehouse") or "").strip(),
                 str(request.data.get("location") or "").strip(),
                 request.user,
+                **(
+                    {"purpose": str(request.data.get("purpose") or "").strip()}
+                    if "purpose" in request.data
+                    else {}
+                ),
             )
         except services.InventoryServiceError as e:
             return error_response(e.message, e.status_code)

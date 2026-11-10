@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import authFetch, { ApiError, handleError } from '../../utils/api';
 import inventoryService from '../../services/inventoryService';
 import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library';
+import { useStockPurposes } from '../../hooks/useStockPurposes';
 import ReceiptLocationMap from '../../components/common/ReceiptLocationMap';
 import CameraIcon from '../../components/common/CameraIcon';
 import './MobileGoodsReceiptPage.css';
@@ -24,7 +25,8 @@ const MobileGoodsReceiptPage = () => {
 
   // State for the receipt processing form (acting as a modal)
   const [selectedOrder, setSelectedOrder] = useState(null);
-  const [receiptFormData, setReceiptFormData] = useState({ received_quantity: '', location: '', warehouse: '' });
+  const [receiptFormData, setReceiptFormData] = useState({ received_quantity: '', location: '', warehouse: '', purpose: '' });
+  const stockPurposes = useStockPurposes();
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
 
@@ -119,6 +121,7 @@ const MobileGoodsReceiptPage = () => {
       received_quantity: remainingQuantity > 0 ? String(remainingQuantity) : '',
       location: order.location || '',
       warehouse: order.warehouse || '',
+      purpose: order.purpose || '',
     });
     setFormError('');
     setFormSuccess('');
@@ -212,6 +215,7 @@ const MobileGoodsReceiptPage = () => {
         received_quantity: receivedQuantity,
         location: receiptFormData.location.trim(),
         warehouse: receiptFormData.warehouse.trim(),
+        purpose: receiptFormData.purpose,
       });
       setFormSuccess(`発注 ${result.order_number} の入庫処理が正常に完了しました。`);
       setTimeout(() => {
@@ -286,6 +290,13 @@ const MobileGoodsReceiptPage = () => {
                 <input type="text" id="location" name="location" value={receiptFormData.location} onChange={handleReceiptFormChange} className="form-control" placeholder="棚番" />
                 <button className="btn btn-outline-secondary" type="button" onClick={() => startCameraScan(value => setReceiptFormData(prev => ({ ...prev, location: value })))} title="カメラでスキャン" aria-label="カメラでスキャン"><CameraIcon /></button>
               </div>
+            </div>
+            <div className="mb-3">
+              <label htmlFor="purpose" className="form-label">用途</label>
+              <select id="purpose" className="form-select" value={receiptFormData.purpose} onChange={(e) => setReceiptFormData(prev => ({ ...prev, purpose: e.target.value }))}>
+                <option value="">汎用（用途の指定なし）</option>
+                {stockPurposes.map(p => (<option key={p.code} value={p.code}>{p.code} - {p.name}</option>))}
+              </select>
             </div>
             <div className="mb-3"><ReceiptLocationMap warehouse={receiptFormData.warehouse} location={receiptFormData.location} cellSize={24} /></div>
             {formError && <div className="alert alert-danger">{formError}</div>}

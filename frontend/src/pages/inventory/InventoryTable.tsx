@@ -15,6 +15,7 @@ const DEFAULT_COLUMNS = [
     { model_field_name: 'part_number', verbose_name: '品番' },
     { model_field_name: 'warehouse', verbose_name: '倉庫' },
     { model_field_name: 'location', verbose_name: '棚番（ロケーション）' },
+    { model_field_name: 'purpose', verbose_name: '用途' },
     { model_field_name: 'quantity', verbose_name: '現在庫数' },
     { model_field_name: 'reserved', verbose_name: '引当済' },
     { model_field_name: 'available_quantity', verbose_name: '利用可能数' },
@@ -85,6 +86,14 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                                 <span className={avail > 0 ? 'receipt-remaining-qty has-remaining' : 'receipt-remaining-qty zero'}>
                                     {avail}
                                 </span>
+                            </td>
+                        );
+                    }
+
+                    if (fieldName === 'purpose') {
+                        return (
+                            <td key={fieldName}>
+                                {cellValue ? cellValue : <span className="text-muted">汎用</span>}
                             </td>
                         );
                     }

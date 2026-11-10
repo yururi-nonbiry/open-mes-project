@@ -893,8 +893,8 @@ export const NAV_CATEGORIES: NavCategory[] = [
     id: 'admin',
     label: '管理者メニュー',
     shortLabel: '管理者設定',
-    badgeLabel: '管理・設定 6項目',
-    flowSummary: '① 倉庫レイアウト　② 棚番QR作成　③ QRアクション　④ システム設定　⑤ ユーザー管理　⑥ セキュリティ',
+    badgeLabel: '管理・設定 7項目',
+    flowSummary: '① 倉庫レイアウト　② 在庫用途　③ 棚番QR作成　④ QRアクション　⑤ システム設定　⑥ ユーザー管理　⑦ セキュリティ',
     icon: 'admin',
     staffOnly: true,
     theme: {
@@ -922,6 +922,22 @@ export const NAV_CATEGORIES: NavCategory[] = [
         stepTag: '倉庫マップ設計',
         description: '倉庫内の棚番配置をマップ上で設計します',
         icon: 'warehouse-map',
+        staffOnly: true,
+      },
+      {
+        path: '/master/stock-purposes',
+        label: '在庫用途管理',
+        pageTitle: '在庫用途管理（部品の用途区分マスタ）',
+        pageSubtitle:
+          '同じ品番の在庫を「何用の部品か」で区別して持つための用途（例: A製品用・保守用）を登録・管理します。',
+        guideSteps: [
+          '用途コードと用途名を入力して登録',
+          '入庫時に用途を選ぶと、用途ごとに別在庫として計上',
+          '使わなくなった用途は削除せず無効に切り替え',
+        ],
+        stepTag: '用途マスタ',
+        description: '在庫の用途区分（A製品用・保守用など）を管理します',
+        icon: 'master',
         staffOnly: true,
       },
       {

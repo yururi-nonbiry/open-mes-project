@@ -16,7 +16,7 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from base.responses import INTERNAL_ERROR_MESSAGE, validation_error_body
-from master.models import Warehouse
+from master.models import StockPurpose, Warehouse
 
 from .models import Inventory, PurchaseOrder, Receipt, SalesOrder, StockMovement
 from .serializers import PurchaseOrderSerializer
@@ -181,7 +181,8 @@ def add_stock(part_number, warehouse, quantity, reserved=0):
     品番+倉庫に在庫(と引当)を戻す・追加する。棚の指定が無い処理(生産完了入庫・材料の戻し等)向けで、
     棚番なし("")の在庫があればそこへ、無ければ入庫が古い棚へ、棚が1つも無ければ棚番なしで作成して加算する。
     """
-    rows = lock_inventory_rows(part_number, warehouse)
+    # 用途付きの在庫を汎用として増やさないよう、戻し先は汎用(用途なし)の在庫に限る
+    rows = [row for row in lock_inventory_rows(part_number, warehouse) if row.purpose is None]
     target = next((row for row in rows if row.location == ""), None) or (rows[0] if rows else None)
     if target is None:
         target = get_or_create_locked_inventory(part_number, warehouse, "")
@@ -222,7 +223,9 @@ def move_inventory(source_pk, quantity, target_warehouse, target_location, user)
         source.quantity -= quantity
         source.save()
 
-        target = get_or_create_locked_inventory(source.part_number, target_warehouse, target_location)
+        target = get_or_create_locked_inventory(
+            source.part_number, target_warehouse, target_location, purpose=source.purpose
+        )
         target.quantity += quantity
         target.save()
 
@@ -233,6 +236,7 @@ def move_inventory(source_pk, quantity, target_warehouse, target_location, user)
             quantity=quantity,
             warehouse=source.warehouse,
             location=source.location,
+            purpose=source.purpose,
             description=f"棚番移動: {target_warehouse} の {target_location} へ",
             operator=operator,
         )
@@ -242,6 +246,7 @@ def move_inventory(source_pk, quantity, target_warehouse, target_location, user)
             quantity=quantity,
             warehouse=target_warehouse,
             location=target_location,
+            purpose=source.purpose,
             description=f"棚番移動: {source.warehouse} の {source.location} から",
             operator=operator,
         )
@@ -274,6 +279,7 @@ def adjust_inventory(inventory_pk, new_quantity, new_location, user):
                 quantity=abs(diff),
                 warehouse=inventory.warehouse,
                 location=inventory.location,
+                purpose=inventory.purpose,
                 description=f"在庫調整: {old_quantity} -> {new_quantity}",
                 operator=_operator_or_none(user),
             )
@@ -282,7 +288,10 @@ def adjust_inventory(inventory_pk, new_quantity, new_location, user):
 # --- 入庫 ---
 
 
-def receive_purchase_order(purchase_order_id, received_quantity, warehouse, location, user):
+_UNSET = object()
+
+
+def receive_purchase_order(purchase_order_id, received_quantity, warehouse, location, user, purpose=_UNSET):
     """
     発注に対する入庫処理。入庫実績の作成・在庫計上・入出庫履歴の記録・発注ステータス更新を行う。
     """
@@ -314,6 +323,12 @@ def receive_purchase_order(purchase_order_id, received_quantity, warehouse, loca
         if not Warehouse.objects.filter(warehouse_number=warehouse).exists():
             raise InventoryServiceError(f"入庫倉庫 '{warehouse}' が存在しません。")
 
+        # 用途は入庫時の指定を優先し、無ければ発注の用途を引き継ぐ(どちらも無ければ汎用)
+        # (purpose を空文字で明示した場合は、発注に用途があっても汎用として入庫する)
+        purpose = (po.purpose if purpose is _UNSET else purpose) or None
+        if purpose and not StockPurpose.objects.filter(code=purpose, is_active=True).exists():
+            raise InventoryServiceError(f"用途 '{purpose}' が存在しないか、無効です。")
+
         operator = _operator_or_none(user)
         Receipt.objects.create(
             purchase_order=po,
@@ -321,10 +336,11 @@ def receive_purchase_order(purchase_order_id, received_quantity, warehouse, loca
             received_date=timezone.now(),
             warehouse=warehouse,
             location=location,
+            purpose=purpose,
             operator=operator,
         )
 
-        inventory = get_or_create_locked_inventory(po.part_number, warehouse, location)
+        inventory = get_or_create_locked_inventory(po.part_number, warehouse, location, purpose=purpose)
         inventory.quantity += received_quantity
         inventory.save()
 
@@ -334,6 +350,7 @@ def receive_purchase_order(purchase_order_id, received_quantity, warehouse, loca
             quantity=received_quantity,
             warehouse=warehouse,
             location=location,
+            purpose=purpose,
             reference_document=f"PO: {po.order_number}",
             description=f"発注番号 {po.order_number} の入庫",
             operator=operator,

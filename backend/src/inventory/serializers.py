@@ -18,6 +18,7 @@ class ReceiptSerializer(serializers.ModelSerializer):
 
     operator_username = serializers.CharField(source="operator.username", read_only=True, allow_null=True)
     warehouse = serializers.SlugRelatedField(source="warehouse_rel", slug_field="warehouse_number", read_only=True)
+    purpose = serializers.SlugRelatedField(source="purpose_rel", slug_field="code", read_only=True)
 
     class Meta:
         model = Receipt
@@ -28,6 +29,7 @@ class ReceiptSerializer(serializers.ModelSerializer):
             "received_date",
             "warehouse",
             "location",
+            "purpose",
             "operator",
             "operator_username",
             "remarks",
@@ -40,6 +42,7 @@ class ReceiptSerializer(serializers.ModelSerializer):
             "received_quantity",
             "received_date",
             "location",
+            "purpose",
             "operator",
             "operator_username",
         ]
@@ -62,6 +65,9 @@ class PurchaseOrderSerializer(serializers.ModelSerializer):
     )
     received_quantity = serializers.IntegerField(read_only=True)
     remaining_quantity = serializers.IntegerField(read_only=True)
+    purpose = serializers.SlugRelatedField(
+        source="purpose_rel", slug_field="code", queryset=StockPurpose.objects.all(), allow_null=True, required=False
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -101,6 +107,7 @@ class PurchaseOrderSerializer(serializers.ModelSerializer):
             "expected_arrival",  # 入荷予定日 (任意)
             "warehouse",  # 入庫倉庫
             "location",  # 入庫棚番 (任意)
+            "purpose",  # 用途コード (任意、空は汎用。入庫時に在庫へ引き継ぐ)
             "delivery_date",  # 納品日 (任意、外部システムでの受領記録。在庫には反映しない)
             "delivered_quantity",  # 納品数 (任意、同上)
             "status",  # ステータス (デフォルト'pending'、読み取り専用)
@@ -205,6 +212,9 @@ class StockMovementSerializer(serializers.ModelSerializer):
     movement_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
     part_number = serializers.SlugRelatedField(source="part_number_rel", slug_field="code", queryset=Item.objects.all(), allow_null=True, required=False)
     warehouse = serializers.SlugRelatedField(source="warehouse_rel", slug_field="warehouse_number", queryset=Warehouse.objects.all(), allow_null=True, required=False)
+    purpose = serializers.SlugRelatedField(
+        source="purpose_rel", slug_field="code", queryset=StockPurpose.objects.all(), allow_null=True, required=False
+    )
 
     class Meta:
         model = StockMovement
@@ -213,6 +223,7 @@ class StockMovementSerializer(serializers.ModelSerializer):
             "part_number",
             "warehouse",
             "location",
+            "purpose",
             "movement_type",
             "movement_type_display",  # 表示用の移動タイプ名
             "quantity",
