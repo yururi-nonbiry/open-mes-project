@@ -285,6 +285,7 @@ const MobileLocationTransferPage = () => {
                   {items.map((item, index) => (
                     <button key={index} type="button" className="list-group-item list-group-item-action" onClick={() => handlePartSelect(item)}>
                       <div className="fw-bold">{item.part_number}</div>
+                      <div>用途: {item.purpose || '汎用'}</div>
                       <div>数量: {item.quantity}</div>
                     </button>
                   ))}
@@ -294,6 +295,7 @@ const MobileLocationTransferPage = () => {
             {modalStep === 'transfer' && selectedItem && (
               <form onSubmit={handleExecuteTransfer}>
                 <div className="mb-3"><label className="form-label fw-bold">品番</label><p className="form-control-plaintext form-control-lg ps-2">{selectedItem.part_number}</p></div>
+                <div className="mb-3"><label className="form-label fw-bold">用途</label><p className="form-control-plaintext form-control-lg ps-2">{selectedItem.purpose || '汎用'}</p></div>
                 <div className="mb-3"><label className="form-label fw-bold">現在数量</label><p className="form-control-plaintext form-control-lg ps-2">{selectedItem.quantity} (有効: {selectedItem.available_quantity})</p></div>
                 <div className="mb-3">
                   <label htmlFor="transferQuantity" className="form-label fw-bold">移動数量</label>

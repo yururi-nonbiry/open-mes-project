@@ -106,6 +106,10 @@ const InventoryMoveModal: React.FC<InventoryMoveModalProps> = ({
                                 <span className="summary-value fw-bold">{item.part_number}</span>
                             </div>
                             <div className="receipt-summary-item">
+                                <span className="summary-label">用途</span>
+                                <span className="summary-value fw-bold">{item.purpose || '汎用'}</span>
+                            </div>
+                            <div className="receipt-summary-item">
                                 <span className="summary-label">移動元の倉庫 / 棚番</span>
                                 <span className="summary-value fw-bold">
                                     {item.warehouse} / {item.location || '（棚番なし）'}

@@ -300,6 +300,13 @@ export const getFormFields = (type: string): FormField[] => {
                 colSpan: 6
             },
             {
+                name: 'purpose',
+                label: '使用する在庫の用途コード',
+                placeholder: '例：PRD-A（空欄は汎用のみ）',
+                helpText: 'この用途の在庫を先に使い、足りなければ汎用の在庫を使います。空欄の場合は汎用の在庫のみ使用します',
+                colSpan: 6
+            },
+            {
                 name: 'planned_quantity',
                 label: '計画数量',
                 type: 'number',
