@@ -119,3 +119,62 @@ class ReceiptPurposeTests(InventoryAPITestBase):
         self.assertEqual(self.client.get(url, {"purpose_query": "PRD-A"}).data["count"], 1)
         self.assertEqual(self.client.get(url, {"purpose_query": "none"}).data["count"], 1)
         self.assertEqual(self.client.get(url).data["count"], 2)
+
+
+class ChangePurposeTests(InventoryAPITestBase):
+    """INV-PUR-2x : 在庫の用途変更(緊急時の汎用への切り替え等)。"""
+
+    def setUp(self):
+        super().setUp()
+        StockPurpose.objects.create(code="PRD-A", name="A製品用")
+        StockPurpose.objects.create(code="PRD-B", name="B製品用")
+        StockPurpose.objects.create(code="OLD", name="旧用途", is_active=False)
+        self.source = self.create_inventory(location="A-01", quantity=10, reserved=2, purpose="PRD-A")
+        self.url = reverse("inventory_api:inventory-change-purpose", kwargs={"pk": self.source.id})
+
+    def _change(self, **payload):
+        return self.client.post(self.url, payload, format="json")
+
+    def test_inv_pur_20_switch_to_generic_creates_generic_row(self):
+        response = self._change(quantity=5, purpose="", reason="緊急対応")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.source.refresh_from_db()
+        self.assertEqual(self.source.quantity, 5)
+        generic = Inventory.objects.get(purpose_rel__isnull=True)
+        self.assertEqual(generic.quantity, 5)
+        self.assertEqual(generic.location, "A-01")
+
+    def test_inv_pur_21_merges_into_existing_target(self):
+        self.create_inventory(location="A-01", quantity=3)  # 既存の汎用
+        self._change(quantity=4, purpose="")
+        self.assertEqual(Inventory.objects.get(purpose_rel__isnull=True).quantity, 7)
+        self.assertEqual(Inventory.objects.count(), 2)
+
+    def test_inv_pur_22_cannot_move_reserved_quantity(self):
+        response = self._change(quantity=9, purpose="")  # 利用可能は 10-2=8
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.source.refresh_from_db()
+        self.assertEqual(self.source.quantity, 10)
+
+    def test_inv_pur_23_records_before_after_in_history(self):
+        self._change(quantity=3, purpose="PRD-B", reason="B製品へ融通")
+        out = StockMovement.objects.get(movement_type="outgoing")
+        inc = StockMovement.objects.get(movement_type="incoming")
+        self.assertEqual((out.purpose, inc.purpose), ("PRD-A", "PRD-B"))
+        self.assertIn("B製品へ融通", out.description)
+        self.assertEqual(out.quantity, 3)
+
+    def test_inv_pur_24_validation_errors(self):
+        self.assertEqual(self._change(quantity=1, purpose="PRD-A").status_code, 400)  # 同じ用途
+        self.assertEqual(self._change(quantity=1, purpose="OLD").status_code, 400)  # 無効
+        self.assertEqual(self._change(quantity=1, purpose="NOPE").status_code, 400)  # 不存在
+        self.assertEqual(self._change(quantity=0, purpose="").status_code, 400)
+        self.assertEqual(Inventory.objects.count(), 1)
+
+    def test_inv_pur_25_inherits_first_received_at_and_flags(self):
+        self.source.is_allocatable = False
+        self.source.save()
+        self._change(quantity=2, purpose="")
+        generic = Inventory.objects.get(purpose_rel__isnull=True)
+        self.assertEqual(generic.first_received_at, Inventory.objects.get(pk=self.source.pk).first_received_at)
+        self.assertFalse(generic.is_allocatable)

@@ -9,6 +9,7 @@ interface InventoryTableProps {
     error: string | null;
     onMove: (item: InventoryItem) => void;
     onModify: (item: InventoryItem) => void;
+    onChangePurpose: (item: InventoryItem) => void;
 }
 
 const DEFAULT_COLUMNS = [
@@ -23,7 +24,7 @@ const DEFAULT_COLUMNS = [
 ] as DisplaySetting[];
 
 const InventoryTable: React.FC<InventoryTableProps> = ({
-    inventory, displaySettings: configuredSettings, isLoading, error, onMove, onModify
+    inventory, displaySettings: configuredSettings, isLoading, error, onMove, onModify, onChangePurpose
 }) => {
     const displaySettings = configuredSettings.length > 0 ? configuredSettings : DEFAULT_COLUMNS;
     const colSpan = displaySettings.length + 1;
@@ -38,7 +39,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                     </th>
                 );
             })}
-            <th className="text-center" style={{ width: '160px' }}>在庫操作</th>
+            <th className="text-center" style={{ width: '260px' }}>在庫操作</th>
         </tr>
     );
 
@@ -142,6 +143,13 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                         onClick={() => onModify(item)}
                     >
                         数量修正
+                    </button>
+                    <button
+                        type="button"
+                        className="btn btn-sm btn-outline-secondary fw-bold ms-1"
+                        onClick={() => onChangePurpose(item)}
+                    >
+                        用途変更
                     </button>
                 </td>
             </tr>

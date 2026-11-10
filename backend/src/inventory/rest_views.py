@@ -130,6 +130,26 @@ class InventoryViewSet(viewsets.ModelViewSet):
             return error_response("移動先の品番/倉庫/棚番の組み合わせが既に別の在庫レコードとして存在します。")
         return Response({"message": "在庫を正常に移動しました。"})
 
+    @action(detail=True, methods=["post"], url_path="change-purpose")
+    def change_purpose(self, request, pk=None):
+        """
+        在庫の用途を変更する(例: A製品用の在庫を緊急時に汎用へ切り替える)。
+        Request body: {"quantity": 5, "purpose": "" (空は汎用), "reason": "緊急対応"}
+        """
+        inventory = self.get_object()
+        try:
+            quantity = int(request.data.get("quantity"))
+        except (TypeError, ValueError):
+            return error_response("変更する数量は数値である必要があります。")
+
+        try:
+            services.change_inventory_purpose(
+                inventory.pk, quantity, request.data.get("purpose"), request.data.get("reason"), request.user
+            )
+        except services.InventoryServiceError as e:
+            return error_response(e.message, e.status_code)
+        return Response({"message": "在庫の用途を変更しました。"})
+
     @action(detail=True, methods=["post"], url_path="adjust")
     def adjust(self, request, pk=None):
         """

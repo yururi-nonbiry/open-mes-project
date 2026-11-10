@@ -252,6 +252,78 @@ def move_inventory(source_pk, quantity, target_warehouse, target_location, user)
         )
 
 
+def change_inventory_purpose(source_pk, quantity, new_purpose, reason, user):
+    """
+    在庫の用途を変更する(指定数量を、同じ品番・倉庫・棚の別用途の在庫へ移す)。
+    new_purpose が空の場合は汎用への切り替え。移し先に同じ用途の在庫があれば合算する。
+    引当済みの数量は動かせない。変更前後の用途を入出庫履歴に記録する。
+    """
+    new_purpose = (new_purpose or "").strip() or None
+    reason = (reason or "").strip()
+    if quantity <= 0:
+        raise InventoryServiceError("変更する数量は1以上である必要があります。")
+    if new_purpose and not StockPurpose.objects.filter(code=new_purpose, is_active=True).exists():
+        raise InventoryServiceError(f"用途 '{new_purpose}' が存在しないか、無効です。")
+
+    with transaction.atomic():
+        # 行ロックを取得した上で最新の状態を再取得する（同時実行によるロストアップデート防止）
+        source = Inventory.objects.select_for_update().get(pk=source_pk)
+        if source.purpose == new_purpose:
+            raise InventoryServiceError("変更前と変更後の用途が同じです。")
+
+        available = source.quantity - source.reserved
+        if quantity > available:
+            raise InventoryServiceError(
+                f"変更数量が利用可能在庫数(引当済みを除く)を超えています。利用可能: {available}"
+            )
+
+        target = get_or_create_locked_inventory(
+            source.part_number, source.warehouse, source.location, purpose=new_purpose
+        )
+        if target.quantity == 0 and target.reserved == 0:
+            # 新規(または空)の行は、元の在庫の入庫日時・有効/引当可能フラグを引き継ぐ(FIFO順を崩さないため)
+            target.first_received_at = source.first_received_at or target.first_received_at
+            target.is_active = source.is_active
+            target.is_allocatable = source.is_allocatable
+        elif source.first_received_at and (
+            target.first_received_at is None or source.first_received_at < target.first_received_at
+        ):
+            target.first_received_at = source.first_received_at
+
+        source.quantity -= quantity
+        source.save()
+        target.quantity += quantity
+        target.save()
+
+        old_label = source.purpose or "汎用"
+        new_label = new_purpose or "汎用"
+        description = f"用途変更: {old_label} → {new_label}" + (f"（理由: {reason}）" if reason else "")
+        operator = _operator_or_none(user)
+        StockMovement.objects.create(
+            part_number=source.part_number,
+            movement_type=StockMovement.MovementType.OUTGOING,
+            quantity=quantity,
+            warehouse=source.warehouse,
+            location=source.location,
+            purpose=source.purpose,
+            reference_document="用途変更",
+            description=description,
+            operator=operator,
+        )
+        StockMovement.objects.create(
+            part_number=source.part_number,
+            movement_type=StockMovement.MovementType.INCOMING,
+            quantity=quantity,
+            warehouse=source.warehouse,
+            location=source.location,
+            purpose=new_purpose,
+            reference_document="用途変更",
+            description=description,
+            operator=operator,
+        )
+        return target
+
+
 def adjust_inventory(inventory_pk, new_quantity, new_location, user):
     """在庫数量(と棚番)を直接調整し、差分を入庫/出庫として履歴に記録する。"""
     with transaction.atomic():

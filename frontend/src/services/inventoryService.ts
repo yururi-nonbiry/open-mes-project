@@ -102,6 +102,14 @@ const inventoryService = {
         );
     },
 
+    /** 在庫の用途変更。purpose が空文字なら汎用への切り替え。 */
+    changeInventoryPurpose: (id: string | number, payload: { quantity: number; purpose: string; reason?: string }) =>
+        apiRequest<{ message: string }>(
+            `/api/inventory/inventories/${id}/change-purpose/`,
+            { method: 'POST', body: JSON.stringify(payload) },
+            '用途の変更に失敗しました。'
+        ),
+
     moveInventory: (id: string | number, payload: Record<string, any>) =>
         apiRequest(
             `/api/inventory/inventories/${id}/move/`,

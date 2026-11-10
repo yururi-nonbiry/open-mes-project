@@ -5,6 +5,7 @@ import InventoryTable from './inventory/InventoryTable';
 import InventoryFilters from './inventory/InventoryFilters';
 import InventoryModifyModal from './inventory/InventoryModifyModal';
 import InventoryMoveModal from './inventory/InventoryMoveModal';
+import InventoryChangePurposeModal from './inventory/InventoryChangePurposeModal';
 import './InventoryInquiry.css';
 
 const InventoryInquiry: React.FC = () => {
@@ -23,11 +24,19 @@ const InventoryInquiry: React.FC = () => {
         item: null
     });
 
+    const [purposeModal, setPurposeModal] = useState<{ isOpen: boolean; item: InventoryItem | null }>({
+        isOpen: false,
+        item: null
+    });
+
     const openModifyModal = (item: InventoryItem) => setModifyModal({ isOpen: true, item });
     const closeModifyModal = () => setModifyModal({ isOpen: false, item: null });
 
     const openMoveModal = (item: InventoryItem) => setMoveModal({ isOpen: true, item });
     const closeMoveModal = () => setMoveModal({ isOpen: false, item: null });
+
+    const openPurposeModal = (item: InventoryItem) => setPurposeModal({ isOpen: true, item });
+    const closePurposeModal = () => setPurposeModal({ isOpen: false, item: null });
 
     return (
         <div className="inventory-inquiry container mt-2">
@@ -45,6 +54,7 @@ const InventoryInquiry: React.FC = () => {
                 error={error}
                 onModify={openModifyModal}
                 onMove={openMoveModal}
+                onChangePurpose={openPurposeModal}
             />
 
             <div className="pagination-controls d-flex justify-content-center align-items-center mt-4">
@@ -77,6 +87,12 @@ const InventoryInquiry: React.FC = () => {
                 onClose={closeMoveModal}
                 onSuccess={handleSearch}
                 item={moveModal.item}
+            />
+            <InventoryChangePurposeModal
+                isOpen={purposeModal.isOpen}
+                onClose={closePurposeModal}
+                onSuccess={handleSearch}
+                item={purposeModal.item}
             />
         </div>
     );
