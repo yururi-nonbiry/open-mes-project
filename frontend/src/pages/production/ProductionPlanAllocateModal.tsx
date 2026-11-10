@@ -159,7 +159,7 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
                                     <thead className="table-light">
                                         <tr>
                                             <th>部品コード</th><th>部品名</th><th className="text-end">所要数</th>
-                                            <th className="text-end">引当済</th><th className="text-end">追加出庫済</th>
+                                            <th className="text-end">引当済</th><th className="text-end">追加ピッキング済</th>
                                             <th>引当倉庫（引当可能数）</th><th className="text-end">引当数量</th><th>単位</th>
                                         </tr>
                                     </thead>

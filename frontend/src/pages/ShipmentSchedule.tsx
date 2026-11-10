@@ -183,7 +183,7 @@ const ShipmentSchedule: React.FC = () => {
                 <th className="text-end">未出庫残</th>
                 <th>受注日</th>
                 <th>出庫予定日</th>
-                <th>出庫倉庫</th>
+                <th>出庫先</th>
                 <th>状態</th>
               </tr>
             </thead>

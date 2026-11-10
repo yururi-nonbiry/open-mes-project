@@ -795,6 +795,30 @@ header.app-header {
     box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
 }
 
+.workflow-track-block.is-grayed-out {
+    opacity: 0.52;
+    filter: grayscale(0.85);
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    border-left-color: #94a3b8;
+    box-shadow: none;
+    pointer-events: none;
+    user-select: none;
+}
+
+.workflow-track-status-pill.is-grayed {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #475569;
+    background: #e2e8f0;
+    border: 1px solid #cbd5e1;
+    border-radius: 999px;
+    margin-left: 8px;
+    white-space: nowrap;
+}
+
 .workflow-track-header {
     display: flex;
     align-items: center;
@@ -898,7 +922,7 @@ header.app-header {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #0284c7;
+    color: var(--track-accent, #0284c7);
     padding: 0;
     flex-shrink: 0;
 }
@@ -1064,6 +1088,57 @@ header.app-header {
     justify-content: space-between;
     gap: 6px;
     flex-wrap: nowrap;
+}
+
+.workflow-phase-badges-left {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    min-width: 0;
+}
+
+.workflow-phase-mobile-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 7px;
+    font-size: 0.69rem;
+    font-weight: 800;
+    color: #0369a1;
+    background: #f0f9ff;
+    border: 1px solid #bae6fd;
+    border-radius: 999px;
+    white-space: nowrap;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+}
+
+.workflow-phase-mobile-note {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 4px;
+    padding: 4px 8px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #0369a1;
+    background: rgba(240, 249, 255, 0.95);
+    border: 1px dashed #7dd3fc;
+    border-radius: 6px;
+    line-height: 1.35;
+}
+
+.workflow-track-block:nth-of-type(2) .workflow-phase-mobile-pill {
+    color: #1d4ed8;
+    background: #eff6ff;
+    border-color: #bfdbfe;
+}
+
+.workflow-track-block:nth-of-type(2) .workflow-phase-mobile-note {
+    color: #1e40af;
+    background: rgba(239, 246, 255, 0.9);
+    border-color: #93c5fd;
 }
 
 .workflow-phase-badge {
@@ -1354,6 +1429,20 @@ header.app-header {
     background-color: var(--cat-bg-soft, #e0f2fe);
     color: var(--cat-text-dark, #075985);
     border: 1px solid var(--cat-border, #7dd3fc);
+    font-size: 0.67rem;
+    font-weight: 800;
+    padding: 1px 6px;
+    border-radius: 999px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.step-card-mobile-pill {
+    display: inline-flex;
+    align-items: center;
+    background-color: #f0f9ff;
+    color: #0369a1;
+    border: 1px solid #bae6fd;
     font-size: 0.67rem;
     font-weight: 800;
     padding: 1px 6px;
@@ -1740,6 +1829,20 @@ header.app-header {
     font-size: 0.94rem;
     font-weight: 800;
     color: #0f172a;
+}
+
+.guided-step-mobile-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #0369a1;
+    background: #f0f9ff;
+    border: 1px solid #bae6fd;
+    border-radius: 999px;
+    white-space: nowrap;
 }
 
 /* 短文ステップチップ（① ... → ② ... → ③ ...） */
@@ -2135,7 +2238,7 @@ header.app-header {
 
 /* <Modal> 直下に <form> を配置した場合の flex コンテナ設定（はみ出し防止・内部スクロール保証） */
 .mes-clean-modal form,
-.mes-clean-modal .modal-content > form {
+.mes-clean-modal .modal-content>form {
     display: flex;
     flex-direction: column;
     flex: 1 1 auto;
@@ -2429,6 +2532,67 @@ header.app-header {
     transform: translateY(-1px);
 }
 
+.page-guide-steps-wrapper {
+    margin-top: 8px;
+    padding-top: 6px;
+    border-top: 1px dashed var(--page-hdr-border, #7dd3fc);
+}
+
+.page-guide-steps-header {
+    display: flex;
+    align-items: center;
+}
+
+.guide-steps-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border: none;
+    padding: 3px 6px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: var(--page-hdr-text-dark, #0369a1);
+    transition: all 0.15s ease;
+}
+
+.guide-steps-toggle-btn:hover {
+    background: var(--page-hdr-bg-soft, #e0f2fe);
+}
+
+.guide-steps-toggle-btn .toggle-arrow {
+    font-size: 0.68rem;
+    display: inline-block;
+    color: var(--page-hdr-primary, #0284c7);
+}
+
+.guide-steps-toggle-btn .toggle-title {
+    font-size: 0.77rem;
+    font-weight: 800;
+}
+
+.guide-steps-toggle-btn .toggle-badge {
+    font-size: 0.71rem;
+    font-weight: 600;
+    color: #475569;
+    background: var(--page-hdr-bg-soft, #e0f2fe);
+    padding: 1px 7px;
+    border-radius: 999px;
+    margin-left: 4px;
+}
+
+.guide-steps-toggle-btn .toggle-badge.is-open {
+    color: #64748b;
+    background: transparent;
+}
+
+.page-guide-steps-wrapper .goods-receipt-step-strip {
+    padding-top: 8px;
+    border-top: none;
+}
+
 .goods-receipt-step-strip {
     display: flex;
     align-items: center;
@@ -2711,7 +2875,7 @@ main .card {
     box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
 }
 
-main .card > .card-header {
+main .card>.card-header {
     background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
     color: #0c4a6e;
     font-weight: 800;
@@ -3079,4 +3243,79 @@ main .card > .card-header {
     .workflow-step-divider-item {
         display: none;
     }
+}
+
+/* 有効機能設定ページ */
+.feature-settings-container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 8px 0 24px;
+}
+
+.feature-settings-icon-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: #e0f2fe;
+    color: #0284c7;
+    flex-shrink: 0;
+}
+
+.feature-flow-setting-card {
+    border-left: 5px solid var(--card-accent, #0284c7);
+    border-radius: 10px;
+    overflow: hidden;
+    transition: all 0.2s ease;
+}
+
+.feature-flow-setting-card.status-grayed {
+    border-left-color: #94a3b8;
+    background: #fcfcfd;
+}
+
+.feature-flow-setting-card.status-hidden {
+    border-left-color: #ef4444;
+    background: #fef2f2;
+}
+
+.feature-visibility-option-box {
+    display: block;
+    height: 100%;
+    padding: 12px 14px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 8px;
+    background: #ffffff;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.feature-visibility-option-box:hover {
+    border-color: #94a3b8;
+    background: #f8fafc;
+}
+
+.feature-visibility-option-box.selected {
+    border-color: #0284c7;
+    background: #f0f9ff;
+    box-shadow: 0 0 0 1px #0284c7;
+}
+
+.feature-visibility-option-box.selected-grayed {
+    border-color: #64748b;
+    background: #f1f5f9;
+    box-shadow: 0 0 0 1px #64748b;
+}
+
+.feature-visibility-option-box.selected-hidden {
+    border-color: #ef4444;
+    background: #fff1f2;
+    box-shadow: 0 0 0 1px #ef4444;
+}
+
+.feature-visibility-option-box .opt-label {
+    font-size: 0.92rem;
+    color: #1e293b;
 }

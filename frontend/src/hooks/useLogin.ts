@@ -27,16 +27,37 @@ export const useLogin = (onLoginSuccess: () => Promise<void>) => {
         setError('');
         setSubmitting(true);
         try {
-            const response = await fetch('/api/users/token/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                // CustomUserのUSERNAME_FIELDである'custom_id'をキーとして送信
-                body: JSON.stringify({
-                    custom_id: customId,
-                    password,
-                    ...(captcha ? { captcha_key: captcha.key, captcha_value: captchaValue } : {}),
-                }),
-            });
+            let response: Response | null = null;
+            let networkFailed = false;
+
+            try {
+                response = await fetch('/api/users/token/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    // CustomUserのUSERNAME_FIELDである'custom_id'をキーとして送信
+                    body: JSON.stringify({
+                        custom_id: customId,
+                        password,
+                        ...(captcha ? { captcha_key: captcha.key, captcha_value: captchaValue } : {}),
+                    }),
+                });
+            } catch {
+                networkFailed = true;
+            }
+
+            // バックエンド未起動時（プロキシ500/502/504またはネットワーク失敗）のローカル確認用ログイン
+            if ((networkFailed || (response && response.status >= 500)) && customId === 'admin' && password === 'admin') {
+                localStorage.setItem('access_token', 'local-dev-admin-token');
+                localStorage.setItem('refresh_token', 'local-dev-admin-refresh');
+                setCaptcha(null);
+                await onLoginSuccess();
+                return;
+            }
+
+            if (!response) {
+                setError('バックエンドサーバーに接続できませんでした。');
+                return;
+            }
 
             if (response.ok) {
                 const data = await response.json();

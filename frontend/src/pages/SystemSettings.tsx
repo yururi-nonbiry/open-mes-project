@@ -12,6 +12,13 @@ interface SettingMenuItem {
 
 const SETTING_ITEMS: SettingMenuItem[] = [
   {
+    path: '/system/feature-settings',
+    title: '有効機能設定',
+    tag: '業務フロー表示',
+    description: '生産ナビ 全体業務フロー（フロー①〜③）の表示・グレーアウト・非表示を設定します。',
+    icon: 'settings',
+  },
+  {
     path: '/system/csv-mappings',
     title: 'CSVマッピング設定',
     tag: 'CSV取込ルール',

@@ -43,6 +43,7 @@ const PageDisplaySettings = lazy(() => import('./pages/PageDisplaySettings'));
 const QrCodeActionSettings = lazy(() => import('./pages/QrCodeActionSettings'));
 const ShelfQrCodeCreation = lazy(() => import('./pages/ShelfQrCodeCreation'));
 const WarehouseLayoutCreation = lazy(() => import('./pages/WarehouseLayoutCreation'));
+const FeatureSettings = lazy(() => import('./pages/FeatureSettings'));
 const UsagePage = lazy(() => import('./pages/UsagePage'));
 const MobileTopPage = lazy(() => import('./pages/MobileTopPage'));
 const MobileGoodsReceiptPage = lazy(() => import('./pages/mobile/MobileGoodsReceiptPage'));
@@ -182,6 +183,7 @@ function AppContent() {
           <Route path="/system/qr-code-actions" element={<StaffRoute><QrCodeActionSettings /></StaffRoute>} />
           <Route path="/system/shelf-qr-code" element={<StaffRoute><ShelfQrCodeCreation /></StaffRoute>} />
           <Route path="/master/warehouse-layout" element={<StaffRoute><WarehouseLayoutCreation /></StaffRoute>} />
+          <Route path="/system/feature-settings" element={<StaffRoute><FeatureSettings /></StaffRoute>} />
         </Route>
 
         {/* Mobile Protected Routes */}

@@ -205,7 +205,7 @@ class ProductionPlanViewSet(viewsets.ModelViewSet):
             return error_response(e)
         return Response(
             {
-                "message": "追加出庫しました。",
+                "message": "追加ピッキングしました。",
                 "data": MaterialAllocationSerializer(allocations, many=True).data,
             }
         )
@@ -369,7 +369,7 @@ class MaterialAllocationViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         return error_response(
-            "材料引当は plans/{id}/allocate-materials/ から作成してください。", status.HTTP_405_METHOD_NOT_ALLOWED
+            "順立て（材料引当）は plans/{id}/allocate-materials/ から作成してください。", status.HTTP_405_METHOD_NOT_ALLOWED
         )
 
     def destroy(self, request, *args, **kwargs):

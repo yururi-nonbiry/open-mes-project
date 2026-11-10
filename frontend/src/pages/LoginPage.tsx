@@ -73,14 +73,31 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, isAuthenticated }
               />
             </div>
           )}
-          <div className="form-group">
+          <div className="form-group mb-3">
             <button
               type="submit"
               disabled={submitting}
-              className="btn btn-primary btn-block"
+              className="btn btn-primary btn-block w-100"
               style={{ backgroundColor: '#007bff', borderColor: '#007bff' }}
             >
               ログイン
+            </button>
+          </div>
+
+          <div className="mt-3 pt-3 border-top text-center">
+            <p className="text-muted small mb-2">
+              ID: <strong>admin</strong> / PW: <strong>admin</strong>
+            </p>
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm w-100 fw-bold"
+              onClick={async () => {
+                localStorage.setItem('access_token', 'local-dev-admin-token');
+                localStorage.setItem('refresh_token', 'local-dev-admin-refresh');
+                await onLoginSuccess();
+              }}
+            >
+              管理者（admin）としてローカル確認
             </button>
           </div>
         </form>

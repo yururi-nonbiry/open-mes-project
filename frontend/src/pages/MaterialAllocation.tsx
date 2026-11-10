@@ -6,7 +6,7 @@ import { MaterialAllocation, PaginationData } from '../types/production';
 const ALLOC_STATUS_TABS = [
   { value: '', label: 'すべて表示' },
   { value: 'ALLOCATED', label: '引当済' },
-  { value: 'ISSUED', label: '出庫済' },
+  { value: 'ISSUED', label: 'ピッキング済' },
   { value: 'RETURNED', label: '返却済' },
 ];
 
@@ -44,7 +44,7 @@ const MaterialAllocationPage: React.FC = () => {
 
       const targetUrl = `${baseEndpoint}?${existingParams.toString()}`;
       const response = await authFetch(targetUrl);
-      await handleError(response, '材料引当データの取得に失敗しました。');
+      await handleError(response, '順立て（材料引当）データの取得に失敗しました。');
       const data = (await response.json()) as PaginationData<MaterialAllocation>;
 
       setAllocations(data.results || []);
@@ -77,7 +77,7 @@ const MaterialAllocationPage: React.FC = () => {
   };
 
   const handleUpdateStatus = async (id: string, newStatus: string) => {
-    const label = newStatus === 'ISSUED' ? '出庫済' : newStatus === 'RETURNED' ? '返却済' : '引当済';
+    const label = newStatus === 'ISSUED' ? 'ピッキング済' : newStatus === 'RETURNED' ? '返却済' : '引当済';
     if (!window.confirm(`ステータスを「${label}」に変更しますか？`)) {
       return;
     }
@@ -94,14 +94,14 @@ const MaterialAllocationPage: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('この材料引当を削除（引当解除）しますか？')) {
+    if (!window.confirm('この順立て（材料引当）を削除（引当解除）しますか？')) {
       return;
     }
     try {
       const response = await authFetch(`/api/production/material-allocations/${id}/`, {
         method: 'DELETE',
       });
-      await handleError(response, '材料引当の削除に失敗しました。');
+      await handleError(response, '順立て（材料引当）の削除に失敗しました。');
       fetchAllocations(currentPageUrl);
     } catch (e: any) {
       alert(e.message);
@@ -113,7 +113,7 @@ const MaterialAllocationPage: React.FC = () => {
       case 'ALLOCATED':
         return <span className="receipt-status-badge status-pending">{display || '引当済'}</span>;
       case 'ISSUED':
-        return <span className="receipt-status-badge status-completed">{display || '出庫済'}</span>;
+        return <span className="receipt-status-badge status-completed">{display || 'ピッキング済'}</span>;
       case 'RETURNED':
         return <span className="receipt-status-badge status-canceled">{display || '返却済'}</span>;
       default:
@@ -200,7 +200,7 @@ const MaterialAllocationPage: React.FC = () => {
                 <tr>
                   <td colSpan={7} className="text-center py-5">
                     <Spinner animation="border" variant="primary" size="sm" className="me-2" />
-                    <span className="text-muted">材料引当データを読み込んでいます...</span>
+                    <span className="text-muted">順立て（材料引当）データを読み込んでいます...</span>
                   </td>
                 </tr>
               ) : error ? (
@@ -212,7 +212,7 @@ const MaterialAllocationPage: React.FC = () => {
               ) : allocations.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="text-center py-5 text-muted">
-                    条件に一致する材料引当データがありません。
+                    条件に一致する順立て（材料引当）データがありません。
                   </td>
                 </tr>
               ) : (
@@ -241,7 +241,7 @@ const MaterialAllocationPage: React.FC = () => {
                       {getStatusBadge(alloc.status, alloc.status_display)}
                       {alloc.allocation_type === 'ADDITIONAL' && (
                         <span className="badge bg-danger-subtle text-danger-emphasis ms-1">
-                          {alloc.allocation_type_display || '追加出庫'}
+                          {alloc.allocation_type_display || '追加ピッキング'}
                         </span>
                       )}
                     </td>
@@ -253,7 +253,7 @@ const MaterialAllocationPage: React.FC = () => {
                           className="btn btn-sm btn-primary fw-bold me-1"
                           onClick={() => handleUpdateStatus(alloc.id, 'ISSUED')}
                         >
-                          出庫
+                          ピッキング
                         </button>
                       )}
                       {alloc.status === 'ISSUED' && (
