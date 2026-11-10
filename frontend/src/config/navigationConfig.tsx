@@ -432,6 +432,7 @@ export interface NavStepItem {
   nextActions?: RelatedActionLink[];
   icon: NavIconName;
   staffOnly?: boolean;
+  mobileAppSupported?: boolean;
 }
 
 export interface NavCategory {
@@ -482,7 +483,8 @@ export const NAV_CATEGORIES: NavCategory[] = [
         step: 1,
         stepTag: '入荷・入庫',
         description: '未入庫の発注品を倉庫・棚番へ入庫します',
-        manualHint: '「未入庫」を確認 → 行右側「入庫処理」→ 数量・倉庫・棚番を入れて「入庫を確定する」',
+        manualHint: 'PC画面のほか現場スマホアプリでも入庫処理を行えます',
+        mobileAppSupported: true,
         nextActions: [
           { label: '在庫照会を見る', subLabel: '在庫数を確認', path: '/inventory/inquiry', highlight: true },
           { label: '入出庫履歴を見る', subLabel: '入庫記録を確認', path: '/inventory/stock-movement-history' },
@@ -515,7 +517,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
         label: '出庫予定',
         pageTitle: '出庫予定（受注・出荷スケジュール確認）',
         pageSubtitle:
-          '出荷待ちの受注一覧から、出荷が必要な製品・予定数量・出庫予定日・指定倉庫を確認します。',
+          '出荷待ちの受注一覧から、出荷が必要な製品・予定数量・出庫予定日・出庫先を確認します。',
         guideSteps: [
           '未出庫の受注番号・品目・出庫予定日を確認',
           '製品在庫がまだ無い場合は「＋ 生産計画を作成」から製造を手配',
@@ -523,7 +525,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
         ],
         step: 3,
         stepTag: '受注・納期確認',
-        description: '未出庫の受注リスト（必要数量・納期・倉庫）を確認します',
+        description: '未出庫の受注リスト（必要数量・納期・出庫先）を確認します',
         manualHint: '製品在庫がまだ無い場合は、先に「生産計画」で製品を作ります',
         nextActions: [
           { label: '＋ 生産計画を作成', subLabel: 'データ投入画面へ', path: '/data/import?open=production_plan', highlight: true },
@@ -579,7 +581,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
     label: '生産管理',
     shortLabel: '生産管理',
     badgeLabel: '基本 1〜3 ＋ 補助2',
-    flowSummary: '① 使用部品マスター　② 生産計画　③ 作業進捗　④ 材料引当　⑤ 部品供給試算',
+    flowSummary: '① 使用部品マスター　② 生産計画　③ 作業進捗　④ 順立て（材料引当）　⑤ 部品供給試算',
     icon: 'production',
     theme: {
       // ロイヤルブルー系
@@ -616,18 +618,19 @@ export const NAV_CATEGORIES: NavCategory[] = [
       {
         path: '/production/plan',
         label: '生産計画',
-        pageTitle: '生産計画（部品構成の確認・材料引当）',
+        pageTitle: '生産計画（部品構成の確認・順立て（材料引当））',
         pageSubtitle:
-          '生産計画ごとに使用部品（所要数）を確認し、倉庫在庫からの「材料引当」や中間品の手配を行います。',
+          '生産計画ごとに使用部品（所要数）を確認し、倉庫在庫からの「順立て（材料引当）」や中間品の手配を行います。',
         guideSteps: [
           '行の「部品構成」で使用部品と所要数を確認（計画ごとの変更も可）',
-          '行の「材料引当」を押し、倉庫と引当数量を確認して「引き当て実行」',
+          '行の「順立て（材料引当）」を押し、倉庫と引当数量を確認して「引き当て実行」',
           '引当が完了したら「作業進捗」へ進み、製造完了登録を実施',
         ],
         step: 2,
-        stepTag: '構成確認・材料引当',
-        description: '計画の「部品構成」確認と「材料引当」を行います',
-        manualHint: '行の「部品構成」を確認 →「材料引当」で倉庫の材料を引き当てます',
+        stepTag: '構成確認・順立て（材料引当）',
+        description: '計画の「部品構成」確認と「順立て（材料引当）」を行います',
+        manualHint: 'PC画面のほか現場スマホアプリでも順立て・ピッキングを行えます',
+        mobileAppSupported: true,
         nextActions: [
           { label: '＋ 生産計画を作成', subLabel: 'データ投入画面へ', path: '/data/import?open=production_plan' },
           { label: '作業進捗へ進む', subLabel: '完了登録・完成品入庫', path: '/production/work-progress', highlight: true },
@@ -657,17 +660,17 @@ export const NAV_CATEGORIES: NavCategory[] = [
       },
       {
         path: '/production/material-allocation',
-        label: '材料引当',
-        pageTitle: '材料引当（引当一覧の確認・個別出庫・返却）',
+        label: '順立て（材料引当）',
+        pageTitle: '順立て（材料引当）（引当一覧の確認・ピッキング・返却）',
         pageSubtitle:
-          '生産計画に引き当てられた材料の一覧を確認し、個別出庫や未使用分の倉庫在庫への返却を行います。',
+          '生産計画に引き当てられた材料の一覧を確認し、ピッキングや未使用分の倉庫在庫への返却を行います。',
         guideSteps: [
           '生産計画や品番・ステータスで引当済みの材料を検索',
-          '各計画に対する引当数量・出庫状況を確認',
+          '各計画に対する引当数量・ピッキング状況を確認',
           '未使用・余剰の材料がある場合は「返却」から倉庫在庫へ戻す',
         ],
-        stepTag: '引当一覧・返却',
-        description: '引当済材料の一覧確認や、個別出庫・返却を行います',
+        stepTag: '引当一覧・ピッキング',
+        description: '引当済材料の一覧確認や、ピッキング・返却を行います',
         nextActions: [
           { label: '生産計画を見る', path: '/production/plan', highlight: true },
           { label: '在庫照会を見る', path: '/inventory/inquiry' },
@@ -726,9 +729,9 @@ export const NAV_CATEGORIES: NavCategory[] = [
         ],
         stepTag: '計画作成・マスタ・CSV',
         description: '生産計画の新規作成や、各種マスター・CSV一括登録を行います',
-        manualHint: '生産計画を保存したら「生産計画」画面へ進み、材料引当を行います',
+        manualHint: '生産計画を保存したら「生産計画」画面へ進み、順立て（材料引当）を行います',
         nextActions: [
-          { label: '生産計画へ進む', subLabel: '部品構成・材料引当', path: '/production/plan', highlight: true },
+          { label: '生産計画へ進む', subLabel: '部品構成・順立て（材料引当）', path: '/production/plan', highlight: true },
           { label: '入庫処置へ進む', subLabel: '材料を入庫する', path: '/inventory/purchase' },
         ],
         icon: 'upload',
@@ -893,8 +896,8 @@ export const NAV_CATEGORIES: NavCategory[] = [
     id: 'admin',
     label: '管理者メニュー',
     shortLabel: '管理者設定',
-    badgeLabel: '管理・設定 7項目',
-    flowSummary: '① 倉庫レイアウト　② 在庫用途　③ 棚番QR作成　④ QRアクション　⑤ システム設定　⑥ ユーザー管理　⑦ セキュリティ',
+    badgeLabel: '管理・設定 8項目',
+    flowSummary: '① 倉庫レイアウト　② 在庫用途　③ 棚番QR作成　④ QRアクション　⑤ システム設定　⑥ ユーザー管理　⑦ セキュリティ　⑧ 有効機能設定',
     icon: 'admin',
     staffOnly: true,
     theme: {
@@ -1027,6 +1030,22 @@ export const NAV_CATEGORIES: NavCategory[] = [
         icon: 'security',
         staffOnly: true,
       },
+      {
+        path: '/system/feature-settings',
+        label: '有効機能設定',
+        pageTitle: '有効機能設定（全体業務フローの表示切替）',
+        pageSubtitle:
+          '生産ナビの全体業務フロー（フロー①〜③）の表示状態（表示・グレーアウト・非表示）を設定します。',
+        guideSteps: [
+          '対象のフロー（フロー①〜③）を選択',
+          '「表示」「グレーアウト」「非表示」から希望の状態を選択',
+          '「設定を保存」を押してトップページに即時反映',
+        ],
+        stepTag: 'フロー有効化',
+        description: '全体業務フロー（フロー①〜③）の表示・グレーアウト・非表示を設定します',
+        icon: 'settings',
+        staffOnly: true,
+      },
     ],
   },
   {
@@ -1105,6 +1124,9 @@ export interface OverallWorkflowPhase {
   summary: string;
   dataInputGuide?: DataInputMethodGuide;
   links: FlowQuickLink[];
+  mobileAppSupported?: boolean;
+  mobileAppLabel?: string;
+  mobileAppNote?: string;
 }
 
 export interface GuidedStepDefinition {
@@ -1115,10 +1137,11 @@ export interface GuidedStepDefinition {
   actionSteps: string[];
   subButtons?: FlowQuickLink[];
   nextButtonLabel: string;
+  mobileHint?: string;
 }
 
 export interface WorkflowTrack {
-  id: 'receipt-flow' | 'production-issue-flow';
+  id: 'receipt-flow' | 'production-plan-flow' | 'production-issue-flow';
   badge: string;
   title: string;
   subtitle: string;
@@ -1133,16 +1156,17 @@ export interface WorkflowTrack {
 }
 
 /**
- * トップページ上部に表示する2大業務フロー ＆ 遷移先画面でボタンを押していくだけで完了するステップナビ定義
+ * トップページ上部に表示する3大業務フロー ＆ 遷移先画面でボタンを押していくだけで完了するステップナビ定義
  * 1. データ投入から入庫まで (receipt-flow)
- * 2. 生産から出庫まで (production-issue-flow)
+ * 2. 生産計画からピッキングまで (production-plan-flow)
+ * 3. 生産から出庫まで (production-issue-flow)
  */
 export const WORKFLOW_TRACKS: WorkflowTrack[] = [
   {
     id: 'receipt-flow',
     badge: 'フロー ①',
     title: 'データ投入から入庫まで',
-    subtitle: '支給品・材料を倉庫へ入庫し、在庫と履歴を確認する流れ',
+    subtitle: '支給品・材料を倉庫へ入庫し、在庫を確認する流れ',
     accentColor: '#0284c7',
     bgGradient: '#f8fafc',
     borderColor: '#bae6fd',
@@ -1189,6 +1213,9 @@ export const WORKFLOW_TRACKS: WorkflowTrack[] = [
         border: '#bae6fd',
         icon: 'receipt',
         summary: '未入庫の発注を確認し、行右側の「入庫処理」から数量・倉庫・棚番を確定して入庫',
+        mobileAppSupported: true,
+        mobileAppLabel: 'スマホアプリ対応',
+        mobileAppNote: '現場スマホ端末のバーコード読取でも入庫処理を行えます',
         links: [
           { label: '② 入庫処置を開く', path: '/inventory/purchase?flow=receipt-flow&fstep=2' },
         ],
@@ -1202,23 +1229,9 @@ export const WORKFLOW_TRACKS: WorkflowTrack[] = [
         bgLight: '#f0f9ff',
         border: '#bae6fd',
         icon: 'inquiry',
-        summary: '入庫した品番の在庫数が増えているか確認',
+        summary: '入庫した品番の在庫数が増えているか確認して完了',
         links: [
           { label: '③ 在庫照会を開く', path: '/inventory/inquiry?flow=receipt-flow&fstep=3' },
-        ],
-      },
-      {
-        step: 4,
-        title: '入出庫履歴',
-        categoryLabel: '在庫管理',
-        scenarioBadge: '履歴の確認',
-        color: '#0d9488',
-        bgLight: '#f0fdfa',
-        border: '#99f6e4',
-        icon: 'history',
-        summary: '移動タイプ「入庫」を選んで検索し、発注番号の入庫記録を確認して完了',
-        links: [
-          { label: '④ 入出庫履歴を開く', path: '/inventory/stock-movement-history?flow=receipt-flow&fstep=4' },
         ],
       },
     ],
@@ -1245,6 +1258,7 @@ export const WORKFLOW_TRACKS: WorkflowTrack[] = [
         title: '入庫処置（入庫の実行）',
         shortTitle: '2. 入庫処置',
         path: '/inventory/purchase',
+        mobileHint: '現場スマホ端末でもバーコード読取による入庫処理に対応',
         actionSteps: [
           '① 未入庫の発注（入庫予定）を確認',
           '② 行右側の「入庫処理」を押す',
@@ -1254,39 +1268,28 @@ export const WORKFLOW_TRACKS: WorkflowTrack[] = [
       },
       {
         stepIndex: 3,
-        title: '在庫照会（在庫数の確認）',
+        title: '在庫照会（在庫数の確認・完了）',
         shortTitle: '3. 在庫照会',
         path: '/inventory/inquiry',
         actionSteps: [
           '① 品番・倉庫で絞り込み「検索」を押す',
-          '② 入庫した数量が「現在庫数」に反映されているか確認',
-        ],
-        nextButtonLabel: '次へ：4. 入出庫履歴を確認 →',
-      },
-      {
-        stepIndex: 4,
-        title: '入出庫履歴（記録の確認・完了）',
-        shortTitle: '4. 入出庫履歴',
-        path: '/inventory/stock-movement-history',
-        actionSteps: [
-          '① 移動タイプ「入庫」ボタンを選び「検索」を押す',
-          '② 発注番号・入庫数量の記録を確認して完了',
+          '② 入庫した数量が「現在庫数」に反映されているか確認して完了',
         ],
         nextButtonLabel: '✓ 完了（トップへ戻る）',
       },
     ],
   },
   {
-    id: 'production-issue-flow',
+    id: 'production-plan-flow',
     badge: 'フロー ②',
-    title: '生産から出庫まで',
-    subtitle: '部品構成・材料在庫・生産計画で完成品を作り、出庫するまでの流れ',
+    title: '生産計画からピッキングまで',
+    subtitle: 'マスタ登録・部品構成・出庫予定確認から順立て（ピッキング）までの流れ',
     accentColor: '#2563eb',
     bgGradient: '#f8fafc',
     borderColor: '#bfdbfe',
-    icon: 'production',
-    startExternalPath: '/production/bom-master?flow=production-issue-flow&mode=external&fstep=2',
-    startStandalonePath: '/data/import?flow=production-issue-flow&mode=standalone&fstep=1',
+    icon: 'plan',
+    startExternalPath: '/production/bom-master?flow=production-plan-flow&mode=external&fstep=2',
+    startStandalonePath: '/data/import?flow=production-plan-flow&mode=standalone&fstep=1',
     phases: [
       {
         step: 1,
@@ -1299,23 +1302,23 @@ export const WORKFLOW_TRACKS: WorkflowTrack[] = [
         icon: 'bom',
         summary: '完成品1個に必要な材料・所要数(BOM)を準備します',
         dataInputGuide: {
-          withExternalApp: '他アプリで順建て・材料・出庫予定を同期',
+          withExternalApp: '他アプリで順立て・材料・出庫予定を同期',
           externalLinks: [
             {
               label: '同期済 → ① 使用部品マスターへ',
-              path: '/production/bom-master?flow=production-issue-flow&mode=external&fstep=2',
+              path: '/production/bom-master?flow=production-plan-flow&mode=external&fstep=2',
             },
           ],
           withoutExternalApp: '「データ投入」で品目・倉庫登録 →「使用部品マスター」でBOM登録',
           standaloneLinks: [
             {
               label: '① データ投入を開く',
-              path: '/data/import?flow=production-issue-flow&mode=standalone&fstep=1',
+              path: '/data/import?flow=production-plan-flow&mode=standalone&fstep=1',
               primary: true,
             },
             {
               label: '② 使用部品マスター',
-              path: '/production/bom-master?flow=production-issue-flow&mode=standalone&fstep=2',
+              path: '/production/bom-master?flow=production-plan-flow&mode=standalone&fstep=2',
             },
           ],
         },
@@ -1323,36 +1326,102 @@ export const WORKFLOW_TRACKS: WorkflowTrack[] = [
       },
       {
         step: 2,
-        title: '材料入庫・出庫予定確認',
+        title: '出庫予定確認',
         categoryLabel: '在庫管理',
-        scenarioBadge: '材料と必要数の確認',
+        scenarioBadge: '必要数の確認',
         color: '#0284c7',
         bgLight: '#f0f9ff',
         border: '#bae6fd',
         icon: 'shipment',
-        summary: '「入庫処置」で行の「入庫処理」から材料を入庫し、「出庫予定」で製品の必要数と納期を確認',
+        summary: '「出庫予定」で製品の必要数と出庫先を確認',
         links: [
-          { label: '① 入庫処置(材料)', path: '/inventory/purchase?flow=production-issue-flow&fstep=3' },
-          { label: '② 出庫予定を確認', path: '/inventory/shipment?flow=production-issue-flow&fstep=4' },
+          { label: '出庫予定を確認', path: '/inventory/shipment?flow=production-plan-flow&fstep=3' },
         ],
       },
       {
         step: 3,
-        title: '計画作成・材料引当',
+        title: '順立て（材料引当・ピッキング）',
         categoryLabel: '生産管理',
-        scenarioBadge: '計画登録と引当',
+        scenarioBadge: '計画と順立て',
         color: '#2563eb',
         bgLight: '#eff6ff',
         border: '#bfdbfe',
         icon: 'plan',
-        summary: '「データ投入」で生産計画を新規作成し、計画一覧の「材料引当」で材料を引き当て',
+        summary: '計画一覧の「順立て（材料引当）」で材料を引き当て・ピッキング',
+        mobileAppSupported: true,
+        mobileAppLabel: 'スマホアプリ対応',
+        mobileAppNote: '現場スマホ端末でも順立て（材料引当・ピッキング）を行えます',
         links: [
-          { label: '① 計画を新規作成', path: '/data/import?flow=production-issue-flow&fstep=5&open=production_plan' },
-          { label: '② 生産計画(材料引当)', path: '/production/plan?flow=production-issue-flow&fstep=6' },
+          { label: '生産計画(順立て)', path: '/production/plan?flow=production-plan-flow&fstep=4' },
         ],
       },
+    ],
+    guidedSteps: [
       {
-        step: 4,
+        stepIndex: 1,
+        title: 'データ投入（倉庫・品番マスター登録）',
+        shortTitle: '1. マスタ登録',
+        path: '/data/import',
+        actionSteps: [
+          '① 倉庫マスターの「新規作成」で倉庫を登録',
+          '② 品番マスターの「新規作成」で完成品・材料を登録',
+        ],
+        subButtons: [
+          { label: '① 倉庫マスターを新規作成', path: '/data/import?flow=production-plan-flow&fstep=1&open=warehouse' },
+          { label: '② 品番マスターを新規作成', path: '/data/import?flow=production-plan-flow&fstep=1&open=item' },
+        ],
+        nextButtonLabel: '次へ：2. 使用部品マスターへ →',
+      },
+      {
+        stepIndex: 2,
+        title: '使用部品マスター（部品構成の確認・登録）',
+        shortTitle: '2. 部品構成',
+        path: '/production/bom-master',
+        actionSteps: [
+          '①「新規登録」から親品目と使用部品・所要数量を登録',
+          '② 行の「構成展開」で多階層の構成と合計必要数を確認',
+        ],
+        nextButtonLabel: '次へ：3. 出庫予定を確認 →',
+      },
+      {
+        stepIndex: 3,
+        title: '出庫予定（作る数量と納期の確認）',
+        shortTitle: '3. 出庫予定',
+        path: '/inventory/shipment',
+        actionSteps: [
+          '① 製品の「出庫予定数量（合計）」を確認',
+          '②「出庫予定日（納期）」と「出庫先」を確認',
+        ],
+        nextButtonLabel: '次へ：4. 生産計画（順立て（材料引当））へ →',
+      },
+      {
+        stepIndex: 4,
+        title: '生産計画（部品構成の確認と順立て（材料引当））',
+        shortTitle: '4. 順立て（材料引当）',
+        path: '/production/plan',
+        mobileHint: '現場スマホ端末でも順立て・ピッキング作業に対応',
+        actionSteps: [
+          '① 計画行の「部品構成」で使用部品と所要数を確認',
+          '② 計画行の「順立て（材料引当）」を押し、数量を確認して「引き当て実行」',
+        ],
+        nextButtonLabel: '✓ 完了（トップへ戻る）',
+      },
+    ],
+  },
+  {
+    id: 'production-issue-flow',
+    badge: 'フロー ③',
+    title: '生産から出庫まで',
+    subtitle: '作業完了（完成品自動入庫）から出荷処理・履歴確認までの流れ',
+    accentColor: '#0d9488',
+    bgGradient: '#f8fafc',
+    borderColor: '#99f6e4',
+    icon: 'production',
+    startExternalPath: '/production/work-progress?flow=production-issue-flow&fstep=7',
+    startStandalonePath: '/production/work-progress?flow=production-issue-flow&fstep=7',
+    phases: [
+      {
+        step: 1,
         title: '作業完了（完成品入庫）',
         categoryLabel: '生産管理',
         scenarioBadge: '完成品が自動入庫',
@@ -1367,7 +1436,7 @@ export const WORKFLOW_TRACKS: WorkflowTrack[] = [
         ],
       },
       {
-        step: 5,
+        step: 2,
         title: '出庫処理・履歴確認',
         categoryLabel: '在庫管理',
         scenarioBadge: '出庫と最終確認',
@@ -1383,80 +1452,6 @@ export const WORKFLOW_TRACKS: WorkflowTrack[] = [
       },
     ],
     guidedSteps: [
-      {
-        stepIndex: 1,
-        title: 'データ投入（倉庫・品番マスター登録）',
-        shortTitle: '1. マスタ登録',
-        path: '/data/import',
-        actionSteps: [
-          '① 倉庫マスターの「新規作成」で倉庫を登録',
-          '② 品番マスターの「新規作成」で完成品・材料を登録',
-        ],
-        subButtons: [
-          { label: '① 倉庫マスターを新規作成', path: '/data/import?flow=production-issue-flow&fstep=1&open=warehouse' },
-          { label: '② 品番マスターを新規作成', path: '/data/import?flow=production-issue-flow&fstep=1&open=item' },
-        ],
-        nextButtonLabel: '次へ：2. 使用部品マスターへ →',
-      },
-      {
-        stepIndex: 2,
-        title: '使用部品マスター（部品構成の確認・登録）',
-        shortTitle: '2. 部品構成',
-        path: '/production/bom-master',
-        actionSteps: [
-          '①「新規登録」から親品目と使用部品・所要数量を登録',
-          '② 行の「構成展開」で多階層の構成と合計必要数を確認',
-        ],
-        nextButtonLabel: '次へ：3. 材料を入庫する →',
-      },
-      {
-        stepIndex: 3,
-        title: '入庫処置（材料の入庫）',
-        shortTitle: '3. 材料入庫',
-        path: '/inventory/purchase',
-        actionSteps: [
-          '① 未入庫の発注一覧から材料を確認',
-          '② 行右側の「入庫処理」を押す',
-          '③ 数量・倉庫・棚番を確認して「入庫を確定する」',
-        ],
-        nextButtonLabel: '次へ：4. 出庫予定を確認 →',
-      },
-      {
-        stepIndex: 4,
-        title: '出庫予定（作る数量と納期の確認）',
-        shortTitle: '4. 出庫予定',
-        path: '/inventory/shipment',
-        actionSteps: [
-          '① 製品の「出庫予定数量（合計）」を確認',
-          '②「出庫予定日（納期）」と「倉庫」を確認',
-        ],
-        nextButtonLabel: '次へ：5. 生産計画を作成 →',
-      },
-      {
-        stepIndex: 5,
-        title: 'データ投入（生産計画の新規作成）',
-        shortTitle: '5. 計画作成',
-        path: '/data/import?open=production_plan',
-        actionSteps: [
-          '① 生産計画の「新規作成」を押す',
-          '② 計画名・製品コード・数量・開始/終了日時を入力して「登録」',
-        ],
-        subButtons: [
-          { label: '＋ 生産計画の新規作成を開く', path: '/data/import?flow=production-issue-flow&fstep=5&open=production_plan', primary: true },
-        ],
-        nextButtonLabel: '次へ：6. 生産計画（材料引当）へ →',
-      },
-      {
-        stepIndex: 6,
-        title: '生産計画（部品構成の確認と材料引当）',
-        shortTitle: '6. 材料引当',
-        path: '/production/plan',
-        actionSteps: [
-          '① 計画行の「部品構成」で使用部品と所要数を確認',
-          '② 計画行の「材料引当」を押し、数量を確認して「引き当て実行」',
-        ],
-        nextButtonLabel: '次へ：7. 作業進捗（完了登録）へ →',
-      },
       {
         stepIndex: 7,
         title: '作業進捗（完了登録＝完成品の自動入庫）',
@@ -1512,6 +1507,7 @@ export interface ResolvedNavContext {
 }
 
 const SUB_PAGE_LABELS: Record<string, string> = {
+  '/system/feature-settings': '有効機能設定',
   '/system/csv-mappings': 'CSVマッピング設定',
   '/system/model-display-settings': 'モデル項目表示設定',
   '/system/page-display-settings': 'ページ項目表示設定',

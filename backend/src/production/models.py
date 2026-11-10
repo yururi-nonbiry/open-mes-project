@@ -155,14 +155,14 @@ class MaterialAllocation(models.Model):
 
     class Status(models.TextChoices):
         ALLOCATED = "ALLOCATED", "引当済"
-        ISSUED = "ISSUED", "出庫済"
+        ISSUED = "ISSUED", "ピッキング済"
         RETURNED = "RETURNED", "返却済"
 
     class AllocationType(models.TextChoices):
         # 通常: 所要部品に対する引当。生産完了時に消費する。
         NORMAL = "NORMAL", "通常"
-        # 追加出庫: 歩留まり・ロス等で所要量を超えて必要になった分。引当を経ずに即時出庫し、所要量の消化には数えない。
-        ADDITIONAL = "ADDITIONAL", "追加出庫"
+        # 追加ピッキング: 歩留まり・ロス等で所要量を超えて必要になった分。引当を経ずに即時ピッキングし、所要量の消化には数えない。
+        ADDITIONAL = "ADDITIONAL", "追加ピッキング"
 
     STATUS_CHOICES = Status.choices
 
@@ -219,8 +219,8 @@ class MaterialAllocation(models.Model):
         return f"{self.material_code} - {self.allocated_quantity} units for {self.production_plan.plan_name}"
 
     class Meta:
-        verbose_name = "材料引当"
-        verbose_name_plural = "材料引当"
+        verbose_name = "順立て（材料引当）"
+        verbose_name_plural = "順立て（材料引当）"
         ordering = ["-allocation_datetime"]
 
 

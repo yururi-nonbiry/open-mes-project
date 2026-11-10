@@ -558,7 +558,7 @@ def _reserved_prefix_error():
 def internal_order_error(sales_order):
     return InventoryServiceError(
         f"受注 {sales_order.order_number} は生産計画の材料引当用の内部受注のため、"
-        "ここでは変更・出庫できません。材料引当画面から操作してください。"
+        "ここでは変更・出庫できません。順立て（材料引当）画面から操作してください。"
     )
 
 

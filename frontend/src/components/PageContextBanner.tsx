@@ -11,7 +11,7 @@ import {
 const FLOW_STORAGE_KEY = '__omes_guided_flow';
 
 interface StoredFlowState {
-  flowId: 'receipt-flow' | 'production-issue-flow';
+  flowId: 'receipt-flow' | 'production-plan-flow' | 'production-issue-flow';
   fstep: number;
 }
 
@@ -36,17 +36,29 @@ const PageContextBanner: React.FC = () => {
     }
   });
 
+  const [userOverrideOpen, setUserOverrideOpen] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    setUserOverrideOpen(null);
+  }, [location.pathname]);
+
   useEffect(() => {
     if (isTopPage) {
       return;
     }
     const qFlow = searchParams.get('flow') as
       | 'receipt-flow'
+      | 'production-plan-flow'
       | 'production-issue-flow'
       | null;
     const qStep = Number(searchParams.get('fstep') || '0');
 
-    if (qFlow && (qFlow === 'receipt-flow' || qFlow === 'production-issue-flow')) {
+    if (
+      qFlow &&
+      (qFlow === 'receipt-flow' ||
+        qFlow === 'production-plan-flow' ||
+        qFlow === 'production-issue-flow')
+    ) {
       const track = WORKFLOW_TRACKS.find((t) => t.id === qFlow);
       if (track) {
         let resolvedStep = qStep;
@@ -54,7 +66,9 @@ const PageContextBanner: React.FC = () => {
           const matched = track.guidedSteps.find(
             (s) => s.path.split('?')[0] === location.pathname
           );
-          resolvedStep = matched ? matched.stepIndex : 1;
+          resolvedStep = matched
+            ? matched.stepIndex
+            : track.guidedSteps[0]?.stepIndex || 1;
         }
         const nextState: StoredFlowState = { flowId: qFlow, fstep: resolvedStep };
         setGuidedState(nextState);
@@ -141,6 +155,11 @@ const PageContextBanner: React.FC = () => {
         ) || null
       : null;
 
+  const isFlowActive = Boolean(activeTrack && currentGuidedStep);
+  const isGuideOpen = userOverrideOpen !== null ? userOverrideOpen : !isFlowActive;
+  const guideSteps = item.guideSteps;
+  const hasGuideSteps = Boolean(guideSteps && guideSteps.length > 0);
+
   const buildStepUrl = (trackId: string, stepIndex: number, rawPath: string) => {
     const [basePath, existingQuery] = rawPath.split('?');
     const params = new URLSearchParams(existingQuery || '');
@@ -222,6 +241,11 @@ const PageContextBanner: React.FC = () => {
                   STEP {currentGuidedStep.stepIndex} / {activeTrack.guidedSteps.length}
                 </span>
                 <span className="guided-step-title-text">{currentGuidedStep.title}</span>
+                {currentGuidedStep.mobileHint && (
+                  <span className="guided-step-mobile-pill" title={currentGuidedStep.mobileHint}>
+                    📱 {currentGuidedStep.mobileHint}
+                  </span>
+                )}
               </div>
 
               <div className="guided-action-steps" aria-label="この画面の操作手順">
@@ -341,14 +365,37 @@ const PageContextBanner: React.FC = () => {
           )}
         </div>
 
-        {item.guideSteps && item.guideSteps.length > 0 && (
-          <div className="goods-receipt-step-strip">
-            {item.guideSteps.map((stepText, idx) => (
-              <div className="receipt-guide-chip" key={stepText}>
-                <span className="receipt-guide-num">{getCircledNumber(idx)}</span>
-                <span>{stepText}</span>
+        {hasGuideSteps && guideSteps && (
+          <div className="page-guide-steps-wrapper">
+            <div className="page-guide-steps-header">
+              <button
+                type="button"
+                className="guide-steps-toggle-btn"
+                onClick={() => setUserOverrideOpen(!isGuideOpen)}
+                aria-expanded={isGuideOpen}
+              >
+                <span className="toggle-arrow">{isGuideOpen ? '▼' : '▶'}</span>
+                <span className="toggle-title">画面の標準手順</span>
+                {isFlowActive ? (
+                  <span className={`toggle-badge ${isGuideOpen ? 'is-open' : ''}`}>
+                    {isGuideOpen
+                      ? '（クリックで折りたたむ）'
+                      : '（フローナビ実行中のため折りたたみ中・クリックで表示）'}
+                  </span>
+                ) : null}
+              </button>
+            </div>
+
+            {isGuideOpen ? (
+              <div className="goods-receipt-step-strip">
+                {guideSteps.map((stepText, idx) => (
+                  <div className="receipt-guide-chip" key={stepText}>
+                    <span className="receipt-guide-num">{getCircledNumber(idx)}</span>
+                    <span>{stepText}</span>
+                  </div>
+                ))}
               </div>
-            ))}
+            ) : null}
           </div>
         )}
       </div>

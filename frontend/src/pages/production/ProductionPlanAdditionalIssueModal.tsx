@@ -16,8 +16,8 @@ interface IssueRow extends RequiredPart {
 }
 
 /**
- * 歩留まり・ロス等で所要量を超えて必要になった部品の追加出庫。
- * 所要量には含めず、引当を経ずに即時出庫する(材料引当の一覧には「追加出庫」として記録される)。
+ * 歩留まり・ロス等で所要量を超えて必要になった部品の追加ピッキング。
+ * 所要量には含めず、引当を経ずに即時ピッキングする(順立て（材料引当）の一覧には「追加ピッキング」として記録される)。
  */
 const ProductionPlanAdditionalIssueModal: React.FC<ProductionPlanAdditionalIssueModalProps> = ({ isOpen, onClose, plan }) => {
     const [rows, setRows] = useState<IssueRow[]>([]);
@@ -67,7 +67,7 @@ const ProductionPlanAdditionalIssueModal: React.FC<ProductionPlanAdditionalIssue
             .filter(row => (parseInt(row.quantity, 10) || 0) > 0 && row.selected_warehouse)
             .map(row => ({ part_number: row.part_code, warehouse: row.selected_warehouse, quantity: parseInt(row.quantity, 10) }));
         if (items.length === 0) {
-            setMessage({ text: '追加出庫する数量を入力してください。', type: 'danger' });
+            setMessage({ text: '追加ピッキングする数量を入力してください。', type: 'danger' });
             return;
         }
         setSubmitting(true);
@@ -91,14 +91,14 @@ const ProductionPlanAdditionalIssueModal: React.FC<ProductionPlanAdditionalIssue
         <Modal isOpen={isOpen} onClose={onClose} maxWidth="900px">
             <div className="p-3">
                 <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
-                    <h5 className="mb-0">追加出庫（{plan.plan_name}）</h5>
+                    <h5 className="mb-0">追加ピッキング（{plan.plan_name}）</h5>
                     <button type="button" className="btn-close" aria-label="Close" onClick={onClose}></button>
                 </div>
                 <p className="text-muted small">
-                    歩留まり・ロス等で所要量を超えて必要になった部品を、引当を経ずにすぐ出庫します。所要量の引当とは別に記録され、
-                    生産完了を取り消しても在庫には戻りません。使わなかった分は材料引当画面から「返却」で在庫に戻せます。
+                    歩留まり・ロス等で所要量を超えて必要になった部品を、引当を経ずにすぐピッキングします。所要量の引当とは別に記録され、
+                    生産完了を取り消しても在庫には戻りません。使わなかった分は順立て（材料引当）画面から「返却」で在庫に戻せます。
                 </p>
-                {cancelled && <div className="alert alert-warning">中止された生産計画には追加出庫できません。</div>}
+                {cancelled && <div className="alert alert-warning">中止された生産計画には追加ピッキングできません。</div>}
                 {message.text && <div className={`alert alert-${message.type}`}>{message.text}</div>}
 
                 <form onSubmit={handleSubmit}>
@@ -107,7 +107,7 @@ const ProductionPlanAdditionalIssueModal: React.FC<ProductionPlanAdditionalIssue
                             <thead className="table-light">
                                 <tr>
                                     <th>部品</th><th className="text-end">所要数</th><th className="text-end">引当済</th>
-                                    <th className="text-end">追加出庫済</th><th>出庫倉庫（出庫可能数）</th><th className="text-end">追加出庫数</th><th>単位</th>
+                                    <th className="text-end">追加ピッキング済</th><th>ピッキング元倉庫（ピッキング可能数）</th><th className="text-end">追加ピッキング数</th><th>単位</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -132,7 +132,7 @@ const ProductionPlanAdditionalIssueModal: React.FC<ProductionPlanAdditionalIssue
                                                     ))}
                                                 </select>
                                             ) : (
-                                                <span className="text-danger">出庫可能な在庫なし</span>
+                                                <span className="text-danger">ピッキング可能な在庫なし</span>
                                             )}
                                         </td>
                                         <td className="text-end">
@@ -158,7 +158,7 @@ const ProductionPlanAdditionalIssueModal: React.FC<ProductionPlanAdditionalIssue
                     </div>
                     <div className="text-end">
                         <button type="submit" className="btn btn-warning" disabled={submitting || loading || cancelled}>
-                            {submitting ? '出庫中...' : '追加出庫を実行'}
+                            {submitting ? 'ピッキング中...' : '追加ピッキングを実行'}
                         </button>
                         <button type="button" className="btn btn-secondary ms-2" onClick={onClose}>閉じる</button>
                     </div>

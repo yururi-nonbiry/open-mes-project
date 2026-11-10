@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   NAV_CATEGORIES,
@@ -6,6 +6,10 @@ import {
   NavIcon,
   getCircledNumber,
 } from '../config/navigationConfig';
+import {
+  getWorkflowFeatureSettings,
+  FlowTrackId,
+} from '../services/workflowFeatureService';
 
 interface TopPageProps {
   isAuthenticated: boolean;
@@ -22,9 +26,27 @@ const TopPage: React.FC<TopPageProps> = ({
     (cat) => !cat.staffOnly || isStaffOrSuperuser
   );
 
+  const [featureSettings, setFeatureSettings] = useState(getWorkflowFeatureSettings);
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setFeatureSettings(getWorkflowFeatureSettings());
+    };
+    window.addEventListener('workflow_feature_settings_changed', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      window.removeEventListener('workflow_feature_settings_changed', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, []);
+
+  const visibleTracks = WORKFLOW_TRACKS.filter(
+    (track) => (featureSettings[track.id as FlowTrackId] || 'visible') !== 'hidden'
+  );
+
   return (
     <div className="top-page-container">
-      {/* 1. 全体業務フローガイド（①データ投入から入庫まで ／ ②生産から出庫まで の2本立て） */}
+      {/* 1. 全体業務フローガイド（①データ投入から入庫まで ／ ②生産計画からピッキングまで ／ ③生産から出庫まで） */}
       <section className="overall-workflow-banner" aria-label="全体業務フローガイド">
         <div className="workflow-banner-header">
           <div className="workflow-banner-title-group">
@@ -45,46 +67,75 @@ const TopPage: React.FC<TopPageProps> = ({
         </div>
 
         <div className="workflow-tracks-container">
-          {WORKFLOW_TRACKS.map((track) => (
-            <div
-              key={track.id}
-              className={`workflow-track-block track-${track.id}`}
-              style={
-                {
-                  '--track-accent': track.accentColor,
-                  '--track-border': track.borderColor,
-                } as React.CSSProperties
-              }
-            >
-              <div className="workflow-track-header">
-                <div className="workflow-track-title-row">
-                  <span
-                    className="workflow-track-badge"
-                    style={{ backgroundColor: track.accentColor }}
-                  >
-                    <NavIcon name={track.icon} size={14} />
-                    <span>{track.badge}</span>
-                  </span>
-                  <div>
-                    <h3 className="workflow-track-title">{track.title}</h3>
-                    <span className="workflow-track-subtitle">{track.subtitle}</span>
+          {visibleTracks.length === 0 && (
+            <div className="alert alert-info d-flex align-items-center justify-content-between p-3 my-2">
+              <div>
+                <strong>全体業務フロー（フロー①〜③）はすべて非表示に設定されています。</strong>
+                <p className="mb-0 small text-muted">
+                  管理者メニューの「有効機能設定」から表示状態を有効に切り替えることができます。
+                </p>
+              </div>
+              {isStaffOrSuperuser && (
+                <Link to="/system/feature-settings" className="btn btn-sm btn-primary fw-bold">
+                  有効機能設定を開く →
+                </Link>
+              )}
+            </div>
+          )}
+
+          {visibleTracks.map((track) => {
+            const currentVisibility = featureSettings[track.id as FlowTrackId] || 'visible';
+            const isGrayed = currentVisibility === 'grayed';
+
+            return (
+              <div
+                key={track.id}
+                className={`workflow-track-block track-${track.id} ${
+                  isGrayed ? 'is-grayed-out' : ''
+                }`}
+                style={
+                  {
+                    '--track-accent': track.accentColor,
+                    '--track-border': track.borderColor,
+                  } as React.CSSProperties
+                }
+              >
+                <div className="workflow-track-header">
+                  <div className="workflow-track-title-row">
+                    <span
+                      className="workflow-track-badge"
+                      style={{ backgroundColor: track.accentColor }}
+                    >
+                      <NavIcon name={track.icon} size={14} />
+                      <span>{track.badge}</span>
+                    </span>
+                    <div>
+                      <h3 className="workflow-track-title">{track.title}</h3>
+                      <span className="workflow-track-subtitle">{track.subtitle}</span>
+                    </div>
+                    {isGrayed && (
+                      <span className="workflow-track-status-pill is-grayed">
+                        休止中（グレーアウト）
+                      </span>
+                    )}
+                  </div>
+                  <div className="workflow-track-start-btns">
+                    <Link
+                      to={track.startStandalonePath}
+                      className={`track-start-btn is-standalone ${isGrayed ? 'disabled' : ''}`}
+                      tabIndex={isGrayed ? -1 : undefined}
+                    >
+                      <span>▶ ナビ開始（他アプリを使わない場合）</span>
+                    </Link>
+                    <Link
+                      to={track.startExternalPath}
+                      className={`track-start-btn is-external ${isGrayed ? 'disabled' : ''}`}
+                      tabIndex={isGrayed ? -1 : undefined}
+                    >
+                      <span>▶ ナビ開始（他アプリ同期済みの場合）</span>
+                    </Link>
                   </div>
                 </div>
-                <div className="workflow-track-start-btns">
-                  <Link
-                    to={track.startStandalonePath}
-                    className="track-start-btn is-standalone"
-                  >
-                    <span>▶ ナビ開始（他アプリを使わない場合）</span>
-                  </Link>
-                  <Link
-                    to={track.startExternalPath}
-                    className="track-start-btn is-external"
-                  >
-                    <span>▶ ナビ開始（他アプリ同期済みの場合）</span>
-                  </Link>
-                </div>
-              </div>
 
               <div className="overall-workflow-grid">
                 {track.phases.map((phase, idx) => (
@@ -106,7 +157,18 @@ const TopPage: React.FC<TopPageProps> = ({
                       }
                     >
                       <div className="workflow-phase-top">
-                        <span className="workflow-phase-badge">FLOW {phase.step}</span>
+                        <div className="workflow-phase-badges-left">
+                          <span className="workflow-phase-badge">FLOW {phase.step}</span>
+                          {phase.mobileAppSupported && (
+                            <span
+                              className="workflow-phase-mobile-pill"
+                              title={phase.mobileAppNote || 'スマホアプリでも操作可能です'}
+                            >
+                              <span className="mobile-icon">📱</span>
+                              <span>{phase.mobileAppLabel || 'スマホ対応'}</span>
+                            </span>
+                          )}
+                        </div>
                         <span className="workflow-phase-cat">
                           {phase.scenarioBadge || phase.categoryLabel}
                         </span>
@@ -116,6 +178,12 @@ const TopPage: React.FC<TopPageProps> = ({
                         <span>{phase.title}</span>
                       </div>
                       <p className="workflow-phase-summary">{phase.summary}</p>
+                      {phase.mobileAppNote && (
+                        <div className="workflow-phase-mobile-note">
+                          <span className="mobile-note-icon">📱</span>
+                          <span>{phase.mobileAppNote}</span>
+                        </div>
+                      )}
 
                       {/* データ投入ステップ：他のアプリを使う場合 / 使わない場合 の分岐表示（中に直接ボタンを配置） */}
                       {phase.dataInputGuide && (
@@ -182,7 +250,8 @@ const TopPage: React.FC<TopPageProps> = ({
                 ))}
               </div>
             </div>
-          ))}
+          );
+        })}
         </div>
       </section>
 
@@ -229,6 +298,11 @@ const TopPage: React.FC<TopPageProps> = ({
                             {getCircledNumber(idx)}
                           </span>
                           <span className="step-tag-label">{item.stepTag}</span>
+                          {item.mobileAppSupported && (
+                            <span className="step-card-mobile-pill" title="現場スマホアプリでも操作可能">
+                              📱 スマホ対応
+                            </span>
+                          )}
                         </div>
                         <span className="step-card-chevron" aria-hidden="true">
                           ›
