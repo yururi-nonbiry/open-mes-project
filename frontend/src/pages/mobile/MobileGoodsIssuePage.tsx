@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import WarehouseLocationMapModal from '../inventory/WarehouseLocationMapModal';
 import { Container, Form, Button, Row, Col, Card, Badge, Modal, Spinner, Alert, Pagination as BootstrapPagination, InputGroup } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import authFetch, { handleError } from '../../utils/api';
@@ -25,6 +26,9 @@ const MobileGoodsIssuePage = () => {
     const [totalPages, setTotalPages] = useState(0);
     const [totalCount, setTotalCount] = useState(0);
     const pageSize = 25;
+
+    // 出庫元ロケーション地図
+    const [mapOrderId, setMapOrderId] = useState(null);
 
     // State for modal
     const [showModal, setShowModal] = useState(false);
@@ -349,6 +353,9 @@ const MobileGoodsIssuePage = () => {
                             </p>
                         </Card.Body>
                         <Card.Footer className="bg-white border-0 p-2">
+                            <Button variant="outline-secondary" className="w-100 mb-2" onClick={() => setMapOrderId(order.id)}>
+                                地図で確認
+                            </Button>
                             <Button
                                 variant="success"
                                 className="w-100"
@@ -368,6 +375,8 @@ const MobileGoodsIssuePage = () => {
         <div id="pagination-controls" className="d-flex justify-content-center mt-3">
             {renderPaginationControls()}
         </div>
+
+        <WarehouseLocationMapModal isOpen={mapOrderId !== null} onClose={() => setMapOrderId(null)} orderId={mapOrderId} />
 
         {/* Issue Modal */}
         <Modal show={showModal} onHide={handleCloseModal} centered>

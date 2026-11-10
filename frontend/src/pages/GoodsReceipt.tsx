@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Modal, Button, Spinner, Alert } from 'react-bootstrap';
+import ReceiptLocationMap from '../components/common/ReceiptLocationMap';
 import authFetch, { ApiError } from '../utils/api';
 import inventoryService from '../services/inventoryService';
 import { NavIcon } from '../config/navigationConfig';
@@ -696,6 +697,10 @@ const GoodsReceipt: React.FC = () => {
                   />
                   <span className="mes-modal-field-help">保管するロケーション（棚番）を入力します</span>
                 </div>
+              </div>
+
+              <div className="col-12">
+                <ReceiptLocationMap warehouse={receiptFormData.warehouse} location={receiptFormData.location} />
               </div>
             </div>
 

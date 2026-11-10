@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import authFetch, { ApiError, handleError } from '../../utils/api';
 import inventoryService from '../../services/inventoryService';
 import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library';
+import ReceiptLocationMap from '../../components/common/ReceiptLocationMap';
 import CameraIcon from '../../components/common/CameraIcon';
 import './MobileGoodsReceiptPage.css';
 import './MobileLocationTransferPage.css'; // スタイルを再利用
@@ -286,6 +287,7 @@ const MobileGoodsReceiptPage = () => {
                 <button className="btn btn-outline-secondary" type="button" onClick={() => startCameraScan(value => setReceiptFormData(prev => ({ ...prev, location: value })))} title="カメラでスキャン" aria-label="カメラでスキャン"><CameraIcon /></button>
               </div>
             </div>
+            <div className="mb-3"><ReceiptLocationMap warehouse={receiptFormData.warehouse} location={receiptFormData.location} cellSize={24} /></div>
             {formError && <div className="alert alert-danger">{formError}</div>}
             {formSuccess && <div className="alert alert-success">{formSuccess}</div>}
             <div className="d-grid gap-2 mt-4"><button type="submit" className="btn btn-primary">入庫実行</button><button type="button" className="btn btn-secondary" onClick={closeReceiptForm}>キャンセル</button></div>
