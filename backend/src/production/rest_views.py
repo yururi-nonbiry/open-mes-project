@@ -365,6 +365,12 @@ class MaterialAllocationViewSet(viewsets.ModelViewSet):
         plan_id = self.request.query_params.get("production_plan_id")
         if plan_id:
             queryset = queryset.filter(production_plan_id=plan_id)
+        # 出庫先ラインでの絞り込み("none" はライン未指定)
+        line = self.request.query_params.get("line")
+        if line == "none":
+            queryset = queryset.filter(line_rel__isnull=True)
+        elif line:
+            queryset = queryset.filter(line_rel__code=line)
         return queryset
 
     def create(self, request, *args, **kwargs):

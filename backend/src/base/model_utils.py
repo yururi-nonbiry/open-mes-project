@@ -23,8 +23,8 @@ def fk_id_alias(fk_name):
 # 発注・受注・生産計画の登録に使えるよう許可する)。{データ種別: {CSV項目名(別名): モデルの外部キーフィールド名}}
 CSV_IMPORT_FK_ALIASES = {
     "purchase_order": {"purpose": "purpose_rel"},
-    "sales_order": {"purpose": "purpose_rel"},
-    "production_plan": {"purpose": "purpose_rel"},
+    "sales_order": {"purpose": "purpose_rel", "line": "line_rel"},
+    "production_plan": {"purpose": "purpose_rel", "line": "line_rel"},
 }
 
 

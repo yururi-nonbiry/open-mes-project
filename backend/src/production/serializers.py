@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from master.models import Item, StockPurpose, Warehouse
+from master.models import Item, StockPurpose, Warehouse, WorkCenter
 
 from .models import MaterialAllocation, PartsUsed, ProductionPlan, ProductionPlanMaterial, WorkProgress
 from .services.materials import allocated_quantity_by_material, calc_required_quantity, normal_allocations
@@ -21,6 +21,10 @@ class ProductionPlanSerializer(serializers.ModelSerializer):
         queryset=StockPurpose.objects.filter(is_active=True),
         allow_null=True,
         required=False,
+    )
+    # 材料の出庫先ライン(ワークセンターコード)。引当時の既定値になる(空は未指定)。
+    line = serializers.SlugRelatedField(
+        source="line_rel", slug_field="code", queryset=WorkCenter.objects.all(), allow_null=True, required=False
     )
     # 在庫で足りるが、子計画を立てるか在庫を使うかが未決定の中間品の数(ProductionPlanViewSet で集計)
     pending_intermediate_count = serializers.IntegerField(read_only=True, default=0)
@@ -43,6 +47,7 @@ class ProductionPlanSerializer(serializers.ModelSerializer):
             "parent_plan",
             "parent_plan_name",
             "purpose",
+            "line",
             "child_plan_count",
             "pending_intermediate_count",
             "remarks",
@@ -258,6 +263,10 @@ class MaterialAllocationSerializer(serializers.ModelSerializer):
     material_code = serializers.SlugRelatedField(source="material", slug_field="code", read_only=True)
     warehouse = serializers.SlugRelatedField(source="warehouse_rel", slug_field="warehouse_number", read_only=True)
     purpose = serializers.SlugRelatedField(source="purpose_rel", slug_field="code", read_only=True)
+    # 出庫先ライン。未出庫(引当済)の間だけ変更できる(validateで制限)。
+    line = serializers.SlugRelatedField(
+        source="line_rel", slug_field="code", queryset=WorkCenter.objects.all(), allow_null=True, required=False
+    )
 
     class Meta:
         model = MaterialAllocation
@@ -268,6 +277,7 @@ class MaterialAllocationSerializer(serializers.ModelSerializer):
             "material_code",
             "warehouse",
             "purpose",
+            "line",
             "allocated_quantity",
             "allocation_datetime",
             "status",
@@ -294,6 +304,26 @@ class MaterialAllocationSerializer(serializers.ModelSerializer):
             "allocation_type_display",
             "production_plan_name",
         ]
+
+    def validate(self, data):
+        # 出庫済み・返却済みの引当は履歴のためラインを変更できない
+        if self.instance and "line_rel" in data and data["line_rel"] != self.instance.line_rel:
+            if self.instance.status != MaterialAllocation.Status.ALLOCATED:
+                raise serializers.ValidationError({"line": "出庫済み・返却済みの引当はラインを変更できません。"})
+        return data
+
+    def update(self, instance, validated_data):
+        instance = super().update(instance, validated_data)
+        # 引当に連動する内部受注(出庫予定)のラインも揃える
+        if "line_rel" in validated_data:
+            from inventory.models import SalesOrder
+
+            from .services.allocation import build_internal_so_order_number
+
+            SalesOrder.objects.filter(order_number=build_internal_so_order_number(instance.id)).update(
+                line_rel=instance.line_rel
+            )
+        return instance
 
 
 class WorkProgressSerializer(serializers.ModelSerializer):

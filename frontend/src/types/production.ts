@@ -15,6 +15,8 @@ export interface ProductionPlan {
     remarks?: string;
     /** 使う在庫の用途コード。この用途の在庫を先に、足りなければ汎用の在庫を使う(空は汎用のみ)。 */
     purpose?: string | null;
+    /** 材料の出庫先ライン(ワークセンターコード)。引当時の既定値(空は未指定)。 */
+    line?: string | null;
     production_plan?: string;
     /** 中間品の子計画の場合、その中間品を使う親の生産計画 */
     parent_plan?: string | null;
@@ -135,6 +137,8 @@ export interface MaterialAllocationPayload {
         part_number: string;
         warehouse: string;
         quantity_to_allocate: number;
+        /** 出庫先ライン。省略すると生産計画のラインを引き継ぐ。 */
+        line?: string;
     }[];
 }
 
@@ -197,6 +201,8 @@ export interface MaterialAllocation {
     allocation_type_display?: string;
     remarks: string | null;
     warehouse?: string;
+    /** 出庫先ライン(ワークセンターコード)。空は未指定。 */
+    line?: string | null;
 }
 
 export interface LimitingPart {

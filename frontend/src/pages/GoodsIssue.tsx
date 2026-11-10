@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Modal, Button, Spinner, Alert } from 'react-bootstrap';
 import inventoryService, { SalesOrder, validateIssueQuantity } from '../services/inventoryService';
 import { NavIcon } from '../config/navigationConfig';
+import { useWorkCenters } from '../hooks/useWorkCenters';
 import WarehouseLocationMapModal from './inventory/WarehouseLocationMapModal';
 
 // ローカル日付(YYYY-MM-DD)。出庫予定の期間フィルタの既定値(今日以降)に使う
@@ -18,6 +19,8 @@ const GoodsIssue: React.FC = () => {
   const [committedKeyword, setCommittedKeyword] = useState('');
   const [dateFrom, setDateFrom] = useState(todayLocal);
   const [dateTo, setDateTo] = useState('');
+  const [lineFilter, setLineFilter] = useState('');
+  const workCenters = useWorkCenters();
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
@@ -42,6 +45,7 @@ const GoodsIssue: React.FC = () => {
         q: committedKeyword.trim() || undefined,
         expectedFrom: dateFrom || undefined,
         expectedTo: dateTo || undefined,
+        line: lineFilter || undefined,
       });
       setSalesOrders(data.results || []);
       setTotalPages(data.total_pages || 1);
@@ -52,7 +56,7 @@ const GoodsIssue: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, committedKeyword, dateFrom, dateTo]);
+  }, [currentPage, committedKeyword, dateFrom, dateTo, lineFilter]);
 
   useEffect(() => {
     fetchSalesOrders();
@@ -131,7 +135,7 @@ const GoodsIssue: React.FC = () => {
     if (loading) {
       return (
         <tr>
-          <td colSpan={9} className="text-center py-5">
+          <td colSpan={10} className="text-center py-5">
             <Spinner animation="border" variant="primary" size="sm" className="me-2" />
             <span className="text-muted">出庫待ちデータを読み込んでいます...</span>
           </td>
@@ -141,7 +145,7 @@ const GoodsIssue: React.FC = () => {
     if (error) {
       return (
         <tr>
-          <td colSpan={9} className="text-center text-danger py-4 fw-bold">
+          <td colSpan={10} className="text-center text-danger py-4 fw-bold">
             {error}
           </td>
         </tr>
@@ -150,7 +154,7 @@ const GoodsIssue: React.FC = () => {
     if (filteredOrders.length === 0) {
       return (
         <tr>
-          <td colSpan={9} className="text-center py-5 text-muted">
+          <td colSpan={10} className="text-center py-5 text-muted">
             <div className="fw-bold mb-1">出庫待ちの受注データはありません</div>
             <div className="small">すべての出庫予定が完了しているか、該当する受注がありません。</div>
           </td>
@@ -165,6 +169,7 @@ const GoodsIssue: React.FC = () => {
           <td className="fw-semibold">{order.item || '—'}</td>
           <td>{order.warehouse || '—'}</td>
           <td>{order.purpose || <span className="text-muted">汎用</span>}</td>
+          <td>{order.line || <span className="text-muted">未指定</span>}</td>
           <td className="text-end fw-semibold">{order.quantity}</td>
           <td className="text-end">{order.shipped_quantity}</td>
           <td className="text-end">
@@ -236,14 +241,31 @@ const GoodsIssue: React.FC = () => {
               className="form-control form-control-sm"
             />
           </div>
+          <div className="receipt-search-field">
+            <label className="receipt-search-label" htmlFor="issue-line-filter">
+              出庫先ライン
+            </label>
+            <select
+              id="issue-line-filter"
+              value={lineFilter}
+              onChange={e => { setLineFilter(e.target.value); setCurrentPage(1); }}
+              className="form-select form-select-sm"
+            >
+              <option value="">すべて</option>
+              <option value="none">未指定</option>
+              {workCenters.map(w => (
+                <option key={w.code} value={w.code}>{w.code}{w.name ? `（${w.name}）` : ''}</option>
+              ))}
+            </select>
+          </div>
           <div className="receipt-search-actions">
             <button type="button" onClick={fetchSalesOrders} className="btn btn-primary btn-sm fw-bold px-3">
               再読み込み
             </button>
-            {(keyword || dateTo || dateFrom !== todayLocal()) && (
+            {(keyword || dateTo || lineFilter || dateFrom !== todayLocal()) && (
               <button
                 type="button"
-                onClick={() => { setKeyword(''); setDateFrom(todayLocal()); setDateTo(''); setCurrentPage(1); }}
+                onClick={() => { setKeyword(''); setDateFrom(todayLocal()); setDateTo(''); setLineFilter(''); setCurrentPage(1); }}
                 className="btn btn-outline-secondary btn-sm"
               >
                 条件リセット
@@ -265,6 +287,7 @@ const GoodsIssue: React.FC = () => {
                 <th>品目（品番）</th>
                 <th>出庫倉庫</th>
                 <th>用途</th>
+                <th>出庫先ライン</th>
                 <th className="text-end">予定数量</th>
                 <th className="text-end">出庫済</th>
                 <th className="text-end">未出庫残</th>

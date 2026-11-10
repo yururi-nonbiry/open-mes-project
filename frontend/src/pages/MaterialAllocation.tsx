@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Spinner } from 'react-bootstrap';
 import authFetch, { handleError } from '../utils/api';
 import { MaterialAllocation, PaginationData } from '../types/production';
+import { useWorkCenters } from '../hooks/useWorkCenters';
 
 const ALLOC_STATUS_TABS = [
   { value: '', label: 'すべて表示' },
@@ -23,6 +24,8 @@ const MaterialAllocationPage: React.FC = () => {
   const [planFilter, setPlanFilter] = useState('');
   const [materialFilter, setMaterialFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [lineFilter, setLineFilter] = useState('');
+  const workCenters = useWorkCenters();
   const [currentPageUrl, setCurrentPageUrl] = useState('/api/production/material-allocations/');
 
   const fetchAllocations = useCallback(async (url: string) => {
@@ -33,6 +36,7 @@ const MaterialAllocationPage: React.FC = () => {
       if (planFilter) params.production_plan_id = planFilter;
       if (materialFilter) params.material_code = materialFilter;
       if (statusFilter) params.status = statusFilter;
+      if (lineFilter) params.line = lineFilter;
 
       const baseEndpoint = url.split('?')[0];
       const existingQuery = url.split('?')[1] || '';
@@ -58,7 +62,7 @@ const MaterialAllocationPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [planFilter, materialFilter, statusFilter]);
+  }, [planFilter, materialFilter, statusFilter, lineFilter]);
 
   useEffect(() => {
     fetchAllocations('/api/production/material-allocations/');
@@ -73,6 +77,7 @@ const MaterialAllocationPage: React.FC = () => {
     setPlanFilter('');
     setMaterialFilter('');
     setStatusFilter('');
+    setLineFilter('');
     setCurrentPageUrl('/api/production/material-allocations/');
   };
 
@@ -87,6 +92,20 @@ const MaterialAllocationPage: React.FC = () => {
         body: JSON.stringify({ status: newStatus }),
       });
       await handleError(response, 'ステータスの更新に失敗しました。');
+      fetchAllocations(currentPageUrl);
+    } catch (e: any) {
+      alert(e.message);
+    }
+  };
+
+  // 出庫先ラインの変更(未出庫の引当のみ。連動する出庫予定のラインも更新される)
+  const handleLineChange = async (id: string, line: string) => {
+    try {
+      const response = await authFetch(`/api/production/material-allocations/${id}/`, {
+        method: 'PATCH',
+        body: JSON.stringify({ line: line || null }),
+      });
+      await handleError(response, '出庫先ラインの変更に失敗しました。');
       fetchAllocations(currentPageUrl);
     } catch (e: any) {
       alert(e.message);
@@ -168,6 +187,21 @@ const MaterialAllocationPage: React.FC = () => {
                 onChange={(e) => setMaterialFilter(e.target.value)}
               />
             </div>
+ <div className="receipt-search-field">
+              <label className="receipt-search-label" htmlFor="alloc-line-filter">出庫先ライン</label>
+              <select
+                id="alloc-line-filter"
+                className="form-select form-select-sm"
+                value={lineFilter}
+                onChange={(e) => setLineFilter(e.target.value)}
+              >
+                <option value="">すべて</option>
+                <option value="none">未指定</option>
+                {workCenters.map(w => (
+                  <option key={w.code} value={w.code}>{w.code}{w.name ? `（${w.name}）` : ''}</option>
+                ))}
+              </select>
+            </div>
             <div className="receipt-search-actions">
               <button type="submit" className="btn btn-primary btn-sm fw-bold px-3">
                 検索
@@ -188,6 +222,7 @@ const MaterialAllocationPage: React.FC = () => {
               <tr>
                 <th>生産計画</th>
                 <th>材料コード（品番）</th>
+                <th>出庫先ライン</th>
                 <th className="text-end">引当数量</th>
                 <th>引当日時</th>
                 <th>状態</th>
@@ -198,20 +233,20 @@ const MaterialAllocationPage: React.FC = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-5">
+                  <td colSpan={8} className="text-center py-5">
                     <Spinner animation="border" variant="primary" size="sm" className="me-2" />
                     <span className="text-muted">順立て（材料引当）データを読み込んでいます...</span>
                   </td>
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan={7} className="text-center text-danger py-4 fw-bold">
+                  <td colSpan={8} className="text-center text-danger py-4 fw-bold">
                     {error}
                   </td>
                 </tr>
               ) : allocations.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-5 text-muted">
+                  <td colSpan={8} className="text-center py-5 text-muted">
                     条件に一致する順立て（材料引当）データがありません。
                   </td>
                 </tr>
@@ -223,6 +258,22 @@ const MaterialAllocationPage: React.FC = () => {
                       <small className="text-muted">{alloc.production_plan}</small>
                     </td>
                     <td className="fw-semibold">{alloc.material_code}</td>
+                    <td>
+                      {alloc.status === 'ALLOCATED' ? (
+                        <select
+                          className="form-select form-select-sm"
+                          value={alloc.line || ''}
+                          onChange={(e) => handleLineChange(alloc.id, e.target.value)}
+                        >
+                          <option value="">未指定</option>
+                          {workCenters.map(w => (
+                            <option key={w.code} value={w.code}>{w.code}{w.name ? `（${w.name}）` : ''}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        alloc.line || <span className="text-muted">未指定</span>
+                      )}
+                    </td>
                     <td className="text-end">
                       <span className="receipt-remaining-qty has-remaining">{alloc.allocated_quantity}</span>
                     </td>

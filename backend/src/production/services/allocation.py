@@ -13,6 +13,7 @@ from inventory.services import (
     reserve_fifo,
     save_rows,
 )
+from master.models import WorkCenter
 
 from ..models import MaterialAllocation, ProductionPlan
 from .materials import allocated_quantity_by_material
@@ -53,6 +54,12 @@ def allocate_materials_service(production_plan, allocations_data):
             part_number = alloc_item_data.get("part_number")
             warehouse = alloc_item_data.get("warehouse")
             quantity_to_allocate = alloc_item_data.get("quantity_to_allocate")
+            # 出庫先ライン。引当ごとに指定でき、未指定なら生産計画のラインを引き継ぐ。
+            line = alloc_item_data.get("line") or production_plan.line
+
+            if line and not WorkCenter.objects.filter(code=line).exists():
+                errors.append(f"ライン '{line}' が存在しません。")
+                continue
 
             if not all([part_number, warehouse, quantity_to_allocate is not None]):
                 errors.append(
@@ -119,6 +126,7 @@ def allocate_materials_service(production_plan, allocations_data):
                 material_code=part_number,
                 warehouse=warehouse,
                 purpose=production_plan.purpose,
+                line=line,
                 allocated_quantity=quantity_to_allocate,
                 status=MaterialAllocation.Status.ALLOCATED,
             )
@@ -132,6 +140,7 @@ def allocate_materials_service(production_plan, allocations_data):
                     "quantity": material_allocation.allocated_quantity,
                     "warehouse": warehouse,
                     "purpose": production_plan.purpose,
+                    "line": line,
                     "expected_shipment": production_plan.planned_start_datetime,
                     "status": SalesOrder.Status.PENDING,
                 },
@@ -236,6 +245,7 @@ def update_material_allocation_status_service(allocation, new_status, user, now=
                     warehouse=allocation.warehouse,
                     location=row.location,
                     purpose=row.purpose,
+                    line=allocation.line,
                     movement_type=StockMovement.MovementType.USED,
                     movement_date=now,
                     reference_document=f"MaterialAllocation-{allocation.id}",
@@ -257,6 +267,7 @@ def update_material_allocation_status_service(allocation, new_status, user, now=
                 warehouse=allocation.warehouse,
                 location=row.location,
                 purpose=row.purpose,
+                line=allocation.line,
                 movement_type=StockMovement.MovementType.INCOMING,
                 movement_date=now,
                 reference_document=f"MaterialAllocation-{allocation.id}",
@@ -299,6 +310,10 @@ def issue_additional_materials_service(production_plan, items, user, remarks=Non
             if part_number not in plan_materials:
                 errors.append(f"{part_number} はこの生産計画の所要部品に含まれていません。")
                 continue
+            line = item.get("line") or production_plan.line
+            if line and not WorkCenter.objects.filter(code=line).exists():
+                errors.append(f"ライン '{line}' が存在しません。")
+                continue
             try:
                 quantity = int(item.get("quantity"))
             except (TypeError, ValueError):
@@ -324,6 +339,7 @@ def issue_additional_materials_service(production_plan, items, user, remarks=Non
                 material_code=part_number,
                 warehouse=warehouse,
                 purpose=production_plan.purpose,
+                line=line,
                 allocated_quantity=quantity,
                 status=MaterialAllocation.Status.ISSUED,
                 allocation_type=MaterialAllocation.AllocationType.ADDITIONAL,
@@ -336,6 +352,7 @@ def issue_additional_materials_service(production_plan, items, user, remarks=Non
                     warehouse=warehouse,
                     location=row.location,
                     purpose=row.purpose,
+                    line=allocation.line,
                     movement_type=StockMovement.MovementType.USED,
                     movement_date=now,
                     reference_document=f"MaterialAllocation-{allocation.id}",

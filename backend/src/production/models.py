@@ -47,6 +47,17 @@ class ProductionPlan(models.Model):
         verbose_name="用途",
     )
     purpose = fk_id_alias("purpose_rel")
+    # 出庫先のライン(ワークセンター)。空は未指定。
+    line_rel = models.ForeignKey(
+        "master.WorkCenter",
+        to_field="code",
+        db_column="line",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        verbose_name="ライン",
+    )
+    line = fk_id_alias("line_rel")
 
     # 中間品の子計画の場合、その中間品を使う親の生産計画。親を削除しても子計画(着手済みの場合がある)は残す。
     parent_plan = models.ForeignKey(
@@ -203,6 +214,17 @@ class MaterialAllocation(models.Model):
         verbose_name="用途",
     )
     purpose = fk_id_alias("purpose_rel")
+    # 出庫先のライン(ワークセンター)。空は未指定。
+    line_rel = models.ForeignKey(
+        "master.WorkCenter",
+        to_field="code",
+        db_column="line",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        verbose_name="ライン",
+    )
+    line = fk_id_alias("line_rel")
     allocated_quantity = models.PositiveIntegerField(verbose_name="引当数量")
     allocation_datetime = models.DateTimeField(default=timezone.now, verbose_name="引当日時")
     status = models.CharField(

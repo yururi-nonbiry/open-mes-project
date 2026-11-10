@@ -142,6 +142,17 @@ class StockMovement(models.Model):
         verbose_name="用途",
     )
     purpose = fk_id_alias("purpose_rel")
+    # 出庫先のライン(ワークセンター)。空は未指定。
+    line_rel = models.ForeignKey(
+        "master.WorkCenter",
+        to_field="code",
+        db_column="line",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        verbose_name="ライン",
+    )
+    line = fk_id_alias("line_rel")
     movement_type = models.CharField(
         max_length=20, choices=MOVEMENT_TYPE_CHOICES, verbose_name="移動タイプ"
     )  # 入庫・出庫・使用
@@ -355,6 +366,17 @@ class SalesOrder(models.Model):
         verbose_name="用途",
     )
     purpose = fk_id_alias("purpose_rel")
+    # 出庫先のライン(ワークセンター)。空は未指定。
+    line_rel = models.ForeignKey(
+        "master.WorkCenter",
+        to_field="code",
+        db_column="line",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        verbose_name="ライン",
+    )
+    line = fk_id_alias("line_rel")
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"  # 未出庫
         SHIPPED = "shipped", "Shipped"  # 出庫済み

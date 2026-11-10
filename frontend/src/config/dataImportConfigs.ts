@@ -307,6 +307,13 @@ export const getFormFields = (type: string): FormField[] => {
                 colSpan: 6
             },
             {
+                name: 'line',
+                label: '出庫先ラインコード（ワークセンター）',
+                placeholder: '例：LINE-01（空欄は未指定）',
+                helpText: '材料の出庫先ライン。引当時の既定値になり、引当ごとに変更できます',
+                colSpan: 6
+            },
+            {
                 name: 'planned_quantity',
                 label: '計画数量',
                 type: 'number',

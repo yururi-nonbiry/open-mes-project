@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../../components/Modal';
 import productionService from '../../services/productionService';
+import { useWorkCenters } from '../../hooks/useWorkCenters';
 import { ProductionPlan, RequiredPart } from '../../types/production';
 
 /** 画面上の行。倉庫は引当時に選ぶため、行ごとに選択中の倉庫を持つ */
 interface AllocationRow extends RequiredPart {
     selected_warehouse: string;
+    /** 出庫先ライン。生産計画のラインが既定値で、引当ごとに変更できる */
+    selected_line: string;
     quantity_to_allocate: string | number;
 }
 
@@ -28,6 +31,7 @@ const defaultQuantity = (part: RequiredPart, warehouse: string) => {
 const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = ({
     isOpen, onClose, onSuccess, plan
 }) => {
+    const workCenters = useWorkCenters();
     const [requiredParts, setRequiredParts] = useState<AllocationRow[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -50,7 +54,7 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
                         };
                         // 候補は引当可能数の多い順に並んでいるため、先頭を既定の倉庫にする
                         const warehouse = warehouses[0]?.warehouse ?? '';
-                        return { ...normalizedPart, selected_warehouse: warehouse, quantity_to_allocate: defaultQuantity(normalizedPart, warehouse) };
+                        return { ...normalizedPart, selected_warehouse: warehouse, selected_line: plan.line || '', quantity_to_allocate: defaultQuantity(normalizedPart, warehouse) };
                     }));
                 } catch (e: any) {
                     setError(e.message);
@@ -65,6 +69,12 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
     const handleQuantityChange = (partCode: string, value: string) => {
         setRequiredParts(prev => prev.map(part =>
             part.part_code === partCode ? { ...part, quantity_to_allocate: value } : part
+        ));
+    };
+
+    const handleLineChange = (partCode: string, line: string) => {
+        setRequiredParts(prev => prev.map(part =>
+            part.part_code === partCode ? { ...part, selected_line: line } : part
         ));
     };
 
@@ -84,7 +94,8 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
             .map(part => ({
                 part_number: part.part_code,
                 warehouse: part.selected_warehouse,
-                quantity_to_allocate: parseFloat(part.quantity_to_allocate as string)
+                quantity_to_allocate: parseFloat(part.quantity_to_allocate as string),
+                ...(part.selected_line ? { line: part.selected_line } : {})
             }));
 
         if (allocationsData.length === 0) {
@@ -143,6 +154,7 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
                         <dl className="row mb-2">
                             <dt className="col-sm-3">計画名:</dt><dd className="col-sm-9">{plan.plan_name || 'N/A'}</dd>
                             <dt className="col-sm-3">製品コード:</dt><dd className="col-sm-9">{plan.product_code || 'N/A'}</dd>
+                            <dt className="col-sm-3">出庫先ライン:</dt><dd className="col-sm-9">{plan.line || '未指定'}（引当ごとに変更できます）</dd>
                             <dt className="col-sm-3">計画数量:</dt><dd className="col-sm-9 text-end">{plan.planned_quantity}</dd>
                         </dl>
                         <h6 className="mt-3">必要部品一覧</h6>
@@ -160,7 +172,7 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
                                         <tr>
                                             <th>部品コード</th><th>部品名</th><th className="text-end">所要数</th>
                                             <th className="text-end">引当済</th><th className="text-end">追加ピッキング済</th>
-                                            <th>引当倉庫（引当可能数）</th><th className="text-end">引当数量</th><th>単位</th>
+                                            <th>引当倉庫（引当可能数）</th><th>出庫先ライン</th><th className="text-end">引当数量</th><th>単位</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -186,6 +198,18 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
                                                     ) : (
                                                         <span className="text-danger">引当可能な在庫なし</span>
                                                     )}
+                                                </td>
+                                                <td>
+                                                    <select
+                                                        className="form-select form-select-sm"
+                                                        value={part.selected_line}
+                                                        onChange={(e) => handleLineChange(part.part_code, e.target.value)}
+                                                    >
+                                                        <option value="">未指定</option>
+                                                        {workCenters.map(w => (
+                                                            <option key={w.code} value={w.code}>{w.code}{w.name ? `（${w.name}）` : ''}</option>
+                                                        ))}
+                                                    </select>
                                                 </td>
                                                 <td className="text-end">
                                                     <input

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from master.models import Item, StockPurpose, Supplier, Warehouse
+from master.models import Item, StockPurpose, Supplier, Warehouse, WorkCenter
 
 from .models import (  # StockMovement, SalesOrder, Receiptモデルをインポート
     Inventory,
@@ -222,6 +222,10 @@ class StockMovementSerializer(serializers.ModelSerializer):
     purpose = serializers.SlugRelatedField(
         source="purpose_rel", slug_field="code", queryset=StockPurpose.objects.all(), allow_null=True, required=False
     )
+    # 出庫先ライン(ワークセンターコード)。空は未指定。
+    line = serializers.SlugRelatedField(
+        source="line_rel", slug_field="code", queryset=WorkCenter.objects.all(), allow_null=True, required=False
+    )
 
     class Meta:
         model = StockMovement
@@ -231,6 +235,7 @@ class StockMovementSerializer(serializers.ModelSerializer):
             "warehouse",
             "location",
             "purpose",
+            "line",
             "movement_type",
             "movement_type_display",  # 表示用の移動タイプ名
             "quantity",
@@ -287,6 +292,10 @@ class SalesOrderSerializer(serializers.ModelSerializer):
         allow_null=True,
         required=False,
     )
+    # 出庫先ライン(ワークセンターコード)。空は未指定。
+    line = serializers.SlugRelatedField(
+        source="line_rel", slug_field="code", queryset=WorkCenter.objects.all(), allow_null=True, required=False
+    )
 
     class Meta:
         model = SalesOrder
@@ -302,6 +311,7 @@ class SalesOrderSerializer(serializers.ModelSerializer):
             "expected_shipment",
             "warehouse",
             "purpose",
+            "line",
             "status",
             "status_display",  # 表示用のステータス名
             "is_internal",

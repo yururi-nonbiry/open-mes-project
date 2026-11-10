@@ -374,6 +374,13 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
         if search_status:
             filters &= Q(status=search_status)
 
+        # 出庫先ラインでの絞り込み("none" はライン未指定)
+        search_line = self.request.query_params.get("search_line")
+        if search_line == "none":
+            filters &= Q(line_rel__isnull=True)
+        elif search_line:
+            filters &= Q(line_rel__code=search_line)
+
         # 出庫予定日(日付)の期間絞り込み
         for param, field_lookup in {
             "search_expected_shipment_from": "expected_shipment__date__gte",
@@ -565,6 +572,12 @@ class StockMovementViewSet(viewsets.ReadOnlyModelViewSet):
         search_movement_types = self.request.query_params.getlist("search_movement_type")
         if search_movement_types:
             filters &= Q(movement_type__in=search_movement_types)
+
+        search_line = self.request.query_params.get("search_line")
+        if search_line == "none":
+            filters &= Q(line_rel__isnull=True)
+        elif search_line:
+            filters &= Q(line_rel__code=search_line)
 
         search_quantity = self.request.query_params.get("search_quantity")
         if search_quantity:

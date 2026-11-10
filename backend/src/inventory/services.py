@@ -752,6 +752,7 @@ def issue_sales_order(order_id, quantity_to_ship, user):
                 warehouse=sales_order.warehouse,
                 location=row.location,
                 purpose=row.purpose,
+                line=sales_order.line,
                 reference_document=f"SO: {sales_order.order_number}",
                 description=f"受注 {sales_order.order_number} による出庫",
                 operator=operator,

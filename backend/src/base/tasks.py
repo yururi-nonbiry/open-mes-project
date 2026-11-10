@@ -10,7 +10,7 @@ from django.core.exceptions import FieldDoesNotExist
 from django.db import models
 from django.utils import timezone
 
-from master.models import StockPurpose
+from master.models import StockPurpose, WorkCenter
 
 from .model_utils import CSV_IMPORT_FK_ALIASES
 from .models import DATA_TYPE_MODEL_MAPPING, AsyncTask, CsvColumnMapping
@@ -74,6 +74,16 @@ def _check_purpose(model, data_type, update_kwargs, defaults_data):
 
         if normal_allocations(existing.material_allocations.all()).exists():
             return "材料の引当がある生産計画の用途は変更できません。"
+    return None
+
+
+def _check_line(defaults_data):
+    """ライン(ワークセンター)コードの存在を確認し、問題があればメッセージを返す。"""
+    line = defaults_data.get("line")
+    if line is None:
+        return None
+    if not WorkCenter.objects.filter(code=line).exists():
+        return f"ライン '{line}' が存在しません。"
     return None
 
 
@@ -183,6 +193,9 @@ def import_csv_task(self, data_type, file_path):
                         purpose_error = _check_purpose(model, data_type, update_kwargs, defaults_data)
                         if purpose_error:
                             raise ValueError(purpose_error)
+                        line_error = _check_line(defaults_data)
+                        if line_error:
+                            raise ValueError(line_error)
                         for alias, fk_name in fk_aliases.items():
                             if alias in defaults_data:
                                 defaults_data[f"{fk_name}_id"] = defaults_data.pop(alias)
