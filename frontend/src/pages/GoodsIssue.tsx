@@ -4,12 +4,20 @@ import inventoryService, { SalesOrder, validateIssueQuantity } from '../services
 import { NavIcon } from '../config/navigationConfig';
 import WarehouseLocationMapModal from './inventory/WarehouseLocationMapModal';
 
+// ローカル日付(YYYY-MM-DD)。出庫予定の期間フィルタの既定値(今日以降)に使う
+const todayLocal = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+};
+
 const GoodsIssue: React.FC = () => {
   const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [keyword, setKeyword] = useState('');
   const [committedKeyword, setCommittedKeyword] = useState('');
+  const [dateFrom, setDateFrom] = useState(todayLocal);
+  const [dateTo, setDateTo] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
@@ -32,6 +40,8 @@ const GoodsIssue: React.FC = () => {
         status: 'pending',
         page: currentPage,
         q: committedKeyword.trim() || undefined,
+        expectedFrom: dateFrom || undefined,
+        expectedTo: dateTo || undefined,
       });
       setSalesOrders(data.results || []);
       setTotalPages(data.total_pages || 1);
@@ -42,7 +52,7 @@ const GoodsIssue: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, committedKeyword]);
+  }, [currentPage, committedKeyword, dateFrom, dateTo]);
 
   useEffect(() => {
     fetchSalesOrders();
@@ -202,13 +212,41 @@ const GoodsIssue: React.FC = () => {
               placeholder="受注番号・品番・倉庫を入力..."
             />
           </div>
+          <div className="receipt-search-field">
+            <label className="receipt-search-label" htmlFor="issue-date-from">
+              出庫予定日（開始）
+            </label>
+            <input
+              id="issue-date-from"
+              type="date"
+              value={dateFrom}
+              onChange={e => { setDateFrom(e.target.value); setCurrentPage(1); }}
+              className="form-control form-control-sm"
+            />
+          </div>
+          <div className="receipt-search-field">
+            <label className="receipt-search-label" htmlFor="issue-date-to">
+              出庫予定日（終了）
+            </label>
+            <input
+              id="issue-date-to"
+              type="date"
+              value={dateTo}
+              onChange={e => { setDateTo(e.target.value); setCurrentPage(1); }}
+              className="form-control form-control-sm"
+            />
+          </div>
           <div className="receipt-search-actions">
             <button type="button" onClick={fetchSalesOrders} className="btn btn-primary btn-sm fw-bold px-3">
               再読み込み
             </button>
-            {keyword && (
-              <button type="button" onClick={() => setKeyword('')} className="btn btn-outline-secondary btn-sm">
-                クリア
+            {(keyword || dateTo || dateFrom !== todayLocal()) && (
+              <button
+                type="button"
+                onClick={() => { setKeyword(''); setDateFrom(todayLocal()); setDateTo(''); setCurrentPage(1); }}
+                className="btn btn-outline-secondary btn-sm"
+              >
+                条件リセット
               </button>
             )}
           </div>

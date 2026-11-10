@@ -8,6 +8,12 @@ import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library';
 import CameraIcon from '../../components/common/CameraIcon';
 import './MobileLocationTransferPage.css'; // スタイルを再利用
 
+// ローカル日付(YYYY-MM-DD)。予定日フィルタの既定値(今日以降)に使う
+const todayLocal = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+};
+
 const MobileGoodsIssuePage = () => {
     // State for data and UI
     const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([]);
@@ -17,9 +23,11 @@ const MobileGoodsIssuePage = () => {
     // State for search inputs
     const [searchQueryInput, setSearchQueryInput] = useState('');
     const [searchStatusInput, setSearchStatusInput] = useState('pending');
+    const [dateFromInput, setDateFromInput] = useState(todayLocal);
+    const [dateToInput, setDateToInput] = useState('');
 
     // State for committed search params that trigger fetch
-    const [committedSearchParams, setCommittedSearchParams] = useState({ q: '', status: 'pending' });
+    const [committedSearchParams, setCommittedSearchParams] = useState({ q: '', status: 'pending', from: todayLocal(), to: '' });
 
     // State for pagination
     const [currentPage, setCurrentPage] = useState(1);
@@ -47,12 +55,12 @@ const MobileGoodsIssuePage = () => {
 
     const navigate = useNavigate();
 
-    const fetchSalesOrders = useCallback(async (page, query, status) => {
+    const fetchSalesOrders = useCallback(async (page, query, status, from: string, to: string) => {
         setLoading(true);
         setError(null);
         
         try {
-            const data = await inventoryService.getIssuableSalesOrders({ page, pageSize, q: query, status });
+            const data = await inventoryService.getIssuableSalesOrders({ page, pageSize, q: query, status, expectedFrom: from, expectedTo: to });
             setSalesOrders(data.results || []);
             setTotalPages(data.total_pages || 0);
             setTotalCount(data.count || 0);
@@ -68,7 +76,7 @@ const MobileGoodsIssuePage = () => {
 
     // Effect to fetch data when page or committed search params change
     useEffect(() => {
-        fetchSalesOrders(currentPage, committedSearchParams.q, committedSearchParams.status);
+        fetchSalesOrders(currentPage, committedSearchParams.q, committedSearchParams.status, committedSearchParams.from, committedSearchParams.to);
     }, [currentPage, committedSearchParams, fetchSalesOrders]);
 
     // --- Camera Scan Logic ---
@@ -157,7 +165,7 @@ const MobileGoodsIssuePage = () => {
                     case 'update_search':
                         if (updateSearch) {
                             setSearchQueryInput(updateSearch);
-                            setCommittedSearchParams({ q: updateSearch, status: searchStatusInput });
+                            setCommittedSearchParams(prev => ({ ...prev, q: updateSearch, status: searchStatusInput }));
                             setCurrentPage(1);
                             handled = true;
                         }
@@ -168,7 +176,7 @@ const MobileGoodsIssuePage = () => {
             // Fallback for older action format
             if (!handled && updateSearch) {
                 setSearchQueryInput(updateSearch);
-                setCommittedSearchParams({ q: updateSearch, status: searchStatusInput });
+                setCommittedSearchParams(prev => ({ ...prev, q: updateSearch, status: searchStatusInput }));
                 setCurrentPage(1);
                 handled = true;
             }
@@ -184,14 +192,16 @@ const MobileGoodsIssuePage = () => {
     const handleSearch = (e) => {
         e.preventDefault();
         setCurrentPage(1);
-        setCommittedSearchParams({ q: searchQueryInput, status: searchStatusInput });
+        setCommittedSearchParams({ q: searchQueryInput, status: searchStatusInput, from: dateFromInput, to: dateToInput });
     };
 
     const handleReset = () => {
         setSearchQueryInput('');
         setSearchStatusInput('pending');
+        setDateFromInput(todayLocal());
+        setDateToInput('');
         setCurrentPage(1);
-        setCommittedSearchParams({ q: '', status: 'pending' });
+        setCommittedSearchParams({ q: '', status: 'pending', from: todayLocal(), to: '' });
     };
 
     const handleCloseModal = () => {
@@ -219,7 +229,7 @@ const MobileGoodsIssuePage = () => {
                 setTimeout(() => {
                     handleCloseModal();
                     // Re-fetch data for the current page
-                    fetchSalesOrders(currentPage, committedSearchParams.q, committedSearchParams.status);
+                    fetchSalesOrders(currentPage, committedSearchParams.q, committedSearchParams.status, committedSearchParams.from, committedSearchParams.to);
                 }, 1500);
             } else {
                 setModalMessage({ text: result.message, type: 'danger' });
@@ -299,6 +309,20 @@ const MobileGoodsIssuePage = () => {
                                 <option value="shipped">出庫済み (Shipped)</option>
                                 <option value="canceled">キャンセル (Canceled)</option>
                             </Form.Select>
+                        </Form.Group>
+                    </Col>
+                </Row>
+                <Row className="g-2 mb-2">
+                    <Col xs={6}>
+                        <Form.Group controlId="search-date-from">
+                            <Form.Label className="form-label-sm">出庫予定日(開始):</Form.Label>
+                            <Form.Control size="sm" type="date" value={dateFromInput} onChange={(e) => setDateFromInput(e.target.value)} />
+                        </Form.Group>
+                    </Col>
+                    <Col xs={6}>
+                        <Form.Group controlId="search-date-to">
+                            <Form.Label className="form-label-sm">出庫予定日(終了):</Form.Label>
+                            <Form.Control size="sm" type="date" value={dateToInput} onChange={(e) => setDateToInput(e.target.value)} />
                         </Form.Group>
                     </Col>
                 </Row>

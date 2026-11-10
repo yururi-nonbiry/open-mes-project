@@ -123,12 +123,14 @@ const inventoryService = {
      * 出庫画面向けの受注一覧。材料引当用の内部受注(INT-)は出庫APIの対象外のため常に除外する。
      */
     getIssuableSalesOrders: async (
-        { page = 1, pageSize, q, status }: { page?: number; pageSize?: number; q?: string; status?: string } = {}
+        { page = 1, pageSize, q, status, expectedFrom, expectedTo }: { page?: number; pageSize?: number; q?: string; status?: string; expectedFrom?: string; expectedTo?: string } = {}
     ) => {
         const params = new URLSearchParams({ page: String(page), exclude_internal: 'true' });
         if (pageSize) params.append('page_size', String(pageSize));
         if (q) params.append('search_q', q);
         if (status) params.append('search_status', status);
+        if (expectedFrom) params.append('search_expected_shipment_from', expectedFrom);
+        if (expectedTo) params.append('search_expected_shipment_to', expectedTo);
         const response = await authFetch(`/api/inventory/sales-orders/?${params.toString()}`);
         await handleError(response, 'データの読み込みに失敗しました。');
         return await response.json() as PaginatedResponse<SalesOrder>;

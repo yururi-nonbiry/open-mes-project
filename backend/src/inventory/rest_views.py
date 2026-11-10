@@ -366,6 +366,15 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
         if search_status:
             filters &= Q(status=search_status)
 
+        # 出庫予定日(日付)の期間絞り込み
+        for param, field_lookup in {
+            "search_expected_shipment_from": "expected_shipment__date__gte",
+            "search_expected_shipment_to": "expected_shipment__date__lte",
+        }.items():
+            value = self.request.query_params.get(param)
+            if value:
+                filters &= Q(**{field_lookup: value})
+
         # モバイル出庫画面の横断検索
         search_q = self.request.query_params.get("search_q")
         if search_q:

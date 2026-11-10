@@ -9,6 +9,12 @@ import CameraIcon from '../../components/common/CameraIcon';
 import './MobileGoodsReceiptPage.css';
 import './MobileLocationTransferPage.css'; // スタイルを再利用
 
+// ローカル日付(YYYY-MM-DD)。予定日フィルタの既定値(今日以降)に使う
+const todayLocal = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+};
+
 const MobileGoodsReceiptPage = () => {
   // State for purchase orders, loading/error status
   const [purchaseOrders, setPurchaseOrders] = useState([]);
@@ -17,6 +23,8 @@ const MobileGoodsReceiptPage = () => {
 
   // State for search
   const [searchTerm, setSearchTerm] = useState('');
+  const [dateFrom, setDateFrom] = useState(todayLocal);
+  const [dateTo, setDateTo] = useState('');
 
   // State for pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -50,6 +58,8 @@ const MobileGoodsReceiptPage = () => {
       // General search for mobile view
       params.append('search_q', searchTerm);
     }
+    if (dateFrom) params.append('search_expected_arrival_from', dateFrom);
+    if (dateTo) params.append('search_expected_arrival_to', dateTo);
     params.append('page', String(currentPage));
     params.append('search_status', 'receivable'); // 未入庫と、残数量のある一部入庫を対象にする
     const apiUrl = `/api/inventory/purchase-orders/?${params.toString()}`;
@@ -69,7 +79,7 @@ const MobileGoodsReceiptPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [searchTerm, currentPage]);
+  }, [searchTerm, dateFrom, dateTo, currentPage]);
 
   // Initial data fetch and on search term change (debounced)
   useEffect(() => {
@@ -315,6 +325,16 @@ const MobileGoodsReceiptPage = () => {
         <div className="input-group">
           <input type="search" className="form-control" placeholder="発注番号などで検索..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} />
           <button className="btn btn-outline-secondary" type="button" onClick={() => startCameraScan(setSearchTerm)} title="カメラでスキャン" aria-label="カメラでスキャン"><CameraIcon /></button>
+        </div>
+        <div className="row g-2 mt-1">
+          <div className="col-6">
+            <label htmlFor="receipt-date-from" className="form-label small mb-0">入荷予定日(開始)</label>
+            <input type="date" id="receipt-date-from" className="form-control form-control-sm" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setCurrentPage(1); }} />
+          </div>
+          <div className="col-6">
+            <label htmlFor="receipt-date-to" className="form-label small mb-0">入荷予定日(終了)</label>
+            <input type="date" id="receipt-date-to" className="form-control form-control-sm" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setCurrentPage(1); }} />
+          </div>
         </div>
       </div>
       {renderOrderList()}

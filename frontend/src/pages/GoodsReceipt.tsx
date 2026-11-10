@@ -45,6 +45,17 @@ const STATUS_META: Record<string, { label: string; className: string }> = {
   canceled: { label: 'キャンセル', className: 'receipt-status-badge status-canceled' },
 };
 
+// ローカル日付(YYYY-MM-DD)。入庫予定の期間フィルタの既定値(今日以降)に使う
+const todayLocal = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+};
+
+const defaultFilters = (): Record<string, string> => ({
+  status: 'pending',
+  expected_arrival_from: todayLocal(),
+});
+
 const GoodsReceipt: React.FC = () => {
   const [purchaseOrders, setPurchaseOrders] = useState<any[]>([]);
   const [pagination, setPagination] = useState<{
@@ -65,9 +76,7 @@ const GoodsReceipt: React.FC = () => {
   const [displaySettings, setDisplaySettings] = useState<any[]>([]);
   const [searchFields, setSearchFields] = useState<any[]>([]);
 
-  const [filters, setFilters] = useState<Record<string, string>>({
-    status: 'pending',
-  });
+  const [filters, setFilters] = useState<Record<string, string>>(defaultFilters);
 
   // 入庫処理モーダル
   const [receiptModal, setReceiptModal] = useState<{
@@ -215,7 +224,7 @@ const GoodsReceipt: React.FC = () => {
   };
 
   const handleClearFilters = () => {
-    setFilters({ status: 'pending' });
+    setFilters(defaultFilters());
   };
 
   const handleSearch = () => {
@@ -521,6 +530,32 @@ const GoodsReceipt: React.FC = () => {
               </div>
             );
           })}
+          <div className="receipt-search-field">
+            <label className="receipt-search-label" htmlFor="search-expected_arrival_from">
+              入荷予定日（開始）
+            </label>
+            <input
+              id="search-expected_arrival_from"
+              type="date"
+              name="expected_arrival_from"
+              value={filters.expected_arrival_from || ''}
+              onChange={handleFilterChange}
+              className="form-control form-control-sm"
+            />
+          </div>
+          <div className="receipt-search-field">
+            <label className="receipt-search-label" htmlFor="search-expected_arrival_to">
+              入荷予定日（終了）
+            </label>
+            <input
+              id="search-expected_arrival_to"
+              type="date"
+              name="expected_arrival_to"
+              value={filters.expected_arrival_to || ''}
+              onChange={handleFilterChange}
+              className="form-control form-control-sm"
+            />
+          </div>
           <div className="receipt-search-actions">
             <button type="button" onClick={handleSearch} className="btn btn-primary btn-sm fw-bold px-3">
               検索
