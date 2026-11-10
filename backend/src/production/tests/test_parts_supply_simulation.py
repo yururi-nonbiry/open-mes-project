@@ -238,3 +238,59 @@ class IntermediateIncomingSimulationTests(ProductionAPITestBase):
         response = self.client.get(self.url, {"plan_ids": f"{supply.id},{demand.id}"})
         incoming = next(p for p in response.data["parts"] if p["part_code"] == self.intermediate.code)
         self.assertTrue(incoming["incoming_plans"][0]["at_risk"])
+
+
+class PartsSupplySimulationPurposeTests(ProductionAPITestBase):
+    """PSS-12〜: 計画の用途に応じた在庫の使い分け(その用途→汎用の順。他の用途は使わない)。"""
+
+    def setUp(self):
+        super().setUp()
+        from master.models import StockPurpose
+
+        StockPurpose.objects.create(code="PRD-A", name="A製品用")
+        StockPurpose.objects.create(code="PRD-B", name="B製品用")
+        self.url = reverse("production_api:parts-supply-simulation")
+        self.now = timezone.now()
+
+    def _plan(self, name, required, days=0, **kwargs):
+        plan = self.create_plan(
+            plan_name=name, planned_start_datetime=self.now + timezone.timedelta(days=days), status="PENDING", **kwargs
+        )
+        self.create_plan_material(plan, required_quantity=required)
+        return plan
+
+    def _run(self, *plans):
+        response = self.client.get(self.url, {"plan_ids": ",".join(str(p.id) for p in plans)})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        return {p["plan_name"]: p for p in response.data["plans"]}, response.data["parts"][0]
+
+    def test_pss_12_counts_only_own_purpose_and_generic_stock(self):
+        self.create_inventory(location="A-01", quantity=4, purpose="PRD-A")
+        self.create_inventory(location="A-01", quantity=10)
+        self.create_inventory(location="A-01", quantity=100, purpose="PRD-B")
+        ok_plan = self._plan("OK", 14, purpose="PRD-A")
+        plans, _ = self._run(ok_plan)
+        self.assertTrue(plans["OK"]["feasible"])
+
+        short_plan = self._plan("Short", 15, days=1, purpose="PRD-A")
+        plans, part = self._run(short_plan)
+        self.assertFalse(plans["Short"]["feasible"])
+        self.assertEqual(plans["Short"]["limiting_parts"][0]["shortage_quantity"], 1)  # B の100は使えない
+        self.assertEqual(part["available_quantity"], 14)
+
+    def test_pss_13_purposed_stock_is_used_first_leaving_generic_for_later_plans(self):
+        self.create_inventory(location="A-01", quantity=4, purpose="PRD-A")
+        self.create_inventory(location="A-01", quantity=5)
+        plan_a = self._plan("A-plan", 6, purpose="PRD-A")  # 用途A 4 + 汎用 2
+        plan_n = self._plan("N-plan", 5, days=1)  # 汎用は残り3 → 不足2
+        plans, _ = self._run(plan_a, plan_n)
+        self.assertTrue(plans["A-plan"]["feasible"])
+        self.assertFalse(plans["N-plan"]["feasible"])
+        self.assertEqual(plans["N-plan"]["limiting_parts"][0]["shortage_quantity"], 2)
+
+    def test_pss_14_plan_without_purpose_cannot_use_purposed_stock(self):
+        self.create_inventory(location="A-01", quantity=10, purpose="PRD-A")
+        plan = self._plan("N-plan", 5)
+        plans, _ = self._run(plan)
+        self.assertFalse(plans["N-plan"]["feasible"])
+        self.assertEqual(plans["N-plan"]["limiting_parts"][0]["shortage_quantity"], 5)

@@ -157,6 +157,9 @@
 | PSS-09 | 異常系 | `GET parts-supply-simulation/` | 開始後に終わる生産計画、保留中の生産計画 | 同上 | 200、どちらも数えず不足20 | |
 | PSS-10 | 正常系 | `GET parts-supply-simulation/` | 在庫0、計画A(5)→生産予定10入荷→計画B(5) | A・Bを指定 | Aは不足、Bは生産可能、部品の不足数量5 | 入荷分はまず不足の穴埋めに充てる |
 | PSS-11 | 正常系 | `GET parts-supply-simulation/` | 入荷見込みの生産計画自身が材料不足 | 両計画を指定 | 使う側は生産可能だが`incoming_plans[].at_risk=True` | |
+| PSS-12 | 正常系/異常系 | `GET parts-supply-simulation/` | 用途A(4)・用途B(100)・汎用(10)の在庫、用途Aの計画 | 所要14／15 | 14は生産可能、15は不足1（用途Bの在庫は使わない）。`available_quantity`は使える在庫（14）のみ | `production/tests/test_parts_supply_simulation.py` |
+| PSS-13 | 正常系 | `GET parts-supply-simulation/` | 用途A(4)・汎用(5)の在庫、用途Aの計画(所要6)→用途なしの計画(所要5) | 両計画を指定 | 用途Aの計画は用途A4+汎用2を使い、後の計画は汎用の残り3で不足2 | 用途の在庫を先に使う |
+| PSS-14 | 異常系 | `GET parts-supply-simulation/` | 用途Aの在庫(10)のみ、用途なしの計画(所要5) | 計画を指定 | 不足5（用途なしの計画は汎用のみ使える） | |
 
 ### 5.9 生産計画の所要部品（`ProductionPlanMaterialViewSet`・`signals.py`、`production/tests/test_plan_materials.py`）
 

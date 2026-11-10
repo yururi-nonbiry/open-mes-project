@@ -62,12 +62,16 @@ def simulate_parts_supply(plans):
     part_codes = {m.material_id for values in materials_by_plan.values() for m in values}
     items_map = {item.code: item for item in Item.objects.filter(code__in=part_codes)}
 
-    # (part_code, warehouse) -> 利用可能数量。warehouse指定が無いPartsUsed用に、
-    # part_codeのみをキーにした全倉庫合計も別途保持する(表示用)。
+    # (part_code, warehouse, purpose) -> 利用可能数量。purpose が None は汎用の在庫。
+    # 計画が使える在庫は「計画の用途の在庫」と「汎用の在庫」だけなので、対象の計画のどれかが使える用途の在庫のみ数える。
+    # part_codeのみをキーにした合計も別途保持する(表示用)。
+    usable_purposes = {None} | {plan.purpose for plan in plans}
     available_by_part_warehouse = defaultdict(int)
     available_by_part_total = defaultdict(int)
     for inv in Inventory.objects.filter(part_number_rel_id__in=part_codes, is_active=True, is_allocatable=True):
-        available_by_part_warehouse[(inv.part_number, inv.warehouse)] += inv.available_quantity
+        if inv.purpose not in usable_purposes:
+            continue
+        available_by_part_warehouse[(inv.part_number, inv.warehouse, inv.purpose)] += inv.available_quantity
         available_by_part_total[inv.part_number] += inv.available_quantity
 
     # 計画を日付順に処理しながら実際に在庫を減らしていく残数。倉庫指定ありの需要と倉庫指定なしの
@@ -101,7 +105,8 @@ def simulate_parts_supply(plans):
             quantity = supply_plan.planned_quantity
             paid = min(cumulative_shortage[key], quantity)
             cumulative_shortage[key] -= paid
-            remaining_by_part_warehouse[key] += quantity - paid
+            # 生産された中間品は汎用の在庫として入荷する
+            remaining_by_part_warehouse[(part_code, None, None)] += quantity - paid
             incoming_counted[part_code].append(
                 {
                     "plan_id": supply_plan.id,
@@ -114,27 +119,32 @@ def simulate_parts_supply(plans):
 
     def resolve_available(part_code, warehouse):
         if warehouse:
-            return available_by_part_warehouse.get((part_code, warehouse), 0)
+            return sum(
+                qty
+                for (code, wh, _purpose), qty in available_by_part_warehouse.items()
+                if code == part_code and wh == warehouse
+            )
         return available_by_part_total.get(part_code, 0)
 
-    def consume(part_code, warehouse, quantity):
-        """在庫残数から quantity を消費し、不足した数量を返す。"""
+    def consume(part_code, warehouse, quantity, purpose=None):
+        """
+        在庫残数から quantity を消費し、不足した数量を返す。
+        使える在庫は計画の用途の在庫と汎用の在庫だけで、用途の在庫を先に使う。
+        同じ用途の中では残数の多い倉庫から順に消費する
+        (倉庫指定ありの後続需要のために、特定倉庫の在庫を使い切りにくくする)。
+        """
         if quantity <= 0:
             return 0
-        if warehouse:
-            key = (part_code, warehouse)
-            take = min(remaining_by_part_warehouse[key], quantity)
-            remaining_by_part_warehouse[key] -= take
-            return quantity - take
-        # 倉庫指定なしの需要は、残数の多い倉庫から順に消費する
-        # (倉庫指定ありの後続需要のために、特定倉庫の在庫を使い切りにくくする)
         candidates = sorted(
             (
                 key
                 for key in remaining_by_part_warehouse
-                if key[0] == part_code and remaining_by_part_warehouse[key] > 0
+                if key[0] == part_code
+                and (not warehouse or key[1] == warehouse)
+                and key[2] in {purpose, None}
+                and remaining_by_part_warehouse[key] > 0
             ),
-            key=lambda key: (-remaining_by_part_warehouse[key], str(key[1])),
+            key=lambda key: (key[2] is None, -remaining_by_part_warehouse[key], str(key[1])),
         )
         unmet = quantity
         for key in candidates:
@@ -163,7 +173,7 @@ def simulate_parts_supply(plans):
             already_allocated = allocated_map.get((plan.id, part_code), 0)
             remaining_required = max(material.required_quantity - already_allocated, 0)
             cumulative_required[key] += remaining_required
-            cumulative_shortage[key] += consume(part_code, warehouse, remaining_required)
+            cumulative_shortage[key] += consume(part_code, warehouse, remaining_required, plan.purpose)
 
             available = resolve_available(part_code, warehouse)
             item = items_map.get(part_code)
