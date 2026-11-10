@@ -20,6 +20,7 @@ from rest_framework.views import APIView
 from security.audit import log_event
 from security.models import AccessLog
 
+from . import feature_settings
 from .model_utils import CSV_IMPORT_FK_ALIASES, fk_alias_name
 from .models import AsyncTask, CsvColumnMapping, ModelDisplaySetting, QrCodeAction
 from .responses import VALIDATION_ERROR_MESSAGE, error_response
@@ -55,6 +56,38 @@ class AppInfoView(APIView):
                 "version": settings.VERSION,
             }
         )
+
+
+class FeatureOptionsView(APIView):
+    """
+    機能のON/OFF設定。参照はログインユーザー全員、変更は管理者のみ。
+    """
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [permissions.IsAuthenticated()]
+        return [permissions.IsAdminUser()]
+
+    @staticmethod
+    def _current():
+        return {name: feature_settings.get_feature_flag(name) for name in feature_settings.FEATURE_DEFAULTS}
+
+    def get(self, request, *args, **kwargs):
+        return Response(self._current())
+
+    def put(self, request, *args, **kwargs):
+        for name in feature_settings.FEATURE_DEFAULTS:
+            if name in request.data:
+                value = request.data[name]
+                if not isinstance(value, bool):
+                    return error_response(f"{name} は true / false で指定してください。")
+                feature_settings.set_feature_flag(name, value)
+                log_event(
+                    AccessLog.EventType.SETTINGS_CHANGED,
+                    request,
+                    detail={"setting": "feature_option", "operation": "update", "name": name, "value": value},
+                )
+        return Response(self._current())
 
 
 class HealthCheckView(APIView):

@@ -262,17 +262,24 @@ const GoodsReceipt: React.FC = () => {
       return;
     }
 
+    const location = receiptFormData.location.trim();
+    const registerDefaultLocation = await inventoryService.confirmRegisterDefaultLocation(
+      receiptModal.order,
+      location
+    );
+
     try {
       const result = await inventoryService.receivePurchaseOrder({
         purchase_order_id: receiptModal.order.id,
         received_quantity: receivedQuantity,
-        location: receiptFormData.location.trim(),
+        register_default_location: registerDefaultLocation,
+        location,
         warehouse: receiptFormData.warehouse.trim(),
         purpose: receiptFormData.purpose,
       });
       setReceiptModal(prev => ({
         ...prev,
-        success: `発注番号「${result.order_number || receiptModal.order.order_number}」の入庫処理が完了し、在庫へ反映されました。`,
+        success: `発注番号「${result.order_number || receiptModal.order.order_number}」の入庫処理が完了し、在庫へ反映されました。${result.default_location_registered ? `デフォルト入庫棚番に「${location}」を登録しました。` : ''}`,
       }));
       setTimeout(() => {
         closeReceiptModal();

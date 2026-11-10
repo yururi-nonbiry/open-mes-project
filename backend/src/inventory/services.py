@@ -16,7 +16,7 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from base.responses import INTERNAL_ERROR_MESSAGE, validation_error_body
-from master.models import StockPurpose, Warehouse
+from master.models import Item, StockPurpose, Warehouse
 
 from .models import Inventory, PurchaseOrder, Receipt, SalesOrder, StockMovement
 from .serializers import PurchaseOrderSerializer
@@ -444,6 +444,25 @@ def receive_purchase_order(purchase_order_id, received_quantity, warehouse, loca
             po.status = PurchaseOrder.Status.PARTIALLY_RECEIVED
         po.save()
         return po
+
+
+def register_item_default_location(part_number, warehouse, location):
+    """
+    品番マスタのデフォルト入庫棚番が未登録の場合に限り、入庫した棚番(と未登録ならデフォルト倉庫)を登録する。
+    既に登録済みの場合は上書きしない。登録した場合は True を返す。
+    """
+    if not (part_number and location):
+        return False
+    item = Item.objects.filter(code=part_number).first()
+    if item is None or item.default_location:
+        return False
+    item.default_location = location
+    update_fields = ["default_location"]
+    if warehouse and not item.default_warehouse:
+        item.default_warehouse = warehouse
+        update_fields.append("default_warehouse")
+    item.save(update_fields=update_fields)
+    return True
 
 
 # --- 入庫予定の一括登録・更新(外部連携) ---

@@ -67,6 +67,11 @@ export interface DisplaySetting {
     search_order: number;
 }
 
+export interface FeatureOptions {
+    /** 入庫時、デフォルト入庫棚番が未登録なら登録するか確認する */
+    confirm_register_default_location: boolean;
+}
+
 const inventoryService = {
     getInventories: async (params: URLSearchParams) => {
         const response = await authFetch(`/api/inventory/inventories/?${params.toString()}`);
@@ -144,12 +149,51 @@ const inventoryService = {
         location: string;
         /** 用途コード。空文字は汎用。省略すると発注の用途を引き継ぐ。 */
         purpose?: string;
+        /** true なら、品番のデフォルト入庫棚番が未登録のときに入庫した棚番を登録する。 */
+        register_default_location?: boolean;
     }) =>
-        apiRequest<{ message: string; order_number: string }>(
+        apiRequest<{ message: string; order_number: string; default_location_registered?: boolean }>(
             '/api/inventory/purchase-orders/process-receipt/',
             { method: 'POST', body: JSON.stringify(payload) },
             '入庫処理に失敗しました。'
         ),
+
+    /** 機能のON/OFF設定。取得に失敗した場合は確認しない(false)側に倒す。 */
+    getFeatureOptions: async (): Promise<FeatureOptions> => {
+        try {
+            const response = await authFetch('/api/base/feature-options/');
+            if (!response.ok) return { confirm_register_default_location: false };
+            return await response.json() as FeatureOptions;
+        } catch {
+            return { confirm_register_default_location: false };
+        }
+    },
+
+    /** 機能のON/OFF設定の更新(管理者のみ)。失敗時は ApiError を送出する。 */
+    updateFeatureOptions: (payload: Partial<FeatureOptions>) =>
+        apiRequest<FeatureOptions>(
+            '/api/base/feature-options/',
+            { method: 'PUT', body: JSON.stringify(payload) },
+            '設定の保存に失敗しました。'
+        ),
+
+    /**
+     * 入庫時に、入庫した棚番を品番のデフォルト入庫棚番として登録するか確認する。
+     * 確認が不要(設定OFF・棚番なし・既に登録済み)な場合や、登録しない場合は false を返す。
+     */
+    confirmRegisterDefaultLocation: async (
+        order: { part_number?: string | null; item_default_location?: string | null },
+        location: string
+    ): Promise<boolean> => {
+        // item_default_location: null=品番なし、''=未登録、それ以外=登録済み
+        if (!location || order.item_default_location !== '') return false;
+        const options = await inventoryService.getFeatureOptions();
+        if (!options.confirm_register_default_location) return false;
+        return window.confirm(
+            `品番「${order.part_number ?? ''}」のデフォルト入庫棚番が未登録です。\n` +
+            `今回の棚番「${location}」をデフォルト入庫棚番として登録しますか？`
+        );
+    },
 
     /** 入庫予定の納品日・納品数の更新(記録のみで在庫には反映しない)。失敗時は ApiError を送出する。 */
     updatePurchaseOrderDelivery: (

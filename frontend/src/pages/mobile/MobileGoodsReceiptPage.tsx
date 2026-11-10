@@ -219,15 +219,19 @@ const MobileGoodsReceiptPage = () => {
       return;
     }
 
+    const location = receiptFormData.location.trim();
+    const registerDefaultLocation = await inventoryService.confirmRegisterDefaultLocation(selectedOrder as any, location);
+
     try {
       const result = await inventoryService.receivePurchaseOrder({
         purchase_order_id: selectedOrder.id,
         received_quantity: receivedQuantity,
-        location: receiptFormData.location.trim(),
+        register_default_location: registerDefaultLocation,
+        location,
         warehouse: receiptFormData.warehouse.trim(),
         purpose: receiptFormData.purpose,
       });
-      setFormSuccess(`発注 ${result.order_number} の入庫処理が正常に完了しました。`);
+      setFormSuccess(`発注 ${result.order_number} の入庫処理が正常に完了しました。${result.default_location_registered ? `デフォルト入庫棚番に「${location}」を登録しました。` : ''}`);
       setTimeout(() => {
         closeReceiptForm();
         fetchPurchaseOrders(); // Refresh data

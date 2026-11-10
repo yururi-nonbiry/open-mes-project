@@ -241,7 +241,7 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
             if value:
                 filters &= Q(**{field_lookup: value})
 
-        return PurchaseOrder.objects.filter(filters).order_by(
+        return PurchaseOrder.objects.filter(filters).select_related("part_number_rel").order_by(
             F("expected_arrival").asc(nulls_last=True), "order_number"
         )
 
@@ -278,10 +278,18 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
             )
         except services.InventoryServiceError as e:
             return error_response(e.message, e.status_code)
+        registered = False
+        if request.data.get("register_default_location") is True:
+            registered = services.register_item_default_location(
+                po.part_number,
+                str(request.data.get("warehouse") or "").strip() or po.warehouse,
+                str(request.data.get("location") or "").strip() or po.location,
+            )
         return Response(
             {
                 "message": f"発注 {po.order_number} の入庫処理が正常に完了しました。",
                 "order_number": po.order_number,
+                "default_location_registered": registered,
             },
             status=status.HTTP_200_OK,
         )

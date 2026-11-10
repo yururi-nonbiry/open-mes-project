@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import inventoryService from '../services/inventoryService';
+import { ApiError } from '../utils/api';
 import {
   WORKFLOW_TRACKS,
   NavIcon,
@@ -37,6 +39,31 @@ const VISIBILITY_OPTIONS: { value: FlowVisibility; label: string; icon: string; 
 const FeatureSettings: React.FC = () => {
   const [settings, setSettings] = useState<WorkflowFeatureSettings>(getWorkflowFeatureSettings);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+
+  // 入庫時のデフォルト棚番登録の確認(サーバー側に保存。全端末・全ユーザーに適用)
+  const [confirmDefaultLocation, setConfirmDefaultLocation] = useState<boolean | null>(null);
+  const [optionMessage, setOptionMessage] = useState<{ type: 'success' | 'danger'; text: string } | null>(null);
+
+  useEffect(() => {
+    inventoryService.getFeatureOptions().then((o) => setConfirmDefaultLocation(o.confirm_register_default_location));
+  }, []);
+
+  const handleConfirmDefaultLocationChange = async (enabled: boolean) => {
+    setOptionMessage(null);
+    try {
+      const result = await inventoryService.updateFeatureOptions({ confirm_register_default_location: enabled });
+      setConfirmDefaultLocation(result.confirm_register_default_location);
+      setOptionMessage({
+        type: 'success',
+        text: `入庫時のデフォルト棚番登録の確認を${enabled ? 'ON' : 'OFF'}にしました。`,
+      });
+    } catch (err) {
+      setOptionMessage({
+        type: 'danger',
+        text: err instanceof ApiError ? err.message : '設定の保存中に通信エラーが発生しました。',
+      });
+    }
+  };
 
   const handleVisibilityChange = (trackId: FlowTrackId, value: FlowVisibility) => {
     setSettings((prev) => ({
@@ -90,6 +117,35 @@ const FeatureSettings: React.FC = () => {
             </Link>
           </div>
         )}
+
+        <div className="card shadow-sm mb-4">
+          <div className="card-body">
+            <h5 className="fw-bold mb-2">入庫時のデフォルト棚番登録の確認</h5>
+            <p className="text-muted small mb-3">
+              ONにすると、入庫時に品番のデフォルト入庫棚番が未登録の場合、入庫した棚番を登録するか確認します。
+              この設定は保存ボタンを待たず、切り替えた時点でシステム全体（PC・スマホ）に反映されます。
+            </p>
+            <div className="form-check form-switch">
+              <input
+                className="form-check-input"
+                type="checkbox"
+                role="switch"
+                id="confirm-default-location"
+                checked={!!confirmDefaultLocation}
+                disabled={confirmDefaultLocation === null}
+                onChange={(e) => handleConfirmDefaultLocationChange(e.target.checked)}
+              />
+              <label className="form-check-label fw-bold" htmlFor="confirm-default-location">
+                {confirmDefaultLocation ? 'ON（確認する）' : 'OFF（確認しない）'}
+              </label>
+            </div>
+            {optionMessage && (
+              <div className={`alert alert-${optionMessage.type} mt-3 mb-0 py-2`} role="alert">
+                {optionMessage.text}
+              </div>
+            )}
+          </div>
+        </div>
 
         <form onSubmit={handleSave}>
           <div className="feature-flow-cards-list">

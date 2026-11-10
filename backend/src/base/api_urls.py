@@ -3,6 +3,7 @@ from rest_framework.routers import DefaultRouter
 
 from .api import (
     AppInfoView,
+    FeatureOptionsView,
     CsvColumnMappingViewSet,
     HealthCheckView,
     ModelDisplaySettingViewSet,
@@ -19,6 +20,7 @@ router.register(r"qr-code-actions", QrCodeActionViewSet, basename="qr-code-actio
 
 urlpatterns = [
     path("info/", AppInfoView.as_view(), name="app-info"),
+    path("feature-options/", FeatureOptionsView.as_view(), name="feature-options"),
     path("health/", HealthCheckView.as_view(), name="health-check"),
     path("model-fields/", ModelFieldsView.as_view(), name="model-fields"),
     path(
