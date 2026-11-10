@@ -9,6 +9,10 @@ const GoodsIssue: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [keyword, setKeyword] = useState('');
+  const [committedKeyword, setCommittedKeyword] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
 
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -24,19 +28,36 @@ const GoodsIssue: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await inventoryService.getIssuableSalesOrders({ status: 'pending' });
+      const data = await inventoryService.getIssuableSalesOrders({
+        status: 'pending',
+        page: currentPage,
+        q: committedKeyword.trim() || undefined,
+      });
       setSalesOrders(data.results || []);
+      setTotalPages(data.total_pages || 1);
+      setTotalCount(data.count || 0);
     } catch (e) {
       setError('出庫待ち受注データの読み込みに失敗しました。');
       console.error('Fetch error:', e);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentPage, committedKeyword]);
 
   useEffect(() => {
     fetchSalesOrders();
   }, [fetchSalesOrders]);
+
+  // 検索語はサーバー側で絞り込む(入力が止まってから反映し、1ページ目に戻す)
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setCommittedKeyword(prev => {
+        if (prev !== keyword) setCurrentPage(1);
+        return keyword;
+      });
+    }, 400);
+    return () => clearTimeout(t);
+  }, [keyword]);
 
   const openModal = (order: any) => {
     setSelectedOrder(order);
@@ -94,15 +115,7 @@ const GoodsIssue: React.FC = () => {
     return dateString.split('T')[0];
   };
 
-  const filteredOrders = salesOrders.filter(o => {
-    if (!keyword.trim()) return true;
-    const q = keyword.trim().toLowerCase();
-    return (
-      (o.order_number || '').toLowerCase().includes(q) ||
-      (o.item || '').toLowerCase().includes(q) ||
-      (o.warehouse || '').toLowerCase().includes(q)
-    );
-  });
+  const filteredOrders = salesOrders;
 
   const renderTableBody = () => {
     if (loading) {
@@ -199,7 +212,7 @@ const GoodsIssue: React.FC = () => {
             )}
           </div>
           <span className="receipt-result-count ms-auto">
-            出庫待ち件数：<strong>{filteredOrders.length}</strong> 件
+            出庫待ち件数：<strong>{totalCount}</strong> 件
           </span>
         </div>
       </div>
@@ -222,6 +235,28 @@ const GoodsIssue: React.FC = () => {
             <tbody>{renderTableBody()}</tbody>
           </table>
         </div>
+      </div>
+
+      <div className="pagination-controls d-flex justify-content-center align-items-center mt-3">
+        <button
+          type="button"
+          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+          className="btn btn-outline-primary btn-sm"
+          disabled={currentPage <= 1 || loading}
+        >
+          ← 前へ
+        </button>
+        <span className="mx-3 small fw-semibold text-secondary">
+          {totalCount > 0 ? `ページ ${currentPage} / ${totalPages} （全 ${totalCount} 件）` : '0 件'}
+        </span>
+        <button
+          type="button"
+          onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+          className="btn btn-outline-primary btn-sm"
+          disabled={currentPage >= totalPages || loading}
+        >
+          次へ →
+        </button>
       </div>
 
       {selectedOrder && (

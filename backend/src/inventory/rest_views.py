@@ -342,6 +342,7 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
                 Q(order_number__icontains=search_q)
                 | Q(item_rel__code__icontains=search_q)
                 | Q(item_rel__name__icontains=search_q)
+                | Q(warehouse_rel__warehouse_number__icontains=search_q)
             )
 
         queryset = SalesOrder.objects.filter(filters)

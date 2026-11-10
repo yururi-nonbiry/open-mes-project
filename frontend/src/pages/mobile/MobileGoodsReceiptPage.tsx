@@ -16,6 +16,11 @@ const MobileGoodsReceiptPage = () => {
   // State for search
   const [searchTerm, setSearchTerm] = useState('');
 
+  // State for pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+
   // State for the receipt processing form (acting as a modal)
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [receiptFormData, setReceiptFormData] = useState({ received_quantity: '', location: '', warehouse: '' });
@@ -42,6 +47,7 @@ const MobileGoodsReceiptPage = () => {
       // General search for mobile view
       params.append('search_q', searchTerm);
     }
+    params.append('page', String(currentPage));
     params.append('search_status', 'receivable'); // 未入庫と、残数量のある一部入庫を対象にする
     const apiUrl = `/api/inventory/purchase-orders/?${params.toString()}`;
 
@@ -52,13 +58,15 @@ const MobileGoodsReceiptPage = () => {
       }
       const data = await response.json();
       setPurchaseOrders(data.results);
+      setTotalPages(data.total_pages || 1);
+      setTotalCount(data.count || 0);
     } catch (err) {
       setError('入庫予定データの取得中にエラーが発生しました。');
       console.error('Error fetching purchase order data:', err);
     } finally {
       setIsLoading(false);
     }
-  }, [searchTerm]);
+  }, [searchTerm, currentPage]);
 
   // Initial data fetch and on search term change (debounced)
   useEffect(() => {
@@ -292,11 +300,18 @@ const MobileGoodsReceiptPage = () => {
       <h2 className="page-title">入庫処理</h2>
       <div className="mb-3">
         <div className="input-group">
-          <input type="search" className="form-control" placeholder="発注番号などで検索..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+          <input type="search" className="form-control" placeholder="発注番号などで検索..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} />
           <button className="btn btn-outline-secondary" type="button" onClick={() => startCameraScan(setSearchTerm)} title="カメラでスキャン" aria-label="カメラでスキャン"><CameraIcon /></button>
         </div>
       </div>
       {renderOrderList()}
+      {totalPages > 1 && (
+        <div className="d-flex justify-content-center align-items-center my-3">
+          <button type="button" className="btn btn-outline-primary btn-sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage <= 1 || isLoading}>← 前へ</button>
+          <span className="mx-3 small text-secondary">{currentPage} / {totalPages} （全 {totalCount} 件）</span>
+          <button type="button" className="btn btn-outline-primary btn-sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage >= totalPages || isLoading}>次へ →</button>
+        </div>
+      )}
       {renderReceiptForm()}
 
       {/* Camera View */}
