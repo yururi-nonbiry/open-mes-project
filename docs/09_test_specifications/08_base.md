@@ -82,6 +82,7 @@
 | BASE-MODELFIELDS-05 | 異常系 | `GET base/model-fields/` | 一般ユーザー | 呼び出し | 403 | `IsAdminUser` |
 | BASE-MODELFIELDS-06 | 正常系 | `GET base/model-fields/?data_type=purchase_order` | 管理者 | 取得 | 200、外部キー（仕入先・品番・入庫倉庫）は含まれない | CSVマッピング設定は実フィールド名を前提とするため、既定では外部キーを返さない |
 | BASE-MODELFIELDS-07 | 正常系 | `GET base/model-fields/?data_type=purchase_order&include_relations=true` | 管理者 | 取得 | 200、別名を持つ外部キーが別名（`supplier`/`part_number`/`warehouse`）で返り、実フィールド名（`supplier_rel`）は含まれない。別名を持たない外部キー（入庫実績の`operator`/`purchase_order`）は含まれない | 一覧画面の表示設定用 |
+| BASE-MODELFIELDS-08 | 正常系 | `GET base/model-fields/?data_type=purchase_order`（受注・生産計画も同様） | 管理者 | 取得（`include_relations`なし） | 200、CSVマッピング用に用途コード（別名`purpose`）が含まれる。実フィールド名`purpose_rel`・品番等の外部キーは含まれない。他のデータ種別（品目等）には含まれない | `base/tests/test_model_fields.py` |
 
 ### 5.3 CSV列マッピング CRUD（`CsvColumnMappingViewSet`、`base/tests/test_csv_column_mapping.py`）
 
@@ -238,3 +239,11 @@
    `action_mark_as_received`/`action_update_inventory`（`api.py:275-282`）はいずれもQRデータをそのまま
    返すだけの仮実装であり、実際の在庫・入庫データへの反映は行われない。本書のテスト
    （BASE-QREXEC-01）はディスパッチ（正規表現マッチ・アクション呼び出し自体）の検証に留めている。
+
+### CSVインポートの用途コード列（`base/tests/test_import_csv_task.py`）
+
+| ケースID | 分類 | 前提条件 | 入力 | 期待結果 | 備考 |
+|---|---|---|---|---|---|
+| BASE-IMPORTTASK-10 | 正常系 | 発注にマッピング（`purpose`）を設定 | 用途コードあり／空欄の行 | 用途コードが設定される。空欄は用途なし（汎用） | 発注・受注・生産計画で取込可 |
+| BASE-IMPORTTASK-11 | 異常系 | 同上 | 存在しない／無効な用途コードの行 | その行のみエラー（他の行は取り込まれる） | |
+| BASE-IMPORTTASK-12 | 異常系 | 引当済みの受注と未引当の受注が既存 | 別の用途コードで上書き | 引当済みの受注の行はエラーで用途は変わらない。未引当は更新される | 生産計画も材料の引当がある場合は同様 |

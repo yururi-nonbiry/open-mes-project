@@ -20,7 +20,7 @@ from rest_framework.views import APIView
 from security.audit import log_event
 from security.models import AccessLog
 
-from .model_utils import fk_alias_name
+from .model_utils import CSV_IMPORT_FK_ALIASES, fk_alias_name
 from .models import AsyncTask, CsvColumnMapping, ModelDisplaySetting, QrCodeAction
 from .responses import VALIDATION_ERROR_MESSAGE, error_response
 from .serializers import CsvColumnMappingSerializer, ModelDisplaySettingSerializer, QrCodeActionSerializer
@@ -130,6 +130,20 @@ class ModelFieldsView(APIView):
                     "help_text": str(field.help_text),
                 }
             )
+        if not include_relations:
+            # CSVマッピングで選べる外部キー項目(用途コード)を、別名で追加する
+            for alias, fk_name in CSV_IMPORT_FK_ALIASES.get(data_type, {}).items():
+                fk_field = model._meta.get_field(fk_name)
+                fields_data.append(
+                    {
+                        "name": alias,
+                        "verbose_name": str(fk_field.verbose_name),
+                        "field_type": "CharField",
+                        "is_required": False,
+                        "default_value": None,
+                        "help_text": "用途マスタの用途コード(空欄は汎用)",
+                    }
+                )
         return Response(fields_data)
 
 

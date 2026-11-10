@@ -10,6 +10,9 @@ from django.core.exceptions import FieldDoesNotExist
 from django.db import models
 from django.utils import timezone
 
+from master.models import StockPurpose
+
+from .model_utils import CSV_IMPORT_FK_ALIASES
 from .models import DATA_TYPE_MODEL_MAPPING, AsyncTask, CsvColumnMapping
 
 
@@ -51,6 +54,27 @@ def _convert_value(field_obj, value):
     if isinstance(field_obj, models.BooleanField):
         return value.lower() in ["true", "1", "yes", "t", "はい"]
     return value
+
+
+def _check_purpose(model, data_type, update_kwargs, defaults_data):
+    """用途コードの存在・有効性と、引当済みの受注・計画の用途変更を確認し、問題があればメッセージを返す。"""
+    purpose = defaults_data.get("purpose")
+    if purpose is None:
+        return None
+    if not StockPurpose.objects.filter(code=purpose, is_active=True).exists():
+        return f"用途 '{purpose}' が存在しないか、無効です。"
+    # 引当のある受注・生産計画は、引当と同じ用途の在庫を動かす必要があるため用途を変更できない
+    existing = model.objects.filter(**update_kwargs).first()
+    if existing is None or existing.purpose == purpose:
+        return None
+    if data_type == "sales_order" and existing.reserved_quantity > 0:
+        return "引当済みの受注は用途を変更できません。"
+    if data_type == "production_plan":
+        from production.services.materials import normal_allocations
+
+        if normal_allocations(existing.material_allocations.all()).exists():
+            return "材料の引当がある生産計画の用途は変更できません。"
+    return None
 
 
 def _is_revoked(task_id):
@@ -98,11 +122,16 @@ def import_csv_task(self, data_type, file_path):
                 f"{', '.join(sorted(protected))}"
             )
 
+        fk_aliases = CSV_IMPORT_FK_ALIASES.get(data_type, {})
         field_objs = {}
         for model_field_name in header_to_model_map.values():
             try:
                 field_objs[model_field_name] = model._meta.get_field(model_field_name)
             except FieldDoesNotExist:
+                if model_field_name in fk_aliases:
+                    # 外部キーの別名(用途コード)は、外部キーの実フィールド(<別名>_rel)の値(コード)として扱う
+                    field_objs[model_field_name] = model._meta.get_field(fk_aliases[model_field_name])
+                    continue
                 raise Exception(f"マッピング設定の項目 '{model_field_name}' は {model_string} に存在しません。")
 
         with open(file_path, "r", encoding="utf-8-sig") as f:
@@ -151,6 +180,12 @@ def import_csv_task(self, data_type, file_path):
                 else:
                     defaults_data = {k: v for k, v in model_data.items() if v is not None}
                     try:
+                        purpose_error = _check_purpose(model, data_type, update_kwargs, defaults_data)
+                        if purpose_error:
+                            raise ValueError(purpose_error)
+                        for alias, fk_name in fk_aliases.items():
+                            if alias in defaults_data:
+                                defaults_data[f"{fk_name}_id"] = defaults_data.pop(alias)
                         # 行全体を1つのトランザクションで囲まないことで、進捗(task.progress)が
                         # 取込中にも他の接続(進捗確認API)から見えるようにしている。
                         # update_or_create は内部で行単位のトランザクションを張る。

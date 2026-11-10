@@ -71,3 +71,15 @@ class ModelFieldsViewTests(APITestCase):
         self.client.force_authenticate(user=self.user)
         response = self.client.get(self.url, {"data_type": "item"})
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_base_modelfields_08_purpose_offered_for_csv_mapping(self):
+        """発注・受注・生産計画では、CSVマッピング用に用途コード(別名 purpose)を返す。品番等の外部キーは返さない。"""
+        self.client.force_authenticate(user=self.admin_user)
+        for data_type in ("purchase_order", "sales_order", "production_plan"):
+            response = self.client.get(self.url, {"data_type": data_type})
+            names = [f["name"] for f in response.data]
+            self.assertIn("purpose", names, data_type)
+            self.assertNotIn("purpose_rel", names, data_type)
+            self.assertNotIn("part_number", names, data_type)
+        names = [f["name"] for f in self.client.get(self.url, {"data_type": "item"}).data]
+        self.assertNotIn("purpose", names)

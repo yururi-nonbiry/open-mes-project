@@ -19,6 +19,15 @@ def fk_id_alias(fk_name):
     return property(getter, setter, doc=f"{attname} の別名")
 
 
+# CSVインポートで取り込める外部キー項目(CSVでは品番・倉庫などの外部キーは対象外だが、用途コードだけは
+# 発注・受注・生産計画の登録に使えるよう許可する)。{データ種別: {CSV項目名(別名): モデルの外部キーフィールド名}}
+CSV_IMPORT_FK_ALIASES = {
+    "purchase_order": {"purpose": "purpose_rel"},
+    "sales_order": {"purpose": "purpose_rel"},
+    "production_plan": {"purpose": "purpose_rel"},
+}
+
+
 def fk_alias_name(model, field):
     """
     fk_id_alias で別名を付けた ForeignKey (<別名>_rel) の別名を返す。該当しなければ None。

@@ -4,6 +4,7 @@ import authFetch, { describeError, handleError } from '../../utils/api';
 import inventoryService from '../../services/inventoryService';
 import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library';
 import CameraIcon from '../../components/common/CameraIcon';
+import { useStockPurposes } from '../../hooks/useStockPurposes';
 import './MobileLocationTransferPage.css'; // 新しいCSSファイルをインポート
 
 const MobileLocationTransferPage = () => {
@@ -23,8 +24,13 @@ const MobileLocationTransferPage = () => {
     selectedItem: null,
     transferQuantity: '',
     targetLocation: '',
+    // 用途変更(step === 'purpose')用
+    purposeQuantity: '',
+    purposeTo: '',
+    purposeReason: '',
     message: { text: '', type: '' },
   });
+  const stockPurposes = useStockPurposes();
 
   // カメラの状態
   const [cameraState, setCameraState] = useState({
@@ -126,8 +132,43 @@ const MobileLocationTransferPage = () => {
     }
   };
 
+  // 用途変更の実行処理(例: 緊急時にA製品用の在庫を汎用へ切り替える)
+  const handleExecutePurposeChange = async (e) => {
+    e.preventDefault();
+    const { selectedItem, purposeQuantity, purposeTo, purposeReason } = modalState;
+    const movable = selectedItem.quantity - selectedItem.reserved;
+    const quantity = parseInt(purposeQuantity, 10);
+    if (!quantity || quantity <= 0 || quantity > movable) {
+      showMessage(`変更数量は1〜${movable}（引当済みを除く）の範囲で入力してください。`, 'error', true);
+      return;
+    }
+    if (purposeTo === (selectedItem.purpose || '')) {
+      showMessage('変更前と同じ用途です。変更先の用途を選んでください。', 'error', true);
+      return;
+    }
+
+    setIsLoading(true);
+    showMessage('', '', true);
+    try {
+      const result = await inventoryService.changeInventoryPurpose(selectedItem.id, {
+        quantity,
+        purpose: purposeTo,
+        reason: purposeReason.trim(),
+      });
+      showMessage(result.message, 'success', true);
+      setTimeout(() => {
+        closeModal();
+        setSourceLocation('');
+      }, 1500);
+    } catch (error) {
+      showMessage(describeError(error) || 'サーバーとの通信に失敗しました。', 'error', true);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const closeModal = () => {
-    setModalState({ isOpen: false, step: 'selection', items: [], selectedItem: null, transferQuantity: '', targetLocation: '', message: { text: '', type: '' } });
+    setModalState({ isOpen: false, step: 'selection', items: [], selectedItem: null, transferQuantity: '', targetLocation: '', purposeQuantity: '', purposeTo: '', purposeReason: '', message: { text: '', type: '' } });
   };
 
   // --- Camera Scan Logic ---
@@ -247,7 +288,7 @@ const MobileLocationTransferPage = () => {
     return <div className={`alert mt-3 ${msg.type === 'error' ? 'alert-danger' : 'alert-success'}`}>{msg.text}</div>;
   };
 
-  const { isOpen: isModalOpen, step: modalStep, items, selectedItem, transferQuantity, targetLocation, message: modalMessage } = modalState;
+  const { isOpen: isModalOpen, step: modalStep, items, selectedItem, transferQuantity, targetLocation, purposeQuantity, purposeTo, purposeReason, message: modalMessage } = modalState;
 
   return (
     <div className="mobile-page-container">
@@ -311,7 +352,34 @@ const MobileLocationTransferPage = () => {
                 {renderMessage(modalMessage)}
                 <div className="d-grid gap-2 mt-4">
                   <button type="submit" className="btn btn-primary btn-lg" disabled={isLoading}>{isLoading ? '処理中...' : '移動実行'}</button>
+                  <button type="button" className="btn btn-outline-secondary" onClick={() => setModalState(p => ({ ...p, step: 'purpose', purposeQuantity: String(Math.max(0, selectedItem.quantity - selectedItem.reserved)), purposeTo: '', purposeReason: '', message: { text: '', type: '' } }))}>用途を変更する</button>
                   <button type="button" className="btn btn-secondary" onClick={closeModal}>キャンセル</button>
+                </div>
+              </form>
+            )}
+            {modalStep === 'purpose' && selectedItem && (
+              <form onSubmit={handleExecutePurposeChange}>
+                <div className="mb-3"><label className="form-label fw-bold">品番</label><p className="form-control-plaintext form-control-lg ps-2">{selectedItem.part_number}</p></div>
+                <div className="mb-3"><label className="form-label fw-bold">現在の用途</label><p className="form-control-plaintext form-control-lg ps-2">{selectedItem.purpose || '汎用'}</p></div>
+                <div className="mb-3">
+                  <label htmlFor="purposeQuantity" className="form-label fw-bold">変更数量（引当済みを除く最大 {selectedItem.quantity - selectedItem.reserved}）</label>
+                  <input type="number" id="purposeQuantity" name="purposeQuantity" className="form-control form-control-lg text-end" value={purposeQuantity} onChange={handleModalFormChange} min="1" max={selectedItem.quantity - selectedItem.reserved} required />
+                </div>
+                <div className="mb-3">
+                  <label htmlFor="purposeTo" className="form-label fw-bold">変更先の用途</label>
+                  <select id="purposeTo" name="purposeTo" className="form-select form-select-lg" value={purposeTo} onChange={handleModalFormChange}>
+                    <option value="">汎用（どの用途にも使える）</option>
+                    {stockPurposes.map(p => (<option key={p.code} value={p.code}>{p.code} - {p.name}</option>))}
+                  </select>
+                </div>
+                <div className="mb-3">
+                  <label htmlFor="purposeReason" className="form-label fw-bold">理由（任意）</label>
+                  <input type="text" id="purposeReason" name="purposeReason" className="form-control form-control-lg" value={purposeReason} onChange={handleModalFormChange} placeholder="例：緊急対応" />
+                </div>
+                {renderMessage(modalMessage)}
+                <div className="d-grid gap-2 mt-4">
+                  <button type="submit" className="btn btn-primary btn-lg" disabled={isLoading}>{isLoading ? '処理中...' : '用途を変更'}</button>
+                  <button type="button" className="btn btn-secondary" onClick={() => setModalState(p => ({ ...p, step: 'transfer', message: { text: '', type: '' } }))}>戻る</button>
                 </div>
               </form>
             )}
