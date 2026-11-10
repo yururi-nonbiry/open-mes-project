@@ -41,7 +41,7 @@ class StockMovementTests(InventoryAPITestBase):
     def test_sm_list_04_date_range_filter(self):
         from django.utils import timezone
 
-        today = timezone.now().date().isoformat()
+        today = timezone.localdate().isoformat()
         url = reverse("inventory_api:stockmovement-list")
         response = self.client.get(url, {"search_movement_date_from": today, "search_movement_date_to": today})
         self.assertEqual(response.status_code, status.HTTP_200_OK)

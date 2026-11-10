@@ -81,7 +81,7 @@ class PurchaseOrderCrudTests(InventoryAPITestBase):
         # order_date は auto_now_add のため今日の日付を含む範囲で検索できることを確認する
         from django.utils import timezone
 
-        today = timezone.now().date().isoformat()
+        today = timezone.localdate().isoformat()
         response = self.client.get(url, {"search_order_date_from": today, "search_order_date_to": today})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["count"], 2)

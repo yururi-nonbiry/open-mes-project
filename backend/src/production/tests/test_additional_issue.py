@@ -34,7 +34,7 @@ class AdditionalIssueTests(ProductionAPITestBase):
         self.assertEqual(allocation.allocation_type, "ADDITIONAL")
         self.assertEqual(allocation.status, "ISSUED")
         self.assertEqual(allocation.remarks, "ロス補填")
-        self.assertEqual(response.data["data"][0]["allocation_type_display"], "追加出庫")
+        self.assertEqual(response.data["data"][0]["allocation_type_display"], "追加ピッキング")
         self.assertTrue(
             StockMovement.objects.filter(
                 reference_document=f"MaterialAllocation-{allocation.id}", movement_type="used", quantity=3
