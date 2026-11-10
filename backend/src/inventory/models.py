@@ -38,6 +38,17 @@ class Inventory(models.Model):
     # 棚番なしは空文字で表す(NULLを許すと一意制約がNULL同士を区別せず、同じ品番・倉庫の
     # 「棚番なし」在庫が重複登録されてしまうため)。
     location = models.CharField(max_length=255, blank=True, default="", verbose_name="棚番")  # 倉庫や棚の場所
+    # 在庫の用途(何用の部品か)。空(NULL)は「汎用」で、どの用途にも使える在庫を表す。
+    purpose_rel = models.ForeignKey(
+        "master.StockPurpose",
+        to_field="code",
+        db_column="purpose",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        verbose_name="用途",
+    )
+    purpose = fk_id_alias("purpose_rel")
     first_received_at = models.DateTimeField(
         auto_now_add=True, null=True, verbose_name="初回入庫日時"
     )  # この棚にこの品番が初めて入庫した日時（引当・出庫のFIFO順序判定に使用、以降の補充では更新しない）
@@ -69,10 +80,17 @@ class Inventory(models.Model):
 
     class Meta:
         constraints = [
+            # 同じ品番・倉庫・棚でも用途が違えば別の在庫行として持てる。
+            models.UniqueConstraint(
+                fields=["part_number_rel", "warehouse_rel", "location", "purpose_rel"],
+                name="unique_inventory_part_warehouse_location_purpose",
+            ),
+            # NULL同士は一意制約で区別されないため、汎用(用途なし)の重複は条件付きで別途防ぐ。
             models.UniqueConstraint(
                 fields=["part_number_rel", "warehouse_rel", "location"],
-                name="unique_inventory_part_warehouse_location",
-            )
+                condition=models.Q(purpose_rel__isnull=True),
+                name="unique_inventory_part_warehouse_location_generic",
+            ),
         ]
 
 

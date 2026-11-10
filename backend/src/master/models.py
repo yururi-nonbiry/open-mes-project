@@ -101,6 +101,17 @@ class WarehouseLocation(models.Model):
         return f"{self.warehouse.warehouse_number} - {self.code}"
 
 
+# 在庫用途マスター(同じ品番の在庫を「何用の部品か」で区別して持つための区分)
+class StockPurpose(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)  # UUIDv7 を使用
+    code = models.CharField(max_length=50, unique=True, verbose_name="用途コード")
+    name = models.CharField(max_length=255, verbose_name="用途名")
+    is_active = models.BooleanField(default=True, verbose_name="有効フラグ")
+
+    def __str__(self):
+        return f"{self.code} - {self.name}"
+
+
 # 顧客マスター
 class Customer(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False)  # UUIDv7 を使用

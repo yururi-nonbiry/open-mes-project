@@ -2,7 +2,17 @@ from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator, UniqueValidator
 
 from .bom import creates_cycle
-from .models import BillOfMaterial, Customer, Item, Supplier, UnitCost, Warehouse, WarehouseLocation, WorkCenter
+from .models import (
+    BillOfMaterial,
+    Customer,
+    Item,
+    StockPurpose,
+    Supplier,
+    UnitCost,
+    Warehouse,
+    WarehouseLocation,
+    WorkCenter,
+)
 
 
 class ItemSerializer(serializers.ModelSerializer):
@@ -299,3 +309,23 @@ class BillOfMaterialCreateUpdateSerializer(serializers.ModelSerializer):
                 f"{material.code} は {product.code} を構成に含むため、{product.code} の部品にできません(循環参照)。"
             )
         return attrs
+
+
+class StockPurposeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StockPurpose
+        fields = ["id", "code", "name", "is_active"]
+        extra_kwargs = {
+            "code": {
+                "validators": [
+                    UniqueValidator(queryset=StockPurpose.objects.all(), message="この用途コードは既に使用されています。")
+                ],
+            },
+        }
+
+    def get_fields(self):
+        # code は Inventory 等から to_field 経由でFK参照されているため、作成後の変更は不可にする。
+        fields = super().get_fields()
+        if self.instance is not None:
+            fields["code"].read_only = True
+        return fields

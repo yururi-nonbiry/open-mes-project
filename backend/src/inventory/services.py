@@ -48,15 +48,21 @@ def lock_inventory_rows(part_number, warehouse):
     )
 
 
-def get_or_create_locked_inventory(part_number, warehouse, location=""):
-    """品番+倉庫+棚番の在庫を行ロックして取得する。無ければ数量0で作成する。"""
+def get_or_create_locked_inventory(part_number, warehouse, location="", purpose=None):
+    """
+    品番+倉庫+棚番+用途の在庫を行ロックして取得する。無ければ数量0で作成する。
+    purpose が None/空の場合は汎用(用途なし)の在庫を対象にする。
+    """
     location = location or ""
+    purpose = purpose or None
     try:
         return Inventory.objects.select_for_update().get(
-            part_number_rel_id=part_number, warehouse_rel_id=warehouse, location=location
+            part_number_rel_id=part_number, warehouse_rel_id=warehouse, location=location, purpose_rel_id=purpose
         )
     except Inventory.DoesNotExist:
-        return Inventory.objects.create(part_number=part_number, warehouse=warehouse, location=location, quantity=0)
+        return Inventory.objects.create(
+            part_number=part_number, warehouse=warehouse, location=location, purpose=purpose, quantity=0
+        )
 
 
 def reserve_fifo(rows, quantity):

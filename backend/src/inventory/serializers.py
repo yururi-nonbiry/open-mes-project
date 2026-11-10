@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from master.models import Item, Supplier, Warehouse
+from master.models import Item, StockPurpose, Supplier, Warehouse
 
 from .models import (  # StockMovement, SalesOrder, Receiptモデルをインポート
     Inventory,
@@ -167,6 +167,10 @@ class InventorySerializer(serializers.ModelSerializer):
     part_number = serializers.SlugRelatedField(source="part_number_rel", slug_field="code", queryset=Item.objects.all(), allow_null=True, required=False)
     warehouse = serializers.SlugRelatedField(source="warehouse_rel", slug_field="warehouse_number", queryset=Warehouse.objects.all(), allow_null=True, required=False)
     location = serializers.CharField(max_length=255, allow_blank=True, allow_null=True, required=False)
+    # 用途コード。空(null)は汎用(どの用途にも使える在庫)。
+    purpose = serializers.SlugRelatedField(
+        source="purpose_rel", slug_field="code", queryset=StockPurpose.objects.all(), allow_null=True, required=False
+    )
 
     def validate_location(self, value):
         return value or ""
@@ -181,6 +185,7 @@ class InventorySerializer(serializers.ModelSerializer):
             "reserved",
             "available_quantity",  # 利用可能在庫 (プロパティ)
             "location",
+            "purpose",
             "last_updated",
             "is_active",
             "is_allocatable",

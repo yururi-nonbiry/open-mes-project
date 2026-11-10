@@ -1,5 +1,6 @@
 from decimal import Decimal, InvalidOperation
 
+from django.db.models import ProtectedError
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -13,6 +14,7 @@ from .models import (  # master.models を直接参照
     BillOfMaterial,
     Customer,
     Item,
+    StockPurpose,
     Supplier,
     UnitCost,
     Warehouse,
@@ -26,6 +28,7 @@ from .serializers import (
     CustomerSerializer,
     ItemCreateUpdateSerializer,
     ItemSerializer,
+    StockPurposeSerializer,
     SupplierCreateUpdateSerializer,
     SupplierSerializer,
     UnitCostCreateUpdateSerializer,
@@ -67,6 +70,20 @@ class WarehouseViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
         if self.action in ["list"]:
             return WarehouseSerializer
         return WarehouseCreateUpdateSerializer
+
+
+class StockPurposeViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
+    """在庫用途マスター。使用中(在庫・入庫予定から参照されている)用途は削除できない(PROTECT)。"""
+
+    queryset = StockPurpose.objects.all().order_by("code")
+    serializer_class = StockPurposeSerializer
+    permission_classes = [IsAuthenticated]
+
+    def destroy(self, request, *args, **kwargs):
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except ProtectedError:
+            return error_response("この用途は在庫で使用されているため削除できません。無効にしてください。")
 
 
 class WarehouseLocationViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
