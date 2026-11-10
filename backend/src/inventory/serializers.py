@@ -272,6 +272,14 @@ class SalesOrderSerializer(serializers.ModelSerializer):
     is_internal = serializers.BooleanField(read_only=True)
     item = serializers.SlugRelatedField(source="item_rel", slug_field="code", queryset=Item.objects.all(), allow_null=True, required=False)
     warehouse = serializers.SlugRelatedField(source="warehouse_rel", slug_field="warehouse_number", queryset=Warehouse.objects.all(), allow_null=True, required=False)
+    # 使う在庫の用途コード。この用途の在庫を先に、足りなければ汎用の在庫を使う(空は汎用のみ)。
+    purpose = serializers.SlugRelatedField(
+        source="purpose_rel",
+        slug_field="code",
+        queryset=StockPurpose.objects.filter(is_active=True),
+        allow_null=True,
+        required=False,
+    )
 
     class Meta:
         model = SalesOrder
@@ -286,6 +294,7 @@ class SalesOrderSerializer(serializers.ModelSerializer):
             "order_date",
             "expected_shipment",
             "warehouse",
+            "purpose",
             "status",
             "status_display",  # 表示用のステータス名
             "is_internal",
@@ -309,6 +318,8 @@ class SalesOrderSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({"item": "引当済みの受注は品目を変更できません。"})
             if "warehouse_rel" in data and data["warehouse_rel"] != instance.warehouse_rel:
                 raise serializers.ValidationError({"warehouse": "引当済みの受注は倉庫を変更できません。"})
+            if "purpose_rel" in data and data["purpose_rel"] != instance.purpose_rel:
+                raise serializers.ValidationError({"purpose": "引当済みの受注は用途を変更できません。"})
         if instance and "quantity" in data:
             minimum = instance.shipped_quantity + instance.reserved_quantity
             if data["quantity"] < minimum:

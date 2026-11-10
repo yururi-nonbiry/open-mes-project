@@ -25,6 +25,7 @@ const ProductionPlanDetailModal: React.FC<ProductionPlanDetailModalProps> = ({
                 <dl className="row mb-3">
                     <dt className="col-sm-4">計画名:</dt><dd className="col-sm-8">{plan.plan_name || 'N/A'}</dd>
                     <dt className="col-sm-4">製品コード:</dt><dd className="col-sm-8">{plan.product_code || 'N/A'}</dd>
+                    <dt className="col-sm-4">使用する在庫の用途:</dt><dd className="col-sm-8">{plan.purpose ? `${plan.purpose}（この用途→汎用の順で使用）` : '汎用のみ'}</dd>
                     <dt className="col-sm-4">計画数量:</dt><dd className="col-sm-8 text-end">{plan.planned_quantity}</dd>
                     <dt className="col-sm-4">計画開始日時:</dt><dd className="col-sm-8">{fullFormat(plan.planned_start_datetime)}</dd>
                     <dt className="col-sm-4">計画終了日時:</dt><dd className="col-sm-8">{fullFormat(plan.planned_end_datetime)}</dd>

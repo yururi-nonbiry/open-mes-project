@@ -330,7 +330,8 @@ const MobileGoodsIssuePage = () => {
                         <Card.Body>
                             <p className="card-text mb-2">
                                 <strong>品番:</strong> {order.item || 'N/A'}<br />
-                                <strong>倉庫:</strong> {order.warehouse || 'N/A'}
+                                <strong>倉庫:</strong> {order.warehouse || 'N/A'}<br />
+                                <strong>用途:</strong> {order.purpose || '汎用'}
                             </p>
                             <Row className="text-center border-top border-bottom py-2">
                                 <Col>

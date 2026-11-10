@@ -10,7 +10,7 @@ from collections import defaultdict
 from datetime import timedelta
 
 from django.db import transaction
-from django.db.models import Sum
+from django.db.models import Q, Sum
 
 from inventory.models import Inventory
 from master.models import Item
@@ -63,7 +63,11 @@ def _projected_available(plan, codes):
     """
     start = plan.planned_start_datetime
     projected = defaultdict(int)
-    for inv in Inventory.objects.filter(part_number_rel_id__in=codes, is_active=True, is_allocatable=True):
+    # この計画が使える在庫は、計画の用途の在庫と汎用の在庫(他の用途の在庫は使えない)
+    usable = Q(purpose_rel__isnull=True)
+    if plan.purpose:
+        usable |= Q(purpose_rel_id=plan.purpose)
+    for inv in Inventory.objects.filter(usable, part_number_rel_id__in=codes, is_active=True, is_allocatable=True):
         projected[inv.part_number] += inv.available_quantity
 
     # 子計画以外(親が手配の対象外になったものを含む)の生産予定

@@ -344,6 +344,17 @@ class SalesOrder(models.Model):
     item = fk_id_alias("item_rel")
 
     warehouse = fk_id_alias("warehouse_rel")
+    # 使う在庫の用途。ここで指定した用途の在庫を先に使い、足りなければ汎用の在庫を使う(他の用途の在庫は使わない)。空は汎用のみ。
+    purpose_rel = models.ForeignKey(
+        "master.StockPurpose",
+        to_field="code",
+        db_column="purpose",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        verbose_name="用途",
+    )
+    purpose = fk_id_alias("purpose_rel")
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"  # 未出庫
         SHIPPED = "shipped", "Shipped"  # 出庫済み

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from master.models import Item, Warehouse
+from master.models import Item, StockPurpose, Warehouse
 
 from .models import MaterialAllocation, PartsUsed, ProductionPlan, ProductionPlanMaterial, WorkProgress
 from .services.materials import allocated_quantity_by_material, calc_required_quantity, normal_allocations
@@ -14,6 +14,14 @@ class ProductionPlanSerializer(serializers.ModelSerializer):
         queryset=Item.objects.filter(item_type__in=Item.PRODUCIBLE_TYPES)
     )
     parent_plan_name = serializers.CharField(source="parent_plan.plan_name", read_only=True, default=None)
+    # 使う在庫の用途コード。この用途の在庫を先に、足りなければ汎用の在庫を使う(空は汎用のみ)。
+    purpose = serializers.SlugRelatedField(
+        source="purpose_rel",
+        slug_field="code",
+        queryset=StockPurpose.objects.filter(is_active=True),
+        allow_null=True,
+        required=False,
+    )
     # 在庫で足りるが、子計画を立てるか在庫を使うかが未決定の中間品の数(ProductionPlanViewSet で集計)
     pending_intermediate_count = serializers.IntegerField(read_only=True, default=0)
     child_plan_count = serializers.IntegerField(read_only=True, default=0)
@@ -34,6 +42,7 @@ class ProductionPlanSerializer(serializers.ModelSerializer):
             "status_display",  # ステータスの表示名 (例: '未着手', '進行中')
             "parent_plan",
             "parent_plan_name",
+            "purpose",
             "child_plan_count",
             "pending_intermediate_count",
             "remarks",
@@ -81,6 +90,13 @@ class ProductionPlanSerializer(serializers.ModelSerializer):
             if normal_allocations(self.instance.material_allocations.all()).exists():
                 raise serializers.ValidationError(
                     {"product_code": "材料の引当がある生産計画の製品は変更できません。先に引当を解除してください。"}
+                )
+
+        # 用途を変えると使う在庫が変わるため、引当が残っている計画では変更させない
+        if self.instance and "purpose_rel" in data and data["purpose_rel"] != self.instance.purpose_rel:
+            if normal_allocations(self.instance.material_allocations.all()).exists():
+                raise serializers.ValidationError(
+                    {"purpose": "材料の引当がある生産計画の用途は変更できません。先に引当を解除してください。"}
                 )
 
         if planned_start is not None and planned_end is not None:
@@ -241,6 +257,7 @@ class MaterialAllocationSerializer(serializers.ModelSerializer):
     production_plan_name = serializers.CharField(source="production_plan.plan_name", read_only=True)
     material_code = serializers.SlugRelatedField(source="material", slug_field="code", read_only=True)
     warehouse = serializers.SlugRelatedField(source="warehouse_rel", slug_field="warehouse_number", read_only=True)
+    purpose = serializers.SlugRelatedField(source="purpose_rel", slug_field="code", read_only=True)
 
     class Meta:
         model = MaterialAllocation
@@ -250,6 +267,7 @@ class MaterialAllocationSerializer(serializers.ModelSerializer):
             "production_plan_name",
             "material_code",
             "warehouse",
+            "purpose",
             "allocated_quantity",
             "allocation_datetime",
             "status",

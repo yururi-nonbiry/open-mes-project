@@ -29,6 +29,8 @@ export interface SalesOrder {
     order_date: string;
     expected_shipment: string | null;
     warehouse: string | null;
+    /** 使う在庫の用途コード(空は汎用のみ) */
+    purpose?: string | null;
     status: string;
     status_display: string;
     is_internal: boolean;

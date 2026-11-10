@@ -471,12 +471,15 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
           "sales_order_reference": "SO12345",
           "allocations": [
             {"part_number": "PN001", "warehouse": "WH-A", "quantity_to_reserve": 10}
-          ]
+          ],
+          "purpose": "PRD-A"   # 省略可。新規受注の用途(その用途→汎用の順で引当)。空は汎用のみ
         }
         """
         try:
             sales_order, summary = services.allocate_sales_order(
-                request.data.get("sales_order_reference"), request.data.get("allocations")
+                request.data.get("sales_order_reference"),
+                request.data.get("allocations"),
+                **({"purpose": request.data.get("purpose")} if "purpose" in request.data else {}),
             )
         except services.InventoryServiceError as e:
             return error_response(e.message, e.status_code)

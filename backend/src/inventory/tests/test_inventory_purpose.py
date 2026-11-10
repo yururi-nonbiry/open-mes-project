@@ -3,7 +3,7 @@ from django.urls import reverse
 from rest_framework import status
 
 from inventory import services
-from inventory.models import Inventory, Receipt, StockMovement
+from inventory.models import Inventory, Receipt, SalesOrder, StockMovement
 from master.models import StockPurpose
 
 from .test_helpers import InventoryAPITestBase
@@ -178,3 +178,74 @@ class ChangePurposeTests(InventoryAPITestBase):
         generic = Inventory.objects.get(purpose_rel__isnull=True)
         self.assertEqual(generic.first_received_at, Inventory.objects.get(pk=self.source.pk).first_received_at)
         self.assertFalse(generic.is_allocatable)
+
+
+class SalesOrderPurposeTests(InventoryAPITestBase):
+    """INV-PUR-3x : 受注の用途に応じた引当・出庫(指定用途→汎用の順。他の用途は使わない)。"""
+
+    def setUp(self):
+        super().setUp()
+        StockPurpose.objects.create(code="PRD-A", name="A製品用")
+        StockPurpose.objects.create(code="PRD-B", name="B製品用")
+        self.stock_a = self.create_inventory(location="A-01", quantity=4, purpose="PRD-A")
+        self.stock_b = self.create_inventory(location="A-01", quantity=100, purpose="PRD-B")
+        self.stock_generic = self.create_inventory(location="A-01", quantity=10)
+
+    def _allocate(self, ref, quantity, **extra):
+        payload = {
+            "sales_order_reference": ref,
+            "allocations": [
+                {"part_number": self.item1.code, "warehouse": "WH-A", "quantity_to_reserve": quantity}
+            ],
+        }
+        payload.update(extra)
+        return self.client.post(reverse("inventory_api:salesorder-allocate"), payload, format="json")
+
+    def _reload(self):
+        for obj in (self.stock_a, self.stock_b, self.stock_generic):
+            obj.refresh_from_db()
+
+    def test_inv_pur_30_allocate_purpose_first_then_generic(self):
+        response = self._allocate("SO-P1", 8, purpose="PRD-A")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self._reload()
+        self.assertEqual((self.stock_a.reserved, self.stock_generic.reserved, self.stock_b.reserved), (4, 4, 0))
+        self.assertEqual(SalesOrder.objects.get(order_number="SO-P1").purpose, "PRD-A")
+
+    def test_inv_pur_31_order_without_purpose_ignores_purposed_stock(self):
+        self.assertEqual(self._allocate("SO-P2", 11).status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(self._allocate("SO-P2", 10).status_code, status.HTTP_200_OK)
+        self._reload()
+        self.assertEqual((self.stock_generic.reserved, self.stock_a.reserved), (10, 0))
+
+    def test_inv_pur_32_issue_uses_order_purpose_and_releases_reservation(self):
+        self._allocate("SO-P3", 8, purpose="PRD-A")
+        so = SalesOrder.objects.get(order_number="SO-P3")
+        response = self.client.post(
+            reverse("inventory_api:salesorder-issue"), {"order_id": str(so.id), "quantity_to_ship": 8}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self._reload()
+        self.assertEqual((self.stock_a.quantity, self.stock_a.reserved), (0, 0))
+        self.assertEqual((self.stock_generic.quantity, self.stock_generic.reserved), (6, 0))
+        self.assertEqual(self.stock_b.quantity, 100)
+        self.assertTrue(StockMovement.objects.filter(purpose_rel_id="PRD-A", movement_type="outgoing").exists())
+
+    def test_inv_pur_33_existing_order_purpose_mismatch_rejected(self):
+        self._allocate("SO-P4", 2, purpose="PRD-A")
+        self.assertEqual(self._allocate("SO-P4", 1, purpose="PRD-B").status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(self._allocate("SO-P4", 1).status_code, status.HTTP_200_OK)  # 用途省略は既存の用途を使う
+
+    def test_inv_pur_34_cancel_releases_from_same_rows(self):
+        self._allocate("SO-P5", 8, purpose="PRD-A")
+        so = SalesOrder.objects.get(order_number="SO-P5")
+        url = reverse("inventory_api:salesorder-change-status", kwargs={"pk": so.id})
+        self.assertEqual(self.client.post(url, {"status": "canceled"}, format="json").status_code, 200)
+        self._reload()
+        self.assertEqual((self.stock_a.reserved, self.stock_generic.reserved), (0, 0))
+
+    def test_inv_pur_35_purpose_locked_after_reservation(self):
+        self._allocate("SO-P6", 2, purpose="PRD-A")
+        so = SalesOrder.objects.get(order_number="SO-P6")
+        url = reverse("inventory_api:salesorder-detail", kwargs={"pk": so.id})
+        self.assertEqual(self.client.patch(url, {"purpose": "PRD-B"}, format="json").status_code, 400)

@@ -121,7 +121,7 @@ const GoodsIssue: React.FC = () => {
     if (loading) {
       return (
         <tr>
-          <td colSpan={8} className="text-center py-5">
+          <td colSpan={9} className="text-center py-5">
             <Spinner animation="border" variant="primary" size="sm" className="me-2" />
             <span className="text-muted">出庫待ちデータを読み込んでいます...</span>
           </td>
@@ -131,7 +131,7 @@ const GoodsIssue: React.FC = () => {
     if (error) {
       return (
         <tr>
-          <td colSpan={8} className="text-center text-danger py-4 fw-bold">
+          <td colSpan={9} className="text-center text-danger py-4 fw-bold">
             {error}
           </td>
         </tr>
@@ -140,7 +140,7 @@ const GoodsIssue: React.FC = () => {
     if (filteredOrders.length === 0) {
       return (
         <tr>
-          <td colSpan={8} className="text-center py-5 text-muted">
+          <td colSpan={9} className="text-center py-5 text-muted">
             <div className="fw-bold mb-1">出庫待ちの受注データはありません</div>
             <div className="small">すべての出庫予定が完了しているか、該当する受注がありません。</div>
           </td>
@@ -154,6 +154,7 @@ const GoodsIssue: React.FC = () => {
           <td className="fw-bold text-dark">{order.order_number || '—'}</td>
           <td className="fw-semibold">{order.item || '—'}</td>
           <td>{order.warehouse || '—'}</td>
+          <td>{order.purpose || <span className="text-muted">汎用</span>}</td>
           <td className="text-end fw-semibold">{order.quantity}</td>
           <td className="text-end">{order.shipped_quantity}</td>
           <td className="text-end">
@@ -225,6 +226,7 @@ const GoodsIssue: React.FC = () => {
                 <th>受注番号</th>
                 <th>品目（品番）</th>
                 <th>出庫倉庫</th>
+                <th>用途</th>
                 <th className="text-end">予定数量</th>
                 <th className="text-end">出庫済</th>
                 <th className="text-end">未出庫残</th>

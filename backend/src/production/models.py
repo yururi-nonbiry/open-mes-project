@@ -36,6 +36,17 @@ class ProductionPlan(models.Model):
     )
 
     product_code = fk_id_alias("product")
+    # 使う在庫の用途。ここで指定した用途の在庫を先に使い、足りなければ汎用の在庫を使う(他の用途の在庫は使わない)。空は汎用のみ。
+    purpose_rel = models.ForeignKey(
+        "master.StockPurpose",
+        to_field="code",
+        db_column="purpose",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        verbose_name="用途",
+    )
+    purpose = fk_id_alias("purpose_rel")
 
     # 中間品の子計画の場合、その中間品を使う親の生産計画。親を削除しても子計画(着手済みの場合がある)は残す。
     parent_plan = models.ForeignKey(
@@ -181,6 +192,17 @@ class MaterialAllocation(models.Model):
     material_code = fk_id_alias("material")
 
     warehouse = fk_id_alias("warehouse_rel")
+    # 引当時点の生産計画の用途(引当・出庫・返却は同じ用途の在庫を動かす)。
+    purpose_rel = models.ForeignKey(
+        "master.StockPurpose",
+        to_field="code",
+        db_column="purpose",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        verbose_name="用途",
+    )
+    purpose = fk_id_alias("purpose_rel")
     allocated_quantity = models.PositiveIntegerField(verbose_name="引当数量")
     allocation_datetime = models.DateTimeField(default=timezone.now, verbose_name="引当日時")
     status = models.CharField(

@@ -1,3 +1,5 @@
+from django.db.models import Q
+
 from inventory.models import Inventory
 
 from .materials import additional_issued_quantity_by_material, allocated_quantity_by_material
@@ -14,7 +16,11 @@ def get_production_plan_required_parts(production_plan_instance):
     part_codes = [m.material_id for m in materials]
 
     available_by_warehouse = {}
-    for inv in Inventory.objects.filter(part_number_rel_id__in=part_codes, is_active=True, is_allocatable=True):
+    # この計画が使える在庫は、計画の用途の在庫と汎用の在庫(他の用途の在庫は使えない)
+    usable = Q(purpose_rel__isnull=True)
+    if production_plan_instance.purpose:
+        usable |= Q(purpose_rel_id=production_plan_instance.purpose)
+    for inv in Inventory.objects.filter(usable, part_number_rel_id__in=part_codes, is_active=True, is_allocatable=True):
         by_warehouse = available_by_warehouse.setdefault(inv.part_number, {})
         by_warehouse[inv.warehouse] = by_warehouse.get(inv.warehouse, 0) + (inv.available_quantity or 0)
 

@@ -88,7 +88,7 @@ def allocate_materials_service(production_plan, allocations_data):
                 continue
 
             # 同一品番+倉庫で棚をまたいで在庫が分散している場合は、入庫が古い順に複数の棚から引き当てる
-            inventory_rows = lock_inventory_rows(part_number, warehouse)
+            inventory_rows = lock_inventory_rows(part_number, warehouse, production_plan.purpose)
             if not inventory_rows:
                 errors.append(f"Inventory not found for part '{part_number}' in warehouse '{warehouse}'.")
                 continue
@@ -118,6 +118,7 @@ def allocate_materials_service(production_plan, allocations_data):
                 production_plan=production_plan,
                 material_code=part_number,
                 warehouse=warehouse,
+                purpose=production_plan.purpose,
                 allocated_quantity=quantity_to_allocate,
                 status=MaterialAllocation.Status.ALLOCATED,
             )
@@ -130,6 +131,7 @@ def allocate_materials_service(production_plan, allocations_data):
                     "item": material_allocation.material_code,
                     "quantity": material_allocation.allocated_quantity,
                     "warehouse": warehouse,
+                    "purpose": production_plan.purpose,
                     "expected_shipment": production_plan.planned_start_datetime,
                     "status": SalesOrder.Status.PENDING,
                 },
@@ -168,7 +170,7 @@ def release_material_allocation_service(allocation):
 
     with transaction.atomic():
         if allocation.warehouse:
-            rows = lock_inventory_rows(allocation.material_code, allocation.warehouse)
+            rows = lock_inventory_rows(allocation.material_code, allocation.warehouse, allocation.purpose)
             if rows:
                 release_reserved_fifo(rows, allocation.allocated_quantity)
                 save_rows(rows)
@@ -209,7 +211,9 @@ def update_material_allocation_status_service(allocation, new_status, user, now=
     with transaction.atomic():
         if new_status == MaterialAllocation.Status.ISSUED:
             rows = [
-                row for row in lock_inventory_rows(allocation.material_code, allocation.warehouse) if row.is_active
+                row
+                for row in lock_inventory_rows(allocation.material_code, allocation.warehouse, allocation.purpose)
+                if row.is_active
             ]
             if not rows:
                 raise ValueError(
@@ -231,6 +235,7 @@ def update_material_allocation_status_service(allocation, new_status, user, now=
                     quantity=take,
                     warehouse=allocation.warehouse,
                     location=row.location,
+                    purpose=row.purpose,
                     movement_type=StockMovement.MovementType.USED,
                     movement_date=now,
                     reference_document=f"MaterialAllocation-{allocation.id}",
@@ -242,13 +247,16 @@ def update_material_allocation_status_service(allocation, new_status, user, now=
             )
 
         elif new_status == MaterialAllocation.Status.RETURNED:
-            row = add_stock(allocation.material_code, allocation.warehouse, allocation.allocated_quantity)
+            row = add_stock(
+                allocation.material_code, allocation.warehouse, allocation.allocated_quantity, purpose=allocation.purpose
+            )
 
             StockMovement.objects.create(
                 part_number=allocation.material_code,
                 quantity=allocation.allocated_quantity,
                 warehouse=allocation.warehouse,
                 location=row.location,
+                purpose=row.purpose,
                 movement_type=StockMovement.MovementType.INCOMING,
                 movement_date=now,
                 reference_document=f"MaterialAllocation-{allocation.id}",
@@ -300,7 +308,7 @@ def issue_additional_materials_service(production_plan, items, user, remarks=Non
                 errors.append(f"{part_number} の数量は1以上を指定してください。")
                 continue
 
-            rows = [row for row in lock_inventory_rows(part_number, warehouse) if row.is_active]
+            rows = [row for row in lock_inventory_rows(part_number, warehouse, production_plan.purpose) if row.is_active]
             if not rows:
                 errors.append(f"倉庫 {warehouse} に {part_number} の在庫がありません。")
                 continue
@@ -315,6 +323,7 @@ def issue_additional_materials_service(production_plan, items, user, remarks=Non
                 production_plan=production_plan,
                 material_code=part_number,
                 warehouse=warehouse,
+                purpose=production_plan.purpose,
                 allocated_quantity=quantity,
                 status=MaterialAllocation.Status.ISSUED,
                 allocation_type=MaterialAllocation.AllocationType.ADDITIONAL,
@@ -326,6 +335,7 @@ def issue_additional_materials_service(production_plan, items, user, remarks=Non
                     quantity=take,
                     warehouse=warehouse,
                     location=row.location,
+                    purpose=row.purpose,
                     movement_type=StockMovement.MovementType.USED,
                     movement_date=now,
                     reference_document=f"MaterialAllocation-{allocation.id}",

@@ -244,7 +244,9 @@ def _consume_materials_for_plan(plan, now, user):
         if not alloc.warehouse:
             continue
 
-        rows = [row for row in lock_inventory_rows(alloc.material_code, alloc.warehouse) if row.is_active]
+        rows = [
+            row for row in lock_inventory_rows(alloc.material_code, alloc.warehouse, alloc.purpose) if row.is_active
+        ]
         if not rows:
             logger.error(f"Inventory not found for consumption: {alloc.material_code} in {alloc.warehouse}")
             continue
@@ -267,6 +269,7 @@ def _consume_materials_for_plan(plan, now, user):
                 quantity=take,
                 warehouse=alloc.warehouse,
                 location=row.location,
+                purpose=row.purpose,
                 movement_type=StockMovement.MovementType.USED,
                 movement_date=now,
                 reference_document=f"ProductionPlan-{plan.id}",
@@ -297,7 +300,9 @@ def _restore_materials_for_plan(plan, now, user):
 
         # 在庫と引当を戻す
         quantity_to_restore = alloc.allocated_quantity
-        row = add_stock(alloc.material_code, alloc.warehouse, quantity_to_restore, reserved=quantity_to_restore)
+        row = add_stock(
+            alloc.material_code, alloc.warehouse, quantity_to_restore, reserved=quantity_to_restore, purpose=alloc.purpose
+        )
 
         alloc.status = MaterialAllocation.Status.ALLOCATED
         alloc.save()
@@ -307,6 +312,7 @@ def _restore_materials_for_plan(plan, now, user):
             quantity=quantity_to_restore,
             warehouse=alloc.warehouse,
             location=row.location,
+            purpose=row.purpose,
             movement_type=StockMovement.MovementType.INCOMING,
             movement_date=now,
             reference_document=f"Reversal for PPlan-{plan.id}",

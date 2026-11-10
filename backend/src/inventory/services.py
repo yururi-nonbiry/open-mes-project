@@ -11,7 +11,7 @@ import logging
 
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
-from django.db.models import F
+from django.db.models import F, Q
 from django.utils import timezone
 from rest_framework import serializers
 
@@ -36,15 +36,23 @@ class InventoryServiceError(Exception):
 # --- 棚(ロケーション)をまたいだ在庫操作のヘルパー ---
 
 
-def lock_inventory_rows(part_number, warehouse):
+def lock_inventory_rows(part_number, warehouse, purpose=None):
     """
-    品番+倉庫の全棚の在庫を行ロックし、入庫が古い順(FIFO)に並べて返す。
+    品番+倉庫の使用対象の棚の在庫を行ロックし、並べて返す。
+    使用対象は「指定した用途の在庫」と「汎用(用途なし)の在庫」で、他の用途の在庫は含めない
+    (purpose が空なら汎用のみ)。指定した用途の在庫を先に、その中では入庫が古い順(FIFO)に並べる。
     first_received_at が無い既存行は末尾に回し、棚番をタイブレークに使う。
     """
+    purpose = purpose or None
+    queryset = Inventory.objects.select_for_update().filter(part_number_rel_id=part_number, warehouse_rel_id=warehouse)
+    if purpose:
+        queryset = queryset.filter(Q(purpose_rel_id=purpose) | Q(purpose_rel__isnull=True))
+    else:
+        queryset = queryset.filter(purpose_rel__isnull=True)
     return list(
-        Inventory.objects.select_for_update()
-        .filter(part_number_rel_id=part_number, warehouse_rel_id=warehouse)
-        .order_by(F("first_received_at").asc(nulls_last=True), "location")
+        queryset.order_by(
+            F("purpose_rel_id").asc(nulls_last=True), F("first_received_at").asc(nulls_last=True), "location"
+        )
     )
 
 
@@ -176,16 +184,17 @@ def consume_stock(rows, quantity, own_reserved=0):
     return consumed, released
 
 
-def add_stock(part_number, warehouse, quantity, reserved=0):
+def add_stock(part_number, warehouse, quantity, reserved=0, purpose=None):
     """
     品番+倉庫に在庫(と引当)を戻す・追加する。棚の指定が無い処理(生産完了入庫・材料の戻し等)向けで、
     棚番なし("")の在庫があればそこへ、無ければ入庫が古い棚へ、棚が1つも無ければ棚番なしで作成して加算する。
+    戻し先は指定した用途(空は汎用)の在庫に限り、別の用途の在庫を増やさない。
     """
-    # 用途付きの在庫を汎用として増やさないよう、戻し先は汎用(用途なし)の在庫に限る
-    rows = [row for row in lock_inventory_rows(part_number, warehouse) if row.purpose is None]
+    purpose = purpose or None
+    rows = [row for row in lock_inventory_rows(part_number, warehouse, purpose) if row.purpose == purpose]
     target = next((row for row in rows if row.location == ""), None) or (rows[0] if rows else None)
     if target is None:
-        target = get_or_create_locked_inventory(part_number, warehouse, "")
+        target = get_or_create_locked_inventory(part_number, warehouse, "", purpose=purpose)
     target.quantity += quantity
     target.reserved += reserved
     target.save()
@@ -568,7 +577,7 @@ def _parse_allocation_item(alloc_item_data):
     return part_number, warehouse, quantity
 
 
-def allocate_sales_order(sales_order_ref, allocations_data):
+def allocate_sales_order(sales_order_ref, allocations_data, purpose=_UNSET):
     """
     受注に対して在庫を引き当てる(Inventory.reserved を加算し、受注が無ければ作成する)。
     同一品番+倉庫で棚をまたいで在庫が分散している場合は、入庫が古い順に複数の棚から引き当てる。
@@ -578,13 +587,30 @@ def allocate_sales_order(sales_order_ref, allocations_data):
     if str(sales_order_ref).startswith(SalesOrder.INTERNAL_ORDER_PREFIX):
         raise _reserved_prefix_error()
 
+    if purpose is not _UNSET:
+        purpose = (purpose or "").strip() or None
+        if purpose and not StockPurpose.objects.filter(code=purpose, is_active=True).exists():
+            raise InventoryServiceError(f"用途 '{purpose}' が存在しないか、無効です。")
+
     summary = []
     sales_order = None
     with transaction.atomic():
         for alloc_item_data in allocations_data:
             part_number, warehouse, quantity_to_reserve = _parse_allocation_item(alloc_item_data)
 
-            inventory_rows = lock_inventory_rows(part_number, warehouse)
+            # 既存の受注はその用途で引き当てる(用途を指定した場合は一致が必要)。新規受注は指定した用途で作成する。
+            existing_order = SalesOrder.objects.filter(order_number=sales_order_ref).first()
+            if existing_order is not None:
+                if purpose is not _UNSET and purpose != existing_order.purpose:
+                    raise InventoryServiceError(
+                        f"受注 '{sales_order_ref}' の用途は '{existing_order.purpose or '汎用'}' のため、"
+                        f"用途 '{purpose or '汎用'}' では引当できません。"
+                    )
+                order_purpose = existing_order.purpose
+            else:
+                order_purpose = None if purpose is _UNSET else purpose
+
+            inventory_rows = lock_inventory_rows(part_number, warehouse, order_purpose)
             if not inventory_rows:
                 raise InventoryServiceError(f"在庫が見つかりません: 品番'{part_number}' 倉庫'{warehouse}'。")
 
@@ -609,6 +635,7 @@ def allocate_sales_order(sales_order_ref, allocations_data):
                     "item": part_number,
                     "quantity": quantity_to_reserve,
                     "warehouse": warehouse,
+                    "purpose": order_purpose,
                     "status": SalesOrder.Status.PENDING,
                 },
             )
@@ -672,7 +699,7 @@ def issue_sales_order(order_id, quantity_to_ship, user):
                 f"出庫数量 ({quantity_to_ship}) が残数量 ({sales_order.remaining_quantity}) を超えています。"
             )
 
-        inventory_rows = lock_inventory_rows(sales_order.item, sales_order.warehouse)
+        inventory_rows = lock_inventory_rows(sales_order.item, sales_order.warehouse, sales_order.purpose)
         if not inventory_rows:
             raise InventoryServiceError(
                 f"在庫記録が見つかりません: 品目 {sales_order.item}、"
@@ -705,6 +732,7 @@ def issue_sales_order(order_id, quantity_to_ship, user):
                 quantity=take,
                 warehouse=sales_order.warehouse,
                 location=row.location,
+                purpose=row.purpose,
                 reference_document=f"SO: {sales_order.order_number}",
                 description=f"受注 {sales_order.order_number} による出庫",
                 operator=operator,
@@ -738,7 +766,7 @@ def change_sales_order_status(sales_order_pk, new_status):
             if sales_order.shipped_quantity > 0:
                 raise InventoryServiceError(f"受注 {sales_order.order_number} は出庫済数量があるためキャンセルできません。")
             if sales_order.reserved_quantity > 0:
-                rows = lock_inventory_rows(sales_order.item, sales_order.warehouse)
+                rows = lock_inventory_rows(sales_order.item, sales_order.warehouse, sales_order.purpose)
                 release_reserved_fifo(rows, sales_order.reserved_quantity)
                 save_rows(rows)
                 sales_order.reserved_quantity = 0
@@ -762,7 +790,7 @@ def delete_sales_order(sales_order_pk):
         if sales_order.is_internal:
             raise internal_order_error(sales_order)
         if sales_order.reserved_quantity > 0:
-            rows = lock_inventory_rows(sales_order.item, sales_order.warehouse)
+            rows = lock_inventory_rows(sales_order.item, sales_order.warehouse, sales_order.purpose)
             release_reserved_fifo(rows, sales_order.reserved_quantity)
             save_rows(rows)
         sales_order.delete()
