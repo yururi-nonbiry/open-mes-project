@@ -1,8 +1,10 @@
+import type { ApiErrorLike } from '../apiErrorTypes';
 import React, { useState, useEffect } from 'react';
 import Modal from '../../components/Modal';
 import productionService from '../../services/productionService';
 import { useWorkCenters } from '../../hooks/useWorkCenters';
 import { ProductionPlan, RequiredPart } from '../../types/production';
+import { unwrapList, type AllocationResultData, type MaybeWrapped, type RawRequiredPart } from './types';
 
 /** 画面上の行。倉庫は引当時に選ぶため、行ごとに選択中の倉庫を持つ */
 interface AllocationRow extends RequiredPart {
@@ -45,7 +47,7 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
     const [requiredParts, setRequiredParts] = useState<AllocationRow[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [allocationResult, setAllocationResult] = useState<{ type: 'success' | 'error', message?: string, data?: any } | null>(null);
+    const [allocationResult, setAllocationResult] = useState<{ type: 'success' | 'error', message?: string, data?: AllocationResultData } | null>(null);
 
     useEffect(() => {
         if (isOpen && plan && !allocationResult) {
@@ -54,8 +56,8 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
                 setError(null);
                 try {
                     const raw = await productionService.getRequiredParts(plan.id);
-                    const list = Array.isArray(raw) ? raw : Array.isArray((raw as any)?.parts) ? (raw as any).parts : [];
-                    setRequiredParts(list.map((part: any) => {
+                    const list = unwrapList(raw as MaybeWrapped<'parts', RawRequiredPart>, 'parts');
+                    setRequiredParts(list.map((part) => {
                         const warehouses = Array.isArray(part.warehouses) ? part.warehouses : Array.isArray(part.inventories) ? part.inventories : [];
                         const normalizedPart: RequiredPart = {
                             ...part,
@@ -66,8 +68,8 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
                         const warehouse = warehouses[0]?.warehouse ?? '';
                         return { ...normalizedPart, selected_warehouse: warehouse, selected_line: plan.line || '', quantity_to_allocate: defaultQuantity(normalizedPart, warehouse), checked: defaultQuantity(normalizedPart, warehouse) > 0 };
                     }));
-                } catch (e: any) {
-                    setError(e.message);
+                } catch (e) {
+                    setError((e as ApiErrorLike).message);
                 } finally {
                     setLoading(false);
                 }
@@ -132,8 +134,8 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
                 bc.postMessage({ type: 'allocationResult', data });
                 bc.close();
             } catch (e) { console.error('Error broadcasting allocation result:', e); }
-        } catch (e: any) {
-            setAllocationResult({ type: 'error', message: e.message });
+        } catch (e) {
+            setAllocationResult({ type: 'error', message: (e as ApiErrorLike).message });
         }
     };
 
@@ -150,16 +152,16 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
                 {allocationResult ? (
                     <div>
                         <div className={`alert alert-${allocationResult.type === 'success' ? 'success' : 'danger'}`}>
-                            {allocationResult.type === 'success' ? allocationResult.data.message || '材料の引き当てが完了しました。' : allocationResult.message}
+                            {allocationResult.type === 'success' ? allocationResult.data?.message || '材料の引き当てが完了しました。' : allocationResult.message}
                         </div>
-                        {allocationResult.type === 'success' && allocationResult.data.allocations_summary && (
+                        {allocationResult.type === 'success' && allocationResult.data?.allocations_summary && (
                             <div className="border p-2 mb-3" style={{ maxHeight: '200px', overflowY: 'auto' }}>
                                 <table className="table table-sm table-bordered">
                                     <thead className="table-light">
                                         <tr><th>部品番号</th><th className="text-end">引当数量</th><th>ステータス</th></tr>
                                     </thead>
                                     <tbody>
-                                        {allocationResult.data.allocations_summary.map((item: any, i: number) => (
+                                        {allocationResult.data?.allocations_summary?.map((item, i) => (
                                             <tr key={i}><td>{item.part_number}</td><td className="text-end">{item.allocated_quantity}</td><td>{item.status}</td></tr>
                                         ))}
                                     </tbody>

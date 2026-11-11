@@ -1,4 +1,5 @@
 import React from 'react';
+import type { StatusOption } from './types';
 
 interface WorkProgressFiltersProps {
     filters: {
@@ -8,7 +9,7 @@ interface WorkProgressFiltersProps {
         planned_start_before: string;
     };
     statusFilters: Set<string>;
-    availableStatuses: any[];
+    availableStatuses: StatusOption[];
     onFilterChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
     onStatusFilterChange: (key: string) => void;
     onSearch: () => void;

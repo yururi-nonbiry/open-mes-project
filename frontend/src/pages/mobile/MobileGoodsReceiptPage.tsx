@@ -8,6 +8,7 @@ import ReceiptLocationMap from '../../components/common/ReceiptLocationMap';
 import CameraIcon from '../../components/common/CameraIcon';
 import './MobileGoodsReceiptPage.css';
 import './MobileLocationTransferPage.css'; // スタイルを再利用
+import type { PurchaseOrderRow } from '../types/listPage';
 
 // ローカル日付(YYYY-MM-DD)。予定日フィルタの既定値(今日以降)に使う
 const todayLocal = () => {
@@ -17,7 +18,7 @@ const todayLocal = () => {
 
 const MobileGoodsReceiptPage = () => {
   // State for purchase orders, loading/error status
-  const [purchaseOrders, setPurchaseOrders] = useState([]);
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrderRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -32,7 +33,7 @@ const MobileGoodsReceiptPage = () => {
   const [totalCount, setTotalCount] = useState(0);
 
   // State for the receipt processing form (acting as a modal)
-  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [selectedOrder, setSelectedOrder] = useState<PurchaseOrderRow | null>(null);
   const [receiptFormData, setReceiptFormData] = useState({ received_quantity: '', location: '', warehouse: '', purpose: '' });
   const stockPurposes = useStockPurposes();
   const [formError, setFormError] = useState('');
@@ -222,7 +223,7 @@ const MobileGoodsReceiptPage = () => {
     }
 
     const location = receiptFormData.location.trim();
-    const registerDefaultLocation = await inventoryService.confirmRegisterDefaultLocation(selectedOrder as any, location);
+    const registerDefaultLocation = await inventoryService.confirmRegisterDefaultLocation(selectedOrder, location);
 
     try {
       const result = await inventoryService.receivePurchaseOrder({

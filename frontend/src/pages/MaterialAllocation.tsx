@@ -1,3 +1,4 @@
+import type { ApiErrorLike } from './apiErrorTypes';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Spinner } from 'react-bootstrap';
 import authFetch, { handleError } from '../utils/api';
@@ -10,6 +11,14 @@ const ALLOC_STATUS_TABS = [
   { value: 'ISSUED', label: 'ピッキング済' },
   { value: 'RETURNED', label: '返却済' },
 ];
+
+interface ProductionPlanApi {
+  id: string;
+  product_code?: string;
+  product_name?: string;
+  product?: { name?: string };
+  plan_name?: string;
+}
 
 interface ProductGroup {
   key: string;
@@ -52,7 +61,7 @@ const MaterialAllocationPage: React.FC = () => {
         if (itemRes.ok) {
           const itemData = await itemRes.json();
           const map: Record<string, string> = {};
-          (itemData.results || []).forEach((it: any) => {
+          (itemData.results || []).forEach((it: { code: string; name: string }) => {
             map[it.code] = it.name;
           });
           setItemsMap(map);
@@ -66,7 +75,7 @@ const MaterialAllocationPage: React.FC = () => {
         if (planRes.ok) {
           const planData = await planRes.json();
           const pMap: Record<string, { productCode: string; productName: string; planName: string }> = {};
-          (planData.results || []).forEach((p: any) => {
+          (planData.results || []).forEach((p: ProductionPlanApi) => {
             pMap[p.id] = {
               productCode: p.product_code || '',
               productName: p.product_name || p.product?.name || '',
@@ -93,8 +102,8 @@ const MaterialAllocationPage: React.FC = () => {
       const data = (await response.json()) as PaginationData<MaterialAllocation>;
       const results = data.results || [];
       setAllocations(results);
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e) {
+      setError((e as ApiErrorLike).message);
     } finally {
       setLoading(false);
     }
@@ -234,8 +243,8 @@ const MaterialAllocationPage: React.FC = () => {
       });
       await handleError(response, 'ステータスの更新に失敗しました。');
       fetchAllocations();
-    } catch (e: any) {
-      alert(e.message);
+    } catch (e) {
+      alert((e as ApiErrorLike).message);
     }
   };
 
@@ -270,8 +279,8 @@ const MaterialAllocationPage: React.FC = () => {
       }
       await fetchAllocations();
       alert(`${successCount} 件の材料をピッキング済みに更新しました！`);
-    } catch (e: any) {
-      alert(`一括ピッキング中にエラーが発生しました: ${e.message}`);
+    } catch (e) {
+      alert(`一括ピッキング中にエラーが発生しました: ${(e as ApiErrorLike).message}`);
     } finally {
       setBatchLoading(false);
     }
@@ -286,8 +295,8 @@ const MaterialAllocationPage: React.FC = () => {
       });
       await handleError(response, '出庫先ラインの変更に失敗しました。');
       fetchAllocations();
-    } catch (e: any) {
-      alert(e.message);
+    } catch (e) {
+      alert((e as ApiErrorLike).message);
     }
   };
 
@@ -302,8 +311,8 @@ const MaterialAllocationPage: React.FC = () => {
       });
       await handleError(response, '引当の削除に失敗しました。');
       fetchAllocations();
-    } catch (e: any) {
-      alert(e.message);
+    } catch (e) {
+      alert((e as ApiErrorLike).message);
     }
   };
 

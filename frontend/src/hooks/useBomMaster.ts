@@ -12,8 +12,8 @@ export const useBomMaster = () => {
         try {
             const data = await bomService.getBillOfMaterials();
             setItems(data);
-        } catch (e: any) {
-            setError(`一覧の読み込みに失敗しました: ${e.message}`);
+        } catch (e) {
+            setError(`一覧の読み込みに失敗しました: ${(e as Error).message}`);
         } finally {
             setLoading(false);
         }
@@ -30,8 +30,8 @@ export const useBomMaster = () => {
                 alert(result.message);
                 fetchItems();
                 return true;
-            } catch (err: any) {
-                alert(`削除中にエラーが発生しました: ${err.message}`);
+            } catch (err) {
+                alert(`削除中にエラーが発生しました: ${(err as Error).message}`);
                 return false;
             }
         }

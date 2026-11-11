@@ -2,14 +2,15 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Modal, Button, Form, Table, Spinner, Alert } from 'react-bootstrap';
 import { DATA_CONFIG, getDataTypeDisplayName, getFormFields, FormField } from '../../config/dataImportConfigs';
 import { NavIcon } from '../../config/navigationConfig';
+import type { FormDataRecord, ImportModalConfig, ImportListData, DeleteTarget, RowRecord, ImportCsvResult } from './types';
 
 interface GenericFormProps {
     fields: FormField[];
-    formData: Record<string, any>;
-    setFormData: (data: any) => void;
+    formData: FormDataRecord;
+    setFormData: (data: FormDataRecord) => void;
 }
 
-const toDateTimeLocalValue = (val: any): string => {
+const toDateTimeLocalValue = (val: unknown): string => {
     if (!val) return '';
     const str = String(val);
     if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(str)) {
@@ -23,7 +24,7 @@ const toDateTimeLocalValue = (val: any): string => {
     return `${parsed.getFullYear()}-${pad(parsed.getMonth() + 1)}-${pad(parsed.getDate())}T${pad(parsed.getHours())}:${pad(parsed.getMinutes())}`;
 };
 
-const formatCellValue = (key: string, value: any): string => {
+const formatCellValue = (key: string, value: unknown): string => {
     if (value === null || value === undefined || value === '') return '—';
     if (key === 'item_type') {
         const map: Record<string, string> = {
@@ -62,7 +63,7 @@ const GenericForm: React.FC<GenericFormProps> = ({ fields, formData, setFormData
             {fields.map(field => {
                 const colClass = field.colSpan === 6 ? 'col-12 col-md-6' : 'col-12';
                 const rawVal = formData[field.name];
-                const inputValue = field.type === 'datetime-local' ? toDateTimeLocalValue(rawVal) : (rawVal ?? '');
+                const inputValue = field.type === 'datetime-local' ? toDateTimeLocalValue(rawVal) : ((rawVal ?? '') as string | number);
 
                 return (
                     <div className={colClass} key={field.name}>
@@ -120,7 +121,18 @@ const GenericForm: React.FC<GenericFormProps> = ({ fields, formData, setFormData
     </Form>
 );
 
-export const RegisterModal = ({ show, onHide, config, formData, setFormData, isLoading, error, onSave }: any) => {
+interface RegisterModalProps {
+    show: boolean;
+    onHide: () => void;
+    config: ImportModalConfig;
+    formData: FormDataRecord;
+    setFormData: (data: FormDataRecord) => void;
+    isLoading: boolean;
+    error: string | null;
+    onSave: () => void;
+}
+
+export const RegisterModal = ({ show, onHide, config, formData, setFormData, isLoading, error, onSave }: RegisterModalProps) => {
     const normalizedType = config?.type === 'production_plan' ? 'production-plan' : config?.type;
     const dataConfig = DATA_CONFIG[normalizedType];
     const displayName = dataConfig?.name || getDataTypeDisplayName(config?.name || config?.type);
@@ -178,7 +190,19 @@ export const RegisterModal = ({ show, onHide, config, formData, setFormData, isL
     );
 };
 
-export const ListModal = ({ show, onHide, config, listData, isLoading, error, onEdit, onDelete, onOpenRegister }: any) => {
+interface ListModalProps {
+    show: boolean;
+    onHide: () => void;
+    config: ImportModalConfig;
+    listData: ImportListData;
+    isLoading: boolean;
+    error: string | null;
+    onEdit: (id: string | number) => void;
+    onDelete: (row: RowRecord) => void;
+    onOpenRegister?: () => void;
+}
+
+export const ListModal = ({ show, onHide, config, listData, isLoading, error, onEdit, onDelete, onOpenRegister }: ListModalProps) => {
     const normalizedType = config?.type === 'production_plan' ? 'production-plan' : config?.type;
     const dataConfig = DATA_CONFIG[normalizedType];
     const displayName = dataConfig?.name || getDataTypeDisplayName(config?.name || config?.type);
@@ -211,7 +235,7 @@ export const ListModal = ({ show, onHide, config, listData, isLoading, error, on
 
         if (searchQuery.trim()) {
             const q = searchQuery.trim().toLowerCase();
-            rows = rows.filter((row: any) => {
+            rows = rows.filter((row) => {
                 return (listData?.rowKeys || []).some((k: string) => {
                     const cellVal = formatCellValue(k, row[k]);
                     return (
@@ -238,8 +262,8 @@ export const ListModal = ({ show, onHide, config, listData, isLoading, error, on
                 }
 
                 if (key.endsWith('_datetime') || key.endsWith('_date') || key === 'created_at' || key === 'updated_at') {
-                    const timeA = new Date(rawA).getTime();
-                    const timeB = new Date(rawB).getTime();
+                    const timeA = new Date(rawA as string | number).getTime();
+                    const timeB = new Date(rawB as string | number).getTime();
                     if (!isNaN(timeA) && !isNaN(timeB)) {
                         return direction === 'asc' ? timeA - timeB : timeB - timeA;
                     }
@@ -368,8 +392,8 @@ export const ListModal = ({ show, onHide, config, listData, isLoading, error, on
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {filteredAndSortedRows.map((row: any) => (
-                                        <tr key={row[listData.idKey]}>
+                                    {filteredAndSortedRows.map((row) => (
+                                        <tr key={row[listData.idKey] as React.Key}>
                                             {listData.rowKeys.map((key: string) => (
                                                 <td key={key} className="text-nowrap">{formatCellValue(key, row[key])}</td>
                                             ))}
@@ -378,7 +402,7 @@ export const ListModal = ({ show, onHide, config, listData, isLoading, error, on
                                                     variant="outline-primary"
                                                     size="sm"
                                                     className="me-2 py-0 px-2 fw-bold"
-                                                    onClick={() => onEdit(row[listData.idKey])}
+                                                    onClick={() => onEdit(row[listData.idKey] as string | number)}
                                                 >
                                                     編集
                                                 </Button>
@@ -433,7 +457,15 @@ export const ListModal = ({ show, onHide, config, listData, isLoading, error, on
     );
 };
 
-export const DeleteConfirmModal = ({ show, onHide, item, onConfirm, isLoading }: any) => (
+interface DeleteConfirmModalProps {
+    show: boolean;
+    onHide: () => void;
+    item: DeleteTarget | null;
+    onConfirm: () => void;
+    isLoading: boolean;
+}
+
+export const DeleteConfirmModal = ({ show, onHide, item, onConfirm, isLoading }: DeleteConfirmModalProps) => (
     <Modal show={show} onHide={onHide} centered size="sm" className="mes-clean-modal">
         <Modal.Header closeButton className="mes-modal-header">
             <Modal.Title className="fs-6 fw-bold text-danger">データの削除確認</Modal.Title>
@@ -453,7 +485,13 @@ export const DeleteConfirmModal = ({ show, onHide, item, onConfirm, isLoading }:
     </Modal>
 );
 
-export const CsvResultModal = ({ show, onHide, result }: any) => (
+interface CsvResultModalProps {
+    show: boolean;
+    onHide: () => void;
+    result: ImportCsvResult;
+}
+
+export const CsvResultModal = ({ show, onHide, result }: CsvResultModalProps) => (
     <Modal show={show} onHide={onHide} centered className="mes-clean-modal">
         <Modal.Header closeButton className="mes-modal-header">
             <Modal.Title className="mes-modal-title">CSV一括取込の結果</Modal.Title>

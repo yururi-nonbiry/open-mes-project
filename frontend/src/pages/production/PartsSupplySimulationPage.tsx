@@ -1,3 +1,4 @@
+import type { ApiErrorLike } from '../apiErrorTypes';
 import { useState, useCallback, useEffect } from 'react';
 import productionService from '../../services/productionService';
 import type { ProductionPlan } from '../../types/production';
@@ -42,8 +43,8 @@ const PartsSupplySimulationPage = () => {
                 setPlans(data.results);
                 // 一覧に無くなった計画の選択は外す
                 setSelectedPlanIds(prev => new Set([...prev].filter(id => data.results.some(p => p.id === id))));
-            } catch (e: any) {
-                if (!cancelled) setError(e.message);
+            } catch (e) {
+                if (!cancelled) setError((e as ApiErrorLike).message);
             } finally {
                 if (!cancelled) setPlansLoading(false);
             }
@@ -73,8 +74,8 @@ const PartsSupplySimulationPage = () => {
                 statuses: Array.from(selectedStatuses),
             });
             setResult(data);
-        } catch (e: any) {
-            setError(e.message);
+        } catch (e) {
+            setError((e as ApiErrorLike).message);
             setResult(null);
         } finally {
             setLoading(false);

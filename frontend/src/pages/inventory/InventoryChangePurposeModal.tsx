@@ -3,6 +3,7 @@ import { Modal, Button, Alert } from 'react-bootstrap';
 import inventoryService, { InventoryItem } from '../../services/inventoryService';
 import { useStockPurposes } from '../../hooks/useStockPurposes';
 import { NavIcon } from '../../config/navigationConfig';
+import type { ApiErrorLike } from '../apiError';
 
 interface InventoryChangePurposeModalProps {
     isOpen: boolean;
@@ -58,8 +59,8 @@ const InventoryChangePurposeModal: React.FC<InventoryChangePurposeModalProps> = 
                 onSuccess();
                 onClose();
             }, 1000);
-        } catch (err: any) {
-            setError(err.message || '用途の変更中にエラーが発生しました。');
+        } catch (err) {
+            setError((err as ApiErrorLike).message || '用途の変更中にエラーが発生しました。');
         } finally {
             setSubmitting(false);
         }

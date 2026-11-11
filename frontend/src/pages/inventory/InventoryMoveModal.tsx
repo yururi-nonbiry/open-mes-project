@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Button, Alert } from 'react-bootstrap';
 import inventoryService, { InventoryItem } from '../../services/inventoryService';
 import { NavIcon } from '../../config/navigationConfig';
+import type { ApiErrorLike } from '../apiError';
 
 interface InventoryMoveModalProps {
     isOpen: boolean;
@@ -70,8 +71,8 @@ const InventoryMoveModal: React.FC<InventoryMoveModalProps> = ({
                 onSuccess();
                 onClose();
             }, 1200);
-        } catch (err: any) {
-            setError(err.message || '在庫移動中にエラーが発生しました。');
+        } catch (err) {
+            setError((err as ApiErrorLike).message || '在庫移動中にエラーが発生しました。');
         } finally {
             setSubmitting(false);
         }

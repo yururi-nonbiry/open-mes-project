@@ -12,8 +12,8 @@ export const useMachineMaster = () => {
         try {
             const data = await machineService.getMachines();
             setMachines(data);
-        } catch (e: any) {
-            setError(e.message);
+        } catch (e) {
+            setError((e as Error).message);
         } finally {
             setLoading(false);
         }
@@ -34,8 +34,8 @@ export const useMachineMaster = () => {
             await machineService.deleteMachine(id);
             await fetchMachines();
             return true;
-        } catch (e: any) {
-            alert(`削除に失敗しました: ${e.message}`);
+        } catch (e) {
+            alert(`削除に失敗しました: ${(e as Error).message}`);
             return false;
         }
     };

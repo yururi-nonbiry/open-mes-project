@@ -1,3 +1,4 @@
+import type { ApiErrorLike } from '../apiErrorTypes';
 import React, { useEffect, useState } from 'react';
 import Modal from '../../components/Modal';
 import productionService from '../../services/productionService';
@@ -35,8 +36,8 @@ const ProductionPlanDetailModal: React.FC<ProductionPlanDetailModalProps> = ({
             const updated = await productionService.updatePlanLine(plan.id, line);
             setMessage({ type: 'success', text: '出庫先ラインを更新しました。今後の引当の既定値に使われます(引当済みの出庫先は変わりません)。' });
             onUpdated?.({ ...plan, ...updated });
-        } catch (e: any) {
-            setMessage({ type: 'danger', text: e.message });
+        } catch (e) {
+            setMessage({ type: 'danger', text: (e as ApiErrorLike).message });
         } finally {
             setSaving(false);
         }

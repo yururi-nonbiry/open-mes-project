@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Button, Alert } from 'react-bootstrap';
 import inventoryService, { InventoryItem } from '../../services/inventoryService';
 import { NavIcon } from '../../config/navigationConfig';
+import type { ApiErrorLike } from '../apiError';
 
 interface InventoryModifyModalProps {
     isOpen: boolean;
@@ -55,8 +56,8 @@ const InventoryModifyModal: React.FC<InventoryModifyModalProps> = ({
                 onSuccess();
                 onClose();
             }, 1200);
-        } catch (err: any) {
-            setError(err.message || '在庫の更新に失敗しました。');
+        } catch (err) {
+            setError((err as ApiErrorLike).message || '在庫の更新に失敗しました。');
         } finally {
             setSubmitting(false);
         }

@@ -69,6 +69,19 @@ export interface DisplaySetting {
     search_order: number;
 }
 
+export interface ModelField {
+    name: string;
+    verbose_name: string;
+}
+
+export interface ItemName {
+    code: string;
+    name: string;
+}
+
+/** 在庫の調整・移動APIに送るペイロード(数量・棚番・理由など) */
+export type InventoryPayload = Record<string, string | number | boolean | null | undefined>;
+
 export interface FeatureOptions {
     /** 入庫時、デフォルト入庫棚番が未登録なら登録するか確認する */
     confirm_register_default_location: boolean;
@@ -98,7 +111,7 @@ const inventoryService = {
     getInventories: async (params: URLSearchParams) => {
         const response = await authFetch(`/api/inventory/inventories/?${params.toString()}`);
         await handleError(response, 'Failed to fetch inventories');
-        return await response.json();
+        return await response.json() as PaginatedResponse<InventoryItem> & { next: string | null; previous: string | null };
     },
 
     getDisplaySettings: async (dataType: string) => {
@@ -111,17 +124,17 @@ const inventoryService = {
         // 一覧の見出し用。品番・倉庫などの外部キー項目の名称も引けるよう、外部キーを含めて取得する
         const response = await authFetch(`/api/base/model-fields/?data_type=${dataType}&include_relations=true`);
         await handleError(response, 'Failed to fetch model fields');
-        return await response.json();
+        return await response.json() as ModelField[];
     },
 
     getItemNames: async (codes: string[]) => {
         const response = await authFetch(`/api/master/items/?code__in=${codes.join(',')}`);
         await handleError(response, 'Failed to fetch item names');
         const data = await response.json();
-        return data.results || data.data || data || [];
+        return (data.results || data.data || data || []) as ItemName[];
     },
 
-    updateInventory: (id: string | number, payload: Record<string, any>) => withMixedPurposeConfirm(extra => {
+    updateInventory: (id: string | number, payload: InventoryPayload) => withMixedPurposeConfirm(extra => {
         // quantity/location の変更は在庫移動履歴(StockMovement)の記録を伴うため、
         // 専用の /adjust/ アクション経由で行う（直接のPATCHはquantity/reservedを受け付けない）。
         return apiRequest(
@@ -139,7 +152,7 @@ const inventoryService = {
             '用途の変更に失敗しました。'
         )),
 
-    moveInventory: (id: string | number, payload: Record<string, any>) =>
+    moveInventory: (id: string | number, payload: InventoryPayload) =>
         withMixedPurposeConfirm(extra => apiRequest(
             `/api/inventory/inventories/${id}/move/`,
             { method: 'POST', body: JSON.stringify({ ...payload, ...extra }) },

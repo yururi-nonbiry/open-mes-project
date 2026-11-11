@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Button, Form, Spinner } from 'react-bootstrap';
 import stockPurposeService, { StockPurpose } from '../services/stockPurposeService';
+import type { ApiErrorLike } from './apiError';
 
 const EMPTY: StockPurpose = { code: '', name: '', is_active: true };
 
@@ -16,8 +17,8 @@ const StockPurposeMaster: React.FC = () => {
         try {
             setPurposes(await stockPurposeService.getPurposes());
             setError(null);
-        } catch (e: any) {
-            setError(e.message || '用途一覧の取得に失敗しました。');
+        } catch (e) {
+            setError((e as ApiErrorLike).message || '用途一覧の取得に失敗しました。');
         } finally {
             setLoading(false);
         }
@@ -36,8 +37,8 @@ const StockPurposeMaster: React.FC = () => {
             setMessage(form.id ? '用途を更新しました。' : '用途を登録しました。');
             setForm(EMPTY);
             await load();
-        } catch (e: any) {
-            setError(e.message || '用途の保存に失敗しました。');
+        } catch (e) {
+            setError((e as ApiErrorLike).message || '用途の保存に失敗しました。');
         }
     };
 
@@ -49,8 +50,8 @@ const StockPurposeMaster: React.FC = () => {
             await stockPurposeService.deletePurpose(p.id);
             setMessage('用途を削除しました。');
             await load();
-        } catch (e: any) {
-            setError(e.message || '用途の削除に失敗しました。');
+        } catch (e) {
+            setError((e as ApiErrorLike).message || '用途の削除に失敗しました。');
         }
     };
 

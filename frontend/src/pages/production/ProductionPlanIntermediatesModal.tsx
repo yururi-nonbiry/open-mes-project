@@ -3,6 +3,7 @@ import Modal from '../../components/Modal';
 import productionService from '../../services/productionService';
 import { describeError } from '../../utils/api';
 import { IntermediateDecision, IntermediateRequirement, ProductionPlan } from '../../types/production';
+import { unwrapList, type MaybeWrapped } from './types';
 
 interface ProductionPlanIntermediatesModalProps {
     isOpen: boolean;
@@ -40,7 +41,7 @@ const ProductionPlanIntermediatesModal: React.FC<ProductionPlanIntermediatesModa
     const [submitting, setSubmitting] = useState(false);
 
     const applyRows = (rawList: IntermediateRequirement[]) => {
-        const list = Array.isArray(rawList) ? rawList : Array.isArray((rawList as any)?.requirements) ? (rawList as any).requirements : [];
+        const list = unwrapList(rawList as MaybeWrapped<'requirements', IntermediateRequirement>, 'requirements');
         setRows(list);
         setQuantities(Object.fromEntries(list.map((row: IntermediateRequirement) => [row.material_code, defaultChildQuantity(row)])));
     };

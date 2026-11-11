@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../../components/Modal';
 import { WarehouseLocation } from '../../services/warehouseLocationService';
+import type { ApiErrorLike } from '../apiError';
 
 interface WarehouseLocationEditModalProps {
     isOpen: boolean;
@@ -48,8 +49,8 @@ const WarehouseLocationEditModal: React.FC<WarehouseLocationEditModalProps> = ({
                 pos_y: Number(formData.pos_y),
             });
             onClose();
-        } catch (err: any) {
-            setError(err.message || '保存に失敗しました。');
+        } catch (err) {
+            setError((err as ApiErrorLike).message || '保存に失敗しました。');
         } finally {
             setSubmitting(false);
         }
@@ -62,8 +63,8 @@ const WarehouseLocationEditModal: React.FC<WarehouseLocationEditModalProps> = ({
         try {
             await onDelete(formData.id);
             onClose();
-        } catch (err: any) {
-            setError(err.message || '削除に失敗しました。');
+        } catch (err) {
+            setError((err as ApiErrorLike).message || '削除に失敗しました。');
         } finally {
             setSubmitting(false);
         }

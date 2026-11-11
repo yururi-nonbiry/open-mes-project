@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Button, Form, Spinner } from 'react-bootstrap';
 import workCalendarService, { WorkCalendarDay, WorkCalendarSetting } from '../services/workCalendarService';
+import type { ApiErrorLike } from './apiError';
 
 const WEEKDAYS: { key: keyof WorkCalendarSetting; label: string }[] = [
     { key: 'monday', label: '月' },
@@ -44,8 +45,8 @@ const WorkCalendarMaster: React.FC = () => {
             setSetting(s);
             setDays(d);
             setError(null);
-        } catch (e: any) {
-            setError(e.message || 'カレンダーの取得に失敗しました。');
+        } catch (e) {
+            setError((e as ApiErrorLike).message || 'カレンダーの取得に失敗しました。');
         } finally {
             setLoading(false);
         }
@@ -73,8 +74,8 @@ const WorkCalendarMaster: React.FC = () => {
         try {
             await workCalendarService.saveSetting(setting);
             setMessage('曜日ごとの稼働設定を保存しました。');
-        } catch (e: any) {
-            setError(e.message || '稼働曜日の保存に失敗しました。');
+        } catch (e) {
+            setError((e as ApiErrorLike).message || '稼働曜日の保存に失敗しました。');
         }
     };
 
@@ -97,8 +98,8 @@ const WorkCalendarMaster: React.FC = () => {
             }
             setMessage(`${selected} を更新しました。`);
             await load();
-        } catch (e: any) {
-            setError(e.message || '例外日の保存に失敗しました。');
+        } catch (e) {
+            setError((e as ApiErrorLike).message || '例外日の保存に失敗しました。');
         }
     };
 

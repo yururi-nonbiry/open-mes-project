@@ -3,6 +3,7 @@ import Modal from '../../components/Modal';
 import productionService from '../../services/productionService';
 import { describeError } from '../../utils/api';
 import { ProductionPlan, RequiredPart } from '../../types/production';
+import { unwrapList, type MaybeWrapped, type RawRequiredPart } from './types';
 
 interface ProductionPlanAdditionalIssueModalProps {
     isOpen: boolean;
@@ -30,8 +31,8 @@ const ProductionPlanAdditionalIssueModal: React.FC<ProductionPlanAdditionalIssue
         setLoading(true);
         try {
             const raw = await productionService.getRequiredParts(planId);
-            const parts = Array.isArray(raw) ? raw : Array.isArray((raw as any)?.parts) ? (raw as any).parts : [];
-            setRows(parts.map((part: any) => {
+            const parts = unwrapList(raw as MaybeWrapped<'parts', RawRequiredPart>, 'parts');
+            setRows(parts.map((part) => {
                 const warehouses = Array.isArray(part.warehouses) ? part.warehouses : Array.isArray(part.inventories) ? part.inventories : [];
                 return {
                     ...part,

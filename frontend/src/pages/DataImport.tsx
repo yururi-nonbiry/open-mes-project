@@ -6,6 +6,7 @@ import { useDataManagement } from '../hooks/useDataManagement';
 import { useCsvImport } from '../hooks/useCsvImport';
 import DataCardList from './import/DataCardList';
 import CsvImportSection from './import/CsvImportSection';
+import type { DeleteTarget, RowRecord } from './import/types';
 import { RegisterModal, ListModal, DeleteConfirmModal, CsvResultModal } from './import/ManagementModals';
 
 const DataImport: React.FC = () => {
@@ -24,7 +25,7 @@ const DataImport: React.FC = () => {
     const [showRegisterModal, setShowRegisterModal] = useState(false);
     const [showListModal, setShowListModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
-    const [itemToDelete, setItemToDelete] = useState<any>(null);
+    const [itemToDelete, setItemToDelete] = useState<DeleteTarget | null>(null);
 
     const handleRegister = (type: string) => {
         setModalConfig({ type, name: getDataTypeDisplayName(type), recordId: null });
@@ -58,8 +59,8 @@ const DataImport: React.FC = () => {
         setShowRegisterModal(true);
     };
 
-    const handleDeleteClick = (item: any) => {
-        setItemToDelete({ ...item, displayName: item.name || item.code || `ID: ${item.id}` });
+    const handleDeleteClick = (item: RowRecord) => {
+        setItemToDelete({ ...item, displayName: (item.name || item.code || `ID: ${item.id}`) as string });
         setShowDeleteModal(true);
     };
 
@@ -73,7 +74,7 @@ const DataImport: React.FC = () => {
 
     const handleDeleteConfirm = async () => {
         if (itemToDelete) {
-            const success = await deleteRecord(modalConfig.type, itemToDelete.id);
+            const success = await deleteRecord(modalConfig.type, itemToDelete.id as string | number);
             if (success) setShowDeleteModal(false);
         }
     };

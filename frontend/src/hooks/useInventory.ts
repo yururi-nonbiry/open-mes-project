@@ -24,20 +24,20 @@ export const useInventory = () => {
                 inventoryService.getModelFields('inventory').catch(() => [])
             ]);
 
-            const verboseNameMap = new Map(fields.map((f: any) => [f.name, f.verbose_name]));
-            const combinedSettings = settings.map((setting: any) => ({
+            const verboseNameMap = new Map(fields.map((f) => [f.name, f.verbose_name]));
+            const combinedSettings = settings.map((setting) => ({
                 ...setting,
                 verbose_name: verboseNameMap.get(setting.model_field_name) || setting.verbose_name || setting.model_field_name,
             }));
 
             setDisplaySettings(combinedSettings
-                .filter((s: any) => s.is_list_display)
-                .sort((a: any, b: any) => a.display_order - b.display_order)
+                .filter((s) => s.is_list_display)
+                .sort((a, b) => a.display_order - b.display_order)
             );
 
             setSearchFields(combinedSettings
-                .filter((s: any) => s.is_search_field)
-                .sort((a: any, b: any) => a.search_order - b.search_order)
+                .filter((s) => s.is_search_field)
+                .sort((a, b) => a.search_order - b.search_order)
             );
         } catch (e) {
             console.error('Failed to fetch settings:', e);
@@ -76,11 +76,11 @@ export const useInventory = () => {
             const results = data.results || [];
 
             if (results.length > 0) {
-                const partNumbers = [...new Set(results.map((item: any) => item.part_number).filter(Boolean))] as string[];
+                const partNumbers = [...new Set(results.map((item) => item.part_number).filter(Boolean))] as string[];
                 if (partNumbers.length > 0) {
                     const items = await inventoryService.getItemNames(partNumbers);
-                    const partNameMap = new Map(items.map((item: any) => [item.code, item.name]));
-                    results.forEach((inv: any) => {
+                    const partNameMap = new Map(items.map((item) => [item.code, item.name]));
+                    results.forEach((inv) => {
                         inv.part_name = partNameMap.get(inv.part_number) || '';
                     });
                 }
@@ -88,7 +88,7 @@ export const useInventory = () => {
 
             setInventory(results);
             updatePagination(data, currentUrl);
-        } catch (err: any) {
+        } catch (err) {
             setError('在庫データの取得中にエラーが発生しました。');
             console.error(err);
         } finally {

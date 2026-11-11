@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Spinner } from 'react-bootstrap';
 import authFetch from '../utils/api';
+import type { SalesOrder } from '../services/inventoryService';
 
 const STATUS_TABS = [
   { value: 'pending', label: '未出庫' },
@@ -17,7 +18,7 @@ const STATUS_META: Record<string, { label: string; className: string }> = {
 };
 
 const ShipmentSchedule: React.FC = () => {
-  const [salesOrders, setSalesOrders] = useState<any[]>([]);
+  const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState('pending');

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../../components/Modal';
 import { Machine } from '../../services/machineService';
+import type { ApiErrorLike } from '../apiError';
 
 interface MachineMasterModalProps {
     isOpen: boolean;
@@ -41,8 +42,8 @@ const MachineMasterModal: React.FC<MachineMasterModalProps> = ({ isOpen, onClose
         try {
             await onSave(formData);
             onClose();
-        } catch (e: any) {
-            setError(e.message || '保存に失敗しました。');
+        } catch (e) {
+            setError((e as ApiErrorLike).message || '保存に失敗しました。');
         } finally {
             setSubmitting(false);
         }

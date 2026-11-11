@@ -17,8 +17,8 @@ export const useWarehouseLayout = () => {
             if (data.length > 0 && !selectedWarehouseNumber) {
                 setSelectedWarehouseNumber(data[0].warehouse_number);
             }
-        } catch (e: any) {
-            setError(e.message);
+        } catch (e) {
+            setError((e as Error).message);
         } finally {
             setLoading(false);
         }
@@ -35,8 +35,8 @@ export const useWarehouseLayout = () => {
         try {
             const data = await warehouseLocationService.getLocations(warehouseNumber);
             setLocations(data);
-        } catch (e: any) {
-            setError(e.message);
+        } catch (e) {
+            setError((e as Error).message);
         } finally {
             setLoading(false);
         }

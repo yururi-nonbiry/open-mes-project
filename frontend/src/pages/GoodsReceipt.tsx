@@ -6,6 +6,7 @@ import authFetch, { ApiError } from '../utils/api';
 import inventoryService from '../services/inventoryService';
 import { NavIcon } from '../config/navigationConfig';
 import './InventoryInquiry.css';
+import type { DisplaySetting, ModelFieldInfo, PurchaseOrderRow } from './types/listPage';
 
 const NUMERIC_FIELDS = ['quantity', 'received_quantity', 'remaining_quantity', 'delivered_quantity'];
 
@@ -57,7 +58,7 @@ const defaultFilters = (): Record<string, string> => ({
 });
 
 const GoodsReceipt: React.FC = () => {
-  const [purchaseOrders, setPurchaseOrders] = useState<any[]>([]);
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrderRow[]>([]);
   const [pagination, setPagination] = useState<{
     count: number;
     next: string | null;
@@ -73,15 +74,15 @@ const GoodsReceipt: React.FC = () => {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [displaySettings, setDisplaySettings] = useState<any[]>([]);
-  const [searchFields, setSearchFields] = useState<any[]>([]);
+  const [displaySettings, setDisplaySettings] = useState<DisplaySetting[]>([]);
+  const [searchFields, setSearchFields] = useState<DisplaySetting[]>([]);
 
   const [filters, setFilters] = useState<Record<string, string>>(defaultFilters);
 
   // 入庫処理モーダル
   const [receiptModal, setReceiptModal] = useState<{
     isOpen: boolean;
-    order: any | null;
+    order: PurchaseOrderRow | null;
     error: string;
     success: string;
   }>({ isOpen: false, order: null, error: '', success: '' });
@@ -96,7 +97,7 @@ const GoodsReceipt: React.FC = () => {
   // 納品記録モーダル
   const [deliveryModal, setDeliveryModal] = useState<{
     isOpen: boolean;
-    order: any | null;
+    order: PurchaseOrderRow | null;
     error: string;
     success: string;
   }>({ isOpen: false, order: null, error: '', success: '' });
@@ -146,14 +147,14 @@ const GoodsReceipt: React.FC = () => {
       const poFields = poFieldsResponse.ok ? await poFieldsResponse.json() : [];
       const grFields = grFieldsResponse.ok ? await grFieldsResponse.json() : [];
 
-      const verboseNameMap = new Map();
-      const fieldTypeMap = new Map();
+      const verboseNameMap = new Map<string, string>();
+      const fieldTypeMap = new Map<string, string | undefined>();
 
-      poFields.forEach((field: any) => {
+      (poFields as ModelFieldInfo[]).forEach((field) => {
         verboseNameMap.set(field.name, field.verbose_name);
         fieldTypeMap.set(field.name, field.field_type);
       });
-      grFields.forEach((field: any) => {
+      (grFields as ModelFieldInfo[]).forEach((field) => {
         if (!verboseNameMap.has(field.name)) {
           verboseNameMap.set(field.name, field.verbose_name);
           fieldTypeMap.set(field.name, field.field_type);
@@ -161,29 +162,29 @@ const GoodsReceipt: React.FC = () => {
       });
 
       if (poSettingsResponse.ok && grSettingsResponse.ok) {
-        const settingsMap = new Map();
-        poSettings.forEach((setting: any) => {
+        const settingsMap = new Map<string, DisplaySetting>();
+        (poSettings as DisplaySetting[]).forEach((setting) => {
           settingsMap.set(setting.model_field_name, setting);
         });
-        grSettings.forEach((setting: any) => {
+        (grSettings as DisplaySetting[]).forEach((setting) => {
           settingsMap.set(setting.model_field_name, setting);
         });
 
         const mergedSettings = Array.from(settingsMap.values());
-        const combinedSettings = mergedSettings.map((setting: any) => ({
+        const combinedSettings = mergedSettings.map((setting): DisplaySetting => ({
           ...setting,
           verbose_name: verboseNameMap.get(setting.model_field_name) || setting.verbose_name || setting.model_field_name,
           field_type: fieldTypeMap.get(setting.model_field_name) || 'Unknown',
         }));
 
         const visibleColumns = combinedSettings
-          .filter((s: any) => s.is_list_display)
-          .sort((a: any, b: any) => a.display_order - b.display_order);
+          .filter((s) => s.is_list_display)
+          .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
         setDisplaySettings(visibleColumns);
 
         const searchableFields = combinedSettings
-          .filter((s: any) => s.is_search_field)
-          .sort((a: any, b: any) => a.search_order - b.search_order);
+          .filter((s) => s.is_search_field)
+          .sort((a, b) => (a.search_order ?? 0) - (b.search_order ?? 0));
         setSearchFields(searchableFields);
       } else {
         setDisplaySettings([]);
@@ -232,7 +233,7 @@ const GoodsReceipt: React.FC = () => {
   };
 
   // 入庫処理モーダルの開閉
-  const openReceiptModal = (order: any) => {
+  const openReceiptModal = (order: PurchaseOrderRow) => {
     const remainingQuantity = (order.quantity ?? 0) - (order.received_quantity ?? 0);
     setReceiptModal({ isOpen: true, order, error: '', success: '' });
     setReceiptFormData({
@@ -262,15 +263,17 @@ const GoodsReceipt: React.FC = () => {
       return;
     }
 
+    const targetOrder = receiptModal.order;
+    if (!targetOrder) return;
     const location = receiptFormData.location.trim();
     const registerDefaultLocation = await inventoryService.confirmRegisterDefaultLocation(
-      receiptModal.order,
+      targetOrder,
       location
     );
 
     try {
       const result = await inventoryService.receivePurchaseOrder({
-        purchase_order_id: receiptModal.order.id,
+        purchase_order_id: targetOrder.id,
         received_quantity: receivedQuantity,
         register_default_location: registerDefaultLocation,
         location,
@@ -279,7 +282,7 @@ const GoodsReceipt: React.FC = () => {
       });
       setReceiptModal(prev => ({
         ...prev,
-        success: `発注番号「${result.order_number || receiptModal.order.order_number}」の入庫処理が完了し、在庫へ反映されました。${result.default_location_registered ? `デフォルト入庫棚番に「${location}」を登録しました。` : ''}`,
+        success: `発注番号「${result.order_number || targetOrder.order_number}」の入庫処理が完了し、在庫へ反映されました。${result.default_location_registered ? `デフォルト入庫棚番に「${location}」を登録しました。` : ''}`,
       }));
       setTimeout(() => {
         closeReceiptModal();
@@ -295,7 +298,7 @@ const GoodsReceipt: React.FC = () => {
   };
 
   // 納品記録モーダルの開閉
-  const openDeliveryModal = (order: any) => {
+  const openDeliveryModal = (order: PurchaseOrderRow) => {
     setDeliveryModal({ isOpen: true, order, error: '', success: '' });
     const now = new Date();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -325,14 +328,17 @@ const GoodsReceipt: React.FC = () => {
       return;
     }
 
+    const targetOrder = deliveryModal.order;
+    if (!targetOrder) return;
+
     try {
-      await inventoryService.updatePurchaseOrderDelivery(deliveryModal.order.id, {
+      await inventoryService.updatePurchaseOrderDelivery(targetOrder.id, {
         delivery_date: deliveryFormData.delivery_date || null,
         delivered_quantity: deliveredQuantity,
       });
       setDeliveryModal(prev => ({
         ...prev,
-        success: `発注番号「${deliveryModal.order.order_number}」の納品記録を保存しました。`,
+        success: `発注番号「${targetOrder.order_number}」の納品記録を保存しました。`,
       }));
       setTimeout(() => {
         closeDeliveryModal();
@@ -360,14 +366,14 @@ const GoodsReceipt: React.FC = () => {
 
   const columns = displaySettings.length > 0 ? displaySettings : DEFAULT_COLUMNS;
   const activeSearchFields =
-    searchFields.filter((f: any) => f.model_field_name !== 'status').length > 0
-      ? searchFields.filter((f: any) => f.model_field_name !== 'status')
+    searchFields.filter((f) => f.model_field_name !== 'status').length > 0
+      ? searchFields.filter((f) => f.model_field_name !== 'status')
       : DEFAULT_SEARCH_FIELDS;
   const colSpan = columns.length + 1;
 
   const renderTableHeaders = () => (
     <tr>
-      {columns.map((setting: any) => {
+      {columns.map((setting: DisplaySetting) => {
         const isNumeric = NUMERIC_FIELDS.includes(setting.model_field_name);
         const headerText = (setting.display_name || '').trim() || setting.verbose_name || setting.model_field_name;
         return (
@@ -411,11 +417,11 @@ const GoodsReceipt: React.FC = () => {
       );
     }
 
-    return purchaseOrders.map((order: any) => {
+    return purchaseOrders.map((order) => {
       const remainingQty = (order.quantity ?? 0) - (order.received_quantity ?? 0);
       const canReceive = ['pending', 'partially_received'].includes(order.status) && remainingQty > 0;
 
-      const cells = columns.map((setting: any) => {
+      const cells = columns.map((setting: DisplaySetting) => {
         const fieldName = setting.model_field_name;
 
         if (fieldName === 'remaining_quantity') {
@@ -429,7 +435,7 @@ const GoodsReceipt: React.FC = () => {
         }
 
         if (fieldName === 'expected_arrival' || fieldName === 'order_date') {
-          return <td key={fieldName}>{formatDate(order[fieldName])}</td>;
+          return <td key={fieldName}>{formatDate(order[fieldName] as string | null | undefined)}</td>;
         }
 
         if (fieldName === 'status') {
@@ -518,7 +524,7 @@ const GoodsReceipt: React.FC = () => {
         </div>
 
         <div className="receipt-search-inputs-row">
-          {activeSearchFields.map((field: any) => {
+          {activeSearchFields.map((field: DisplaySetting) => {
             const labelText = (field.display_name || '').trim() || field.verbose_name || field.model_field_name;
             return (
               <div key={field.model_field_name} className="receipt-search-field">

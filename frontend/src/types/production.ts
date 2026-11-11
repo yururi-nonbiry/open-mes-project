@@ -47,6 +47,14 @@ export interface ProductionPlanFilters {
     ordering?: string;
 }
 
+/** 進捗管理画面の絞り込み条件(画面入力値) */
+export interface WorkProgressFilterValues {
+    plan_name: string;
+    product_code: string;
+    planned_start_after: string;
+    planned_start_before: string;
+}
+
 export interface RequiredPartWarehouse {
     warehouse: string;
     /** この倉庫の引当可能数 */
@@ -158,10 +166,16 @@ export interface UpdateProgressResponse {
     new_status: string;
 }
 
+export interface AllocationSummaryItem {
+    part_number: string;
+    allocated_quantity: number;
+    status: string;
+}
+
 export interface AllocateMaterialsResponse {
     message: string;
     production_plan_id: string;
-    allocations_summary: any[];
+    allocations_summary: AllocationSummaryItem[];
 }
 
 export const AVAILABLE_STATUSES = [

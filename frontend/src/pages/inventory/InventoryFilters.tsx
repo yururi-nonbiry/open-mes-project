@@ -2,7 +2,7 @@ import React from 'react';
 import { DisplaySetting } from '../../services/inventoryService';
 
 interface InventoryFiltersProps {
-    filters: Record<string, any>;
+    filters: Record<string, string | number | boolean | null | undefined>;
     searchFields: DisplaySetting[];
     onFilterChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
     onSearch: () => void;
@@ -66,7 +66,7 @@ const InventoryFilters: React.FC<InventoryFiltersProps> = ({
                                 id={`inv-search-${field.model_field_name}`}
                                 type="text"
                                 name={field.model_field_name}
-                                value={filters[field.model_field_name] || ''}
+                                value={(filters[field.model_field_name] || '') as string | number}
                                 onChange={onFilterChange}
                                 className="form-control form-control-sm"
                                 placeholder={field.model_field_name === 'purpose' ? '用途コード（汎用は none）' : `${labelText}を入力...`}

@@ -1,5 +1,8 @@
 import authFetch, { handleError } from '../utils/api';
 
+/** データ管理画面で扱う1レコード(項目名 -> 値) */
+export type DataRecord = Record<string, string | number | boolean | null | undefined>;
+
 const importService = {
     getList: async (url: string) => {
         const response = await authFetch(url);
@@ -13,7 +16,7 @@ const importService = {
         return await response.json();
     },
 
-    saveRecord: async (url: string, method: 'POST' | 'PUT', data: Record<string, any>) => {
+    saveRecord: async (url: string, method: 'POST' | 'PUT', data: DataRecord) => {
         const response = await authFetch(url, {
             method,
             body: JSON.stringify(data),

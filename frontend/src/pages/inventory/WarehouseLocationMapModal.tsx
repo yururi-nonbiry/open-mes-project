@@ -3,6 +3,7 @@ import Modal from '../../components/Modal';
 import inventoryService from '../../services/inventoryService';
 import { WarehouseLocationMap } from '../../services/warehouseLocationService';
 import WarehouseLayoutGrid from '../master/WarehouseLayoutGrid';
+import type { ApiErrorLike } from '../apiError';
 
 interface WarehouseLocationMapModalProps {
     isOpen: boolean;
@@ -24,7 +25,7 @@ const WarehouseLocationMapModal: React.FC<WarehouseLocationMapModalProps> = ({ i
         inventoryService
             .getSalesOrderLocationMap(orderId)
             .then(setMap)
-            .catch((e: any) => setError(e.message || 'ロケーションマップの取得に失敗しました。'))
+            .catch((e) => setError((e as ApiErrorLike).message || 'ロケーションマップの取得に失敗しました。'))
             .finally(() => setLoading(false));
     }, [isOpen, orderId]);
 

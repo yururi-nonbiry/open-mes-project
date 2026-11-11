@@ -1,3 +1,4 @@
+import type { ApiErrorLike } from './apiErrorTypes';
 import React, { useState, useEffect, useCallback } from 'react';
 import authFetch, { handleError } from '../utils/api';
 
@@ -25,6 +26,14 @@ interface InspectionResult {
   attachment: string | null;
   equipment_used: string | null;
   details: ResultDetail[];
+}
+
+interface InspectionItemApi {
+  id: string;
+  code: string;
+  name: string;
+  inspection_type: string;
+  inspection_type_display?: string;
 }
 
 interface InspectionItemSummary {
@@ -82,7 +91,7 @@ const InspectionHistory = () => {
       // Build items lookup map
       const lookup: Record<string, InspectionItemSummary> = {};
       const itemsList = itemsData.data || itemsData || [];
-      itemsList.forEach((item: any) => {
+      itemsList.forEach((item: InspectionItemApi) => {
         lookup[item.id] = {
           id: item.id,
           code: item.code,
@@ -91,8 +100,8 @@ const InspectionHistory = () => {
         };
       });
       setItemsLookup(lookup);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError((err as ApiErrorLike).message);
     } finally {
       setLoading(false);
     }

@@ -3,11 +3,13 @@ import Modal from '../Modal';
 import qualityService, { InspectionItem, MeasurementDetail } from '../../services/qualityService';
 import { describeError } from '../../utils/api';
 
+type FormValue = string | number | File | null | undefined;
+
 interface InspectionResultModalProps {
     item: InspectionItem;
     onClose: () => void;
     onSuccess: () => void;
-    initialValues?: Record<string, any>;
+    initialValues?: Record<string, FormValue>;
 }
 
 interface FormField {
@@ -22,7 +24,7 @@ const InspectionResultModal: React.FC<InspectionResultModalProps> = ({ item, onC
     const [error, setError] = useState<string | null>(null);
     const [baseFields, setBaseFields] = useState<FormField[]>([]);
     const [measurementDetails, setMeasurementDetails] = useState<MeasurementDetail[]>([]);
-    const [formData, setFormData] = useState<Record<string, any>>({});
+    const [formData, setFormData] = useState<Record<string, FormValue>>({});
     const [submitting, setSubmitting] = useState(false);
     const [alert, setAlert] = useState({ show: false, type: '', message: '' });
 
@@ -34,7 +36,7 @@ const InspectionResultModal: React.FC<InspectionResultModalProps> = ({ item, onC
             setBaseFields(data.result_form_fields);
             setMeasurementDetails(data.measurement_details);
 
-            const initialFormData: Record<string, any> = {};
+            const initialFormData: Record<string, FormValue> = {};
             data.result_form_fields.forEach((field: FormField) => {
                 if (initialValues && initialValues[field.name] !== undefined) {
                     initialFormData[field.name] = initialValues[field.name];
@@ -46,8 +48,8 @@ const InspectionResultModal: React.FC<InspectionResultModalProps> = ({ item, onC
                 initialFormData[`measurement_value_${detail.id}`] = '';
             });
             setFormData(initialFormData);
-        } catch (e: any) {
-            setError(e.message);
+        } catch (e) {
+            setError((e as Error).message);
         } finally {
             setLoading(false);
         }
@@ -71,7 +73,7 @@ const InspectionResultModal: React.FC<InspectionResultModalProps> = ({ item, onC
         setAlert({ show: false, type: '', message: '' });
 
         const submissionData = new FormData();
-        const measurementDetailsPayload: any[] = [];
+        const measurementDetailsPayload: { measurement_detail_id: string; value: FormValue }[] = [];
 
         for (const key in formData) {
             if (key.startsWith('measurement_value_')) {
@@ -81,7 +83,7 @@ const InspectionResultModal: React.FC<InspectionResultModalProps> = ({ item, onC
                     value: formData[key]
                 });
             } else if (formData[key] !== null) {
-                submissionData.append(key, formData[key]);
+                submissionData.append(key, formData[key] as string | Blob);
             }
         }
         submissionData.append('measurement_details_payload', JSON.stringify(measurementDetailsPayload));
@@ -93,7 +95,7 @@ const InspectionResultModal: React.FC<InspectionResultModalProps> = ({ item, onC
                 onSuccess();
                 onClose();
             }, 2000);
-        } catch (err: any) {
+        } catch (err) {
             setAlert({ show: true, type: 'danger', message: `登録エラー: ${describeError(err)}` });
         } finally {
             setSubmitting(false);
@@ -111,17 +113,17 @@ const InspectionResultModal: React.FC<InspectionResultModalProps> = ({ item, onC
         let inputElement;
         if (field.type === 'select') {
             inputElement = (
-                <select {...commonProps} value={formData[field.name] || ''}>
+                <select {...commonProps} value={(formData[field.name] as string | number) || ''}>
                     <option value="">---------</option>
                     {field.choices?.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                 </select>
             );
         } else if (field.type === 'textarea') {
-            inputElement = <textarea {...commonProps as any} rows={3} value={formData[field.name] || ''} />;
+            inputElement = <textarea {...commonProps} rows={3} value={(formData[field.name] as string | number) || ''} />;
         } else if (field.type === 'file') {
-            inputElement = <input type="file" {...commonProps as any} />;
+            inputElement = <input type="file" {...commonProps} />;
         } else {
-            inputElement = <input type={field.type} {...commonProps as any} value={formData[field.name] || ''} />;
+            inputElement = <input type={field.type} {...commonProps} value={(formData[field.name] as string | number) || ''} />;
         }
         
         return (
@@ -152,7 +154,7 @@ const InspectionResultModal: React.FC<InspectionResultModalProps> = ({ item, onC
                     type={detail.measurement_type === 'quantitative' ? 'number' : 'text'} 
                     className="form-control form-control-sm mt-1" 
                     name={`measurement_value_${detail.id}`} 
-                    value={formData[`measurement_value_${detail.id}`] || ''} 
+                    value={(formData[`measurement_value_${detail.id}`] as string | number) || ''} 
                     onChange={handleInputChange} 
                     step={detail.measurement_type === 'quantitative' ? 'any' : undefined} 
                 />

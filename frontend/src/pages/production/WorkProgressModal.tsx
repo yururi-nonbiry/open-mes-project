@@ -1,7 +1,9 @@
+import type { ApiErrorLike } from '../apiErrorTypes';
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Alert } from 'react-bootstrap';
 import productionService from '../../services/productionService';
-import { ProductionPlan } from '../../types/production';
+import { ProductionPlan, ProgressUpdatePayload } from '../../types/production';
+import type { StatusOption } from './types';
 import { NavIcon } from '../../config/navigationConfig';
 
 interface WorkProgressModalProps {
@@ -9,7 +11,7 @@ interface WorkProgressModalProps {
     onClose: () => void;
     onSuccess: () => void;
     plan: ProductionPlan | null;
-    availableStatuses: any[];
+    availableStatuses: StatusOption[];
 }
 
 const WorkProgressModal: React.FC<WorkProgressModalProps> = ({
@@ -64,7 +66,7 @@ const WorkProgressModal: React.FC<WorkProgressModalProps> = ({
         setModalError('');
         if (!plan || !modalStatus) return;
 
-        const payload: any = { status: modalStatus };
+        const payload: ProgressUpdatePayload = { status: modalStatus };
 
         if (modalStatus === 'COMPLETED') {
             const actual = parseInt(modalQuantities.actual, 10);
@@ -86,8 +88,8 @@ const WorkProgressModal: React.FC<WorkProgressModalProps> = ({
             await productionService.updateProgress(plan.id, payload);
             onSuccess();
             onClose();
-        } catch (e: any) {
-            setModalError(e.message);
+        } catch (e) {
+            setModalError((e as ApiErrorLike).message);
         } finally {
             setSubmitting(false);
         }

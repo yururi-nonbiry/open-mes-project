@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import importService from '../services/importService';
+import importService, { DataRecord } from '../services/importService';
 import { DATA_CONFIG, getTableConfig } from '../config/dataImportConfigs';
 
 export interface ModalConfig {
@@ -10,13 +10,13 @@ export interface ModalConfig {
 
 export interface ListData {
     headers: string[];
-    rows: Record<string, any>[];
+    rows: DataRecord[];
     rowKeys: string[];
     idKey: string;
 }
 
 // バックエンド未起動時（オフライン開発時）でも一覧・ソート・編集・登録のUI確認ができるサンプルデータ
-const INITIAL_MOCK_DATA: Record<string, any[]> = {
+const INITIAL_MOCK_DATA: Record<string, DataRecord[]> = {
     item: [
         {
             id: 1,
@@ -249,14 +249,14 @@ const INITIAL_MOCK_DATA: Record<string, any[]> = {
 };
 
 // メモリ保持用ローカルストア（オフライン時の編集・削除・追加を画面に反映）
-const localStore: Record<string, any[]> = { ...INITIAL_MOCK_DATA };
+const localStore: Record<string, DataRecord[]> = { ...INITIAL_MOCK_DATA };
 
 export const useDataManagement = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [modalConfig, setModalConfig] = useState<ModalConfig>({ type: '', name: '', recordId: null });
     const [listData, setListData] = useState<ListData>({ headers: [], rows: [], rowKeys: [], idKey: 'id' });
-    const [formData, setFormData] = useState<Record<string, any>>({});
+    const [formData, setFormData] = useState<DataRecord>({});
 
     const fetchListData = useCallback(async (type: string) => {
         if (!type || !DATA_CONFIG[type]) return;
@@ -310,7 +310,7 @@ export const useDataManagement = () => {
         } catch (_err) {
             // オフラインフォールバック: ローカルストアから該当レコードを取得
             const list = localStore[type] || [];
-            const found = list.find((item: any) => String(item.id) === String(recordId));
+            const found = list.find((item) => String(item.id) === String(recordId));
             if (found) {
                 setFormData({ ...found });
                 setError(null);
@@ -337,7 +337,7 @@ export const useDataManagement = () => {
                 localStore[type] = [];
             }
             if (recordId) {
-                localStore[type] = localStore[type].map((item: any) =>
+                localStore[type] = localStore[type].map((item) =>
                     String(item.id) === String(recordId) ? { ...item, ...formData } : item
                 );
             } else {
@@ -361,7 +361,7 @@ export const useDataManagement = () => {
         } catch (_err) {
             // オフラインフォールバック: ローカルストアから削除
             if (localStore[type]) {
-                localStore[type] = localStore[type].filter((item: any) => String(item.id) !== String(id));
+                localStore[type] = localStore[type].filter((item) => String(item.id) !== String(id));
             }
             await fetchListData(type);
             return true;

@@ -4,7 +4,7 @@ import { getCookie } from './cookies';
  * オブジェクトをクエリ文字列に変換します。
  * undefined, null, 空文字の値を自動的に除外します。
  */
-export const buildQueryString = (params: Record<string, any> | URLSearchParams): string => {
+export const buildQueryString = (params: object | URLSearchParams): string => {
     if (params instanceof URLSearchParams) {
         const qs = params.toString();
         return qs ? `?${qs}` : '';
@@ -120,13 +120,13 @@ const BASE_URL = '/api';
 
 interface FailedRequest {
   resolve: (token: string | null) => void;
-  reject: (error: any) => void;
+  reject: (error: unknown) => void;
 }
 
 let isRefreshing = false;
 let failedQueue: FailedRequest[] = [];
 
-const processQueue = (error: any, token: string | null = null) => {
+const processQueue = (error: unknown, token: string | null = null) => {
   failedQueue.forEach(prom => {
     if (error) {
       prom.reject(error);

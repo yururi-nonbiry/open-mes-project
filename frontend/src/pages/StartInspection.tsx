@@ -1,3 +1,4 @@
+import type { ApiErrorLike } from './apiErrorTypes';
 import { useState, useEffect } from 'react';
 import machineService, { Machine } from '../services/machineService';
 import qualityService, { InspectionItem } from '../services/qualityService';
@@ -29,8 +30,8 @@ const StartInspection = () => {
           item => (item.target_object_type === 'equipment' || item.inspection_type === 'patrol') && item.is_active
         );
         setInspectionItems(equipmentItems);
-      } catch (err: any) {
-        setError(err.message || 'データの取得に失敗しました。');
+      } catch (err) {
+        setError((err as ApiErrorLike).message || 'データの取得に失敗しました。');
       } finally {
         setLoading(false);
       }

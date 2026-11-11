@@ -54,8 +54,8 @@ export const useWorkProgress = () => {
 
             setPlans(data.results || []);
             updatePagination(data, pageUrl || '');
-        } catch (e: any) {
-            setError(`データの読み込みに失敗しました: ${e.message}`);
+        } catch (e) {
+            setError(`データの読み込みに失敗しました: ${(e as Error).message}`);
             setPlans([]);
         } finally {
             setLoading(false);

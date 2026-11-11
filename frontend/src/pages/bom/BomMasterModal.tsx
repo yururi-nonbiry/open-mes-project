@@ -1,3 +1,4 @@
+import type { ApiErrorLike } from '../apiErrorTypes';
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Alert } from 'react-bootstrap';
 import bomService, { BillOfMaterial, MasterItem, isConsumableItem, isProducibleItem, itemTypeLabel } from '../../services/bomService';
@@ -21,7 +22,7 @@ const BomMasterModal: React.FC<BomMasterModalProps> = ({ isOpen, onClose, onSucc
     const [currentItem, setCurrentItem] = useState<BillOfMaterial>(emptyForm);
     const [productOptions, setProductOptions] = useState<MasterItem[]>([]);
     const [materialOptions, setMaterialOptions] = useState<MasterItem[]>([]);
-    const [formErrors, setFormErrors] = useState<any>({});
+    const [formErrors, setFormErrors] = useState<Record<string, string | string[]>>({});
     const [globalMessage, setGlobalMessage] = useState({ text: '', type: '' });
     const [submitting, setSubmitting] = useState(false);
 
@@ -72,13 +73,13 @@ const BomMasterModal: React.FC<BomMasterModalProps> = ({ isOpen, onClose, onSucc
                 onClose();
                 setSubmitting(false);
             }, 800);
-        } catch (err: any) {
+        } catch (err) {
             setSubmitting(false);
-            if (err.errors) {
-                setFormErrors(err.errors);
-                setGlobalMessage({ text: err.message || '入力内容を確認してください。', type: 'danger' });
+            if ((err as ApiErrorLike).errors) {
+                setFormErrors((err as ApiErrorLike).errors as Record<string, string | string[]>);
+                setGlobalMessage({ text: (err as ApiErrorLike).message || '入力内容を確認してください。', type: 'danger' });
             } else {
-                setGlobalMessage({ text: `送信中にエラーが発生しました: ${err.message}`, type: 'danger' });
+                setGlobalMessage({ text: `送信中にエラーが発生しました: ${(err as ApiErrorLike).message}`, type: 'danger' });
             }
         }
     };

@@ -15,8 +15,8 @@ export const useInspectionItems = (typeFilter: string) => {
                 item.inspection_type === typeFilter && item.is_active
             );
             setItems(filtered);
-        } catch (e: any) {
-            setError(e.message);
+        } catch (e) {
+            setError((e as Error).message);
         } finally {
             setLoading(false);
         }

@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 
-export const useFilters = <T extends Record<string, any>>(initialFilters: T, initialSorting: { field: string, direction: 'asc' | 'desc' }) => {
+export const useFilters = <T extends object>(initialFilters: T, initialSorting: { field: string, direction: 'asc' | 'desc' }) => {
     const [filters, setFilters] = useState<T>(initialFilters);
     const [sorting, setSorting] = useState(initialSorting);
 

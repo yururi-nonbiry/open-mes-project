@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Spinner } from 'react-bootstrap';
 import authFetch from '../utils/api';
+import type { DisplaySetting, ModelFieldInfo, SearchParamValue, StockMovementRow } from './types/listPage';
 
 const AVAILABLE_MOVEMENT_TYPES = [
     { key: 'incoming', label: '入庫', badgeClass: 'status-partial', default_selected: true },
@@ -39,7 +40,7 @@ const getDefaultSelectedTypes = () => {
 };
 
 const StockMovementHistory: React.FC = () => {
-    const [history, setHistory] = useState<any[]>([]);
+    const [history, setHistory] = useState<StockMovementRow[]>([]);
     const [pagination, setPagination] = useState<{
         count: number;
         num_pages: number;
@@ -55,8 +56,8 @@ const StockMovementHistory: React.FC = () => {
     });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [displaySettings, setDisplaySettings] = useState<any[]>([]);
-    const [searchFields, setSearchFields] = useState<any[]>([]);
+    const [displaySettings, setDisplaySettings] = useState<DisplaySetting[]>([]);
+    const [searchFields, setSearchFields] = useState<DisplaySetting[]>([]);
 
     const [searchCriteria, setSearchCriteria] = useState<Record<string, string>>({
         part_number: '',
@@ -67,12 +68,12 @@ const StockMovementHistory: React.FC = () => {
         reference_document: '',
     });
     const [selectedTypes, setSelectedTypes] = useState<Set<string>>(getDefaultSelectedTypes());
-    const [activeSearch, setActiveSearch] = useState<Record<string, any>>({});
+    const [activeSearch, setActiveSearch] = useState<Record<string, SearchParamValue>>({});
     const [currentPage, setCurrentPage] = useState(1);
 
     const pageSize = 25;
 
-    const fetchHistory = useCallback(async (page: number, params: Record<string, any>) => {
+    const fetchHistory = useCallback(async (page: number, params: Record<string, SearchParamValue>) => {
         setLoading(true);
         setError(null);
 
@@ -105,23 +106,23 @@ const StockMovementHistory: React.FC = () => {
             const settings = settingsResponse.ok ? await settingsResponse.json() : [];
             const fields = fieldsResponse.ok ? await fieldsResponse.json() : [];
 
-            const verboseNameMap = new Map(fields.map((f: any) => [f.name, f.verbose_name]));
+            const verboseNameMap = new Map((fields as ModelFieldInfo[]).map((f) => [f.name, f.verbose_name]));
 
             if (settingsResponse.ok) {
-                const combinedSettings = settings.map((s: any) => ({
+                const combinedSettings = (settings as DisplaySetting[]).map((s): DisplaySetting => ({
                     ...s,
                     verbose_name: verboseNameMap.get(s.model_field_name) || s.verbose_name || s.model_field_name,
                 }));
 
                 setDisplaySettings(
                     combinedSettings
-                        .filter((s: any) => s.is_list_display)
-                        .sort((a: any, b: any) => a.display_order - b.display_order)
+                        .filter((s) => s.is_list_display)
+                        .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
                 );
                 setSearchFields(
                     combinedSettings
-                        .filter((s: any) => s.is_search_field && s.model_field_name !== 'movement_type')
-                        .sort((a: any, b: any) => a.search_order - b.search_order)
+                        .filter((s) => s.is_search_field && s.model_field_name !== 'movement_type')
+                        .sort((a, b) => (a.search_order ?? 0) - (b.search_order ?? 0))
                 );
             } else {
                 setDisplaySettings([]);
@@ -210,7 +211,7 @@ const StockMovementHistory: React.FC = () => {
 
     const renderTableHeaders = () => (
         <tr>
-            {columns.map((setting: any) => {
+            {columns.map((setting: DisplaySetting) => {
                 const isNumeric = setting.model_field_name === 'quantity';
                 return (
                     <th key={setting.model_field_name} className={isNumeric ? 'text-end' : ''}>
@@ -253,11 +254,11 @@ const StockMovementHistory: React.FC = () => {
 
         return history.map(item => (
             <tr key={item.id}>
-                {columns.map((setting: any) => {
+                {columns.map((setting: DisplaySetting) => {
                     const fieldName = setting.model_field_name;
                     if (fieldName === 'movement_date') {
                         const val = item.movement_date
-                            ? new Date(item.movement_date).toLocaleString('ja-JP', {
+                            ? new Date(item.movement_date as string | number).toLocaleString('ja-JP', {
                                   year: 'numeric',
                                   month: '2-digit',
                                   day: '2-digit',
@@ -327,7 +328,7 @@ const StockMovementHistory: React.FC = () => {
                 </div>
 
                 <div className="receipt-search-inputs-row">
-                    {activeSearchFields.map((field: any) => {
+                    {activeSearchFields.map((field: DisplaySetting) => {
                         const labelText = field.display_name || field.verbose_name;
                         return (
                             <div className="receipt-search-field" key={field.model_field_name}>

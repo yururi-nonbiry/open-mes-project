@@ -62,8 +62,8 @@ export const useCsvImport = () => {
                 setShowResultModal(true);
                 setIsLoading(false);
             }
-        } catch (e: any) {
-            setCsvResult({ message: '通信エラーが発生しました', isError: true, errors: [e.message] });
+        } catch (e) {
+            setCsvResult({ message: '通信エラーが発生しました', isError: true, errors: [(e as Error).message] });
             setShowResultModal(true);
             setIsLoading(false);
         }

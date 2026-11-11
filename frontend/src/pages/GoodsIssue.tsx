@@ -5,6 +5,7 @@ import { NavIcon } from '../config/navigationConfig';
 import { useWorkCenters } from '../hooks/useWorkCenters';
 import WarehouseLocationMapModal from './inventory/WarehouseLocationMapModal';
 import authFetch from '../utils/api';
+import type { DisplaySetting, ModelFieldInfo } from './types/listPage';
 
 const NUMERIC_FIELDS = ['quantity', 'shipped_quantity', 'reserved_quantity', 'remaining_quantity'];
 const DATE_FIELDS = ['expected_shipment', 'order_date'];
@@ -42,11 +43,11 @@ const GoodsIssue: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const [displaySettings, setDisplaySettings] = useState<any[]>([]);
+  const [displaySettings, setDisplaySettings] = useState<DisplaySetting[]>([]);
 
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [selectedOrder, setSelectedOrder] = useState<SalesOrder | null>(null);
   const [issueQuantity, setIssueQuantity] = useState('');
   const [modalMessage, setModalMessage] = useState({ text: '', type: '' });
 
@@ -92,11 +93,11 @@ const GoodsIssue: React.FC = () => {
         const settings = settingsRes.ok ? await settingsRes.json() : [];
         const fields = fieldsRes.ok ? await fieldsRes.json() : [];
         const verboseNames = new Map<string, string>();
-        fields.forEach((f: any) => verboseNames.set(f.name, f.verbose_name));
-        const visible = settings
-          .filter((s: any) => s.is_list_display)
-          .sort((a: any, b: any) => a.display_order - b.display_order)
-          .map((s: any) => ({
+        (fields as ModelFieldInfo[]).forEach((f) => verboseNames.set(f.name, f.verbose_name));
+        const visible = (settings as DisplaySetting[])
+          .filter((s) => s.is_list_display)
+          .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
+          .map((s) => ({
             ...s,
             // 列名は、既定の列の名前 > モデル項目の名前 > 設定が持つ名前の順に使う
             // (model-fields は管理者専用で、一般ユーザーは取得できない。未出庫残のような計算項目はモデルに無い)
@@ -124,7 +125,7 @@ const GoodsIssue: React.FC = () => {
     return () => clearTimeout(t);
   }, [keyword]);
 
-  const openModal = (order: any) => {
+  const openModal = (order: SalesOrder) => {
     setSelectedOrder(order);
     setIssueQuantity(order.remaining_quantity > 0 ? order.remaining_quantity.toString() : '');
     setModalMessage({ text: '', type: '' });
@@ -138,7 +139,7 @@ const GoodsIssue: React.FC = () => {
     setModalMessage({ text: '', type: '' });
   };
 
-  const openMapModal = (order: any) => {
+  const openMapModal = (order: SalesOrder) => {
     setMapOrderId(order.id);
     setIsMapModalOpen(true);
   };
@@ -152,6 +153,7 @@ const GoodsIssue: React.FC = () => {
     e.preventDefault();
     setModalMessage({ text: '', type: '' });
 
+    if (!selectedOrder) return;
     const validationError = validateIssueQuantity(issueQuantity, selectedOrder.remaining_quantity);
     if (validationError) {
       setModalMessage({ text: validationError, type: 'danger' });
@@ -182,7 +184,8 @@ const GoodsIssue: React.FC = () => {
 
   const filteredOrders = salesOrders;
 
-  const renderCell = (order: any, fieldName: string, canIssue: boolean) => {
+  const renderCell = (order: SalesOrder, fieldName: string, canIssue: boolean) => {
+    const record = order as unknown as Record<string, string | number | boolean | null | undefined>;
     switch (fieldName) {
       case 'order_number':
         return <td key={fieldName} className="fw-bold text-dark">{order.order_number || '—'}</td>;
@@ -201,8 +204,8 @@ const GoodsIssue: React.FC = () => {
           </td>
         );
       default: {
-        if (DATE_FIELDS.includes(fieldName)) return <td key={fieldName}>{formatDate(order[fieldName])}</td>;
-        const raw = order[fieldName];
+        if (DATE_FIELDS.includes(fieldName)) return <td key={fieldName}>{formatDate(record[fieldName] as string | null | undefined)}</td>;
+        const raw = record[fieldName];
         const text = raw !== null && raw !== undefined && raw !== '' ? String(raw) : '—';
         return NUMERIC_FIELDS.includes(fieldName)
           ? <td key={fieldName} className="text-end fw-semibold">{text}</td>
@@ -245,7 +248,7 @@ const GoodsIssue: React.FC = () => {
       const canIssue = order.remaining_quantity > 0;
       return (
         <tr key={order.id} className={canIssue ? '' : 'receipt-row-completed'}>
-          {columns.map((setting: any) => renderCell(order, setting.model_field_name, canIssue))}
+          {columns.map((setting: DisplaySetting) => renderCell(order, setting.model_field_name, canIssue))}
           <td className="text-center text-nowrap">
             <button
               type="button"
@@ -351,7 +354,7 @@ const GoodsIssue: React.FC = () => {
           <table className="table table-hover align-middle goods-receipt-table mb-0">
             <thead>
               <tr>
-                {columns.map((setting: any) => (
+                {columns.map((setting: DisplaySetting) => (
                   <th key={setting.model_field_name} className={NUMERIC_FIELDS.includes(setting.model_field_name) ? 'text-end' : ''}>
                     {(setting.display_name || '').trim() || setting.verbose_name || setting.model_field_name}
                   </th>

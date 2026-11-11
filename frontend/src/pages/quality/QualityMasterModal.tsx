@@ -1,3 +1,4 @@
+import type { ApiErrorLike } from '../apiErrorTypes';
 import React, { useState, useEffect, useRef } from 'react';
 import Sortable from 'sortablejs';
 import Modal from '../../components/Modal';
@@ -25,7 +26,7 @@ const MEASUREMENT_TYPE_CHOICES = [
 const QualityMasterModal: React.FC<QualityMasterModalProps> = ({ isOpen, onClose, onSuccess, editingItem }) => {
     const [currentItem, setCurrentItem] = useState<InspectionItem | null>(null);
     const [measurementDetails, setMeasurementDetails] = useState<MeasurementDetail[]>([]);
-    const [formErrors, setFormErrors] = useState<any>({});
+    const [formErrors, setFormErrors] = useState<Record<string, string | string[]>>({});
     const [globalMessage, setGlobalMessage] = useState({ text: '', type: '' });
     const [submitting, setSubmitting] = useState(false);
 
@@ -41,8 +42,8 @@ const QualityMasterModal: React.FC<QualityMasterModalProps> = ({ isOpen, onClose
                         const data = await qualityService.getInspectionItem(editingItem.id!);
                         setCurrentItem(data);
                         setMeasurementDetails(data.measurement_details || []);
-                    } catch (e: any) {
-                        setGlobalMessage({ text: `データ読み込みエラー: ${e.message}`, type: 'danger' });
+                    } catch (e) {
+                        setGlobalMessage({ text: `データ読み込みエラー: ${(e as ApiErrorLike).message}`, type: 'danger' });
                     }
                 };
                 fetchFullItem();
@@ -140,13 +141,13 @@ const QualityMasterModal: React.FC<QualityMasterModalProps> = ({ isOpen, onClose
                 onClose();
                 setSubmitting(false);
             }, 1000);
-        } catch (err: any) {
+        } catch (err) {
             setSubmitting(false);
-            if (err.errors) {
-                const errors = { ...err.errors };
-                const flatErrors: any = {};
+            if ((err as ApiErrorLike).errors) {
+                const errors = { ...(err as ApiErrorLike).errors };
+                const flatErrors: Record<string, string> = {};
                 if (errors.measurement_details && Array.isArray(errors.measurement_details)) {
-                    errors.measurement_details.forEach((detailError: any, index: number) => {
+                    (errors.measurement_details as Array<Record<string, string[]> | null>).forEach((detailError, index) => {
                         if (detailError) {
                             for (const [field, messages] of Object.entries(detailError)) {
                                 flatErrors[`measurement_details-${index}-${field}`] = (messages as string[]).join(' ');
@@ -155,10 +156,10 @@ const QualityMasterModal: React.FC<QualityMasterModalProps> = ({ isOpen, onClose
                     });
                     delete errors.measurement_details;
                 }
-                setFormErrors({ ...errors, ...flatErrors });
-                setGlobalMessage({ text: err.message || '入力内容を確認してください。', type: 'danger' });
+                setFormErrors({ ...errors, ...flatErrors } as Record<string, string | string[]>);
+                setGlobalMessage({ text: (err as ApiErrorLike).message || '入力内容を確認してください。', type: 'danger' });
             } else {
-                setGlobalMessage({ text: `送信中にエラーが発生しました: ${err.message}`, type: 'danger' });
+                setGlobalMessage({ text: `送信中にエラーが発生しました: ${(err as ApiErrorLike).message}`, type: 'danger' });
             }
         }
     };
@@ -283,7 +284,7 @@ const QualityMasterModal: React.FC<QualityMasterModalProps> = ({ isOpen, onClose
                                                 {['specification_nominal', 'specification_upper_limit', 'specification_lower_limit'].map(f => (
                                                     <td key={f} style={{ visibility: isQuantitative ? 'visible' : 'hidden' }}>
                                                         <input 
-                                                            type="number" step="any" value={isQuantitative ? (detail as any)[f] ?? '' : ''} 
+                                                            type="number" step="any" value={isQuantitative ? detail[f as keyof MeasurementDetail] ?? '' : ''} 
                                                             onChange={e => handleDetailChange(e, index)} name={f} 
                                                             className={`form-control form-control-sm ${formErrors[`${prefix}-${f}`] ? 'is-invalid' : ''}`} 
                                                         />

@@ -4,6 +4,7 @@ import productionService from '../../services/productionService';
 import bomService, { MasterItem, isConsumableItem, itemTypeLabel } from '../../services/bomService';
 import { ApiError } from '../../utils/api';
 import { PlanMaterial, ProductionPlan } from '../../types/production';
+import { unwrapList, type MaybeWrapped } from './types';
 
 interface ProductionPlanMaterialsModalProps {
     isOpen: boolean;
@@ -39,7 +40,7 @@ const ProductionPlanMaterialsModal: React.FC<ProductionPlanMaterialsModalProps> 
         setLoading(true);
         try {
             const data = await productionService.getPlanMaterials(plan.id);
-            setMaterials(Array.isArray(data) ? data : Array.isArray((data as any)?.results) ? (data as any).results : []);
+            setMaterials(unwrapList(data as MaybeWrapped<'results', PlanMaterial>, 'results'));
         } catch (e) {
             setMessage({ text: errorText(e), type: 'danger' });
             setMaterials([]);

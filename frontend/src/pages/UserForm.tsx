@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import authFetch, { formatFieldErrors, toApiError } from '../utils/api';
 import { useAuth } from '../hooks/useAuth';
+import type { ApiErrorLike } from './apiError';
 
 interface UserFormState {
     custom_id: string;
@@ -35,6 +36,27 @@ const API_SCOPE_CHOICES: [string, string][] = [
     ['quality_api', '品質管理'],
     ['users_api', 'ユーザー管理'],
 ];
+
+interface TokenResponseData {
+    api_token?: string | null;
+    policy?: {
+        is_active?: boolean;
+        allowed_ips?: string;
+        scopes?: string[];
+    } | null;
+}
+
+interface UserPayload {
+    custom_id: string;
+    username: string;
+    email: string | null;
+    account_type: string;
+    is_staff: boolean;
+    is_superuser: boolean;
+    is_active: boolean;
+    password?: string;
+    [key: string]: string | boolean | null | undefined;
+}
 
 interface TokenPolicyState {
     is_active: boolean;
@@ -94,15 +116,15 @@ const UserForm: React.FC = () => {
                     is_superuser: !!data.is_superuser,
                     is_active: data.is_active !== false,
                 });
-            } catch (e: any) {
-                setError(e.message);
+            } catch (e) {
+                setError((e as ApiErrorLike).message);
             } finally {
                 setLoading(false);
             }
         })();
     }, [id, isEdit]);
 
-    const applyTokenResponseData = (data: any) => {
+    const applyTokenResponseData = (data: TokenResponseData) => {
         setApiToken(data.api_token || null);
         if (data.policy) {
             setTokenPolicy({
@@ -123,8 +145,8 @@ const UserForm: React.FC = () => {
                 if (!response.ok) throw new Error(await extractErrorMessage(response, 'APIトークン情報の取得に失敗しました。'));
                 const data = await response.json();
                 applyTokenResponseData(data);
-            } catch (e: any) {
-                setTokenMessage({ text: e.message, type: 'danger' });
+            } catch (e) {
+                setTokenMessage({ text: (e as ApiErrorLike).message, type: 'danger' });
             } finally {
                 setTokenLoading(false);
             }
@@ -148,7 +170,7 @@ const UserForm: React.FC = () => {
 
         setSubmitting(true);
         try {
-            const payload: Record<string, any> = {
+            const payload: UserPayload = {
                 custom_id: form.custom_id,
                 username: form.username,
                 email: form.email || null,
@@ -176,8 +198,8 @@ const UserForm: React.FC = () => {
                     messageType: 'success',
                 },
             });
-        } catch (e: any) {
-            setError(e.message);
+        } catch (e) {
+            setError((e as ApiErrorLike).message);
         } finally {
             setSubmitting(false);
         }
@@ -196,8 +218,8 @@ const UserForm: React.FC = () => {
             applyTokenResponseData(data);
             setIsTokenVisible(true);
             setTokenMessage({ text: 'APIトークンを再生成しました。', type: 'success' });
-        } catch (e: any) {
-            setTokenMessage({ text: e.message, type: 'danger' });
+        } catch (e) {
+            setTokenMessage({ text: (e as ApiErrorLike).message, type: 'danger' });
         } finally {
             setRegenerating(false);
         }
@@ -226,8 +248,8 @@ const UserForm: React.FC = () => {
             const data = await response.json();
             applyTokenResponseData(data);
             setTokenMessage({ text: 'アクセス制御ポリシーを保存しました。', type: 'success' });
-        } catch (e: any) {
-            setTokenMessage({ text: e.message, type: 'danger' });
+        } catch (e) {
+            setTokenMessage({ text: (e as ApiErrorLike).message, type: 'danger' });
         } finally {
             setPolicySubmitting(false);
         }

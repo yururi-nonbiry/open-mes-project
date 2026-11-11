@@ -44,8 +44,8 @@ const ReceiptLocationMap: React.FC<ReceiptLocationMapProps> = ({ warehouse, loca
                     const locs = await warehouseLocationService.getLocations(found.warehouse_number);
                     if (!cancelled) setLocations(locs);
                 }
-            } catch (e: any) {
-                if (!cancelled) setError(e.message || 'レイアウトの取得に失敗しました。');
+            } catch (e) {
+                if (!cancelled) setError((e as Error).message || 'レイアウトの取得に失敗しました。');
             } finally {
                 if (!cancelled) setLoading(false);
             }

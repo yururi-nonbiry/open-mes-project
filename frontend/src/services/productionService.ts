@@ -3,6 +3,7 @@ import {
     ProductionPlan,
     PaginationData,
     ProductionPlanFilters,
+    WorkProgressFilterValues,
     RequiredPart,
     ProgressUpdatePayload,
     UpdateProgressResponse,
@@ -21,7 +22,7 @@ import {
  * フィルターオブジェクトをAPIパラメータに変換します。
  */
 const mapFiltersToApiParams = (
-    filters: any, 
+    filters: WorkProgressFilterValues, 
     sorting: { field: string, direction: 'asc' | 'desc' }, 
     statusFilters: Set<string>,
     pageSize: number
@@ -47,7 +48,7 @@ const productionService = {
      * 生産計画一覧を取得します（パラメータ変換機能付き）
      */
     getProductionPlansFiltered: async (
-        filters: any,
+        filters: WorkProgressFilterValues,
         sorting: { field: string, direction: 'asc' | 'desc' },
         statusFilters: Set<string>,
         pageSize: number

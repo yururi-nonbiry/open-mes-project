@@ -78,7 +78,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
             <tr key={item.id}>
                 {displaySettings.map(setting => {
                     const fieldName = setting.model_field_name;
-                    let cellValue: any = item[fieldName];
+                    let cellValue: InventoryItem[string] = item[fieldName];
 
                     if (fieldName === 'available_quantity') {
                         const avail = Number(cellValue ?? 0);
