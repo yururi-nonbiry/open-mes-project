@@ -1224,7 +1224,7 @@ export const WORKFLOW_TRACKS: WorkflowTrack[] = [
         summary: '未入庫の発注を確認し、行右側の「入庫処理」から数量・倉庫・棚番を確定して入庫',
         mobileAppSupported: true,
         mobileAppLabel: 'スマホアプリ対応',
-        mobileAppNote: '現場スマホ端末のバーコード読取でも入庫処理を行えます',
+        mobileAppNote: '専用スマホアプリでも入庫処理を行えます',
         links: [
           { label: '② 入庫処置を開く', path: '/inventory/purchase?flow=receipt-flow&fstep=2' },
         ],
@@ -1267,7 +1267,7 @@ export const WORKFLOW_TRACKS: WorkflowTrack[] = [
         title: '入庫処置（入庫の実行）',
         shortTitle: '2. 入庫処置',
         path: '/inventory/purchase',
-        mobileHint: '現場スマホ端末でもバーコード読取による入庫処理に対応',
+        mobileHint: '専用スマホアプリでも入庫処理を行えます',
         actionSteps: [
           '① 未入庫の発注（入庫予定）を確認',
           '② 行右側の「入庫処理」を押す',
@@ -1359,7 +1359,7 @@ export const WORKFLOW_TRACKS: WorkflowTrack[] = [
         summary: '計画一覧の「順立て（材料引当）」で材料を引き当て・ピッキング',
         mobileAppSupported: true,
         mobileAppLabel: 'スマホアプリ対応',
-        mobileAppNote: '現場スマホ端末でも順立て（材料引当・ピッキング）を行えます',
+        mobileAppNote: '専用スマホアプリでも順立て（材料引当・ピッキング）を行えます',
         links: [
           { label: '生産計画(順立て)', path: '/production/plan?flow=production-plan-flow&fstep=4' },
         ],
@@ -1408,7 +1408,7 @@ export const WORKFLOW_TRACKS: WorkflowTrack[] = [
         title: '生産計画（部品構成の確認と順立て（材料引当））',
         shortTitle: '4. 順立て（材料引当）',
         path: '/production/plan',
-        mobileHint: '現場スマホ端末でも順立て・ピッキング作業に対応',
+        mobileHint: '専用スマホアプリでも順立て・ピッキング作業に対応',
         actionSteps: [
           '① 計画行の「部品構成」で使用部品と所要数を確認',
           '② 計画行の「順立て（材料引当）」を押し、数量を確認して「引き当て実行」',
