@@ -1,7 +1,7 @@
 import React from 'react';
 import { Row, Col, Card, Button } from 'react-bootstrap';
 import { DataCardItem } from '../../config/dataImportConfigs';
-import { NavIcon } from '../../config/navigationConfig';
+import { NavIcon } from '../../components/NavIcon';
 
 interface DataCardListProps {
     title: string;

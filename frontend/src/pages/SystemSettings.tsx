@@ -1,6 +1,6 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
-import { NavIcon, NavIconName } from '../config/navigationConfig';
+import { NavIconName } from '../config/navigationConfig';
+import { NavIcon } from '../components/NavIcon';
 
 interface SettingMenuItem {
   path: string;

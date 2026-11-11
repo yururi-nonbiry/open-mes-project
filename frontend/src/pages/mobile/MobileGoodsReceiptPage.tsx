@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import authFetch, { ApiError, handleError } from '../../utils/api';
 import inventoryService from '../../services/inventoryService';
@@ -8,7 +8,13 @@ import ReceiptLocationMap from '../../components/common/ReceiptLocationMap';
 import CameraIcon from '../../components/common/CameraIcon';
 import './MobileGoodsReceiptPage.css';
 import './MobileLocationTransferPage.css'; // スタイルを再利用
-import type { PurchaseOrderRow } from '../types/listPage';
+import type { ChangeEvent, FormEvent } from 'react';
+import type { PurchaseOrderRow, CellValue } from '../types/listPage';
+import { errorMessage } from './mobileTypes';
+import type { CameraState, QrActionResponse, ScanTargetSetter } from './mobileTypes';
+
+// 発注の残数量(数量 - 入庫済数量)
+const remainingOf = (order: PurchaseOrderRow) => (order.quantity ?? 0) - (order.received_quantity ?? 0);
 
 // ローカル日付(YYYY-MM-DD)。予定日フィルタの既定値(今日以降)に使う
 const todayLocal = () => {
@@ -20,7 +26,7 @@ const MobileGoodsReceiptPage = () => {
   // State for purchase orders, loading/error status
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrderRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   // State for search
   const [searchTerm, setSearchTerm] = useState('');
@@ -40,11 +46,11 @@ const MobileGoodsReceiptPage = () => {
   const [formSuccess, setFormSuccess] = useState('');
 
   // カメラの状態
-  const [cameraState, setCameraState] = useState({
+  const [cameraState, setCameraState] = useState<CameraState>({
     isOpen: false,
     targetSetter: null,
   });
-  const videoRef = useRef(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const codeReader = useRef(new BrowserMultiFormatReader());
 
   const navigate = useNavigate();
@@ -91,7 +97,7 @@ const MobileGoodsReceiptPage = () => {
   }, [searchTerm, fetchPurchaseOrders]);
 
   // --- Camera Scan Logic ---
-  const startCameraScan = (targetSetter) => {
+  const startCameraScan = (targetSetter: ScanTargetSetter) => {
     setCameraState({ isOpen: true, targetSetter: targetSetter });
   };
 
@@ -101,34 +107,29 @@ const MobileGoodsReceiptPage = () => {
 
   useEffect(() => {
     if (cameraState.isOpen && videoRef.current) {
-      let controls = null;
       codeReader.current
-        .decodeFromVideoDevice(undefined, videoRef.current,
-          (result, error, ctrl) => {
+        .decodeFromVideoDevice(null, videoRef.current,
+          (result, error) => {
             if (result) {
-              ctrl.stop();
               setCameraState({ isOpen: false, targetSetter: null });
               handleQrCodeResult(result.getText(), cameraState.targetSetter);
             }
             if (error && !(error instanceof NotFoundException)) {
               console.error(error);
-              ctrl.stop();
               setError('バーコードの読み取りに失敗しました。');
               setCameraState({ isOpen: false, targetSetter: null });
             }
           }
         )
-        .then(ctrl => { controls = ctrl; })
         .catch(err => { console.error(err); setError('カメラの起動に失敗しました。'); setCameraState({ isOpen: false, targetSetter: null }); });
-      return () => { if (controls) controls.stop(); };
     }
     codeReader.current.reset();
   // handleQrCodeResult はこの後で定義されるため依存配列に含められない
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cameraState.isOpen, cameraState.targetSetter, setError]);
 
-  const openReceiptForm = useCallback((order) => {
-    const remainingQuantity = order.quantity - order.received_quantity;
+  const openReceiptForm = useCallback((order: PurchaseOrderRow) => {
+    const remainingQuantity = remainingOf(order);
     setSelectedOrder(order);
     setReceiptFormData({
       received_quantity: remainingQuantity > 0 ? String(remainingQuantity) : '',
@@ -140,7 +141,7 @@ const MobileGoodsReceiptPage = () => {
     setFormSuccess('');
   }, []);
 
-  const handleQrCodeResult = useCallback(async (decodedText, defaultSetter) => {
+  const handleQrCodeResult = useCallback(async (decodedText: string, defaultSetter: ScanTargetSetter | null) => {
     setIsLoading(true);
     setError(null);
 
@@ -157,7 +158,7 @@ const MobileGoodsReceiptPage = () => {
 
       await handleError(response, `サーバーエラー: ${response.status}`);
 
-      const data = await response.json();
+      const data: QrActionResponse<PurchaseOrderRow> = await response.json();
       const { action, payload, navigate: navTarget, state, updateSearch, updateFields } = data.result || {};
 
       let handled = false;
@@ -192,7 +193,7 @@ const MobileGoodsReceiptPage = () => {
 
       if (!handled && defaultSetter) defaultSetter(decodedText);
     } catch (err) {
-      setError(`QRコード処理エラー: ${err.message}`);
+      setError(`QRコード処理エラー: ${errorMessage(err)}`);
     } finally {
       setIsLoading(false);
     }
@@ -202,12 +203,12 @@ const MobileGoodsReceiptPage = () => {
     setSelectedOrder(null);
   };
 
-  const handleReceiptFormChange = (e) => {
+  const handleReceiptFormChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setReceiptFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleReceiptSubmit = async (e) => {
+  const handleReceiptSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setFormError('');
     setFormSuccess('');
@@ -217,11 +218,12 @@ const MobileGoodsReceiptPage = () => {
       setFormError('入庫数量は正の整数である必要があります。');
       return;
     }
-    if (selectedOrder && receivedQuantity > (selectedOrder.quantity - selectedOrder.received_quantity)) {
+    if (selectedOrder && receivedQuantity > remainingOf(selectedOrder)) {
       setFormError('入庫数量が残数量を超えています。');
       return;
     }
 
+    if (!selectedOrder) return;
     const location = receiptFormData.location.trim();
     const registerDefaultLocation = await inventoryService.confirmRegisterDefaultLocation(selectedOrder, location);
 
@@ -245,9 +247,9 @@ const MobileGoodsReceiptPage = () => {
     }
   };
 
-  const formatDate = (dateString) => {
+  const formatDate = (dateString: CellValue) => {
     if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('ja-JP');
+    return new Date(String(dateString)).toLocaleDateString('ja-JP');
   };
 
   const renderOrderList = () => {
@@ -264,11 +266,11 @@ const MobileGoodsReceiptPage = () => {
               <small>予定日: {formatDate(order.expected_arrival)}</small>
             </div>
             <p className="mb-1">発注番号: {order.order_number}</p>
-            <p className="mb-1">残数量: {order.quantity - order.received_quantity} / {order.quantity}</p>
+            <p className="mb-1">残数量: {remainingOf(order)} / {order.quantity}</p>
             <button
               className="btn btn-primary btn-sm mt-2"
               onClick={() => openReceiptForm(order)}
-              disabled={order.quantity - order.received_quantity <= 0}
+              disabled={remainingOf(order) <= 0}
             >
               入庫処理
             </button>
@@ -292,20 +294,20 @@ const MobileGoodsReceiptPage = () => {
           <form onSubmit={handleReceiptSubmit}>
             <p><strong>発注番号:</strong> {selectedOrder.order_number}</p>
             <p><strong>品名:</strong> {selectedOrder.product_name || selectedOrder.item}</p>
-            <p><strong>残数量:</strong> {selectedOrder.quantity - selectedOrder.received_quantity}</p>
-            <div className="mb-3"><label htmlFor="received_quantity" className="form-label">入庫数量</label><input type="number" id="received_quantity" name="received_quantity" value={receiptFormData.received_quantity} onChange={handleReceiptFormChange} className="form-control text-end" required min="1" max={selectedOrder.quantity - selectedOrder.received_quantity} /></div>
+            <p><strong>残数量:</strong> {remainingOf(selectedOrder)}</p>
+            <div className="mb-3"><label htmlFor="received_quantity" className="form-label">入庫数量</label><input type="number" id="received_quantity" name="received_quantity" value={receiptFormData.received_quantity} onChange={handleReceiptFormChange} className="form-control text-end" required min="1" max={remainingOf(selectedOrder)} /></div>
             <div className="mb-3">
               <label htmlFor="warehouse" className="form-label">入庫倉庫</label>
               <div className="input-group">
                 <input type="text" id="warehouse" name="warehouse" value={receiptFormData.warehouse} onChange={handleReceiptFormChange} className="form-control" placeholder="倉庫" />
-                <button className="btn btn-outline-secondary" type="button" onClick={() => startCameraScan(value => setReceiptFormData(prev => ({ ...prev, warehouse: value })))} title="カメラでスキャン" aria-label="カメラでスキャン"><CameraIcon /></button>
+                <button className="btn btn-outline-secondary" type="button" onClick={() => startCameraScan((value: string) => setReceiptFormData(prev => ({ ...prev, warehouse: value })))} title="カメラでスキャン" aria-label="カメラでスキャン"><CameraIcon /></button>
               </div>
             </div>
             <div className="mb-3">
               <label htmlFor="location" className="form-label">入庫棚番</label>
               <div className="input-group">
                 <input type="text" id="location" name="location" value={receiptFormData.location} onChange={handleReceiptFormChange} className="form-control" placeholder="棚番" />
-                <button className="btn btn-outline-secondary" type="button" onClick={() => startCameraScan(value => setReceiptFormData(prev => ({ ...prev, location: value })))} title="カメラでスキャン" aria-label="カメラでスキャン"><CameraIcon /></button>
+                <button className="btn btn-outline-secondary" type="button" onClick={() => startCameraScan((value: string) => setReceiptFormData(prev => ({ ...prev, location: value })))} title="カメラでスキャン" aria-label="カメラでスキャン"><CameraIcon /></button>
               </div>
             </div>
             <div className="mb-3">

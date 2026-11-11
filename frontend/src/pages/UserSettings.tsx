@@ -3,6 +3,14 @@ import authFetch, { ApiError, apiRequest, handleError } from '../utils/api';
 import Modal from '../components/Modal';
 import { useAuth } from '../hooks/useAuth';
 
+type FieldErrors = Record<string, string[] | undefined>;
+
+interface Message {
+  id: number;
+  text: string;
+  type: string;
+}
+
 const UserSettings = () => {
   const { logout } = useAuth();
   // State for forms, data, and UI
@@ -16,21 +24,21 @@ const UserSettings = () => {
     new_password1: '',
     new_password2: '',
   });
-  const [apiToken, setApiToken] = useState(null);
+  const [apiToken, setApiToken] = useState<string | null>(null);
   const [isTokenVisible, setIsTokenVisible] = useState(false);
 
   // State for UI feedback
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(''); // General error for page load
-  const [messages, setMessages] = useState([]); // For success/error banners
-  const [profileErrors, setProfileErrors] = useState({});
-  const [passwordErrors, setPasswordErrors] = useState({});
+  const [messages, setMessages] = useState<Message[]>([]); // For success/error banners
+  const [profileErrors, setProfileErrors] = useState<FieldErrors>({});
+  const [passwordErrors, setPasswordErrors] = useState<FieldErrors>({});
 
   // State for password modal
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
 
   // Helper to add messages
-  const addMessage = (text, type = 'info') => {
+  const addMessage = (text: string, type = 'info') => {
     const id = new Date().getTime();
     setMessages(prev => [...prev, { id, text, type }]);
     setTimeout(() => {
@@ -61,7 +69,7 @@ const UserSettings = () => {
         setApiToken(null);
       }
     } catch (e) {
-      setError(e.message);
+      setError(e instanceof Error ? e.message : String(e));
       console.error("Fetch user data error:", e);
     } finally {
       setLoading(false);
@@ -73,18 +81,18 @@ const UserSettings = () => {
   }, [fetchUserData]);
 
   // Form change handlers
-  const handleProfileChange = (e) => {
+  const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setProfileForm(prev => ({ ...prev, [name]: value }));
   };
 
-  const handlePasswordChange = (e) => {
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setPasswordForm(prev => ({ ...prev, [name]: value }));
   };
 
   // Form submission handlers
-  const handleProfileSubmit = async (e) => {
+  const handleProfileSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setProfileErrors({});
     try {
@@ -98,13 +106,13 @@ const UserSettings = () => {
       addMessage(data.message || 'プロフィール情報が更新されました。', 'success');
     } catch (err) {
       if (err instanceof ApiError && err.errors) {
-        setProfileErrors(err.errors);
+        setProfileErrors(err.errors as FieldErrors);
       }
-      addMessage(err.message, 'danger');
+      addMessage(err instanceof Error ? err.message : String(err), 'danger');
     }
   };
 
-  const handlePasswordSubmit = async (e) => {
+  const handlePasswordSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setPasswordErrors({});
     try {
@@ -119,7 +127,7 @@ const UserSettings = () => {
     } catch (err) {
       // 項目別のエラーは各入力欄に、全体のメッセージはフォーム上部に表示する
       const fieldErrors = err instanceof ApiError && err.errors ? err.errors : {};
-      setPasswordErrors({ ...fieldErrors, non_field_errors: [err.message] });
+      setPasswordErrors({ ...(fieldErrors as FieldErrors), non_field_errors: [err instanceof Error ? err.message : String(err)] });
     }
   };
 
@@ -133,7 +141,7 @@ const UserSettings = () => {
       addMessage(data.message || 'APIトークンが再生成されました。', 'success');
       setIsTokenVisible(true); // Show the new token immediately
     } catch (err) {
-      addMessage(err.message, 'danger');
+      addMessage(err instanceof Error ? err.message : String(err), 'danger');
     }
   };
 

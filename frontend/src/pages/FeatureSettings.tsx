@@ -2,10 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import inventoryService from '../services/inventoryService';
 import { ApiError } from '../utils/api';
-import {
-  WORKFLOW_TRACKS,
-  NavIcon,
-} from '../config/navigationConfig';
+import { WORKFLOW_TRACKS } from '../config/navigationConfig';
+import { NavIcon } from '../components/NavIcon';
 import {
   FlowVisibility,
   FlowTrackId,

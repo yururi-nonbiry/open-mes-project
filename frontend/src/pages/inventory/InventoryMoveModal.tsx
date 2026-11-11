@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Alert } from 'react-bootstrap';
 import inventoryService, { InventoryItem } from '../../services/inventoryService';
-import { NavIcon } from '../../config/navigationConfig';
+import { NavIcon } from '../../components/NavIcon';
 import type { ApiErrorLike } from '../apiError';
 
 interface InventoryMoveModalProps {

@@ -1,8 +1,14 @@
-import React from 'react';
+import type { FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 
-const MobileNavPanel = ({ isOpen, onLinkClick, onLogout }) => {
-  const handleLogoutClick = (e) => {
+interface MobileNavPanelProps {
+  isOpen: boolean;
+  onLinkClick?: () => void;
+  onLogout?: () => void;
+}
+
+const MobileNavPanel = ({ isOpen, onLinkClick, onLogout }: MobileNavPanelProps) => {
+  const handleLogoutClick = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (onLinkClick) onLinkClick(); // Close menu
     if (onLogout) onLogout();

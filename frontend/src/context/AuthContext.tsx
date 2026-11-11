@@ -1,16 +1,6 @@
-import React, { createContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { useState, useEffect, useCallback, ReactNode } from 'react';
 import authFetch from '../utils/api';
-
-export interface AuthContextType {
-  isAuthenticated: boolean;
-  isStaff: boolean;
-  isSuperuser: boolean;
-  loading: boolean;
-  logout: () => void;
-  checkAuth: () => Promise<void>;
-}
-
-export const AuthContext = createContext<AuthContextType | undefined>(undefined);
+import { AuthContext } from './authContextValue';
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('access_token'));

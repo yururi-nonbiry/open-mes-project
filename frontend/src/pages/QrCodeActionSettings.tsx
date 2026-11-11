@@ -1,9 +1,24 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Button, Modal, Form, Spinner, Alert, Row, Col } from 'react-bootstrap';
 import authFetch, { ApiError, apiRequest } from '../utils/api';
-import { NavIcon } from '../config/navigationConfig';
+import { NavIcon } from '../components/NavIcon';
 
-const ACTION_TEMPLATES = {
+interface ActionTemplate {
+    action_type: string;
+    description: string;
+    qr_code_pattern: string;
+    script: string;
+    is_active: boolean;
+}
+
+interface QrCodeAction extends ActionTemplate {
+    id?: number;
+    name: string;
+}
+
+type FormErrors = Record<string, string | string[] | undefined>;
+
+const ACTION_TEMPLATES: Record<string, ActionTemplate> = {
     'モバイル入庫処理（検索）': {
         action_type: 'regex',
         description: 'QRコードから品番や発注番号を読み取り、モバイル入庫画面の検索フィールドに入力します。',
@@ -54,12 +69,12 @@ return None`,
 };
 
 const QrCodeActionSettings = () => {
-    const [actions, setActions] = useState([]);
+    const [actions, setActions] = useState<QrCodeAction[]>([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+    const [error, setError] = useState<string | null>(null);
     const [showModal, setShowModal] = useState(false);
-    const [currentAction, setCurrentAction] = useState(null); // null for new, object for edit
-    const [formErrors, setFormErrors] = useState({});
+    const [currentAction, setCurrentAction] = useState<QrCodeAction | null>(null); // null for new, object for edit
+    const [formErrors, setFormErrors] = useState<FormErrors>({});
     const [isSaving, setIsSaving] = useState(false);
 
     const API_URL = '/api/base/qr-code-actions/';
@@ -75,7 +90,7 @@ const QrCodeActionSettings = () => {
             const data = await response.json();
             setActions(data);
         } catch (err) {
-            setError(err.message);
+            setError(err instanceof Error ? err.message : String(err));
         } finally {
             setLoading(false);
         }
@@ -85,7 +100,7 @@ const QrCodeActionSettings = () => {
         fetchActions();
     }, [fetchActions]);
 
-    const handleShowModal = (action = null) => {
+    const handleShowModal = (action: QrCodeAction | null = null) => {
         if (action) {
             // Editing an existing action
             setCurrentAction({ ...action });
@@ -94,7 +109,6 @@ const QrCodeActionSettings = () => {
             const firstTemplateName = Object.keys(ACTION_TEMPLATES)[0];
             setCurrentAction({
                 name: firstTemplateName,
-                action_type: 'regex', // デフォルト値
                 ...ACTION_TEMPLATES[firstTemplateName],
             });
         }
@@ -107,14 +121,15 @@ const QrCodeActionSettings = () => {
         setCurrentAction(null);
     };
 
-    const handleFormChange = (e) => {
-        const { name, value, type, checked } = e.target;
+    const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+        const { name, value, type } = e.target;
+        const checked = (e.target as HTMLInputElement).checked;
 
         // For new actions, changing the dropdown updates other fields from the template
-        if (name === 'name' && !currentAction.id) {
+        if (name === 'name' && !currentAction?.id) {
             const template = ACTION_TEMPLATES[value];
             if (template) {
-                setCurrentAction(prev => ({
+                setCurrentAction(prev => prev && ({
                     ...prev, // Preserve is_active state
                     name: value,
                     ...template,
@@ -124,24 +139,24 @@ const QrCodeActionSettings = () => {
             }
         } else if (name === 'action_type') {
             // アクションタイプを変更した場合
-            setCurrentAction(prev => ({
+            setCurrentAction(prev => prev && ({
                 ...prev,
                 action_type: value,
                 // スクリプト判定に切り替えたらパターンをクリア
                 qr_code_pattern: value === 'script' ? '' : prev.qr_code_pattern,
             }));
         } else {
-            setCurrentAction(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+            setCurrentAction(prev => prev && ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
         }
     };
 
-    const handleSave = async (e) => {
+    const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setIsSaving(true);
         setFormErrors({});
 
-        const isNew = !currentAction.id;
-        const url = isNew ? API_URL : `${API_URL}${currentAction.id}/`;
+        const isNew = !currentAction?.id;
+        const url = isNew ? API_URL : `${API_URL}${currentAction?.id}/`;
         const method = isNew ? 'POST' : 'PUT';
 
         try {
@@ -153,13 +168,13 @@ const QrCodeActionSettings = () => {
             fetchActions();
         } catch (err) {
             const fieldErrors = err instanceof ApiError && err.errors ? err.errors : {};
-            setFormErrors({ ...fieldErrors, non_field_errors: err.message });
+            setFormErrors({ ...(fieldErrors as FormErrors), non_field_errors: err instanceof Error ? err.message : String(err) });
         } finally {
             setIsSaving(false);
         }
     };
 
-    const handleDelete = async (id) => {
+    const handleDelete = async (id: number | undefined) => {
         if (window.confirm('このアクションを本当に削除しますか？')) {
             try {
                 const response = await authFetch(`${API_URL}${id}/`, {
@@ -170,7 +185,7 @@ const QrCodeActionSettings = () => {
                 }
                 fetchActions();
             } catch (err) {
-                setError(err.message);
+                setError(err instanceof Error ? err.message : String(err));
             }
         }
     };

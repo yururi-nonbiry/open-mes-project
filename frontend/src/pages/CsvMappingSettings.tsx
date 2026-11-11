@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import type { DropResult } from '@hello-pangea/dnd';
 import { Link } from 'react-router-dom';
 import { Table, Button, Form, Spinner, Alert, Tooltip, OverlayTrigger } from 'react-bootstrap';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import authFetch, { apiRequest, describeError } from '../utils/api';
+import type { CsvMappingRow, CsvMappingRecord, ModelDisplaySettingRecord, ModelFieldInfo, SaveStatus, BulkSaveResult, FieldChangeEvent } from './types/displaySettings';
 
 const DATA_TYPE_CHOICES = [
     { value: 'item', label: '品番マスター' },
@@ -16,13 +18,13 @@ const DATA_TYPE_CHOICES = [
 ];
 
 const CsvMappingSettings = () => {
-    const [combinedData, setCombinedData] = useState([]);
+    const [combinedData, setCombinedData] = useState<CsvMappingRow[]>([]);
     const [selectedDataType, setSelectedDataType] = useState(DATA_TYPE_CHOICES[0].value);
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
-    const [saveStatus, setSaveStatus] = useState({ message: '', variant: '', show: false });
+    const [error, setError] = useState<string | null>(null);
+    const [saveStatus, setSaveStatus] = useState<SaveStatus>({ message: '', variant: '', show: false });
 
-    const fetchAllData = useCallback(async (dataType) => {
+    const fetchAllData = useCallback(async (dataType: string) => {
         setLoading(true);
         setError(null);
         setSaveStatus(prev => ({ ...prev, show: false }));
@@ -37,9 +39,9 @@ const CsvMappingSettings = () => {
             if (!fieldsRes.ok) throw new Error(`モデル情報の取得に失敗しました: ${fieldsRes.statusText}`);
             if (!displaySettingsRes.ok) throw new Error(`表示設定の取得に失敗しました: ${displaySettingsRes.statusText}`);
 
-            const mappings = await mappingsRes.json();
-            const modelFields = await fieldsRes.json();
-            const displaySettings = await displaySettingsRes.json();
+            const mappings: CsvMappingRecord[] = await mappingsRes.json();
+            const modelFields: ModelFieldInfo[] = await fieldsRes.json();
+            const displaySettings: ModelDisplaySettingRecord[] = await displaySettingsRes.json();
 
             const data = modelFields
                 .filter(field => field.name !== 'id') // 'id'フィールドはマッピング対象外とする
@@ -68,7 +70,7 @@ const CsvMappingSettings = () => {
             setCombinedData(data);
 
         } catch (err) {
-            setError(err.message);
+            setError(err instanceof Error ? err.message : String(err));
         } finally {
             setLoading(false);
         }
@@ -80,13 +82,14 @@ const CsvMappingSettings = () => {
         }
     }, [selectedDataType, fetchAllData]);
 
-    const handleInputChange = (index, e) => {
-        const { name, value, type, checked } = e.target;
+    const handleInputChange = (index: number, e: FieldChangeEvent) => {
+        const target = e.target as HTMLInputElement;
+        const { name, value, type, checked } = target;
         const newCombinedData = [...combinedData];
         newCombinedData[index] = {
             ...newCombinedData[index],
             [name]: type === 'checkbox' ? checked : value
-        };
+        } as CsvMappingRow;
         setCombinedData(newCombinedData);
     };
 
@@ -104,7 +107,7 @@ const CsvMappingSettings = () => {
         }));
 
         try {
-            const result = await apiRequest(`/api/base/csv-mappings/bulk-save/?data_type=${selectedDataType}`, {
+            const result = await apiRequest<BulkSaveResult>(`/api/base/csv-mappings/bulk-save/?data_type=${selectedDataType}`, {
                 method: 'POST',
                 body: JSON.stringify(payload),
             }, '保存に失敗しました。');
@@ -118,7 +121,7 @@ const CsvMappingSettings = () => {
         }
     };
 
-    const handleDragEnd = (result) => {
+    const handleDragEnd = (result: DropResult) => {
         if (!result.destination) {
             return;
         }

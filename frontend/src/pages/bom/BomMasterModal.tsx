@@ -2,7 +2,7 @@ import type { ApiErrorLike } from '../apiErrorTypes';
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Alert } from 'react-bootstrap';
 import bomService, { BillOfMaterial, MasterItem, isConsumableItem, isProducibleItem, itemTypeLabel } from '../../services/bomService';
-import { NavIcon } from '../../config/navigationConfig';
+import { NavIcon } from '../../components/NavIcon';
 
 interface BomMasterModalProps {
     isOpen: boolean;

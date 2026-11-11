@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Modal, Button, Form, Table, Spinner, Alert } from 'react-bootstrap';
 import { DATA_CONFIG, getDataTypeDisplayName, getFormFields, FormField } from '../../config/dataImportConfigs';
-import { NavIcon } from '../../config/navigationConfig';
+import { NavIcon } from '../../components/NavIcon';
 import type { FormDataRecord, ImportModalConfig, ImportListData, DeleteTarget, RowRecord, ImportCsvResult } from './types';
 
 interface GenericFormProps {

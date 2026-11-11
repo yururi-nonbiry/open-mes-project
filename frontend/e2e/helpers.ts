@@ -39,6 +39,7 @@ export async function expectAllVisibleButtonsOperable(page: Page) {
 
 /** レイアウト(Header/MobileHeader)が描画されており、ログイン画面へリダイレクトされていないことを確認する。 */
 export async function expectAuthenticatedLayoutRendered(page: Page) {
-  await expect(page.locator('header')).toBeVisible();
+  // モバイルの <header> は中身が固定配置で高さ0になり「非表示」と判定されるため、実際に描画される要素で判定する
+  await expect(page.locator('header.app-header, .mobile-header-bar').first()).toBeVisible();
   await expect(page).not.toHaveURL(/\/(mobile\/)?login$/);
 }

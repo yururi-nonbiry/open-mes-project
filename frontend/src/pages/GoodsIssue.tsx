@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Modal, Button, Spinner, Alert } from 'react-bootstrap';
 import inventoryService, { SalesOrder, validateIssueQuantity } from '../services/inventoryService';
-import { NavIcon } from '../config/navigationConfig';
+import { NavIcon } from '../components/NavIcon';
 import { useWorkCenters } from '../hooks/useWorkCenters';
 import WarehouseLocationMapModal from './inventory/WarehouseLocationMapModal';
 import authFetch from '../utils/api';

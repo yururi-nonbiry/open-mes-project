@@ -1,10 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import type { FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LoginCaptcha from '../../components/LoginCaptcha';
 import { useLogin } from '../../hooks/useLogin';
 import './MobileLoginPage.css';
 
-const MobileLoginPage = ({ onLoginSuccess, isAuthenticated }) => {
+interface MobileLoginPageProps {
+    onLoginSuccess: () => Promise<void>;
+    isAuthenticated: boolean;
+}
+
+const MobileLoginPage = ({ onLoginSuccess, isAuthenticated }: MobileLoginPageProps) => {
     const [customId, setCustomId] = useState('');
     const [password, setPassword] = useState('');
     const { error, captcha, captchaValue, setCaptchaValue, refreshCaptcha, submitting, login } = useLogin(onLoginSuccess);
@@ -18,7 +24,7 @@ const MobileLoginPage = ({ onLoginSuccess, isAuthenticated }) => {
         }
     }, [isAuthenticated, navigate]);
 
-    const handleLogin = async (e) => {
+    const handleLogin = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         await login(customId, password);
     };

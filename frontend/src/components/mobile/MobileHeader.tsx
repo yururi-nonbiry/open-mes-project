@@ -1,6 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 
-const MobileHeader = ({ onMenuClick, isMenuOpen }) => {
+interface MobileHeaderProps {
+  onMenuClick: () => void;
+  isMenuOpen: boolean;
+}
+
+const MobileHeader = ({ onMenuClick, isMenuOpen }: MobileHeaderProps) => {
   // Initialize theme from localStorage or default to system preference (or 'dark' if no preference)
   const [theme, setTheme] = useState(() => {
     const savedTheme = localStorage.getItem('theme');

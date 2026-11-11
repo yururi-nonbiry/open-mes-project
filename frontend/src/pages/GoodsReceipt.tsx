@@ -4,7 +4,7 @@ import { useStockPurposes } from '../hooks/useStockPurposes';
 import ReceiptLocationMap from '../components/common/ReceiptLocationMap';
 import authFetch, { ApiError } from '../utils/api';
 import inventoryService from '../services/inventoryService';
-import { NavIcon } from '../config/navigationConfig';
+import { NavIcon } from '../components/NavIcon';
 import './InventoryInquiry.css';
 import type { DisplaySetting, ModelFieldInfo, PurchaseOrderRow } from './types/listPage';
 

@@ -1,11 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import {
-  NAV_CATEGORIES,
-  NavIcon,
-  getCircledNumber,
-  resolveCurrentNavigation,
-} from '../config/navigationConfig';
+import { NAV_CATEGORIES, getCircledNumber, resolveCurrentNavigation } from '../config/navigationConfig';
+import { NavIcon } from '../components/NavIcon';
 
 interface HeaderProps {
   onMenuClick: () => void;

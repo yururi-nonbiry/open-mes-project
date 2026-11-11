@@ -4,7 +4,7 @@ import { Modal, Button, Alert } from 'react-bootstrap';
 import productionService from '../../services/productionService';
 import { ProductionPlan, ProgressUpdatePayload } from '../../types/production';
 import type { StatusOption } from './types';
-import { NavIcon } from '../../config/navigationConfig';
+import { NavIcon } from '../../components/NavIcon';
 
 interface WorkProgressModalProps {
     isOpen: boolean;

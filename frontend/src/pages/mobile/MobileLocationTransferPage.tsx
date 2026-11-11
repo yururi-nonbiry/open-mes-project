@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import authFetch, { describeError, handleError } from '../../utils/api';
 import inventoryService from '../../services/inventoryService';
@@ -6,6 +6,9 @@ import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library';
 import CameraIcon from '../../components/common/CameraIcon';
 import { useStockPurposes } from '../../hooks/useStockPurposes';
 import './MobileLocationTransferPage.css'; // 新しいCSSファイルをインポート
+import type { ChangeEvent, FormEvent } from 'react';
+import { errorMessage } from './mobileTypes';
+import type { CameraState, LocationInventoryItem, MobileMessage, QrActionResponse, ScanTargetSetter, TransferModalState } from './mobileTypes';
 
 const MobileLocationTransferPage = () => {
   // フォーム入力
@@ -14,10 +17,10 @@ const MobileLocationTransferPage = () => {
 
   // UI状態
   const [isLoading, setIsLoading] = useState(false);
-  const [message, setMessage] = useState({ text: '', type: '' }); // type: 'success' or 'error'
+  const [message, setMessage] = useState<MobileMessage>({ text: '', type: '' }); // type: 'success' or 'error'
 
   // モーダルの状態
-  const [modalState, setModalState] = useState({
+  const [modalState, setModalState] = useState<TransferModalState>({
     isOpen: false,
     step: 'selection', // 'selection' or 'transfer'
     items: [],
@@ -33,17 +36,17 @@ const MobileLocationTransferPage = () => {
   const stockPurposes = useStockPurposes();
 
   // カメラの状態
-  const [cameraState, setCameraState] = useState({
+  const [cameraState, setCameraState] = useState<CameraState>({
     isOpen: false,
     targetSetter: null,
   });
-  const videoRef = useRef(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const codeReader = useRef(new BrowserMultiFormatReader());
 
   const navigate = useNavigate();
 
   // メッセージ表示関数
-  const showMessage = useCallback((msg, type, isModal = false) => {
+  const showMessage = useCallback((msg: string, type: string, isModal = false) => {
     const messageObj = { text: msg, type: type };
     if (isModal) {
       setModalState(prev => ({ ...prev, message: messageObj }));
@@ -68,7 +71,7 @@ const MobileLocationTransferPage = () => {
 
       await handleError(response, `サーバーエラー: ${response.status}`);
 
-      const inventoryItems = await response.json();
+      const inventoryItems: LocationInventoryItem[] = await response.json();
 
       if (inventoryItems.length === 0) {
         showMessage('その棚番に移動可能な在庫が見つかりません。', 'error');
@@ -78,27 +81,28 @@ const MobileLocationTransferPage = () => {
         setModalState(prev => ({ ...prev, isOpen: true, step: 'selection', items: inventoryItems, selectedItem: null }));
       }
     } catch (error) {
-      showMessage(`エラー: ${error.message}`, 'error');
+      showMessage(`エラー: ${errorMessage(error)}`, 'error');
     } finally {
       setIsLoading(false);
     }
   };
 
   // モーダルでの品番選択
-  const handlePartSelect = (item) => {
+  const handlePartSelect = (item: LocationInventoryItem) => {
     setModalState(prev => ({ ...prev, step: 'transfer', selectedItem: item, message: { text: '', type: '' } }));
   };
 
   // モーダルフォームの入力ハンドラ
-  const handleModalFormChange = (e) => {
+  const handleModalFormChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setModalState(prev => ({ ...prev, [name]: value }));
   };
 
   // 移動実行処理
-  const handleExecuteTransfer = async (e) => {
+  const handleExecuteTransfer = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const { selectedItem, transferQuantity, targetLocation } = modalState;
+    if (!selectedItem) return;
 
     if (!transferQuantity || !targetLocation) {
       showMessage('移動数量と移動先棚番を入力してください。', 'error', true);
@@ -133,9 +137,10 @@ const MobileLocationTransferPage = () => {
   };
 
   // 用途変更の実行処理(例: 緊急時にA製品用の在庫を汎用へ切り替える)
-  const handleExecutePurposeChange = async (e) => {
+  const handleExecutePurposeChange = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const { selectedItem, purposeQuantity, purposeTo, purposeReason } = modalState;
+    if (!selectedItem) return;
     const movable = selectedItem.quantity - selectedItem.reserved;
     const quantity = parseInt(purposeQuantity, 10);
     if (!quantity || quantity <= 0 || quantity > movable) {
@@ -172,7 +177,7 @@ const MobileLocationTransferPage = () => {
   };
 
   // --- Camera Scan Logic ---
-  const startCameraScan = (targetSetter) => {
+  const startCameraScan = (targetSetter: ScanTargetSetter) => {
     setCameraState({ isOpen: true, targetSetter: targetSetter });
   };
 
@@ -184,36 +189,26 @@ const MobileLocationTransferPage = () => {
 
   useEffect(() => {
     if (cameraState.isOpen && videoRef.current) {
-      let controls = null;
       codeReader.current
-        .decodeFromVideoDevice(undefined, videoRef.current,
-          (result, error, ctrl) => {
+        .decodeFromVideoDevice(null, videoRef.current,
+          (result, error) => {
             if (result) {
               // Successful scan, stop the camera
-              ctrl.stop();
               setCameraState({ isOpen: false, targetSetter: null });
               handleQrCodeResult(result.getText(), cameraState.targetSetter);
             }
             if (error && !(error instanceof NotFoundException)) {
               console.error(error);
-              ctrl.stop();
               showMessage('バーコードの読み取りに失敗しました。', 'error');
               setCameraState({ isOpen: false, targetSetter: null });
             }
           }
         )
-        .then(ctrl => { controls = ctrl; })
         .catch(err => {
             console.error(err);
             showMessage('カメラの起動に失敗しました。', 'error');
             setCameraState({ isOpen: false, targetSetter: null });
         });
-      return () => {
-        // Cleanup function to stop the camera when the component unmounts or isOpen changes.
-        if (controls) {
-          controls.stop();
-        }
-      };
     }
     // If cameraState.isOpen is false, ensure the camera is stopped.
     codeReader.current.reset();
@@ -221,7 +216,7 @@ const MobileLocationTransferPage = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cameraState.isOpen, cameraState.targetSetter, showMessage]);
 
-  const handleQrCodeResult = useCallback(async (decodedText, defaultSetter) => {
+  const handleQrCodeResult = useCallback(async (decodedText: string, defaultSetter: ScanTargetSetter | null) => {
     setIsLoading(true);
     showMessage('', ''); // Clear main message
 
@@ -238,7 +233,7 @@ const MobileLocationTransferPage = () => {
 
         await handleError(response, `サーバーエラー: ${response.status}`);
 
-        const data = await response.json();
+        const data: QrActionResponse<Record<string, string>> = await response.json();
         const { action, payload, navigate: navTarget, state, updateFields } = data.result || {};
 
         let handled = false;
@@ -279,13 +274,13 @@ const MobileLocationTransferPage = () => {
 
         if (!handled && defaultSetter) defaultSetter(decodedText);
     } catch (err) {
-        showMessage(`QRコード処理エラー: ${err.message}`, 'error');
+        showMessage(`QRコード処理エラー: ${errorMessage(err)}`, 'error');
     } finally {
         setIsLoading(false);
     }
   }, [navigate, showMessage]);
 
-  const renderMessage = (msg) => {
+  const renderMessage = (msg: MobileMessage) => {
     if (!msg.text) return null;
     return <div className={`alert mt-3 ${msg.type === 'error' ? 'alert-danger' : 'alert-success'}`}>{msg.text}</div>;
   };
@@ -348,7 +343,7 @@ const MobileLocationTransferPage = () => {
                   <label htmlFor="targetLocation" className="form-label fw-bold">移動先棚番</label>
                   <div className="input-group">
                     <input type="text" id="targetLocation" name="targetLocation" className="form-control form-control-lg" placeholder="移動先をスキャン" value={targetLocation} onChange={handleModalFormChange} required />
-                    <button className="btn btn-outline-secondary" type="button" onClick={() => startCameraScan(val => setModalState(p => ({ ...p, targetLocation: val })))} title="カメラでスキャン" aria-label="カメラでスキャン"><CameraIcon /></button>
+                    <button className="btn btn-outline-secondary" type="button" onClick={() => startCameraScan((val: string) => setModalState(p => ({ ...p, targetLocation: val })))} title="カメラでスキャン" aria-label="カメラでスキャン"><CameraIcon /></button>
                   </div>
                 </div>
                 {renderMessage(modalMessage)}

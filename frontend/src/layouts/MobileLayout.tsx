@@ -1,10 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import MobileHeader from '../components/mobile/MobileHeader';
 import MobileNavPanel from '../components/mobile/MobileNavPanel';
 import './MobileLayout.css';
 
-const MobileLayout = ({ onLogout }) => {
+interface MobileLayoutProps {
+  onLogout: () => void;
+}
+
+const MobileLayout = ({ onLogout }: MobileLayoutProps) => {
   const [isMenuOpen, setMenuOpen] = useState(false);
 
   const toggleMenu = () => {

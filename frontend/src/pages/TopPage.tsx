@@ -1,11 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  NAV_CATEGORIES,
-  WORKFLOW_TRACKS,
-  NavIcon,
-  getCircledNumber,
-} from '../config/navigationConfig';
+import { NAV_CATEGORIES, WORKFLOW_TRACKS, getCircledNumber } from '../config/navigationConfig';
+import { NavIcon } from '../components/NavIcon';
 import {
   getWorkflowFeatureSettings,
   FlowTrackId,

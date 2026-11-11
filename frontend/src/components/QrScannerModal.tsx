@@ -1,9 +1,15 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import './QrScannerModal.css';
 
-const QrScannerModal = ({ show, onClose, onScanSuccess }) => {
-    const scannerRef = useRef(null);
+interface QrScannerModalProps {
+    show: boolean;
+    onClose: () => void;
+    onScanSuccess: (decodedText: string) => void;
+}
+
+const QrScannerModal = ({ show, onClose, onScanSuccess }: QrScannerModalProps) => {
+    const scannerRef = useRef<Html5QrcodeScanner | null>(null);
 
     useEffect(() => {
         if (show && !scannerRef.current) {
@@ -17,9 +23,9 @@ const QrScannerModal = ({ show, onClose, onScanSuccess }) => {
                 /* verbose= */ false
             );
 
-            const successCallback = (decodedText) => {
+            const successCallback = (decodedText: string) => {
                 onScanSuccess(decodedText);
-                scanner.clear().catch(error => console.error("Failed to clear scanner on success.", error));
+                scanner.clear().catch((error: unknown) => console.error("Failed to clear scanner on success.", error));
                 onClose();
             };
 

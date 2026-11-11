@@ -1,6 +1,7 @@
 import React from 'react';
 import styles from './UsagePage.module.css';
-import { NavIcon, NavIconName } from '../config/navigationConfig';
+import { NavIconName } from '../config/navigationConfig';
+import { NavIcon } from '../components/NavIcon';
 
 // 画面キャプチャは `npm run capture:manual` で public/manual/ に再生成できます
 interface ManualShot {

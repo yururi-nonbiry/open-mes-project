@@ -1,12 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
-import {
-  NavIcon,
-  WORKFLOW_TRACKS,
-  WorkflowTrack,
-  getCircledNumber,
-  resolveCurrentNavigation,
-} from '../config/navigationConfig';
+import { WORKFLOW_TRACKS, WorkflowTrack, getCircledNumber, resolveCurrentNavigation } from '../config/navigationConfig';
+import { NavIcon } from '../components/NavIcon';
 
 const FLOW_STORAGE_KEY = '__omes_guided_flow';
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import WarehouseLocationMapModal from '../inventory/WarehouseLocationMapModal';
 import { Container, Form, Button, Row, Col, Card, Badge, Modal, Spinner, Alert, Pagination as BootstrapPagination, InputGroup } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
@@ -7,6 +7,9 @@ import inventoryService, { SalesOrder, validateIssueQuantity } from '../../servi
 import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library';
 import CameraIcon from '../../components/common/CameraIcon';
 import './MobileLocationTransferPage.css'; // スタイルを再利用
+import type { FormEvent } from 'react';
+import { errorMessage } from './mobileTypes';
+import type { CameraState, MobileMessage, QrActionResponse, ScanTargetSetter } from './mobileTypes';
 
 // ローカル日付(YYYY-MM-DD)。予定日フィルタの既定値(今日以降)に使う
 const todayLocal = () => {
@@ -18,7 +21,7 @@ const MobileGoodsIssuePage = () => {
     // State for data and UI
     const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+    const [error, setError] = useState<string | null>(null);
 
     // State for search inputs
     const [searchQueryInput, setSearchQueryInput] = useState('');
@@ -36,26 +39,26 @@ const MobileGoodsIssuePage = () => {
     const pageSize = 25;
 
     // 出庫元ロケーション地図
-    const [mapOrderId, setMapOrderId] = useState(null);
+    const [mapOrderId, setMapOrderId] = useState<string | number | null>(null);
 
     // State for modal
     const [showModal, setShowModal] = useState(false);
-    const [selectedOrder, setSelectedOrder] = useState(null);
+    const [selectedOrder, setSelectedOrder] = useState<SalesOrder | null>(null);
     const [quantityToShip, setQuantityToShip] = useState('');
-    const [modalMessage, setModalMessage] = useState({ text: '', type: '' });
+    const [modalMessage, setModalMessage] = useState<MobileMessage>({ text: '', type: '' });
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // カメラの状態
-    const [cameraState, setCameraState] = useState({
+    const [cameraState, setCameraState] = useState<CameraState>({
         isOpen: false,
         targetSetter: null,
     });
-    const videoRef = useRef(null);
+    const videoRef = useRef<HTMLVideoElement>(null);
     const codeReader = useRef(new BrowserMultiFormatReader());
 
     const navigate = useNavigate();
 
-    const fetchSalesOrders = useCallback(async (page, query, status, from: string, to: string) => {
+    const fetchSalesOrders = useCallback(async (page: number, query: string, status: string, from: string, to: string) => {
         setLoading(true);
         setError(null);
         
@@ -65,7 +68,7 @@ const MobileGoodsIssuePage = () => {
             setTotalPages(data.total_pages || 0);
             setTotalCount(data.count || 0);
         } catch (e) {
-            setError(e.message);
+            setError(errorMessage(e));
             setSalesOrders([]);
             setTotalPages(0);
             setTotalCount(0);
@@ -80,7 +83,7 @@ const MobileGoodsIssuePage = () => {
     }, [currentPage, committedSearchParams, fetchSalesOrders]);
 
     // --- Camera Scan Logic ---
-    const startCameraScan = (targetSetter) => {
+    const startCameraScan = (targetSetter: ScanTargetSetter) => {
         setCameraState({ isOpen: true, targetSetter: targetSetter });
     };
 
@@ -90,38 +93,33 @@ const MobileGoodsIssuePage = () => {
 
     useEffect(() => {
         if (cameraState.isOpen && videoRef.current) {
-            let controls = null;
             codeReader.current
-                .decodeFromVideoDevice(undefined, videoRef.current,
-                    (result, error, ctrl) => {
+                .decodeFromVideoDevice(null, videoRef.current,
+                    (result, error) => {
                         if (result) {
                             // Successful scan, stop the camera
-                            ctrl.stop();
                             setCameraState({ isOpen: false, targetSetter: null });
                             handleQrCodeResult(result.getText(), cameraState.targetSetter);
                         }
                         if (error && !(error instanceof NotFoundException)) {
                             console.error(error);
-                            ctrl.stop();
                             setError('バーコードの読み取りに失敗しました。');
                             setCameraState({ isOpen: false, targetSetter: null });
                         }
                     }
                 )
-                .then(ctrl => { controls = ctrl; })
                 .catch(err => {
                     console.error(err);
                     setError('カメラの起動に失敗しました。');
                     setCameraState({ isOpen: false, targetSetter: null });
                 });
-            return () => { if (controls) controls.stop(); };
         }
         codeReader.current.reset();
     // handleQrCodeResult はこの後で定義されるため依存配列に含められない
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [cameraState.isOpen, cameraState.targetSetter, setError]);
     
-    const handleOpenModal = useCallback((order) => {
+    const handleOpenModal = useCallback((order: SalesOrder) => {
         setSelectedOrder(order);
         setQuantityToShip(order.remaining_quantity > 0 ? String(order.remaining_quantity) : '1');
         setModalMessage({ text: '', type: '' });
@@ -129,7 +127,7 @@ const MobileGoodsIssuePage = () => {
         setShowModal(true);
     }, []);
 
-    const handleQrCodeResult = useCallback(async (decodedText, defaultSetter) => {
+    const handleQrCodeResult = useCallback(async (decodedText: string, defaultSetter: ScanTargetSetter | null) => {
         setLoading(true);
         setError(null);
 
@@ -146,7 +144,7 @@ const MobileGoodsIssuePage = () => {
 
             await handleError(response, `サーバーエラー: ${response.status}`);
 
-            const data = await response.json();
+            const data: QrActionResponse<SalesOrder> = await response.json();
             const { action, payload, navigate: navTarget, state, updateSearch } = data.result || {};
 
             let handled = false;
@@ -185,13 +183,13 @@ const MobileGoodsIssuePage = () => {
 
             if (!handled && defaultSetter) defaultSetter(decodedText);
         } catch (err) {
-            setError(`QRコード処理エラー: ${err.message}`);
+            setError(`QRコード処理エラー: ${errorMessage(err)}`);
         } finally {
             setLoading(false);
         }
     }, [navigate, searchStatusInput, handleOpenModal]);
     
-    const handleSearch = (e) => {
+    const handleSearch = (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setCurrentPage(1);
         setCommittedSearchParams({ q: searchQueryInput, status: searchStatusInput, from: dateFromInput, to: dateToInput });
@@ -419,11 +417,11 @@ const MobileGoodsIssuePage = () => {
                         </Form.Group>
                         <Form.Group className="mb-3">
                             <Form.Label>品番:</Form.Label>
-                            <Form.Control type="text" defaultValue={selectedOrder.item} readOnly />
+                            <Form.Control type="text" defaultValue={selectedOrder.item ?? undefined} readOnly />
                         </Form.Group>
                         <Form.Group className="mb-3">
                             <Form.Label>倉庫:</Form.Label>
-                            <Form.Control type="text" defaultValue={selectedOrder.warehouse} readOnly />
+                            <Form.Control type="text" defaultValue={selectedOrder.warehouse ?? undefined} readOnly />
                         </Form.Group>
                         <Form.Group className="mb-3">
                             <Form.Label>残数量:</Form.Label>

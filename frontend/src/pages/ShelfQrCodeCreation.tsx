@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { Form, Button } from 'react-bootstrap';
 

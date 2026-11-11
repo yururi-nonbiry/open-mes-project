@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import type { DropResult, DraggableProvided, DraggableStateSnapshot } from '@hello-pangea/dnd';
 import { Link } from 'react-router-dom';
 import { Table, Button, Form, Spinner, Alert, Tooltip, OverlayTrigger } from 'react-bootstrap';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import authFetch, { describeError, toApiError } from '../utils/api';
+import type { PageDisplayRow, ModelDisplaySettingRecord, ModelFieldInfo, SaveStatus, BulkSaveResult, FieldChangeEvent } from './types/displaySettings';
 
 // This could be moved to a shared constants file
 const DATA_TYPE_CHOICES = [
@@ -12,7 +14,20 @@ const DATA_TYPE_CHOICES = [
     { value: 'stock_movement', label: '入出庫履歴' },
 ];
 
-const DATA_TYPE_MAP = {
+interface DataTypeConfig {
+    fetch: string[];
+    save: string[];
+    model_source_labels?: Record<string, string>;
+}
+
+interface CombinedField extends ModelFieldInfo {
+    source_data_type: string;
+    model_source_label: string | null;
+}
+
+type SettingWithSource = ModelDisplaySettingRecord & { source_data_type: string };
+
+const DATA_TYPE_MAP: Record<string, DataTypeConfig> = {
     goods_receipt: {
         fetch: ['purchase_order', 'goods_receipt'],
         save: ['goods_receipt'],
@@ -36,14 +51,14 @@ const DATA_TYPE_MAP = {
 };
 
 const PageDisplaySettings = () => {
-    const [fieldsData, setFieldsData] = useState([]);
+    const [fieldsData, setFieldsData] = useState<PageDisplayRow[]>([]);
     const [selectedDataType, setSelectedDataType] = useState(DATA_TYPE_CHOICES[0].value);
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
+    const [error, setError] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
-    const [saveStatus, setSaveStatus] = useState({ message: '', variant: '', show: false });
+    const [saveStatus, setSaveStatus] = useState<SaveStatus>({ message: '', variant: '', show: false });
 
-    const fetchAllData = useCallback(async (selectedType) => {
+    const fetchAllData = useCallback(async (selectedType: string) => {
         setLoading(true);
         setError(null);
         setSaveStatus(prev => ({ ...prev, show: false }));
@@ -70,14 +85,14 @@ const PageDisplaySettings = () => {
                 }
             }
             
-            const results = await Promise.all(responses.map(res => res.json()));
+            const results: unknown[] = await Promise.all(responses.map(res => res.json()));
             
-            const allSettings = [];
-            const combinedFieldsMap = new Map();
+            const allSettings: SettingWithSource[] = [];
+            const combinedFieldsMap = new Map<string, CombinedField>();
 
             dataTypesToFetch.forEach((type, i) => {
-                const settings = results[i * 2];
-                const fields = results[i * 2 + 1];
+                const settings = results[i * 2] as ModelDisplaySettingRecord[];
+                const fields = results[i * 2 + 1] as ModelFieldInfo[];
 
                 allSettings.push(...settings.map(s => ({ ...s, source_data_type: type })));
 
@@ -137,7 +152,7 @@ const PageDisplaySettings = () => {
             setFieldsData(data);
 
         } catch (err) {
-            setError(err.message);
+            setError(err instanceof Error ? err.message : String(err));
         } finally {
             setLoading(false);
         }
@@ -149,13 +164,14 @@ const PageDisplaySettings = () => {
         }
     }, [selectedDataType, fetchAllData]);
 
-    const handleInputChange = (index, e) => {
-        const { name, value, type, checked } = e.target;
+    const handleInputChange = (index: number, e: FieldChangeEvent) => {
+        const target = e.target as HTMLInputElement;
+        const { name, value, type, checked } = target;
         const newFieldsData = [...fieldsData];
         newFieldsData[index] = {
             ...newFieldsData[index],
             [name]: type === 'checkbox' ? checked : value
-        };
+        } as PageDisplayRow;
         setFieldsData(newFieldsData);
     };
 
@@ -206,7 +222,7 @@ const PageDisplaySettings = () => {
                 throw await toApiError(errorResponse as Response, '保存に失敗しました。');
             }
 
-            const successMessages = await Promise.all(responses.map(res => res.json().then(r => r.message)));
+            const successMessages = await Promise.all(responses.map(res => res.json().then((r: BulkSaveResult) => r.message)));
             setSaveStatus({ message: successMessages.filter(Boolean).join(' ') || '設定を保存しました。', variant: 'success', show: true });
             fetchAllData(selectedDataType);
         } catch (err) {
@@ -216,7 +232,7 @@ const PageDisplaySettings = () => {
         }
     };
 
-    const handleDragEnd = (result, type) => {
+    const handleDragEnd = (result: DropResult, type: 'list' | 'search') => {
         if (!result.destination) {
             return;
         }
@@ -247,7 +263,7 @@ const PageDisplaySettings = () => {
         setFieldsData(newFieldsData);
     };
 
-    const onDragEnd = (result) => {
+    const onDragEnd = (result: DropResult) => {
         if (!result.destination) {
             return;
         }
@@ -257,7 +273,7 @@ const PageDisplaySettings = () => {
     };
 
 
-    const renderTableRow = (item, provided, snapshot, type) => {
+    const renderTableRow = (item: PageDisplayRow, provided: DraggableProvided, snapshot: DraggableStateSnapshot, type: 'list' | 'search') => {
         const originalIndex = fieldsData.findIndex(f => f.model_field_name === item.model_field_name);
         const filterKey = type === 'list' ? 'is_list_display' : 'is_search_field';
         const isActive = item[filterKey];
@@ -293,7 +309,7 @@ const PageDisplaySettings = () => {
         );
     };
 
-    const renderTable = (type) => {
+    const renderTable = (type: 'list' | 'search') => {
         const orderKey = type === 'list' ? 'display_order' : 'search_order';
         const droppableId = type === 'list' ? 'list-droppable' : 'search-droppable';
         const title = type === 'list' ? '一覧表示項目（テーブル列の順序）' : '検索対象項目（検索欄の順序）';

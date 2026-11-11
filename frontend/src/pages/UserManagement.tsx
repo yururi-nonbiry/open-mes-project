@@ -1,12 +1,29 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import authFetch, { handleError, toApiError } from '../utils/api';
 import { useAuth } from '../hooks/useAuth';
 
+interface User {
+    id: number;
+    custom_id: string;
+    username?: string;
+    email?: string;
+    account_type: string;
+    is_staff: boolean;
+    is_active: boolean;
+    is_superuser: boolean;
+    date_joined: string;
+}
+
+interface PageMessage {
+    text: string;
+    type: string;
+}
+
 const UserManagement = () => {
-    const [users, setUsers] = useState([]);
+    const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
-    const [message, setMessage] = useState({ text: '', type: '' });
+    const [message, setMessage] = useState<PageMessage>({ text: '', type: '' });
     const location = useLocation();
     const navigate = useNavigate();
     // スーパーユーザーのアカウントを変更・削除できるのはスーパーユーザーのみ(サーバー側でも拒否される)
@@ -32,7 +49,7 @@ const UserManagement = () => {
             const data = await response.json();
             setUsers(data.results || data); // Support paginated or simple list response
         } catch (e) {
-            setMessage({ text: `ユーザーデータの読み込みに失敗しました: ${e.message}`, type: 'danger' });
+            setMessage({ text: `ユーザーデータの読み込みに失敗しました: ${e instanceof Error ? e.message : String(e)}`, type: 'danger' });
             console.error("Fetch error:", e);
         } finally {
             setLoading(false);
@@ -43,7 +60,7 @@ const UserManagement = () => {
         fetchUsers();
     }, [fetchUsers]);
 
-    const handleDelete = async (userId, userCustomId) => {
+    const handleDelete = async (userId: number, userCustomId: string) => {
         if (window.confirm(`本当にユーザー "${userCustomId}" を削除しますか？この操作は元に戻せません。`)) {
             setMessage({ text: '', type: '' });
             try {
@@ -66,7 +83,7 @@ const UserManagement = () => {
         }
     };
 
-    const formatDate = (dateString) => {
+    const formatDate = (dateString: string) => {
         if (!dateString) return '-';
         // Format to 'YYYY-MM-DD HH:mm'
         return new Date(dateString).toISOString().slice(0, 16).replace('T', ' ');
@@ -117,7 +134,7 @@ const UserManagement = () => {
                         </thead>
                         <tbody>
                             {loading ? (
-                                <tr><td colSpan="8" className="text-center py-5 text-muted">読み込み中...</td></tr>
+                                <tr><td colSpan={8} className="text-center py-5 text-muted">読み込み中...</td></tr>
                             ) : users.length > 0 ? (
                                 users.map(user => (
                                     <tr key={user.id}>
@@ -153,7 +170,7 @@ const UserManagement = () => {
                                     </tr>
                                 ))
                             ) : (
-                                <tr><td colSpan="8" className="text-center py-5 text-muted">該当するユーザーがいません。</td></tr>
+                                <tr><td colSpan={8} className="text-center py-5 text-muted">該当するユーザーがいません。</td></tr>
                             )}
                         </tbody>
                     </table>

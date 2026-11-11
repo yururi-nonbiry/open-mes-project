@@ -48,7 +48,7 @@ export const useProductionPlans = () => {
         }
 
         try {
-            const data = await productionService.getProductionPlans(params);
+            const data = await productionService.getProductionPlans(Object.fromEntries(params.entries()));
             setPlans(data.results || []);
             updatePagination(data, currentUrl);
         } catch {
