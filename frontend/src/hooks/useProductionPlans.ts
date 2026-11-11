@@ -31,7 +31,7 @@ export const useProductionPlans = () => {
                 const url = new URL(pageUrl);
                 params = url.searchParams;
                 currentUrl = url.pathname + url.search;
-            } catch (e) {
+            } catch {
                 params = new URLSearchParams(pageUrl.split('?')[1]);
                 currentUrl = pageUrl;
             }
@@ -51,7 +51,7 @@ export const useProductionPlans = () => {
             const data = await productionService.getProductionPlans(params);
             setPlans(data.results || []);
             updatePagination(data, currentUrl);
-        } catch (e: any) {
+        } catch {
             setError('生産計画データの取得中にエラーが発生しました。');
             setPlans([]);
         } finally {

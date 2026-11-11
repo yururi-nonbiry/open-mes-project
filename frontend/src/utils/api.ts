@@ -138,7 +138,7 @@ const processQueue = (error: any, token: string | null = null) => {
 };
 
 const authFetch = async (url: string, options: RequestInit = {}): Promise<Response> => {
-  let accessToken = localStorage.getItem('access_token');
+  const accessToken = localStorage.getItem('access_token');
 
   const headers: Record<string, string> = {
     ...Object.fromEntries(new Headers(options.headers || {}).entries()),
@@ -170,7 +170,7 @@ const authFetch = async (url: string, options: RequestInit = {}): Promise<Respon
         });
         headers['Authorization'] = `Bearer ${token}`;
         response = await fetch(url, { ...options, headers });
-      } catch (err) {
+      } catch {
         return Promise.reject(new Error('Failed to refresh token.'));
       }
     } else {

@@ -24,13 +24,9 @@ export const useMachineMaster = () => {
     }, [fetchMachines]);
 
     const saveMachine = async (machine: Machine) => {
-        try {
-            await machineService.saveMachine(machine);
-            await fetchMachines();
-            return true;
-        } catch (e: any) {
-            throw e;
-        }
+        await machineService.saveMachine(machine);
+        await fetchMachines();
+        return true;
     };
 
     const deleteMachine = async (id: string) => {

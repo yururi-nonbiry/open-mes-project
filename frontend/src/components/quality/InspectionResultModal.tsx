@@ -51,6 +51,8 @@ const InspectionResultModal: React.FC<InspectionResultModalProps> = ({ item, onC
         } finally {
             setLoading(false);
         }
+        // initialValues は初回表示時の初期値としてのみ使う
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [item.id]);
 
     useEffect(() => {

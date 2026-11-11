@@ -217,6 +217,8 @@ const MobileLocationTransferPage = () => {
     }
     // If cameraState.isOpen is false, ensure the camera is stopped.
     codeReader.current.reset();
+  // handleQrCodeResult はこの後で定義されるため依存配列に含められない
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cameraState.isOpen, cameraState.targetSetter, showMessage]);
 
   const handleQrCodeResult = useCallback(async (decodedText, defaultSetter) => {
@@ -244,6 +246,7 @@ const MobileLocationTransferPage = () => {
             switch (action) {
                 case 'location_transfer':
                 case 'update_fields': // Treat update_fields as an alias for location_transfer action
+                    {
                     const fields = payload || updateFields;
                     if (fields) {
                         if (fields.sourceLocation !== undefined) setSourceLocation(fields.sourceLocation);
@@ -252,6 +255,7 @@ const MobileLocationTransferPage = () => {
                             setModalState(prev => ({ ...prev, targetLocation: fields.targetLocation }));
                         }
                         handled = true;
+                    }
                     }
                     break;
                 case 'navigate':
@@ -265,14 +269,12 @@ const MobileLocationTransferPage = () => {
 
         // Fallback for older action format
         if (!handled && updateFields) {
-            let handled = false;
             const fields = updateFields;
             if (fields.sourceLocation !== undefined) setSourceLocation(fields.sourceLocation);
             if (fields.warehouse !== undefined) setWarehouse(fields.warehouse);
             if (fields.targetLocation !== undefined) {
                 setModalState(prev => ({ ...prev, targetLocation: fields.targetLocation }));
             }
-            handled = true;
         }
 
         if (!handled && defaultSetter) defaultSetter(decodedText);

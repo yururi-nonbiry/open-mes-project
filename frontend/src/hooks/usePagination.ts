@@ -29,7 +29,7 @@ export const usePagination = (pageSize: number = 10) => {
                     const prevP = prevPageUrl.searchParams.get('page');
                     currentPage = prevP ? parseInt(prevP) + 1 : 2; // Assuming if prev exists and no next, we are on page 2+
                 }
-            } catch (e) {
+            } catch {
                 // Fallback if URL parsing fails
             }
             const totalPages = Math.ceil(data.count / pageSize);

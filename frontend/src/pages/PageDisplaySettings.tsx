@@ -72,7 +72,7 @@ const PageDisplaySettings = () => {
             
             const results = await Promise.all(responses.map(res => res.json()));
             
-            let allSettings = [];
+            const allSettings = [];
             const combinedFieldsMap = new Map();
 
             dataTypesToFetch.forEach((type, i) => {

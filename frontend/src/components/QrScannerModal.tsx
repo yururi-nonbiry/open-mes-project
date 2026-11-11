@@ -17,13 +17,13 @@ const QrScannerModal = ({ show, onClose, onScanSuccess }) => {
                 /* verbose= */ false
             );
 
-            const successCallback = (decodedText, decodedResult) => {
+            const successCallback = (decodedText) => {
                 onScanSuccess(decodedText);
                 scanner.clear().catch(error => console.error("Failed to clear scanner on success.", error));
                 onClose();
             };
 
-            const errorCallback = (error) => {
+            const errorCallback = () => {
                 // エラーはコンソールに表示しない（連続で発生するため）
             };
 

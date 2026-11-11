@@ -43,7 +43,7 @@ export const useCsvImport = () => {
                     setShowResultModal(true);
                     setIsLoading(false);
                 }
-            } catch (e) {
+            } catch {
                 stopPolling();
                 setIsLoading(false);
             }

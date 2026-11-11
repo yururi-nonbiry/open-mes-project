@@ -56,7 +56,7 @@ export const useInventory = () => {
                 const url = new URL(pageUrl);
                 params = url.searchParams;
                 currentUrl = url.pathname + url.search;
-            } catch (e) {
+            } catch {
                 params = new URLSearchParams(pageUrl.split('?')[1]);
                 currentUrl = pageUrl;
             }

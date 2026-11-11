@@ -9,13 +9,14 @@ interface MachineMasterModalProps {
     editingMachine: Machine | null;
 }
 
+const initialFormState: Machine = {
+    machine_number: '',
+    name: '',
+    location: '',
+    description: '',
+};
+
 const MachineMasterModal: React.FC<MachineMasterModalProps> = ({ isOpen, onClose, onSave, editingMachine }) => {
-    const initialFormState: Machine = {
-        machine_number: '',
-        name: '',
-        location: '',
-        description: '',
-    };
 
     const [formData, setFormData] = useState<Machine>(initialFormState);
     const [submitting, setSubmitting] = useState(false);

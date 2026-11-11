@@ -117,6 +117,8 @@ const MobileGoodsIssuePage = () => {
             return () => { if (controls) controls.stop(); };
         }
         codeReader.current.reset();
+    // handleQrCodeResult はこの後で定義されるため依存配列に含められない
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [cameraState.isOpen, cameraState.targetSetter, setError]);
     
     const handleOpenModal = useCallback((order) => {
@@ -254,7 +256,7 @@ const MobileGoodsIssuePage = () => {
     const renderPaginationControls = () => {
         if (totalPages <= 1) return null;
         
-        let items = [];
+        const items = [];
         const startPage = Math.max(1, currentPage - 2);
         const endPage = Math.min(totalPages, currentPage + 2);
 

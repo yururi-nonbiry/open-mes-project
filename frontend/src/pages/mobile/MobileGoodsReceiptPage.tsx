@@ -122,6 +122,8 @@ const MobileGoodsReceiptPage = () => {
       return () => { if (controls) controls.stop(); };
     }
     codeReader.current.reset();
+  // handleQrCodeResult はこの後で定義されるため依存配列に含められない
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cameraState.isOpen, cameraState.targetSetter, setError]);
 
   const openReceiptForm = useCallback((order) => {
