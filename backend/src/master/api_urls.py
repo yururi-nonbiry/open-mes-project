@@ -15,7 +15,9 @@ router.register(r"customers", rest_views.CustomerViewSet, basename="customer")
 router.register(r"work-centers", rest_views.WorkCenterViewSet, basename="work-center")
 router.register(r"unit-costs", rest_views.UnitCostViewSet, basename="unit-cost")
 router.register(r"bill-of-materials", rest_views.BillOfMaterialViewSet, basename="bill-of-material")
+router.register(r"work-calendar-days", rest_views.WorkCalendarDayViewSet, basename="work-calendar-day")
 
 urlpatterns = [
+    path("work-calendar-settings/", rest_views.WorkCalendarSettingView.as_view(), name="work-calendar-settings"),
     path("", include(router.urls)),
 ]

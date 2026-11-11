@@ -5,6 +5,7 @@ from django.db.models import Sum
 from django.utils import timezone
 
 from inventory.models import Inventory
+from master.calendar import WorkCalendar
 from master.models import Item
 
 from ..models import MaterialAllocation, ProductionPlan, ProductionPlanMaterial
@@ -54,6 +55,7 @@ def simulate_parts_supply(plans):
     """
     plans = list(plans)
     now = timezone.now()
+    work_calendar = WorkCalendar()
 
     materials_by_plan = defaultdict(list)
     for material in ProductionPlanMaterial.objects.filter(production_plan__in=plans):
@@ -209,7 +211,7 @@ def simulate_parts_supply(plans):
                     summary["shortage_plan_name"] = plan.plan_name
                     summary["shortage_date"] = plan.planned_start_datetime
                     # 調達リードタイム分をさかのぼった「発注・支給依頼の期限」
-                    order_by_date = plan.planned_start_datetime - timedelta(days=lead_time_days)
+                    order_by_date = work_calendar.subtract_workdays(plan.planned_start_datetime, lead_time_days)
                     summary["order_by_date"] = order_by_date
                     summary["order_overdue"] = order_by_date <= now
                 limiting_parts.append(

@@ -192,3 +192,41 @@ class BillOfMaterial(models.Model):
 
     def __str__(self):
         return f"{self.product_id} - {self.material_id} ({self.quantity})"
+
+
+# 稼働日カレンダー: 曜日ごとの基本稼働パターン(1レコードのみ使用)
+class WorkCalendarSetting(models.Model):
+    monday = models.BooleanField(default=True, verbose_name="月曜")
+    tuesday = models.BooleanField(default=True, verbose_name="火曜")
+    wednesday = models.BooleanField(default=True, verbose_name="水曜")
+    thursday = models.BooleanField(default=True, verbose_name="木曜")
+    friday = models.BooleanField(default=True, verbose_name="金曜")
+    saturday = models.BooleanField(default=False, verbose_name="土曜")
+    sunday = models.BooleanField(default=False, verbose_name="日曜")
+
+    WEEKDAY_FIELDS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]  # date.weekday() 順
+
+    class Meta:
+        verbose_name = "稼働日カレンダー設定"
+
+    @classmethod
+    def load(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    def weekday_flags(self):
+        return [getattr(self, f) for f in self.WEEKDAY_FIELDS]
+
+
+# 稼働日カレンダー: 日付ごとの例外(祝日・休業日を休みに、休日出勤を稼働日に上書き)
+class WorkCalendarDay(models.Model):
+    date = models.DateField(unique=True, verbose_name="日付")
+    is_workday = models.BooleanField(default=False, verbose_name="稼働日")  # False=休業日 / True=特別稼働日
+    note = models.CharField(max_length=255, blank=True, default="", verbose_name="備考")
+
+    class Meta:
+        verbose_name = "稼働日カレンダー例外日"
+        ordering = ["date"]
+
+    def __str__(self):
+        return f"{self.date} {'稼働' if self.is_workday else '休業'}"

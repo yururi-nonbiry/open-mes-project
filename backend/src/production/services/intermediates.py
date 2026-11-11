@@ -13,6 +13,7 @@ from django.db import transaction
 from django.db.models import Q, Sum
 
 from inventory.models import Inventory
+from master.calendar import WorkCalendar
 from master.models import Item
 
 from ..models import MaterialAllocation, ProductionPlan, ProductionPlanMaterial
@@ -185,21 +186,24 @@ def get_intermediate_requirements(plan):
 def create_child_plan(parent, material, quantity, depth=0):
     """
     中間品を作る子計画を作成する。親の開始までに終わるよう、終了を親の開始日時に合わせ、
-    期間は中間品のリードタイム(日)。リードタイム未設定の場合は親と同じ期間を取る。
+    期間は中間品のリードタイム(稼働日数)。リードタイム未設定の場合は親と同じ期間を取る。
     子計画の所要部品はBOMマスターからコピーされ、さらに中間品が不足していれば孫計画も作られる(signals)。
     """
     end = parent.planned_start_datetime
-    duration = timedelta(days=material.lead_time_days) if material.lead_time_days else None
-    if not duration:
+    if material.lead_time_days:
+        # リードタイムは稼働日カレンダーに基づく稼働日数
+        start = WorkCalendar().subtract_workdays(end, material.lead_time_days)
+    else:
         duration = parent.planned_end_datetime - parent.planned_start_datetime
-    if duration <= timedelta(0):
-        duration = timedelta(hours=1)
+        if duration <= timedelta(0):
+            duration = timedelta(hours=1)
+        start = end - duration
     child = ProductionPlan(
         plan_name=f"{parent.plan_name} / {material.code}"[:255],
         product=material,
         parent_plan=parent,
         planned_quantity=quantity,
-        planned_start_datetime=end - duration,
+        planned_start_datetime=start,
         planned_end_datetime=end,
         status=ProductionPlan.Status.PENDING,
         remarks=f"生産計画「{parent.plan_name}」で使う中間品 {material.code} の子計画",

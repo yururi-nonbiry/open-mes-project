@@ -3,6 +3,8 @@ from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
 
+from master.calendar import WorkCalendar
+
 from .test_helpers import ProductionAPITestBase
 
 
@@ -91,7 +93,8 @@ class PartsSupplySimulationTests(ProductionAPITestBase):
         part_summary = response.data["parts"][0]
         self.assertEqual(part_summary["shortage_quantity"], 2)
         self.assertEqual(part_summary["lead_time_days"], 7)
-        expected_order_by_date = self.now - timezone.timedelta(days=7)
+        # リードタイムは稼働日数(既定: 土日休み)。暦日ではなく稼働日カレンダーでさかのぼる。
+        expected_order_by_date = WorkCalendar().subtract_workdays(self.now, 7)
         self.assertEqual(part_summary["order_by_date"], expected_order_by_date)
         # 計画開始日(now)から7日さかのぼった期限は既に過ぎているため、超過扱いになる。
         self.assertTrue(part_summary["order_overdue"])

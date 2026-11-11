@@ -953,6 +953,22 @@ export const NAV_CATEGORIES: NavCategory[] = [
         staffOnly: true,
       },
       {
+        path: '/master/work-calendar',
+        label: '稼働日カレンダー',
+        pageTitle: '稼働日カレンダー（リードタイム計算の稼働日設定）',
+        pageSubtitle:
+          '曜日ごとの基本稼働と、祝日・休業日・特別稼働日を登録します。リードタイムからの着手日・発注期限はこの稼働日で計算されます。',
+        guideSteps: [
+          '基本の稼働曜日を設定して保存',
+          '日付をクリックして休業日・特別稼働日を登録',
+          'リードタイムは稼働日数でさかのぼって計算',
+        ],
+        stepTag: 'カレンダー',
+        description: '稼働日・休業日を設定し、リードタイム計算に反映します',
+        icon: 'master',
+        staffOnly: true,
+      },
+      {
         path: '/system/shelf-qr-code',
         label: '倉庫棚番QR作成',
         pageTitle: '倉庫棚番QR作成（ロケーションQRコードの発行）',

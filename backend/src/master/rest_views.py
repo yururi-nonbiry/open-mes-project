@@ -5,6 +5,7 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from base.responses import error_response
 from base.viewsets import CustomSuccessMessageMixin
@@ -19,6 +20,8 @@ from .models import (  # master.models を直接参照
     UnitCost,
     Warehouse,
     WarehouseLocation,
+    WorkCalendarDay,
+    WorkCalendarSetting,
     WorkCenter,
 )
 from .serializers import (
@@ -37,6 +40,8 @@ from .serializers import (
     WarehouseLocationCreateUpdateSerializer,
     WarehouseLocationSerializer,
     WarehouseSerializer,
+    WorkCalendarDaySerializer,
+    WorkCalendarSettingSerializer,
     WorkCenterCreateUpdateSerializer,
     WorkCenterSerializer,
 )
@@ -168,3 +173,41 @@ class BillOfMaterialViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
         return Response(
             {"data": {"item_code": product.code, "item_name": product.name, "quantity": str(quantity), **result}}
         )
+
+
+class WorkCalendarDayViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
+    """稼働日カレンダーの例外日(休業日・特別稼働日)。?year=&month= または ?from=&to= で期間を絞れる。"""
+
+    queryset = WorkCalendarDay.objects.all().order_by("date")
+    serializer_class = WorkCalendarDaySerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = self.queryset
+        params = self.request.query_params
+        if params.get("year"):
+            queryset = queryset.filter(date__year=params["year"])
+        if params.get("month"):
+            queryset = queryset.filter(date__month=params["month"])
+        if params.get("from"):
+            queryset = queryset.filter(date__gte=params["from"])
+        if params.get("to"):
+            queryset = queryset.filter(date__lte=params["to"])
+        return queryset
+
+
+class WorkCalendarSettingView(APIView):
+    """曜日ごとの基本稼働パターン(単一設定)。"""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response({"data": WorkCalendarSettingSerializer(WorkCalendarSetting.load()).data})
+
+    def put(self, request):
+        serializer = WorkCalendarSettingSerializer(WorkCalendarSetting.load(), data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({"message": "曜日ごとの稼働設定を更新しました。", "data": serializer.data})
+
+    patch = put

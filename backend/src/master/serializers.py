@@ -11,6 +11,8 @@ from .models import (
     UnitCost,
     Warehouse,
     WarehouseLocation,
+    WorkCalendarDay,
+    WorkCalendarSetting,
     WorkCenter,
 )
 
@@ -329,3 +331,22 @@ class StockPurposeSerializer(serializers.ModelSerializer):
         if self.instance is not None:
             fields["code"].read_only = True
         return fields
+
+
+class WorkCalendarSettingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WorkCalendarSetting
+        fields = WorkCalendarSetting.WEEKDAY_FIELDS
+
+
+class WorkCalendarDaySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WorkCalendarDay
+        fields = ["id", "date", "is_workday", "note"]
+        extra_kwargs = {
+            "date": {
+                "validators": [
+                    UniqueValidator(queryset=WorkCalendarDay.objects.all(), message="この日付は既に登録されています。")
+                ],
+            },
+        }
