@@ -2400,17 +2400,92 @@ header.app-header {
     padding: 12px 20px;
 }
 
+/* マスター一覧表示用 横長ウインドウ（画面幅を広く使って見やすく配置） */
+.mes-modal-extra-wide {
+    max-width: min(94vw, 1560px) !important;
+    width: 94vw !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+}
+
+@media (min-width: 1200px) {
+    .mes-modal-extra-wide {
+        max-width: min(94vw, 1620px) !important;
+        width: 94vw !important;
+    }
+}
+
+.mes-modal-toolbar {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 8px 12px;
+}
+
+.mes-modal-search-input {
+    background: #ffffff;
+    border-color: #cbd5e1;
+    font-size: 0.84rem;
+    border-radius: 6px;
+}
+
+.mes-modal-search-input:focus {
+    border-color: #0284c7;
+    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+}
+
 .mes-modal-table {
     font-size: 0.84rem;
     border: 1px solid #e2e8f0;
 }
 
 .mes-modal-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 5;
     background: #f0f9ff;
     color: #0c4a6e;
     font-weight: 700;
     border-bottom: 2px solid #bae6fd;
     white-space: nowrap;
+    padding: 10px 12px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+.mes-sortable-th {
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.mes-sortable-th:hover {
+    background-color: #e0f2fe !important;
+    color: #0369a1 !important;
+}
+
+.mes-sortable-th.is-sorted {
+    background-color: #e0f2fe !important;
+    color: #0284c7 !important;
+    font-weight: 800;
+}
+
+.mes-sort-indicator {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.72rem;
+    color: #94a3b8;
+    margin-left: 4px;
+    transition: color 0.15s ease;
+}
+
+.mes-sort-indicator.active {
+    color: #0284c7;
+    font-weight: 800;
+}
+
+.mes-modal-table tbody tr:hover {
+    background-color: #f8fafc;
 }
 
 .mes-modal-empty-state {

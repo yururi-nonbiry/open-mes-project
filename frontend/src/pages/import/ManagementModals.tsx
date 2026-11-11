@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Modal, Button, Form, Table, Spinner, Alert } from 'react-bootstrap';
 import { DATA_CONFIG, getDataTypeDisplayName, getFormFields, FormField } from '../../config/dataImportConfigs';
 import { NavIcon } from '../../config/navigationConfig';
@@ -184,8 +184,88 @@ export const ListModal = ({ show, onHide, config, listData, isLoading, error, on
     const displayName = dataConfig?.name || getDataTypeDisplayName(config?.name || config?.type);
     const modalTitle = `${displayName}の一覧`;
 
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' | null }>({
+        key: '',
+        direction: null,
+    });
+    const [searchQuery, setSearchQuery] = useState('');
+
+    useEffect(() => {
+        setSortConfig({ key: '', direction: null });
+        setSearchQuery('');
+    }, [config?.type, show]);
+
+    const handleSort = (key: string) => {
+        if (!key) return;
+        setSortConfig(prev => {
+            if (prev.key === key) {
+                if (prev.direction === 'asc') return { key, direction: 'desc' };
+                if (prev.direction === 'desc') return { key: '', direction: null };
+            }
+            return { key, direction: 'asc' };
+        });
+    };
+
+    const filteredAndSortedRows = useMemo(() => {
+        let rows = listData?.rows || [];
+
+        if (searchQuery.trim()) {
+            const q = searchQuery.trim().toLowerCase();
+            rows = rows.filter((row: any) => {
+                return (listData?.rowKeys || []).some((k: string) => {
+                    const cellVal = formatCellValue(k, row[k]);
+                    return (
+                        cellVal.toLowerCase().includes(q) ||
+                        String(row[k] ?? '').toLowerCase().includes(q)
+                    );
+                });
+            });
+        }
+
+        if (sortConfig.key && sortConfig.direction) {
+            const { key, direction } = sortConfig;
+            rows = [...rows].sort((a, b) => {
+                const rawA = a[key];
+                const rawB = b[key];
+                if (rawA === null || rawA === undefined || rawA === '') return direction === 'asc' ? 1 : -1;
+                if (rawB === null || rawB === undefined || rawB === '') return direction === 'asc' ? -1 : 1;
+
+                const numA = Number(rawA);
+                const numB = Number(rawB);
+                const isNum = !isNaN(numA) && !isNaN(numB) && typeof rawA !== 'boolean' && typeof rawB !== 'boolean';
+                if (isNum) {
+                    return direction === 'asc' ? numA - numB : numB - numA;
+                }
+
+                if (key.endsWith('_datetime') || key.endsWith('_date') || key === 'created_at' || key === 'updated_at') {
+                    const timeA = new Date(rawA).getTime();
+                    const timeB = new Date(rawB).getTime();
+                    if (!isNaN(timeA) && !isNaN(timeB)) {
+                        return direction === 'asc' ? timeA - timeB : timeB - timeA;
+                    }
+                }
+
+                const strA = String(formatCellValue(key, rawA));
+                const strB = String(formatCellValue(key, rawB));
+                return direction === 'asc'
+                    ? strA.localeCompare(strB, 'ja', { numeric: true })
+                    : strB.localeCompare(strA, 'ja', { numeric: true });
+            });
+        }
+
+        return rows;
+    }, [listData?.rows, listData?.rowKeys, searchQuery, sortConfig]);
+
     return (
-        <Modal show={show} onHide={onHide} size="xl" centered scrollable className="mes-clean-modal">
+        <Modal
+            show={show}
+            onHide={onHide}
+            size="xl"
+            dialogClassName="mes-modal-extra-wide"
+            centered
+            scrollable
+            className="mes-clean-modal"
+        >
             <Modal.Header closeButton className="mes-modal-header">
                 <div className="mes-modal-title-wrap">
                     <span className="mes-modal-icon-box" aria-hidden="true">
@@ -204,52 +284,129 @@ export const ListModal = ({ show, onHide, config, listData, isLoading, error, on
                     </div>
                 </div>
             </Modal.Header>
-            <Modal.Body className="mes-modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+            <Modal.Body className="mes-modal-body" style={{ maxHeight: '74vh', overflowY: 'auto' }}>
                 {isLoading && (
                     <div className="text-center py-5">
                         <Spinner animation="border" variant="primary" />
                         <p className="text-muted small mt-2 mb-0">{displayName}を読み込んでいます...</p>
                     </div>
                 )}
-                {!isLoading && listData.rows.length > 0 && (
-                    <Table hover responsive className="mes-modal-table align-middle mb-0">
-                        <thead>
-                            <tr>
-                                {listData.headers.map((h: string) => (
-                                    <th key={h}>{h}</th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {listData.rows.map((row: any) => (
-                                <tr key={row[listData.idKey]}>
-                                    {listData.rowKeys.map((key: string) => (
-                                        <td key={key}>{formatCellValue(key, row[key])}</td>
+                {!isLoading && listData?.rows && listData.rows.length > 0 && (
+                    <>
+                        <div className="mes-modal-toolbar mb-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                            <div className="d-flex align-items-center gap-2 flex-grow-1" style={{ maxWidth: '440px' }}>
+                                <div className="position-relative flex-grow-1">
+                                    <Form.Control
+                                        type="text"
+                                        size="sm"
+                                        placeholder="🔍 キーワードで絞り込み..."
+                                        value={searchQuery}
+                                        onChange={e => setSearchQuery(e.target.value)}
+                                        className="mes-modal-search-input pe-4"
+                                    />
+                                    {searchQuery && (
+                                        <button
+                                            type="button"
+                                            className="btn btn-sm btn-link position-absolute end-0 top-50 translate-middle-y text-secondary text-decoration-none py-0 px-2"
+                                            onClick={() => setSearchQuery('')}
+                                            title="検索条件をクリア"
+                                        >
+                                            ×
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="d-flex align-items-center gap-2 small text-secondary">
+                                {sortConfig.key && sortConfig.direction && (
+                                    <button
+                                        type="button"
+                                        className="btn btn-sm btn-outline-secondary py-0 px-2 small fw-semibold"
+                                        onClick={() => setSortConfig({ key: '', direction: null })}
+                                    >
+                                        ソート解除
+                                    </button>
+                                )}
+                                <span className="fw-semibold">
+                                    {searchQuery ? `絞り込み: ${filteredAndSortedRows.length} 件 / ` : ''}全 {listData.rows.length} 件
+                                </span>
+                            </div>
+                        </div>
+
+                        {filteredAndSortedRows.length > 0 ? (
+                            <Table hover responsive className="mes-modal-table align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        {listData.headers.map((h: string, idx: number) => {
+                                            const isActionCol = idx === listData.rowKeys.length;
+                                            const rowKey = listData.rowKeys[idx];
+                                            const isSorted = sortConfig.key === rowKey && sortConfig.direction !== null;
+                                            const sortDir = isSorted ? sortConfig.direction : null;
+
+                                            if (isActionCol) {
+                                                return (
+                                                    <th key="action" className="text-center text-nowrap" style={{ width: '130px' }}>
+                                                        {h}
+                                                    </th>
+                                                );
+                                            }
+
+                                            return (
+                                                <th
+                                                    key={rowKey || h}
+                                                    onClick={() => handleSort(rowKey)}
+                                                    className={`text-nowrap mes-sortable-th ${isSorted ? 'is-sorted' : ''}`}
+                                                    title={`${h}で並び替え（クリックで昇順/降順/解除）`}
+                                                >
+                                                    <div className="d-flex align-items-center justify-content-between gap-2">
+                                                        <span>{h}</span>
+                                                        <span className={`mes-sort-indicator ${isSorted ? 'active' : ''}`}>
+                                                            {sortDir === 'asc' ? '▲' : sortDir === 'desc' ? '▼' : '⇅'}
+                                                        </span>
+                                                    </div>
+                                                </th>
+                                            );
+                                        })}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredAndSortedRows.map((row: any) => (
+                                        <tr key={row[listData.idKey]}>
+                                            {listData.rowKeys.map((key: string) => (
+                                                <td key={key} className="text-nowrap">{formatCellValue(key, row[key])}</td>
+                                            ))}
+                                            <td className="text-center text-nowrap">
+                                                <Button
+                                                    variant="outline-primary"
+                                                    size="sm"
+                                                    className="me-2 py-0 px-2 fw-bold"
+                                                    onClick={() => onEdit(row[listData.idKey])}
+                                                >
+                                                    編集
+                                                </Button>
+                                                <Button
+                                                    variant="outline-danger"
+                                                    size="sm"
+                                                    className="py-0 px-2 fw-bold"
+                                                    onClick={() => onDelete(row)}
+                                                >
+                                                    削除
+                                                </Button>
+                                            </td>
+                                        </tr>
                                     ))}
-                                    <td className="text-center text-nowrap">
-                                        <Button
-                                            variant="outline-primary"
-                                            size="sm"
-                                            className="me-2 py-0 px-2 fw-bold"
-                                            onClick={() => onEdit(row[listData.idKey])}
-                                        >
-                                            編集
-                                        </Button>
-                                        <Button
-                                            variant="outline-danger"
-                                            size="sm"
-                                            className="py-0 px-2 fw-bold"
-                                            onClick={() => onDelete(row)}
-                                        >
-                                            削除
-                                        </Button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </Table>
+                                </tbody>
+                            </Table>
+                        ) : (
+                            <div className="text-center py-4 text-muted mes-modal-empty-state">
+                                <p className="mb-2 fw-semibold">「{searchQuery}」に一致するデータは見つかりませんでした</p>
+                                <Button variant="outline-secondary" size="sm" onClick={() => setSearchQuery('')}>
+                                    検索条件をクリア
+                                </Button>
+                            </div>
+                        )}
+                    </>
                 )}
-                {!isLoading && listData.rows.length === 0 && (
+                {!isLoading && (!listData?.rows || listData.rows.length === 0) && (
                     <div className="mes-modal-empty-state">
                         <p className="mb-2 fw-bold text-secondary">登録されている{displayName}はまだありません</p>
                         {onOpenRegister && (
