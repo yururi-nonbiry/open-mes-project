@@ -354,7 +354,7 @@ class MaterialAllocationViewSet(viewsets.ModelViewSet):
     API endpoint that allows Material Allocations to be viewed or created.
     """
 
-    queryset = MaterialAllocation.objects.all().select_related("production_plan").order_by("-allocation_datetime")
+    queryset = MaterialAllocation.objects.all().select_related("production_plan", "production_plan__product", "material").order_by("-allocation_datetime")
     serializer_class = MaterialAllocationSerializer
     pagination_class = StandardResultsSetPagination
     permission_classes = [IsAuthenticated]

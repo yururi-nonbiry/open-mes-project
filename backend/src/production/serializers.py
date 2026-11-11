@@ -263,7 +263,10 @@ class MaterialAllocationSerializer(serializers.ModelSerializer):
     status_display = serializers.CharField(source="get_status_display", read_only=True)
     allocation_type_display = serializers.CharField(source="get_allocation_type_display", read_only=True)
     production_plan_name = serializers.CharField(source="production_plan.plan_name", read_only=True)
+    product_code = serializers.CharField(source="production_plan.product_id", read_only=True, default="")
+    product_name = serializers.CharField(source="production_plan.product.name", read_only=True, default="")
     material_code = serializers.SlugRelatedField(source="material", slug_field="code", read_only=True)
+    material_name = serializers.CharField(source="material.name", read_only=True, default="")
     warehouse = serializers.SlugRelatedField(source="warehouse_rel", slug_field="warehouse_number", read_only=True)
     purpose = serializers.SlugRelatedField(source="purpose_rel", slug_field="code", read_only=True)
     # 出庫先ライン。未出庫(引当済)の間だけ変更できる(validateで制限)。
@@ -277,7 +280,10 @@ class MaterialAllocationSerializer(serializers.ModelSerializer):
             "id",
             "production_plan",
             "production_plan_name",
+            "product_code",
+            "product_name",
             "material_code",
+            "material_name",
             "warehouse",
             "purpose",
             "line",
@@ -306,6 +312,9 @@ class MaterialAllocationSerializer(serializers.ModelSerializer):
             "allocation_type",
             "allocation_type_display",
             "production_plan_name",
+            "product_code",
+            "product_name",
+            "material_name",
         ]
 
     def validate(self, data):

@@ -590,7 +590,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
     label: '生産管理',
     shortLabel: '生産管理',
     badgeLabel: '基本 1〜3 ＋ 補助2',
-    flowSummary: '① 使用部品マスター　② 生産計画　③ 作業進捗　④ 順立て（材料引当）　⑤ 部品供給試算',
+    flowSummary: '① 使用部品マスター　② 生産計画　③ 作業進捗　④ 順立て（ピッキング）　⑤ 部品供給試算',
     icon: 'production',
     theme: {
       // ロイヤルブルー系
@@ -627,17 +627,17 @@ export const NAV_CATEGORIES: NavCategory[] = [
       {
         path: '/production/plan',
         label: '生産計画',
-        pageTitle: '生産計画（部品構成の確認・順立て（材料引当））',
+        pageTitle: '生産計画（部品構成の確認・材料引当）',
         pageSubtitle:
-          '生産計画ごとに使用部品（所要数）を確認し、倉庫在庫からの「順立て（材料引当）」や中間品の手配を行います。',
+          '生産計画ごとに使用部品（所要数）を確認し、倉庫在庫からの「材料引当」や中間品の手配を行います。',
         guideSteps: [
           '行の「部品構成」で使用部品と所要数を確認（計画ごとの変更も可）',
-          '行の「順立て（材料引当）」を押し、倉庫と引当数量を確認して「引き当て実行」',
+          '行の「材料引当」を押し、倉庫と引当数量を確認して「引き当て実行」',
           '引当が完了したら「作業進捗」へ進み、製造完了登録を実施',
         ],
         step: 2,
-        stepTag: '構成確認・順立て（材料引当）',
-        description: '計画の「部品構成」確認と「順立て（材料引当）」を行います',
+        stepTag: '構成確認・材料引当',
+        description: '計画の「部品構成」確認と「材料引当」を行います',
         manualHint: 'PC画面のほか現場スマホアプリでも順立て・ピッキングを行えます',
         mobileAppSupported: true,
         nextActions: [
@@ -669,17 +669,17 @@ export const NAV_CATEGORIES: NavCategory[] = [
       },
       {
         path: '/production/material-allocation',
-        label: '順立て（材料引当）',
-        pageTitle: '順立て（材料引当）（引当一覧の確認・ピッキング・返却）',
+        label: '順立て（ピッキング）',
+        pageTitle: '順立て（ピッキング）',
         pageSubtitle:
-          '生産計画に引き当てられた材料の一覧を確認し、ピッキングや未使用分の倉庫在庫への返却を行います。',
+          '完成品を選択し、紐づけられた材料のピッキングや未使用分の倉庫在庫への返却を行います。',
         guideSteps: [
-          '生産計画や品番・ステータスで引当済みの材料を検索',
-          '各計画に対する引当数量・ピッキング状況を確認',
+          '対象の完成品（製品）を選択して紐づく材料一覧を表示',
+          '各材料の引当数量・保管場所を確認し、「ピッキング」を実行',
           '未使用・余剰の材料がある場合は「返却」から倉庫在庫へ戻す',
         ],
-        stepTag: '引当一覧・ピッキング',
-        description: '引当済材料の一覧確認や、ピッキング・返却を行います',
+        stepTag: '完成品選択・ピッキング',
+        description: '完成品を選択し、紐づく材料のピッキングや返却を行います',
         nextActions: [
           { label: '生産計画を見る', path: '/production/plan', highlight: true },
           { label: '在庫照会を見る', path: '/inventory/inquiry' },
@@ -738,9 +738,9 @@ export const NAV_CATEGORIES: NavCategory[] = [
         ],
         stepTag: '計画作成・マスタ・CSV',
         description: '生産計画の新規作成や、各種マスター・CSV一括登録を行います',
-        manualHint: '生産計画を保存したら「生産計画」画面へ進み、順立て（材料引当）を行います',
+        manualHint: '生産計画を保存したら「生産計画」画面へ進み、材料引当を行います',
         nextActions: [
-          { label: '生産計画へ進む', subLabel: '部品構成・順立て（材料引当）', path: '/production/plan', highlight: true },
+          { label: '生産計画へ進む', subLabel: '部品構成・材料引当', path: '/production/plan', highlight: true },
           { label: '入庫処置へ進む', subLabel: '材料を入庫する', path: '/inventory/purchase' },
         ],
         icon: 'upload',
@@ -1432,7 +1432,7 @@ export const WORKFLOW_TRACKS: WorkflowTrack[] = [
         path: '/production/plan',
         actionSteps: [
           '①「新規作成」で製造する製品・数量・開始／終了予定を登録',
-          '② 計画行の「順立て（材料引当）」を押し、数量を確認して「引き当て実行」',
+          '② 計画行の「材料引当」を押し、数量を確認して「引き当て実行」',
         ],
         nextButtonLabel: '次へ：4. 順立て（ピッキング）へ →',
       },
@@ -1443,8 +1443,9 @@ export const WORKFLOW_TRACKS: WorkflowTrack[] = [
         path: '/production/material-allocation',
         mobileHint: '専用スマホアプリでも順立て・ピッキング作業に対応',
         actionSteps: [
-          '① 引当ステータスや部品の出庫先を確認',
-          '② 現場にて材料をピッキングして作業場へ供給',
+          '① ピッキング対象の完成品（製品）を選択',
+          '② 紐づく材料の数量・保管場所を確認し「ピッキング」を押す',
+          '③ 全材料をピッキングしたら出庫先ラインへ供給して完了',
         ],
         nextButtonLabel: '✓ 完了（トップへ戻る）',
       },

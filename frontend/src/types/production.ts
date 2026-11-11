@@ -193,7 +193,10 @@ export interface MaterialAllocation {
     id: string;
     production_plan: string;
     production_plan_name: string;
+    product_code?: string;
+    product_name?: string;
     material_code: string;
+    material_name?: string;
     allocated_quantity: number;
     allocation_datetime: string;
     status: 'ALLOCATED' | 'ISSUED' | 'RETURNED';

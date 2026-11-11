@@ -17,7 +17,7 @@ interface IssueRow extends RequiredPart {
 
 /**
  * 歩留まり・ロス等で所要量を超えて必要になった部品の追加ピッキング。
- * 所要量には含めず、引当を経ずに即時ピッキングする(順立て（材料引当）の一覧には「追加ピッキング」として記録される)。
+ * 所要量には含めず、引当を経ずに即時ピッキングする(順立て（ピッキング）の一覧には「追加ピッキング」として記録される)。
  */
 const ProductionPlanAdditionalIssueModal: React.FC<ProductionPlanAdditionalIssueModalProps> = ({ isOpen, onClose, plan }) => {
     const [rows, setRows] = useState<IssueRow[]>([]);
@@ -96,7 +96,7 @@ const ProductionPlanAdditionalIssueModal: React.FC<ProductionPlanAdditionalIssue
                 </div>
                 <p className="text-muted small">
                     歩留まり・ロス等で所要量を超えて必要になった部品を、引当を経ずにすぐピッキングします。所要量の引当とは別に記録され、
-                    生産完了を取り消しても在庫には戻りません。使わなかった分は順立て（材料引当）画面から「返却」で在庫に戻せます。
+                    生産完了を取り消しても在庫には戻りません。使わなかった分は順立て（ピッキング）画面から「返却」で在庫に戻せます。
                 </p>
                 {cancelled && <div className="alert alert-warning">中止された生産計画には追加ピッキングできません。</div>}
                 {message.text && <div className={`alert alert-${message.type}`}>{message.text}</div>}

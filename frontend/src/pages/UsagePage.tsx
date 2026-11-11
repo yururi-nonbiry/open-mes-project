@@ -145,8 +145,8 @@ const SECTIONS: ManualSection[] = [
   },
   {
     id: 'production-plan',
-    title: '生産計画（順立て（材料引当）・中間品手配）',
-    summary: '生産計画の検索・詳細確認、部品構成の確認、中間品の手配、および必要材料の引当（キッティング）を行います。',
+    title: '生産計画（部品構成の確認・材料引当・中間品手配）',
+    summary: '生産計画の検索・詳細確認、部品構成の確認、中間品の手配、および必要材料の材料引当を行います。',
     shots: [
       { src: '/manual/13-production-plan.png', caption: '生産計画一覧' },
       { src: '/manual/14-production-plan-intermediates.png', caption: '中間品の手配モーダル' },
@@ -154,7 +154,7 @@ const SECTIONS: ManualSection[] = [
     ],
     steps: [
       '① 計画名・製品コード・ステータスなどで検索し、対象の生産計画を確認します。',
-      '② 「順立て（材料引当）」を押し、必要部品ごとに引当元倉庫と数量を指定して「引き当て実行」を押します（引当済み在庫としてキープされます）。',
+      '② 「材料引当」を押し、必要部品ごとに引当元倉庫と数量を指定して「引き当て実行」を押します（引当済み在庫としてキープされます）。',
       '③ 中間品を含む計画では「中間品」を押し、子計画を立てて製造するか在庫の中間品を使用するかを手配します。',
     ],
     notes: [
@@ -177,15 +177,15 @@ const SECTIONS: ManualSection[] = [
     ],
     notes: [
       '親品目と子品目が循環するような構成（循環参照）は登録できません。',
-      '登録した部品構成は生産計画の順立て（材料引当）や部品供給試算に自動反映されます。',
+      '登録した部品構成は生産計画の材料引当や部品供給試算に自動反映されます。',
     ],
   },
   {
     id: 'material-allocation',
-    title: '順立て（材料引当）一覧',
-    summary: '生産計画に対して引き当てられた材料の一覧を確認し、製造現場へのピッキング・未使用分の返却・引当解除を行います。',
+    title: '順立て（ピッキング）一覧',
+    summary: '完成品を選択し、紐づく材料のピッキングや未使用分の倉庫在庫への返却・引当解除を行います。',
     shots: [
-      { src: '/manual/18-material-allocation.png', caption: '順立て（材料引当）ステータス一覧' },
+      { src: '/manual/18-material-allocation.png', caption: '順立て（ピッキング）ステータス一覧' },
     ],
     steps: [
       '① 生産計画IDや材料コードで検索し、引当済みの材料一覧を確認します。',
@@ -420,7 +420,7 @@ const TOC_GROUPS: TocGroup[] = [
   },
   {
     id: 'group-production',
-    categoryLabel: '生産管理（製造計画・順立て（材料引当）・進捗・BOM）',
+    categoryLabel: '生産管理（製造計画・材料引当・順立て（ピッキング）・進捗・BOM）',
     categoryBadge: 'フロー② 製造',
     icon: 'production',
     color: '#4338ca',

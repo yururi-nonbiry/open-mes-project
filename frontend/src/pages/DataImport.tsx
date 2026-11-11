@@ -95,7 +95,7 @@ const DataImport: React.FC = () => {
                             ① 生産計画を作成
                         </button>
                         <Link to="/production/plan" className="btn btn-sm btn-outline-primary fw-bold">
-                            ② 生産計画（順立て（材料引当））へ →
+                            ② 生産計画（材料引当）へ →
                         </Link>
                     </div>
                 </div>

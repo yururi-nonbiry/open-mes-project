@@ -94,7 +94,7 @@ const ProductionPlanTable: React.FC<ProductionPlanTableProps> = ({
                             ① 部品構成
                         </button>
                         <button type="button" className="btn btn-sm btn-primary fw-bold ms-1" onClick={() => onAllocate(plan)}>
-                            ② 順立て（材料引当）
+                            ② 材料引当
                         </button>
                         <button type="button" className="btn btn-sm btn-outline-secondary ms-1" onClick={() => onIntermediates(plan)}>
                             中間品
