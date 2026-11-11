@@ -31,7 +31,7 @@ const PageContextBanner: React.FC = () => {
     try {
       const saved = sessionStorage.getItem(FLOW_STORAGE_KEY);
       return saved ? (JSON.parse(saved) as StoredFlowState) : null;
-    } catch {
+    } catch (_err) {
       return null;
     }
   });
@@ -74,7 +74,7 @@ const PageContextBanner: React.FC = () => {
         setGuidedState(nextState);
         try {
           sessionStorage.setItem(FLOW_STORAGE_KEY, JSON.stringify(nextState));
-        } catch {
+        } catch (_err) {
           // ignore storage errors
         }
         return;
@@ -100,7 +100,7 @@ const PageContextBanner: React.FC = () => {
             setGuidedState(updated);
             try {
               sessionStorage.setItem(FLOW_STORAGE_KEY, JSON.stringify(updated));
-            } catch {
+            } catch (_err) {
               // ignore
             }
           }
@@ -114,7 +114,7 @@ const PageContextBanner: React.FC = () => {
     setGuidedState(null);
     try {
       sessionStorage.removeItem(FLOW_STORAGE_KEY);
-    } catch {
+    } catch (_err) {
       // ignore
     }
   };

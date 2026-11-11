@@ -285,7 +285,7 @@ export const useDataManagement = () => {
                 rows: fallbackRows,
                 idKey: 'id'
             });
-        } catch {
+        } catch (_err) {
             // バックエンド未起動または接続エラー時は、フォールバックサンプルデータを表示してエラーを抑制
             const fallbackRows = localStore[type] || [];
             setListData({
@@ -307,7 +307,7 @@ export const useDataManagement = () => {
         try {
             const result = await importService.getDetail(config.detailUrl(recordId));
             setFormData(result.data || result);
-        } catch {
+        } catch (_err) {
             // オフラインフォールバック: ローカルストアから該当レコードを取得
             const list = localStore[type] || [];
             const found = list.find((item: any) => String(item.id) === String(recordId));
@@ -331,7 +331,7 @@ export const useDataManagement = () => {
             const method = recordId ? 'PUT' : 'POST';
             await importService.saveRecord(url, method, formData);
             return true;
-        } catch {
+        } catch (_err) {
             // オフラインフォールバック: ローカルストアで更新/追加
             if (!localStore[type]) {
                 localStore[type] = [];
@@ -358,7 +358,7 @@ export const useDataManagement = () => {
             await importService.deleteRecord(config.deleteUrl(id));
             await fetchListData(type);
             return true;
-        } catch {
+        } catch (_err) {
             // オフラインフォールバック: ローカルストアから削除
             if (localStore[type]) {
                 localStore[type] = localStore[type].filter((item: any) => String(item.id) !== String(id));

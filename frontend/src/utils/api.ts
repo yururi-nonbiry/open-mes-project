@@ -65,7 +65,7 @@ export const toApiError = async (response: Response, defaultMessage: string): Pr
     let body: ApiErrorBody | null = null;
     try {
         body = await response.json();
-    } catch {
+    } catch (_err) {
         // JSON以外の本文は無視する
     }
     return new ApiError(body?.error || defaultMessage, response.status, body?.errors ?? null, body?.code, body);

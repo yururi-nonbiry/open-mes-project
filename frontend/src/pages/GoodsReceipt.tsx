@@ -114,7 +114,7 @@ const GoodsReceipt: React.FC = () => {
       try {
         const url = new URL(pageUrl);
         dataApiUrl = url.pathname + url.search;
-      } catch {
+      } catch (_err) {
         dataApiUrl = pageUrl;
       }
     } else {

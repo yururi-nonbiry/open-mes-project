@@ -41,7 +41,7 @@ export const useLogin = (onLoginSuccess: () => Promise<void>) => {
                         ...(captcha ? { captcha_key: captcha.key, captcha_value: captchaValue } : {}),
                     }),
                 });
-            } catch {
+            } catch (_err) {
                 networkFailed = true;
             }
 

@@ -168,7 +168,7 @@ const inventoryService = {
             const response = await authFetch('/api/base/feature-options/');
             if (!response.ok) return { confirm_register_default_location: false };
             return await response.json() as FeatureOptions;
-        } catch {
+        } catch (_err) {
             return { confirm_register_default_location: false };
         }
     },

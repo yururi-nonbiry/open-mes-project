@@ -26,7 +26,7 @@ export function getWorkflowFeatureSettings(): WorkflowFeatureSettings {
       'production-plan-flow': parsed['production-plan-flow'] || 'visible',
       'production-issue-flow': parsed['production-issue-flow'] || 'visible',
     };
-  } catch {
+  } catch (_err) {
     return { ...DEFAULT_WORKFLOW_FEATURE_SETTINGS };
   }
 }
