@@ -164,7 +164,11 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
                             {!loading && !error && (
                                 requiredParts.length === 0 ? (
                                     <p className="mb-0">
-                                        この計画には所要部品が登録されていません。「部品構成」から登録するか、BOMマスターから読み込んでください。
+                                        {plan.has_bom === false && <span className="badge bg-secondary me-2">マスターなし</span>}
+                                        {plan.has_bom === false
+                                            ? 'この製品には構成マスター(BOM)が登録されていません。'
+                                            : 'この計画には所要部品が登録されていません。'}
+                                        {' '}「部品構成」から登録するか、BOMマスターから読み込んでください。
                                     </p>
                                 ) : (
                                 <table className="table table-sm table-bordered table-hover">

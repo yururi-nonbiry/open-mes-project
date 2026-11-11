@@ -24,6 +24,8 @@ export interface ProductionPlan {
     child_plan_count?: number;
     /** 在庫で足りるが、子計画を立てるか在庫を使うかが未決定の中間品の数 */
     pending_intermediate_count?: number;
+    /** 製品のBOMマスター(構成マスター)が登録されているか */
+    has_bom?: boolean;
     created_at?: string;
     updated_at?: string;
 }

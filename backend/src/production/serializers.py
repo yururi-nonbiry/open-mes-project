@@ -29,6 +29,8 @@ class ProductionPlanSerializer(serializers.ModelSerializer):
     # 在庫で足りるが、子計画を立てるか在庫を使うかが未決定の中間品の数(ProductionPlanViewSet で集計)
     pending_intermediate_count = serializers.IntegerField(read_only=True, default=0)
     child_plan_count = serializers.IntegerField(read_only=True, default=0)
+    # 製品のBOMマスター(構成マスター)が登録されているか(ProductionPlanViewSet で注釈)
+    has_bom = serializers.BooleanField(read_only=True, default=True)
 
     class Meta:
         model = ProductionPlan
@@ -50,6 +52,7 @@ class ProductionPlanSerializer(serializers.ModelSerializer):
             "line",
             "child_plan_count",
             "pending_intermediate_count",
+            "has_bom",
             "remarks",
             "created_at",
             "updated_at",

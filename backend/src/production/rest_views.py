@@ -1,4 +1,5 @@
-from django.db.models import Count, Q
+from django.db.models import Count, Exists, OuterRef, Q
+from master.models import BillOfMaterial
 from django_filters import rest_framework as filters  # django-filterをインポート
 from rest_framework import (
     permissions,
@@ -123,6 +124,7 @@ class ProductionPlanViewSet(viewsets.ModelViewSet):
                     distinct=True,
                 ),
                 child_plan_count=Count("child_plans", distinct=True),
+                has_bom=Exists(BillOfMaterial.objects.filter(product_id=OuterRef("product_id"))),
             )
         )
 
