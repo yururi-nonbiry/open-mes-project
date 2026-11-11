@@ -1195,7 +1195,7 @@ const handleApi = async (route) => {
   }
 
   // 基本設定・表示設定
-  if (path === '/base/info/') return json({ version: '0.1.31' });
+  if (path === '/base/info/') return json({ version: '0.1.32' });
   if (path === '/base/model-fields/') {
     const dt = url.searchParams.get('data_type') || 'inventory';
     return json(MODEL_FIELDS_BY_TYPE[dt] || MODEL_FIELDS_BY_TYPE.inventory);
