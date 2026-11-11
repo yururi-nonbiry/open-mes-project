@@ -1,17 +1,46 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Modal from '../../components/Modal';
+import productionService from '../../services/productionService';
+import { useWorkCenters } from '../../hooks/useWorkCenters';
 import { ProductionPlan } from '../../types/production';
 
 interface ProductionPlanDetailModalProps {
     isOpen: boolean;
     onClose: () => void;
     plan: ProductionPlan | null;
+    /** ライン変更の保存後に呼ばれる(一覧の再取得用) */
+    onUpdated?: (plan: ProductionPlan) => void;
 }
 
 const ProductionPlanDetailModal: React.FC<ProductionPlanDetailModalProps> = ({
-    isOpen, onClose, plan
+    isOpen, onClose, plan, onUpdated
 }) => {
+    const workCenters = useWorkCenters();
+    const [line, setLine] = useState('');
+    const [saving, setSaving] = useState(false);
+    const [message, setMessage] = useState<{ type: 'success' | 'danger'; text: string } | null>(null);
+
+    useEffect(() => {
+        setLine(plan?.line || '');
+        setMessage(null);
+    }, [plan]);
+
     if (!plan) return null;
+
+    const lineChanged = line !== (plan.line || '');
+    const handleSaveLine = async () => {
+        setSaving(true);
+        setMessage(null);
+        try {
+            const updated = await productionService.updatePlanLine(plan.id, line);
+            setMessage({ type: 'success', text: '出庫先ラインを更新しました。今後の引当の既定値に使われます(引当済みの出庫先は変わりません)。' });
+            onUpdated?.({ ...plan, ...updated });
+        } catch (e: any) {
+            setMessage({ type: 'danger', text: e.message });
+        } finally {
+            setSaving(false);
+        }
+    };
 
     const fullFormat = (d: string | null | undefined) => d ? new Date(d).toLocaleString('ja-JP') : 'N/A';
 
@@ -26,7 +55,26 @@ const ProductionPlanDetailModal: React.FC<ProductionPlanDetailModalProps> = ({
                     <dt className="col-sm-4">計画名:</dt><dd className="col-sm-8">{plan.plan_name || 'N/A'}</dd>
                     <dt className="col-sm-4">製品コード:</dt><dd className="col-sm-8">{plan.product_code || 'N/A'}</dd>
                     <dt className="col-sm-4">使用する在庫の用途:</dt><dd className="col-sm-8">{plan.purpose ? `${plan.purpose}（この用途→汎用の順で使用）` : '汎用のみ'}</dd>
-                    <dt className="col-sm-4">出庫先ライン:</dt><dd className="col-sm-8">{plan.line || '未指定'}</dd>
+                    <dt className="col-sm-4">出庫先ライン:</dt><dd className="col-sm-8">
+                        <div className="d-flex gap-2">
+                            <select
+                                className="form-select form-select-sm" value={line}
+                                onChange={(e) => setLine(e.target.value)} disabled={saving}
+                            >
+                                <option value="">未指定</option>
+                                {workCenters.map(w => (
+                                    <option key={w.code} value={w.code}>{w.code}{w.name ? `（${w.name}）` : ''}</option>
+                                ))}
+                            </select>
+                            <button
+                                type="button" className="btn btn-sm btn-primary text-nowrap"
+                                onClick={handleSaveLine} disabled={!lineChanged || saving}
+                            >
+                                {saving ? '保存中...' : 'ラインを保存'}
+                            </button>
+                        </div>
+                        {message && <div className={`small mt-1 text-${message.type}`}>{message.text}</div>}
+                    </dd>
                     <dt className="col-sm-4">計画数量:</dt><dd className="col-sm-8 text-end">{plan.planned_quantity}</dd>
                     <dt className="col-sm-4">計画開始日時:</dt><dd className="col-sm-8">{fullFormat(plan.planned_start_datetime)}</dd>
                     <dt className="col-sm-4">計画終了日時:</dt><dd className="col-sm-8">{fullFormat(plan.planned_end_datetime)}</dd>

@@ -79,6 +79,10 @@ const ProductionPlan: React.FC = () => {
                 isOpen={detailModal.isOpen}
                 onClose={closeDetailModal}
                 plan={detailModal.plan}
+                onUpdated={(updated) => {
+                    setDetailModal({ isOpen: true, plan: updated });
+                    fetchPlans();
+                }}
             />
 
             <ProductionPlanAllocateModal 

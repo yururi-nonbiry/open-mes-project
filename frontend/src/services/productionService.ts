@@ -72,6 +72,16 @@ const productionService = {
         return await response.json() as PaginationData<ProductionPlan>;
     },
 
+    /** 生産計画の出庫先ライン(ワークセンターコード)を変更します。空文字/nullで未指定に戻します。 */
+    updatePlanLine: async (id: string, line: string | null) => {
+        const response = await authFetch(`/api/production/plans/${id}/`, {
+            method: 'PATCH',
+            body: JSON.stringify({ line: line || null }),
+        });
+        await handleError(response, 'Failed to update production plan line');
+        return await response.json() as ProductionPlan;
+    },
+
     updateProgress: async (id: string, payload: ProgressUpdatePayload) => {
         const response = await authFetch(`/api/production/plans/${id}/update-progress/`, {
             method: 'POST',
