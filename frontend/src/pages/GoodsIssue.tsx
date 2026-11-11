@@ -4,6 +4,23 @@ import inventoryService, { SalesOrder, validateIssueQuantity } from '../services
 import { NavIcon } from '../config/navigationConfig';
 import { useWorkCenters } from '../hooks/useWorkCenters';
 import WarehouseLocationMapModal from './inventory/WarehouseLocationMapModal';
+import authFetch from '../utils/api';
+
+const NUMERIC_FIELDS = ['quantity', 'shipped_quantity', 'reserved_quantity', 'remaining_quantity'];
+const DATE_FIELDS = ['expected_shipment', 'order_date'];
+
+// 表示設定(モデル項目表示設定の「出庫予定」)が未登録、または取得できない場合に使用する既定の列
+const DEFAULT_COLUMNS = [
+  { model_field_name: 'order_number', verbose_name: '受注番号' },
+  { model_field_name: 'item', verbose_name: '品目（品番）' },
+  { model_field_name: 'warehouse', verbose_name: '出庫倉庫' },
+  { model_field_name: 'purpose', verbose_name: '用途' },
+  { model_field_name: 'line', verbose_name: '出庫先ライン' },
+  { model_field_name: 'quantity', verbose_name: '予定数量' },
+  { model_field_name: 'shipped_quantity', verbose_name: '出庫済' },
+  { model_field_name: 'remaining_quantity', verbose_name: '未出庫残' },
+  { model_field_name: 'expected_shipment', verbose_name: '出庫予定日' },
+];
 
 // ローカル日付(YYYY-MM-DD)。出庫予定の期間フィルタの既定値(今日以降)に使う
 const todayLocal = () => {
@@ -24,6 +41,7 @@ const GoodsIssue: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+  const [displaySettings, setDisplaySettings] = useState<any[]>([]);
 
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -61,6 +79,36 @@ const GoodsIssue: React.FC = () => {
   useEffect(() => {
     fetchSalesOrders();
   }, [fetchSalesOrders]);
+
+  // 表示列はモデル項目表示設定(出庫予定)で決める。取得できない・未設定なら既定の列を使う
+  useEffect(() => {
+    (async () => {
+      try {
+        const [settingsRes, fieldsRes] = await Promise.all([
+          authFetch('/api/base/model-display-settings/?data_type=sales_order'),
+          authFetch('/api/base/model-fields/?data_type=sales_order&include_relations=true'),
+        ]);
+        const settings = settingsRes.ok ? await settingsRes.json() : [];
+        const fields = fieldsRes.ok ? await fieldsRes.json() : [];
+        const verboseNames = new Map<string, string>();
+        fields.forEach((f: any) => verboseNames.set(f.name, f.verbose_name));
+        const visible = settings
+          .filter((s: any) => s.is_list_display)
+          .sort((a: any, b: any) => a.display_order - b.display_order)
+          .map((s: any) => ({
+            ...s,
+            verbose_name: verboseNames.get(s.model_field_name) || s.verbose_name || s.model_field_name,
+          }));
+        setDisplaySettings(visible);
+      } catch (e) {
+        console.error('Display settings fetch error:', e);
+        setDisplaySettings([]);
+      }
+    })();
+  }, []);
+
+  const columns = displaySettings.length > 0 ? displaySettings : DEFAULT_COLUMNS;
+  const colSpan = columns.length + 1;
 
   // 検索語はサーバー側で絞り込む(入力が止まってから反映し、1ページ目に戻す)
   useEffect(() => {
@@ -131,11 +179,40 @@ const GoodsIssue: React.FC = () => {
 
   const filteredOrders = salesOrders;
 
+  const renderCell = (order: any, fieldName: string, canIssue: boolean) => {
+    switch (fieldName) {
+      case 'order_number':
+        return <td key={fieldName} className="fw-bold text-dark">{order.order_number || '—'}</td>;
+      case 'item':
+        return <td key={fieldName} className="fw-semibold">{order.item || '—'}</td>;
+      case 'purpose':
+        return <td key={fieldName}>{order.purpose || <span className="text-muted">汎用</span>}</td>;
+      case 'line':
+        return <td key={fieldName}>{order.line || <span className="text-muted">未指定</span>}</td>;
+      case 'remaining_quantity':
+        return (
+          <td key={fieldName} className="text-end">
+            <span className={canIssue ? 'receipt-remaining-qty has-remaining' : 'receipt-remaining-qty zero'}>
+              {order.remaining_quantity}
+            </span>
+          </td>
+        );
+      default: {
+        if (DATE_FIELDS.includes(fieldName)) return <td key={fieldName}>{formatDate(order[fieldName])}</td>;
+        const raw = order[fieldName];
+        const text = raw !== null && raw !== undefined && raw !== '' ? String(raw) : '—';
+        return NUMERIC_FIELDS.includes(fieldName)
+          ? <td key={fieldName} className="text-end fw-semibold">{text}</td>
+          : <td key={fieldName}>{text}</td>;
+      }
+    }
+  };
+
   const renderTableBody = () => {
     if (loading) {
       return (
         <tr>
-          <td colSpan={10} className="text-center py-5">
+          <td colSpan={colSpan} className="text-center py-5">
             <Spinner animation="border" variant="primary" size="sm" className="me-2" />
             <span className="text-muted">出庫待ちデータを読み込んでいます...</span>
           </td>
@@ -145,7 +222,7 @@ const GoodsIssue: React.FC = () => {
     if (error) {
       return (
         <tr>
-          <td colSpan={10} className="text-center text-danger py-4 fw-bold">
+          <td colSpan={colSpan} className="text-center text-danger py-4 fw-bold">
             {error}
           </td>
         </tr>
@@ -154,7 +231,7 @@ const GoodsIssue: React.FC = () => {
     if (filteredOrders.length === 0) {
       return (
         <tr>
-          <td colSpan={10} className="text-center py-5 text-muted">
+          <td colSpan={colSpan} className="text-center py-5 text-muted">
             <div className="fw-bold mb-1">出庫待ちの受注データはありません</div>
             <div className="small">すべての出庫予定が完了しているか、該当する受注がありません。</div>
           </td>
@@ -165,19 +242,7 @@ const GoodsIssue: React.FC = () => {
       const canIssue = order.remaining_quantity > 0;
       return (
         <tr key={order.id} className={canIssue ? '' : 'receipt-row-completed'}>
-          <td className="fw-bold text-dark">{order.order_number || '—'}</td>
-          <td className="fw-semibold">{order.item || '—'}</td>
-          <td>{order.warehouse || '—'}</td>
-          <td>{order.purpose || <span className="text-muted">汎用</span>}</td>
-          <td>{order.line || <span className="text-muted">未指定</span>}</td>
-          <td className="text-end fw-semibold">{order.quantity}</td>
-          <td className="text-end">{order.shipped_quantity}</td>
-          <td className="text-end">
-            <span className={canIssue ? 'receipt-remaining-qty has-remaining' : 'receipt-remaining-qty zero'}>
-              {order.remaining_quantity}
-            </span>
-          </td>
-          <td>{formatDate(order.expected_shipment)}</td>
+          {columns.map((setting: any) => renderCell(order, setting.model_field_name, canIssue))}
           <td className="text-center text-nowrap">
             <button
               type="button"
@@ -283,15 +348,11 @@ const GoodsIssue: React.FC = () => {
           <table className="table table-hover align-middle goods-receipt-table mb-0">
             <thead>
               <tr>
-                <th>受注番号</th>
-                <th>品目（品番）</th>
-                <th>出庫倉庫</th>
-                <th>用途</th>
-                <th>出庫先ライン</th>
-                <th className="text-end">予定数量</th>
-                <th className="text-end">出庫済</th>
-                <th className="text-end">未出庫残</th>
-                <th>出庫予定日</th>
+                {columns.map((setting: any) => (
+                  <th key={setting.model_field_name} className={NUMERIC_FIELDS.includes(setting.model_field_name) ? 'text-end' : ''}>
+                    {(setting.display_name || '').trim() || setting.verbose_name || setting.model_field_name}
+                  </th>
+                ))}
                 <th className="text-center" style={{ width: '190px' }}>出庫・操作</th>
               </tr>
             </thead>

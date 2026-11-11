@@ -1,4 +1,4 @@
-# フロントエンドE2E（画面機能確認: 入庫画面・在庫一覧）
+# フロントエンドE2E（画面機能確認: 入庫画面・出庫画面・在庫一覧）
 
 本書は、[Playwright](https://playwright.dev/) による自動テストで検証している、フロントエンドの
 画面機能確認について説明する。[10_frontend_e2e.md](./10_frontend_e2e.md)（レスポンシブ表示確認）が
@@ -28,6 +28,7 @@
 |---|---|---|---|
 | 入庫処置（PC向け） | `/inventory/purchase` | `frontend/e2e/goods-receipt.spec.ts` | functional-hd |
 | モバイル入庫処理（スマホ向け） | `/mobile/goods-receipt` | `frontend/e2e/goods-receipt-mobile.spec.ts` | functional-smartphone |
+| 出庫処置（PC向け、一覧の表示のみ） | `/inventory/issue` | `frontend/e2e/goods-issue.spec.ts` | functional-hd |
 | 在庫照会（PC向け、一覧の表示のみ） | `/inventory/inquiry` | `frontend/e2e/inventory-lists.spec.ts` | functional-hd |
 | 入出庫履歴（PC向け、一覧の表示のみ） | `/inventory/stock-movement-history` | 同上 | functional-hd |
 | ページ項目表示設定（入庫処理の項目一覧のみ） | `/system/page-display-settings` | `frontend/e2e/goods-receipt.spec.ts` | functional-hd |
@@ -45,6 +46,8 @@
 | 仕入先マスタ | `E2E-SUP` | 同上 |
 | 入庫予定（PC向け） | 発注番号 `E2E-GR-<実行ID>-01`〜`30`、発注数量10、入荷予定日 2000-01-01 | テストが開始時にAPI経由で作成 |
 | 入庫予定（スマホ向け） | 発注番号 `E2E-GM-<実行ID>-01`〜`03`、発注数量10、入荷予定日 2000-02-01 | 同上 |
+| 用途マスタ（出庫処置） | `E2E-CAR`（車種を想定） | 同上 |
+| 出庫予定（出庫処置） | 受注番号 `E2E-GX-<実行ID>-01`、品番 `E2E-GR-ITEM`、倉庫 `E2E-WH`、用途 `E2E-CAR`、数量10、出庫予定日 2099-01-01 | テストが開始時にAPI経由で作成し、終了時に削除 |
 | 入庫予定（在庫照会・入出庫履歴） | 発注番号 `E2E-GI-<実行ID>-01`、開始時に全量入庫して在庫・入出庫履歴を1件以上にする | 同上 |
 
 - 一覧は入荷予定日の昇順で表示されるため、入荷予定日を十分に古い日付にして、検索項目を設定しない
@@ -52,7 +55,7 @@
 - テスト終了時に、入庫実績の無いテスト用入庫予定は削除される。入庫実績のある入庫予定は削除できない
   仕様（`PO-CRUD-05`）のため、入庫済みのテスト用入庫予定と、それに伴う在庫・入出庫履歴
   （品番 `E2E-GR-ITEM`）は残る。これらは 5. の削除手順でまとめて削除できる。
-- 表示設定（`ModelDisplaySetting` の `purchase_order` / `goods_receipt` / `inventory` / `stock_movement`）は
+- 表示設定（`ModelDisplaySetting` の `purchase_order` / `goods_receipt` / `sales_order` / `inventory` / `stock_movement`）は
   システム全体で共有される設定のため、PC向けのテストは開始時に現在の設定を退避し、終了時に復元する。
   テストの実行中は入庫処置・在庫照会・入出庫履歴の表示列が一時的に変わるため、他の利用者が同じ環境を
   使用している時間帯は避けること。
@@ -117,6 +120,17 @@
 | FE-SMH-01 | 正常系 | `stock_movement` の表示設定が未登録。入出庫履歴が1件以上 | 入出庫履歴を開く | 見出しが既定の列（移動日時・品番・倉庫・移動タイプ・数量・記録者・備考・参照ドキュメント）で表示され、全ての行で見出しと同数のセルが表示される。E2E専用品番の入庫履歴が表示される | 同 4 |
 | FE-SMH-02 | 正常系 | `stock_movement` に移動日時・品番・倉庫・数量を設定。一般ユーザーでログイン | 入出庫履歴を開く | 見出しが「移動日時・品番・倉庫・数量」になり、全ての行で見出しと同数のセルが表示される | 同 2, 3 |
 
+### 4.6 出庫処置（PC向け）: 一覧の表示
+
+出庫処置画面はモデル項目表示設定（`sales_order`）で列と並び順を決める（2026-11-11 変更。以前は列が画面に固定）。
+車種（用途）を左端に出す、といった並べ替えが設定だけでできることを確認する。出庫の実行は対象外。
+
+| ケースID | 分類 | 前提条件 | 手順・入力 | 期待結果 | 備考 |
+|---|---|---|---|---|---|
+| FE-GI-01 | 正常系 | `sales_order` の表示設定が未登録。用途 `E2E-CAR` の出庫予定あり | 出庫処置を開き、受注番号で検索する | 見出しが既定の列（受注番号・品目（品番）・出庫倉庫・用途・出庫先ライン・予定数量・出庫済・未出庫残・出庫予定日・出庫・操作）で表示され、対象行のセル数が見出しと同数。用途の列に `E2E-CAR` が表示される | 従来の固定列と同じ表示 |
+| FE-GI-02 | 正常系 | `sales_order` に用途・受注番号・予定数量・未出庫残を設定。一般ユーザーでログイン | 出庫処置を開き、受注番号で検索する | 見出しが「用途・受注番号・予定数量・未出庫残・出庫・操作」になり、左端のセルが `E2E-CAR`、続いて受注番号・`10`・`10` が表示される | 表示設定は一般ユーザーも参照できる |
+| FE-GI-03 | 正常系 | `sales_order` に用途のみ設定 | 出庫処置を開いて「出庫処理」を押す | 見出しが「用途・出庫・操作」になり、出庫処理のモーダルが開いて、出庫数量の初期値が残数量（`10`）になる | 列を絞っても操作できる |
+
 ## 5. 実行方法
 
 実行環境の前提（ホスト側のNode.js、`db`・`redis`・`backend` の起動、Chromiumの取得）は
@@ -160,7 +174,7 @@ npm run test:e2e:functional
 docs/09_test_specifications/reports/frontend_functional.md
 ```
 
-テストデータを削除する場合は以下を実行する（E2E専用の入庫予定・入庫実績・在庫・入出庫履歴・マスタを削除）。
+テストデータを削除する場合は以下を実行する（E2E専用の入庫予定・出庫予定・入庫実績・在庫・入出庫履歴・マスタを削除）。
 
 ```bash
 docker compose exec -T -e E2E_DATA_ACTION=cleanup backend python manage.py shell < script/e2e_goods_receipt_data.py

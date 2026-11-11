@@ -23,7 +23,7 @@ const functionalUse = { locale: 'ja-JP', timezoneId: 'Asia/Tokyo' };
 const functionalProjects = [
   {
     name: 'functional-hd',
-    testMatch: ['**/goods-receipt.spec.ts', '**/inventory-lists.spec.ts'],
+    testMatch: ['**/goods-receipt.spec.ts', '**/goods-issue.spec.ts', '**/inventory-lists.spec.ts'],
     use: { ...hdViewport, ...functionalUse },
   },
   {

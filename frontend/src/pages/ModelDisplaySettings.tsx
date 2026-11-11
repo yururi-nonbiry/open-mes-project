@@ -10,6 +10,7 @@ const DATA_TYPE_CHOICES = [
     { value: 'supplier', label: 'サプライヤーマスター' },
     { value: 'warehouse', label: '倉庫マスター' },
     { value: 'purchase_order', label: '入庫予定' },
+    { value: 'sales_order', label: '出庫予定' },
     { value: 'production_plan', label: '生産計画' },
     { value: 'customer', label: '顧客マスター' },
     { value: 'work_center', label: 'ワークセンターマスター' },
