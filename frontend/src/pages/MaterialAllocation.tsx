@@ -3,7 +3,6 @@ import { Spinner } from 'react-bootstrap';
 import authFetch, { handleError } from '../utils/api';
 import { MaterialAllocation, PaginationData } from '../types/production';
 import { useWorkCenters } from '../hooks/useWorkCenters';
-import { NavIcon } from '../config/navigationConfig';
 
 const ALLOC_STATUS_TABS = [
   { value: '', label: 'すべて表示' },
@@ -323,24 +322,6 @@ const MaterialAllocationPage: React.FC = () => {
 
   return (
     <div className="goods-receipt-page material-allocation-page">
-      {/* 画面説明・業務ステップバナー */}
-      <div className="picking-flow-header mb-3">
-        <div className="picking-flow-steps">
-          <div className="picking-step-chip is-active">
-            <span className="step-num">1</span>
-            <span className="step-text">完成品（製品）を選択</span>
-          </div>
-          <span className="picking-step-arrow">→</span>
-          <div className="picking-step-chip is-active">
-            <span className="step-num">2</span>
-            <span className="step-text">紐づく材料をピッキング</span>
-          </div>
-        </div>
-        <p className="picking-flow-desc">
-          ピッキングを行う対象の完成品を選ぶと、その完成品に必要な材料一覧が下に展開されます。確認して「ピッキング」を行ってください。
-        </p>
-      </div>
-
       {/* ステップ1：完成品選択エリア */}
       <div className="product-selector-card mb-4">
         <div className="product-selector-header">

@@ -3435,59 +3435,6 @@ main .card>.card-header {
 }
 
 /* 順立て（ピッキング）画面スタイル */
-.material-allocation-page .picking-flow-header {
-    background: linear-gradient(135deg, #f0fdfa 0%, #f8fafc 100%);
-    border: 1px solid #ccfbf1;
-    border-radius: 10px;
-    padding: 12px 16px;
-}
-
-.picking-flow-steps {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 6px;
-}
-
-.picking-step-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 10px;
-    border-radius: 20px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    background: #e2e8f0;
-    color: #475569;
-}
-
-.picking-step-chip.is-active {
-    background: #0d9488;
-    color: #ffffff;
-}
-
-.picking-step-chip .step-num {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.3);
-    font-size: 0.75rem;
-}
-
-.picking-step-arrow {
-    color: #0d9488;
-    font-weight: bold;
-}
-
-.picking-flow-desc {
-    margin: 0;
-    font-size: 0.82rem;
-    color: #475569;
-}
-
 /* ステップ1：完成品選択カードグリッド */
 .product-selector-card {
     background: #ffffff;
