@@ -133,6 +133,8 @@ class ChangePurposeTests(InventoryAPITestBase):
         self.url = reverse("inventory_api:inventory-change-purpose", kwargs={"pk": self.source.id})
 
     def _change(self, **payload):
+        # 棚内の用途混在の警告は test_mixed_purpose_warning.py で検証するため、ここでは確認済みとして送る
+        payload.setdefault("confirm_mixed_purpose", True)
         return self.client.post(self.url, payload, format="json")
 
     def test_inv_pur_20_switch_to_generic_creates_generic_row(self):

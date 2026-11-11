@@ -123,9 +123,10 @@ class InventoryViewSet(viewsets.ModelViewSet):
                 request.data.get("target_warehouse"),
                 request.data.get("target_location"),
                 request.user,
+                confirm_mixed_purpose=request.data.get("confirm_mixed_purpose") is True,
             )
         except services.InventoryServiceError as e:
-            return error_response(e.message, e.status_code)
+            return error_response(e.message, e.status_code, code=getattr(e, "code", None))
         except IntegrityError:
             return error_response("移動先の品番/倉庫/棚番の組み合わせが既に別の在庫レコードとして存在します。")
         return Response({"message": "在庫を正常に移動しました。"})
@@ -144,10 +145,11 @@ class InventoryViewSet(viewsets.ModelViewSet):
 
         try:
             services.change_inventory_purpose(
-                inventory.pk, quantity, request.data.get("purpose"), request.data.get("reason"), request.user
+                inventory.pk, quantity, request.data.get("purpose"), request.data.get("reason"), request.user,
+                confirm_mixed_purpose=request.data.get("confirm_mixed_purpose") is True,
             )
         except services.InventoryServiceError as e:
-            return error_response(e.message, e.status_code)
+            return error_response(e.message, e.status_code, code=getattr(e, "code", None))
         return Response({"message": "在庫の用途を変更しました。"})
 
     @action(detail=True, methods=["post"], url_path="adjust")
@@ -165,9 +167,15 @@ class InventoryViewSet(viewsets.ModelViewSet):
             return error_response("数量は数値である必要があります。")
 
         try:
-            services.adjust_inventory(inventory.pk, new_quantity, request.data.get("location"), request.user)
+            services.adjust_inventory(
+                inventory.pk,
+                new_quantity,
+                request.data.get("location"),
+                request.user,
+                confirm_mixed_purpose=request.data.get("confirm_mixed_purpose") is True,
+            )
         except services.InventoryServiceError as e:
-            return error_response(e.message, e.status_code)
+            return error_response(e.message, e.status_code, code=getattr(e, "code", None))
         except IntegrityError:
             return error_response("移動先の品番/倉庫/棚番の組み合わせが既に別の在庫レコードとして存在します。")
         return Response({"message": "在庫を正常に調整しました。"})
@@ -270,6 +278,7 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
                 str(request.data.get("warehouse") or "").strip(),
                 str(request.data.get("location") or "").strip(),
                 request.user,
+                confirm_mixed_purpose=request.data.get("confirm_mixed_purpose") is True,
                 **(
                     {"purpose": str(request.data.get("purpose") or "").strip()}
                     if "purpose" in request.data
@@ -277,7 +286,7 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
                 ),
             )
         except services.InventoryServiceError as e:
-            return error_response(e.message, e.status_code)
+            return error_response(e.message, e.status_code, code=getattr(e, "code", None))
         registered = False
         if request.data.get("register_default_location") is True:
             registered = services.register_item_default_location(

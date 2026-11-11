@@ -1,4 +1,4 @@
-import authFetch, { apiRequest, handleError, toApiError } from '../utils/api';
+import authFetch, { apiRequest, handleError, toApiError, ApiError } from '../utils/api';
 import { WarehouseLocationMap } from './warehouseLocationService';
 
 export interface InventoryItem {
@@ -74,6 +74,26 @@ export interface FeatureOptions {
     confirm_register_default_location: boolean;
 }
 
+/**
+ * 同じ棚に用途の違う同一品番が混在する操作は、サーバーが警告(code: mixed_purpose)を返す。
+ * 確認ダイアログで了承された場合のみ confirm_mixed_purpose: true を付けて再送する。
+ */
+const withMixedPurposeConfirm = async <T>(
+    send: (extra: { confirm_mixed_purpose?: boolean }) => Promise<T>
+): Promise<T> => {
+    try {
+        return await send({});
+    } catch (err) {
+        if (err instanceof ApiError && err.code === 'mixed_purpose') {
+            if (window.confirm(`【注意】${err.message}`)) {
+                return await send({ confirm_mixed_purpose: true });
+            }
+            throw new ApiError('用途の異なる在庫との混在が確認されたため、処理を中止しました。', 409, null, 'mixed_purpose_canceled');
+        }
+        throw err;
+    }
+};
+
 const inventoryService = {
     getInventories: async (params: URLSearchParams) => {
         const response = await authFetch(`/api/inventory/inventories/?${params.toString()}`);
@@ -101,30 +121,30 @@ const inventoryService = {
         return data.results || data.data || data || [];
     },
 
-    updateInventory: async (id: string | number, payload: Record<string, any>) => {
+    updateInventory: (id: string | number, payload: Record<string, any>) => withMixedPurposeConfirm(extra => {
         // quantity/location の変更は在庫移動履歴(StockMovement)の記録を伴うため、
         // 専用の /adjust/ アクション経由で行う（直接のPATCHはquantity/reservedを受け付けない）。
         return apiRequest(
             `/api/inventory/inventories/${id}/adjust/`,
-            { method: 'POST', body: JSON.stringify(payload) },
+            { method: 'POST', body: JSON.stringify({ ...payload, ...extra }) },
             'Failed to update inventory'
         );
-    },
+    }),
 
     /** 在庫の用途変更。purpose が空文字なら汎用への切り替え。 */
     changeInventoryPurpose: (id: string | number, payload: { quantity: number; purpose: string; reason?: string }) =>
-        apiRequest<{ message: string }>(
+        withMixedPurposeConfirm(extra => apiRequest<{ message: string }>(
             `/api/inventory/inventories/${id}/change-purpose/`,
-            { method: 'POST', body: JSON.stringify(payload) },
+            { method: 'POST', body: JSON.stringify({ ...payload, ...extra }) },
             '用途の変更に失敗しました。'
-        ),
+        )),
 
     moveInventory: (id: string | number, payload: Record<string, any>) =>
-        apiRequest(
+        withMixedPurposeConfirm(extra => apiRequest(
             `/api/inventory/inventories/${id}/move/`,
-            { method: 'POST', body: JSON.stringify(payload) },
+            { method: 'POST', body: JSON.stringify({ ...payload, ...extra }) },
             'Failed to move inventory'
-        ),
+        )),
 
     /**
      * 出庫画面向けの受注一覧。材料引当用の内部受注(INT-)は出庫APIの対象外のため常に除外する。
@@ -156,11 +176,11 @@ const inventoryService = {
         /** true なら、品番のデフォルト入庫棚番が未登録のときに入庫した棚番を登録する。 */
         register_default_location?: boolean;
     }) =>
-        apiRequest<{ message: string; order_number: string; default_location_registered?: boolean }>(
+        withMixedPurposeConfirm(extra => apiRequest<{ message: string; order_number: string; default_location_registered?: boolean }>(
             '/api/inventory/purchase-orders/process-receipt/',
-            { method: 'POST', body: JSON.stringify(payload) },
+            { method: 'POST', body: JSON.stringify({ ...payload, ...extra }) },
             '入庫処理に失敗しました。'
-        ),
+        )),
 
     /** 機能のON/OFF設定。取得に失敗した場合は確認しない(false)側に倒す。 */
     getFeatureOptions: async (): Promise<FeatureOptions> => {

@@ -33,6 +33,38 @@ class InventoryServiceError(Exception):
         self.status_code = status_code
 
 
+class MixedPurposeWarning(InventoryServiceError):
+    """同じ棚に、同一品番で用途の違う在庫が混在する操作への警告。confirm_mixed_purpose=True で続行できる。"""
+
+    code = "mixed_purpose"
+
+    def __init__(self, message):
+        super().__init__(message, status_code=409)
+
+
+def check_mixed_purpose(part_number, warehouse, location, purpose, confirm=False, deduct=None):
+    """
+    指定の棚(倉庫+棚番)に、同一品番で purpose 以外の用途(汎用を含む)の在庫があれば警告を送出する。
+    棚番が空の場合は棚を特定できないため確認しない。confirm=True なら確認済みとして何もしない。
+    deduct=(在庫pk, 数量) は、その行から数量を差し引いた後の状態で判定する(用途変更用)。
+    """
+    if confirm or not location:
+        return
+    purpose = purpose or None
+    labels = []
+    for row in Inventory.objects.filter(
+        part_number_rel_id=part_number, warehouse_rel_id=warehouse, location=location
+    ).order_by("purpose_rel_id"):
+        qty = row.quantity - (deduct[1] if deduct and row.pk == deduct[0] else 0)
+        if qty > 0 and row.purpose != purpose:
+            labels.append(f"{row.purpose or '汎用'} {qty}個")
+    if labels:
+        raise MixedPurposeWarning(
+            f"棚 {warehouse} / {location} には、同じ品番 {part_number} で用途の異なる在庫があります"
+            f"（{'、'.join(labels)}）。用途の違う部品が同じ棚に混在しますが、続行しますか？"
+        )
+
+
 # --- 棚(ロケーション)をまたいだ在庫操作のヘルパー ---
 
 
@@ -208,7 +240,7 @@ def _operator_or_none(user):
 # --- 在庫の棚移動・調整 ---
 
 
-def move_inventory(source_pk, quantity, target_warehouse, target_location, user):
+def move_inventory(source_pk, quantity, target_warehouse, target_location, user, confirm_mixed_purpose=False):
     target_location = target_location or ""
     if not target_warehouse:
         raise InventoryServiceError("移動先倉庫は必須です。")
@@ -228,6 +260,10 @@ def move_inventory(source_pk, quantity, target_warehouse, target_location, user)
             raise InventoryServiceError(
                 f"移動数量が利用可能在庫数(引当済みを除く)を超えています。利用可能: {available_to_move}"
             )
+
+        check_mixed_purpose(
+            source.part_number, target_warehouse, target_location, source.purpose, confirm_mixed_purpose
+        )
 
         source.quantity -= quantity
         source.save()
@@ -261,7 +297,7 @@ def move_inventory(source_pk, quantity, target_warehouse, target_location, user)
         )
 
 
-def change_inventory_purpose(source_pk, quantity, new_purpose, reason, user):
+def change_inventory_purpose(source_pk, quantity, new_purpose, reason, user, confirm_mixed_purpose=False):
     """
     在庫の用途を変更する(指定数量を、同じ品番・倉庫・棚の別用途の在庫へ移す)。
     new_purpose が空の場合は汎用への切り替え。移し先に同じ用途の在庫があれば合算する。
@@ -285,6 +321,15 @@ def change_inventory_purpose(source_pk, quantity, new_purpose, reason, user):
             raise InventoryServiceError(
                 f"変更数量が利用可能在庫数(引当済みを除く)を超えています。利用可能: {available}"
             )
+
+        check_mixed_purpose(
+            source.part_number,
+            source.warehouse,
+            source.location,
+            new_purpose,
+            confirm_mixed_purpose,
+            deduct=(source.pk, quantity),
+        )
 
         target = get_or_create_locked_inventory(
             source.part_number, source.warehouse, source.location, purpose=new_purpose
@@ -333,7 +378,7 @@ def change_inventory_purpose(source_pk, quantity, new_purpose, reason, user):
         return target
 
 
-def adjust_inventory(inventory_pk, new_quantity, new_location, user):
+def adjust_inventory(inventory_pk, new_quantity, new_location, user, confirm_mixed_purpose=False):
     """在庫数量(と棚番)を直接調整し、差分を入庫/出庫として履歴に記録する。"""
     with transaction.atomic():
         inventory = Inventory.objects.select_for_update().get(pk=inventory_pk)
@@ -341,6 +386,11 @@ def adjust_inventory(inventory_pk, new_quantity, new_location, user):
         if new_quantity < inventory.reserved:
             raise InventoryServiceError(
                 f"調整後の数量({new_quantity})は引当済数量({inventory.reserved})以上である必要があります。"
+            )
+
+        if new_location is not None and new_location != inventory.location and new_quantity > 0:
+            check_mixed_purpose(
+                inventory.part_number, inventory.warehouse, new_location, inventory.purpose, confirm_mixed_purpose
             )
 
         old_quantity = inventory.quantity
@@ -372,7 +422,9 @@ def adjust_inventory(inventory_pk, new_quantity, new_location, user):
 _UNSET = object()
 
 
-def receive_purchase_order(purchase_order_id, received_quantity, warehouse, location, user, purpose=_UNSET):
+def receive_purchase_order(
+    purchase_order_id, received_quantity, warehouse, location, user, purpose=_UNSET, confirm_mixed_purpose=False
+):
     """
     発注に対する入庫処理。入庫実績の作成・在庫計上・入出庫履歴の記録・発注ステータス更新を行う。
     """
@@ -409,6 +461,8 @@ def receive_purchase_order(purchase_order_id, received_quantity, warehouse, loca
         purpose = (po.purpose if purpose is _UNSET else purpose) or None
         if purpose and not StockPurpose.objects.filter(code=purpose, is_active=True).exists():
             raise InventoryServiceError(f"用途 '{purpose}' が存在しないか、無効です。")
+
+        check_mixed_purpose(po.part_number, warehouse, location, purpose, confirm_mixed_purpose)
 
         operator = _operator_or_none(user)
         Receipt.objects.create(
