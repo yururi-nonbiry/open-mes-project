@@ -27,6 +27,7 @@ const todayLocal = () => {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 };
+const DEFAULT_LABELS = new Map<string, string>(DEFAULT_COLUMNS.map(c => [c.model_field_name, c.verbose_name]));
 
 const GoodsIssue: React.FC = () => {
   const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([]);
@@ -97,7 +98,9 @@ const GoodsIssue: React.FC = () => {
           .sort((a: any, b: any) => a.display_order - b.display_order)
           .map((s: any) => ({
             ...s,
-            verbose_name: verboseNames.get(s.model_field_name) || s.verbose_name || s.model_field_name,
+            // 列名は、既定の列の名前 > モデル項目の名前 > 設定が持つ名前の順に使う
+            // (model-fields は管理者専用で、一般ユーザーは取得できない。未出庫残のような計算項目はモデルに無い)
+            verbose_name: DEFAULT_LABELS.get(s.model_field_name) || verboseNames.get(s.model_field_name) || s.verbose_name || s.model_field_name,
           }));
         setDisplaySettings(visible);
       } catch (e) {

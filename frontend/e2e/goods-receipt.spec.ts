@@ -33,7 +33,7 @@ const PREFIX = 'E2E-GR-';
 const EXPECTED_ARRIVAL = '2000-01-01T00:00:00+09:00';
 const ORDER_COUNT = 30; // 1ページ(25件)を超える件数
 
-const DEFAULT_HEADERS = ['発注番号', '仕入先', '品目', '品名', '発注数量', '入庫済数量', '残数量', '入荷予定日', 'ステータス', '操作'];
+const DEFAULT_HEADERS = ['発注番号', '仕入先', '品番・品目', '品名', '入庫倉庫', '棚番', '発注数', '入庫済', '未入庫残', '入荷予定日', '状態', '入庫・操作'];
 
 // 「ページ項目表示設定」画面(入庫処理)で保存した場合と同じく goods_receipt に保存する
 const CUSTOM_SETTINGS: DisplaySetting[] = [
@@ -46,7 +46,7 @@ const CUSTOM_SETTINGS: DisplaySetting[] = [
   { model_field_name: 'delivered_quantity', display_order: 7 },
   { model_field_name: 'location', display_order: 8, is_list_display: false },
 ];
-const CUSTOM_HEADERS = ['発注番号', '品名カスタム', '発注数量', '入庫済数量', 'ステータス', '納品日', '納品数', '操作'];
+const CUSTOM_HEADERS = ['発注番号', '品名カスタム', '発注数', '入庫済', '状態', '納品日', '納品数', '入庫・操作'];
 
 let adminTokens: Tokens;
 let generalTokens: Tokens;
@@ -54,8 +54,8 @@ let api: APIRequestContext;
 let originalSettings: Record<string, DisplaySetting[]>;
 let orders: PurchaseOrder[];
 
-const headers = (page: Page) => page.locator('.goods-receipt table thead th');
-const rows = (page: Page) => page.locator('.goods-receipt table tbody tr');
+const headers = (page: Page) => page.locator('.goods-receipt-page table thead th');
+const rows = (page: Page) => page.locator('.goods-receipt-page table tbody tr');
 const modal = (page: Page) => page.locator('.modal-content');
 
 async function setSettings(settings: DisplaySetting[]) {
@@ -63,16 +63,24 @@ async function setSettings(settings: DisplaySetting[]) {
   await saveDisplaySettings(api, 'goods_receipt', settings);
 }
 
+// 入荷予定日(開始)の既定値は「今日」。テスト用の入庫予定は過去日付のため、開始日を空にして検索し直す
+async function clearArrivalFrom(page: Page) {
+  await page.locator('#search-expected_arrival_from').fill('');
+  await page.getByRole('button', { name: '検索', exact: true }).click();
+}
+
 async function openPage(page: Page, tokens: Tokens = adminTokens) {
   await authenticate(page, tokens);
   await page.goto(PATH);
   await expect(page.getByRole('heading', { name: '入庫処置' })).toBeVisible();
+  await clearArrivalFrom(page);
   await expect(rows(page).first()).not.toHaveText('検索中...');
 }
 
 /** 発注番号で検索し、該当行を返す(発注番号が検索項目に設定されていること)。 */
 async function searchOrder(page: Page, orderNumber: string, status = 'pending') {
   await page.locator('select[name="status"]').selectOption(status);
+  await page.locator('#search-expected_arrival_from').fill('');
   await page.getByPlaceholder('発注番号で検索...').fill(orderNumber);
   await page.getByRole('button', { name: '検索', exact: true }).click();
   const row = rows(page).filter({ hasText: orderNumber });
@@ -128,12 +136,14 @@ test('FE-GR-01 表示設定が未登録の場合、既定の列で見出しと�
     E2E_SUPPLIER,
     'E2E品目',
     'E2E入庫テスト品 01',
+    E2E_WAREHOUSE,
+    'E2E-LOC',
     '10',
     '0',
     '10',
-    '2000/01/01 00:00',
+    '2000/01/01',
     '未入庫',
-    '入庫納品',
+    '入庫処理 納品記録',
   ]);
   // 全ての明細行で、見出しと同じ数のセルが描画されていること
   for (const row of await rows(page).all()) {
@@ -154,7 +164,7 @@ test('FE-GR-02 表示設定がある場合、設定した列・順序・カス�
     '未入庫',
     'N/A',
     'N/A',
-    '入庫納品',
+    '入庫処理 納品記録',
   ]);
 });
 
@@ -186,7 +196,7 @@ test('FE-GR-04 一般ユーザー(スタッフ権限なし)にも表示設定が
     '未入庫',
     'N/A',
     'N/A',
-    '入庫納品',
+    '入庫処理 納品記録',
   ]);
 });
 
@@ -197,8 +207,8 @@ test('FE-GR-14 仕入先・品番・入庫倉庫を列と検索項目に設定�
     { model_field_name: 'part_number', display_order: 3 },
     { model_field_name: 'warehouse', display_order: 4, is_search_field: true },
   ]);
-  const expectedHeaders = ['発注番号', '仕入先', '品番', '入庫倉庫', '操作'];
-  const expectedCells = [orders[0].order_number, E2E_SUPPLIER, E2E_ITEM_CODE, E2E_WAREHOUSE, '入庫納品'];
+  const expectedHeaders = ['発注番号', '仕入先', '品番', '入庫倉庫', '入庫・操作'];
+  const expectedCells = [orders[0].order_number, E2E_SUPPLIER, E2E_ITEM_CODE, E2E_WAREHOUSE, '入庫処理 納品記録'];
 
   await openPage(page);
   await expect(headers(page)).toHaveText(expectedHeaders);

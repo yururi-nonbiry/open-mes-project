@@ -23,8 +23,8 @@ import {
  */
 test.describe.configure({ mode: 'default' });
 
-const INVENTORY_DEFAULT_HEADERS = ['品番', '倉庫', '場所', '在庫数', '引当在庫', '利用可能数', '最終更新日時', '操作'];
-const HISTORY_DEFAULT_HEADERS = ['移動日時', '品番', '倉庫', '移動タイプ', '数量', '記録者', '備考', '参照ドキュメント'];
+const INVENTORY_DEFAULT_HEADERS = ['品番', '倉庫', '棚番（ロケーション）', '用途', '現在庫数', '引当済', '利用可能数', '最終更新日時', '在庫操作'];
+const HISTORY_DEFAULT_HEADERS = ['移動日時', '品番', '倉庫', '移動種別', '数量', '記録者', '内容・備考', '参照伝票・計画'];
 
 let adminTokens: Tokens;
 let generalTokens: Tokens;
@@ -46,7 +46,7 @@ async function openInventory(page: Page, tokens: Tokens) {
 async function openHistory(page: Page, tokens: Tokens) {
   await authenticate(page, tokens);
   await page.goto('/inventory/stock-movement-history');
-  await expect(page.getByRole('heading', { name: '入出庫履歴', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /^入出庫履歴/ })).toBeVisible();
   await expect(historyRows(page).first()).not.toHaveText('読み込み中...');
 }
 
@@ -101,7 +101,7 @@ test('FE-INV-02 在庫照会: 一般ユーザーにも表示設定(品番・倉�
   ]);
   await openInventory(page, generalTokens);
 
-  await expect(inventoryHeaders(page)).toHaveText(['品番', '倉庫', '在庫数量', '操作']);
+  await expect(inventoryHeaders(page)).toHaveText(['品番', '倉庫', '在庫数量', '在庫操作']);
   for (const row of await inventoryRows(page).all()) {
     await expect(row.locator('td')).toHaveCount(4);
     await expect(row.locator('td').first()).not.toBeEmpty();

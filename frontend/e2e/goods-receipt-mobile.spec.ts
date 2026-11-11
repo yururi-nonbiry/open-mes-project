@@ -34,6 +34,8 @@ async function openPage(page: Page) {
   await authenticate(page, tokens);
   await page.goto(PATH);
   await expect(page.getByRole('heading', { name: '入庫処理' })).toBeVisible();
+  // 入荷予定日(開始)の既定値は「今日」。テスト用の入庫予定は過去日付のため、開始日を空にする
+  await page.locator('#receipt-date-from').fill('');
 }
 
 async function searchOrder(page: Page, orderNumber: string) {

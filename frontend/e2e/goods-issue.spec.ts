@@ -33,7 +33,8 @@ let originalSettings: DisplaySetting[];
 let orderNumber: string;
 
 const headers = (page: Page) => page.locator('.goods-receipt-table thead th');
-const targetRow = (page: Page) => page.locator('.goods-receipt-table tbody tr').filter({ hasText: orderNumber });
+// 受注番号で検索して1件に絞るため、行は絞り込み条件なしで取る(表示列に受注番号が無い設定でも探せる)
+const targetRow = (page: Page) => page.locator('.goods-receipt-table tbody tr');
 
 async function openIssue(page: Page, tokens: Tokens) {
   await authenticate(page, tokens);
