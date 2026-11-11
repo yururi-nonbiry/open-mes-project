@@ -113,9 +113,9 @@ const WorkCalendarMaster: React.FC = () => {
         <div className="goods-receipt-page">
             <div className="goods-receipt-filter-panel">
                 <div className="receipt-search-inputs-row">
-                    <div className="receipt-search-field">
+                    <div className="receipt-search-field" style={{ flex: "none", width: "auto", maxWidth: "none" }}>
                         <span className="receipt-search-label">基本の稼働曜日</span>
-                        <div className="d-flex gap-3">
+                        <div className="d-flex gap-3 flex-nowrap">
                             {WEEKDAYS.map(w => (
                                 <Form.Check
                                     key={w.key}
