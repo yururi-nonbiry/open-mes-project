@@ -2409,6 +2409,12 @@ header.app-header {
     margin-right: auto !important;
 }
 
+.mes-modal-extra-wide .modal-content,
+.mes-clean-modal .mes-modal-extra-wide .modal-content {
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
 @media (max-width: 991px) {
     .mes-modal-extra-wide {
         --bs-modal-width: 92vw !important;
