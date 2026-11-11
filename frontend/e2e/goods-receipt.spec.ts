@@ -46,7 +46,14 @@ const CUSTOM_SETTINGS: DisplaySetting[] = [
   { model_field_name: 'delivered_quantity', display_order: 7 },
   { model_field_name: 'location', display_order: 8, is_list_display: false },
 ];
-const CUSTOM_HEADERS = ['発注番号', '品名カスタム', '発注数', '入庫済', '状態', '納品日', '納品数', '入庫・操作'];
+const CUSTOM_HEADERS = ['発注番号', '品名カスタム', '発注数量', '入庫済数量', 'ステータス', '納品日', '納品数', '入庫・操作'];
+
+// 状態フィルタはタブ(ボタン)形式。searchOrder の status 引数(APIの値)から表示名を引く
+const STATUS_TAB_LABELS: Record<string, string> = {
+  pending: '未入庫',
+  partially_received: '一部入庫',
+  fully_received: '全量入庫済み',
+};
 
 let adminTokens: Tokens;
 let generalTokens: Tokens;
@@ -79,9 +86,9 @@ async function openPage(page: Page, tokens: Tokens = adminTokens) {
 
 /** 発注番号で検索し、該当行を返す(発注番号が検索項目に設定されていること)。 */
 async function searchOrder(page: Page, orderNumber: string, status = 'pending') {
-  await page.locator('select[name="status"]').selectOption(status);
+  await page.getByRole('button', { name: STATUS_TAB_LABELS[status], exact: true }).click();
   await page.locator('#search-expected_arrival_from').fill('');
-  await page.getByPlaceholder('発注番号で検索...').fill(orderNumber);
+  await page.getByPlaceholder('発注番号を入力...').fill(orderNumber);
   await page.getByRole('button', { name: '検索', exact: true }).click();
   const row = rows(page).filter({ hasText: orderNumber });
   await expect(row).toHaveCount(1);
@@ -143,7 +150,7 @@ test('FE-GR-01 表示設定が未登録の場合、既定の列で見出しと�
     '10',
     '2000/01/01',
     '未入庫',
-    '入庫処理 納品記録',
+    '入庫処理納品記録',
   ]);
   // 全ての明細行で、見出しと同じ数のセルが描画されていること
   for (const row of await rows(page).all()) {
@@ -162,9 +169,9 @@ test('FE-GR-02 表示設定がある場合、設定した列・順序・カス�
     '10',
     '0',
     '未入庫',
-    'N/A',
-    'N/A',
-    '入庫処理 納品記録',
+    '—',
+    '—',
+    '入庫処理納品記録',
   ]);
 });
 
@@ -172,7 +179,7 @@ test('FE-GR-03 一覧表示対象の設定が無く検索項目のみ設定さ�
   await setSettings([{ model_field_name: 'order_number', is_list_display: false, is_search_field: true }]);
   await openPage(page);
 
-  await expect(page.getByPlaceholder('発注番号で検索...')).toBeVisible();
+  await expect(page.getByPlaceholder('発注番号を入力...')).toBeVisible();
   await expect(headers(page)).toHaveText(DEFAULT_HEADERS);
   await expect(rows(page).first().locator('td')).toHaveCount(DEFAULT_HEADERS.length);
   await expect(rows(page).first().locator('td').first()).toHaveText(orders[0].order_number);
@@ -194,9 +201,9 @@ test('FE-GR-04 一般ユーザー(スタッフ権限なし)にも表示設定が
     '10',
     '0',
     '未入庫',
-    'N/A',
-    'N/A',
-    '入庫処理 納品記録',
+    '—',
+    '—',
+    '入庫処理納品記録',
   ]);
 });
 
@@ -208,16 +215,16 @@ test('FE-GR-14 仕入先・品番・入庫倉庫を列と検索項目に設定�
     { model_field_name: 'warehouse', display_order: 4, is_search_field: true },
   ]);
   const expectedHeaders = ['発注番号', '仕入先', '品番', '入庫倉庫', '入庫・操作'];
-  const expectedCells = [orders[0].order_number, E2E_SUPPLIER, E2E_ITEM_CODE, E2E_WAREHOUSE, '入庫処理 納品記録'];
+  const expectedCells = [orders[0].order_number, E2E_SUPPLIER, E2E_ITEM_CODE, E2E_WAREHOUSE, '入庫処理納品記録'];
 
   await openPage(page);
   await expect(headers(page)).toHaveText(expectedHeaders);
   await expect(rows(page).first().locator('td')).toHaveText(expectedCells);
 
-  await page.getByPlaceholder('入庫倉庫で検索...').fill(E2E_WAREHOUSE);
+  await page.getByPlaceholder('入庫倉庫を入力...').fill(E2E_WAREHOUSE);
   await page.getByRole('button', { name: '検索', exact: true }).click();
   await expect(rows(page).first().locator('td').nth(3)).toHaveText(E2E_WAREHOUSE);
-  await expect(page.locator('.pagination-controls span')).toHaveText(/\(全 \d{2} 件\)$/);
+  await expect(page.locator('.pagination-controls span')).toHaveText(/（全 \d{2} 件）$/);
   for (const row of await rows(page).all()) {
     await expect(row.locator('td').nth(3)).toHaveText(E2E_WAREHOUSE);
   }
@@ -248,9 +255,9 @@ test('FE-GR-05 検索項目で絞り込みができ、該当なしの場合は�
   await expect(rows(page)).toHaveCount(1);
   await expect(row.locator('td').nth(1)).toHaveText('E2E入庫テスト品 05');
 
-  await page.getByPlaceholder('発注番号で検索...').fill('E2E-NOT-EXIST-ZZZ');
+  await page.getByPlaceholder('発注番号を入力...').fill('E2E-NOT-EXIST-ZZZ');
   await page.getByRole('button', { name: '検索', exact: true }).click();
-  await expect(rows(page)).toHaveText(['該当する入庫予定がありません。']);
+  await expect(rows(page)).toHaveText(['該当する入庫予定データがありません上のステータスタブ（「すべて表示」など）や検索条件を切り替えてご確認ください。']);
 });
 
 test('FE-GR-06 ページ送りで次ページ・前ページの明細が表示されること', async ({ page }) => {
@@ -261,7 +268,7 @@ test('FE-GR-06 ページ送りで次ページ・前ページの明細が表示�
   const prev = page.getByRole('button', { name: '前へ' });
   const next = page.getByRole('button', { name: '次へ' });
 
-  await expect(info).toHaveText(/^ページ 1 \/ \d+ \(全 \d+ 件\)$/);
+  await expect(info).toHaveText(/^ページ 1 \/ \d+ （全 \d+ 件）$/);
   await expect(prev).toBeDisabled();
   await expect(rows(page)).toHaveCount(25);
   await expect(rows(page).first().locator('td').first()).toHaveText(orders[0].order_number);
@@ -283,12 +290,14 @@ test('FE-GR-07 入庫モーダルに発注内容と初期値が表示される�
   const order = orders[5];
 
   const row = await searchOrder(page, order.order_number);
-  await row.getByRole('button', { name: '入庫', exact: true }).click();
+  await row.getByRole('button', { name: '入庫処理', exact: true }).click();
 
-  await expect(modal(page).getByRole('heading', { name: '入庫処理' })).toBeVisible();
-  await expect(modal(page).locator('tbody tr').nth(0)).toContainText(order.order_number);
-  await expect(modal(page).locator('tbody tr').nth(1)).toContainText('E2E入庫テスト品 06');
-  await expect(modal(page).locator('tbody tr').nth(2)).toContainText('10');
+  await expect(modal(page).locator('.mes-modal-title')).toHaveText('入庫処理の登録');
+  const summary = modal(page).locator('.receipt-summary-item');
+  await expect(summary.nth(0)).toContainText(order.order_number);
+  await expect(summary.nth(1)).toContainText('E2E入庫テスト品 06');
+  await expect(summary.nth(3)).toContainText('10 / 0');
+  await expect(summary.nth(4)).toContainText('10');
   await expect(page.locator('#modal_received_quantity_input')).toHaveValue('10');
   await expect(page.locator('#modal_warehouse_input')).toHaveValue('E2E-WH');
   await expect(page.locator('#modal_location_input')).toHaveValue('E2E-LOC');
@@ -307,15 +316,15 @@ test('FE-GR-08 入庫数量が0または残数量超過の場合、入庫処理�
   });
 
   const row = await searchOrder(page, order.order_number);
-  await row.getByRole('button', { name: '入庫', exact: true }).click();
+  await row.getByRole('button', { name: '入庫処理', exact: true }).click();
   const quantity = page.locator('#modal_received_quantity_input');
 
   await quantity.fill('11');
-  await modal(page).getByRole('button', { name: '入庫実行' }).click();
+  await modal(page).getByRole('button', { name: '入庫を確定する' }).click();
   expect(await quantity.evaluate((el: HTMLInputElement) => el.validity.rangeOverflow)).toBe(true);
 
   await quantity.fill('0');
-  await modal(page).getByRole('button', { name: '入庫実行' }).click();
+  await modal(page).getByRole('button', { name: '入庫を確定する' }).click();
   expect(await quantity.evaluate((el: HTMLInputElement) => el.validity.rangeUnderflow)).toBe(true);
 
   await expect(modal(page)).toBeVisible();
@@ -330,20 +339,20 @@ test('FE-GR-09 全量入庫すると完了メッセージが表示され、全�
   const order = orders[7];
 
   const row = await searchOrder(page, order.order_number);
-  await row.getByRole('button', { name: '入庫', exact: true }).click();
-  await modal(page).getByRole('button', { name: '入庫実行' }).click();
+  await row.getByRole('button', { name: '入庫処理', exact: true }).click();
+  await modal(page).getByRole('button', { name: '入庫を確定する' }).click();
 
-  await expect(modal(page).locator('.alert-success')).toHaveText(
-    `発注 ${order.order_number} の入庫処理が正常に完了しました。`,
+  await expect(modal(page).locator('.alert-success')).toContainText(
+    `発注番号「${order.order_number}」の入庫処理が完了し、在庫へ反映されました。`,
   );
   await expect(modal(page)).toBeHidden();
   // 未入庫の一覧からは消える
-  await expect(rows(page)).toHaveText(['該当する入庫予定がありません。']);
+  await expect(rows(page)).toHaveText(['該当する入庫予定データがありません上のステータスタブ（「すべて表示」など）や検索条件を切り替えてご確認ください。']);
 
   const received = await searchOrder(page, order.order_number, 'fully_received');
   await expect(received.locator('td').nth(3)).toHaveText('10');
   await expect(received.locator('td').nth(4)).toHaveText('全量入庫済み');
-  await expect(received.getByRole('button', { name: '入庫', exact: true })).toBeDisabled();
+  await expect(received.getByRole('button', { name: '入庫済', exact: true })).toBeDisabled();
 
   const saved = await getPurchaseOrder(api, order.id);
   expect(saved.received_quantity).toBe(10);
@@ -356,9 +365,9 @@ test('FE-GR-10 一部入庫すると入庫済数量とステータス(一部入�
   const order = orders[8];
 
   const row = await searchOrder(page, order.order_number);
-  await row.getByRole('button', { name: '入庫', exact: true }).click();
+  await row.getByRole('button', { name: '入庫処理', exact: true }).click();
   await page.locator('#modal_received_quantity_input').fill('4');
-  await modal(page).getByRole('button', { name: '入庫実行' }).click();
+  await modal(page).getByRole('button', { name: '入庫を確定する' }).click();
   await expect(modal(page).locator('.alert-success')).toBeVisible();
   await expect(modal(page)).toBeHidden();
 
@@ -377,14 +386,14 @@ test('FE-GR-11 納品モーダルで納品日・納品数を保存でき、入�
   const order = orders[9];
 
   const row = await searchOrder(page, order.order_number);
-  await row.getByRole('button', { name: '納品', exact: true }).click();
-  await expect(modal(page).getByRole('heading', { name: '納品情報の編集' })).toBeVisible();
+  await row.getByRole('button', { name: '納品記録', exact: true }).click();
+  await expect(modal(page).locator('.mes-modal-title')).toHaveText('納品記録の編集');
   await page.locator('#modal_delivery_date_input').fill('2026-09-30');
   await page.locator('#modal_delivered_quantity_input').fill('7');
-  await modal(page).getByRole('button', { name: '保存' }).click();
+  await modal(page).getByRole('button', { name: '納品記録を保存する' }).click();
 
   await expect(modal(page).locator('.alert-success')).toHaveText(
-    `発注 ${order.order_number} の納品情報を更新しました。`,
+    `発注番号「${order.order_number}」の納品記録を保存しました。`,
   );
   await expect(modal(page)).toBeHidden();
 
@@ -408,7 +417,7 @@ test('FE-GR-12 入庫予定の取得に失敗した場合、エラーメッセ�
   );
   await openPage(page);
 
-  await expect(rows(page)).toHaveText(['データの取得中にエラーが発生しました。']);
+  await expect(rows(page)).toHaveText(['入庫予定データの取得中にエラーが発生しました。']);
   await expect(headers(page)).toHaveText(DEFAULT_HEADERS);
 });
 
@@ -422,11 +431,11 @@ test('FE-GR-13 一部入庫の入庫予定は、残数量を追加で入庫で�
   await openPage(page);
 
   const row = await searchOrder(page, order.order_number, 'partially_received');
-  const receiveButton = row.getByRole('button', { name: '入庫', exact: true });
+  const receiveButton = row.getByRole('button', { name: '入庫処理', exact: true });
   await expect(receiveButton).toBeEnabled();
   await receiveButton.click();
   await expect(page.locator('#modal_received_quantity_input')).toHaveValue('6');
-  await modal(page).getByRole('button', { name: '入庫実行' }).click();
+  await modal(page).getByRole('button', { name: '入庫を確定する' }).click();
   await expect(modal(page).locator('.alert-success')).toBeVisible();
 
   const saved = await getPurchaseOrder(api, order.id);
