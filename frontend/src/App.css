@@ -1130,15 +1130,15 @@ header.app-header {
 }
 
 .workflow-track-block:nth-of-type(2) .workflow-phase-mobile-pill {
-    color: #1d4ed8;
-    background: #eff6ff;
-    border-color: #bfdbfe;
+    color: #0f766e;
+    background: #f0fdfa;
+    border-color: #99f6e4;
 }
 
 .workflow-track-block:nth-of-type(2) .workflow-phase-mobile-note {
-    color: #1e40af;
-    background: rgba(239, 246, 255, 0.9);
-    border-color: #93c5fd;
+    color: #115e59;
+    background: rgba(240, 253, 250, 0.95);
+    border-color: #99f6e4;
 }
 
 .workflow-phase-badge {
