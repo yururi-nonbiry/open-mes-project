@@ -1,5 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import productionService from '../../services/productionService';
+import type { ProductionPlan } from '../../types/production';
 import { PartsSupplySimulationResult } from '../../types/production';
 
 const STATUS_OPTIONS: { value: string; label: string }[] = [
@@ -12,7 +13,9 @@ const STATUS_OPTIONS: { value: string; label: string }[] = [
 
 const PartsSupplySimulationPage = () => {
     const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(new Set(['PENDING', 'IN_PROGRESS']));
-    const [planIdsInput, setPlanIdsInput] = useState('');
+    const [plans, setPlans] = useState<ProductionPlan[]>([]);
+    const [plansLoading, setPlansLoading] = useState(false);
+    const [selectedPlanIds, setSelectedPlanIds] = useState<Set<string>>(new Set());
     const [result, setResult] = useState<PartsSupplySimulationResult | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -25,11 +28,46 @@ const PartsSupplySimulationPage = () => {
         });
     };
 
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            setPlansLoading(true);
+            try {
+                const data = await productionService.getProductionPlans({
+                    page_size: 200,
+                    ordering: 'planned_start_datetime',
+                    ...(selectedStatuses.size > 0 ? { status__in: Array.from(selectedStatuses).join(',') } : {}),
+                });
+                if (cancelled) return;
+                setPlans(data.results);
+                // 一覧に無くなった計画の選択は外す
+                setSelectedPlanIds(prev => new Set([...prev].filter(id => data.results.some(p => p.id === id))));
+            } catch (e: any) {
+                if (!cancelled) setError(e.message);
+            } finally {
+                if (!cancelled) setPlansLoading(false);
+            }
+        };
+        load();
+        return () => { cancelled = true; };
+    }, [selectedStatuses]);
+
+    const togglePlan = (id: string) => {
+        setSelectedPlanIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id); else next.add(id);
+            return next;
+        });
+    };
+
+    const allSelected = plans.length > 0 && plans.every(p => selectedPlanIds.has(p.id));
+    const toggleAll = () => setSelectedPlanIds(allSelected ? new Set() : new Set(plans.map(p => p.id)));
+
     const runSimulation = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
-            const planIds = planIdsInput.split(',').map(s => s.trim()).filter(Boolean);
+            const planIds = Array.from(selectedPlanIds);
             const data = await productionService.getPartsSupplySimulation({
                 planIds,
                 statuses: Array.from(selectedStatuses),
@@ -41,7 +79,7 @@ const PartsSupplySimulationPage = () => {
         } finally {
             setLoading(false);
         }
-    }, [planIdsInput, selectedStatuses]);
+    }, [selectedPlanIds, selectedStatuses]);
 
     const formatDate = (dateStr: string | null) => {
         if (!dateStr) return '-';
@@ -58,7 +96,7 @@ const PartsSupplySimulationPage = () => {
             <div className="goods-receipt-filter-panel mb-3">
                 <div className="card-body p-4">
                     <div className="mb-3">
-                        <label className="form-label fw-semibold text-secondary">対象ステータス（生産計画IDを指定しない場合に使用）</label>
+                        <label className="form-label fw-semibold text-secondary">生産計画の表示ステータス</label>
                         <div className="d-flex flex-wrap gap-3">
                             {STATUS_OPTIONS.map(opt => (
                                 <div className="form-check" key={opt.value}>
@@ -76,18 +114,47 @@ const PartsSupplySimulationPage = () => {
                     </div>
                     <div className="mb-3">
                         <label className="form-label fw-semibold text-secondary">
-                            生産計画IDで絞り込み（カンマ区切り、任意）
+                            対象の生産計画（選択しない場合は、表示中の計画すべてが対象）
                         </label>
-                        <input
-                            type="text"
-                            className="form-control border-secondary-subtle"
-                            placeholder="例: 比較したい計画のIDをカンマ区切りで指定（例: 納入品番Aのみ、A・B両方 等）"
-                            value={planIdsInput}
-                            onChange={(e) => setPlanIdsInput(e.target.value)}
-                        />
-                        <div className="form-text">
-                            生産計画一覧画面で対象の計画IDを確認し、比較したい組み合わせ（例: Aのみ／A+B）を指定してください。
+                        <div className="border rounded" style={{ maxHeight: 320, overflowY: 'auto' }}>
+                            <table className="table table-sm table-hover align-middle mb-0">
+                                <thead className="table-light" style={{ position: 'sticky', top: 0 }}>
+                                    <tr>
+                                        <th className="ps-3" style={{ width: 40 }}>
+                                            <input type="checkbox" className="form-check-input" checked={allSelected}
+                                                onChange={toggleAll} disabled={plans.length === 0} aria-label="すべて選択" />
+                                        </th>
+                                        <th>計画名</th>
+                                        <th>製品コード</th>
+                                        <th>計画開始日時</th>
+                                        <th className="text-end">計画数量</th>
+                                        <th>ステータス</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {plansLoading ? (
+                                        <tr><td colSpan={6} className="text-center py-3 text-muted">読み込み中...</td></tr>
+                                    ) : plans.length === 0 ? (
+                                        <tr><td colSpan={6} className="text-center py-3 text-muted">該当する生産計画がありません。</td></tr>
+                                    ) : plans.map(plan => (
+                                        <tr key={plan.id} style={{ cursor: 'pointer' }} onClick={() => togglePlan(plan.id)}>
+                                            <td className="ps-3">
+                                                <input type="checkbox" className="form-check-input"
+                                                    checked={selectedPlanIds.has(plan.id)}
+                                                    onChange={() => togglePlan(plan.id)}
+                                                    onClick={(e) => e.stopPropagation()} />
+                                            </td>
+                                            <td>{plan.plan_name}</td>
+                                            <td>{plan.product_code || '-'}</td>
+                                            <td>{formatDate(plan.planned_start_datetime)}</td>
+                                            <td className="text-end">{plan.planned_quantity}</td>
+                                            <td>{plan.status_display || plan.status}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
+                        <div className="form-text">{selectedPlanIds.size}件選択中。比較したい組み合わせ（例: Aのみ／A+B）にチェックしてください。</div>
                     </div>
                     <button className="btn btn-primary" onClick={runSimulation} disabled={loading}>
                         {loading ? '計算中...' : 'シミュレーション実行'}
