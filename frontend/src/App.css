@@ -2400,18 +2400,20 @@ header.app-header {
     padding: 12px 20px;
 }
 
-/* マスター一覧表示用 横長ウインドウ（画面幅を広く使って見やすく配置） */
+/* マスター一覧表示用 横長ウインドウ（画面幅の約2/3、見やすいワイドな横長レイアウト） */
 .mes-modal-extra-wide {
-    max-width: min(94vw, 1560px) !important;
-    width: 94vw !important;
+    --bs-modal-width: calc(100vw * 2 / 3) !important;
+    width: calc(100vw * 2 / 3) !important;
+    max-width: calc(100vw * 2 / 3) !important;
     margin-left: auto !important;
     margin-right: auto !important;
 }
 
-@media (min-width: 1200px) {
+@media (max-width: 991px) {
     .mes-modal-extra-wide {
-        max-width: min(94vw, 1620px) !important;
-        width: 94vw !important;
+        --bs-modal-width: 92vw !important;
+        width: 92vw !important;
+        max-width: 92vw !important;
     }
 }
 

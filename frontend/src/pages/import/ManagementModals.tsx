@@ -260,7 +260,6 @@ export const ListModal = ({ show, onHide, config, listData, isLoading, error, on
         <Modal
             show={show}
             onHide={onHide}
-            size="xl"
             dialogClassName="mes-modal-extra-wide"
             centered
             scrollable
@@ -284,7 +283,7 @@ export const ListModal = ({ show, onHide, config, listData, isLoading, error, on
                     </div>
                 </div>
             </Modal.Header>
-            <Modal.Body className="mes-modal-body" style={{ maxHeight: '74vh', overflowY: 'auto' }}>
+            <Modal.Body className="mes-modal-body" style={{ maxHeight: '62vh', overflowY: 'auto' }}>
                 {isLoading && (
                     <div className="text-center py-5">
                         <Spinner animation="border" variant="primary" />
