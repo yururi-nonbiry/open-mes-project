@@ -1152,6 +1152,10 @@ export interface OverallWorkflowPhase {
   mobileAppSupported?: boolean;
   mobileAppLabel?: string;
   mobileAppNote?: string;
+  extraHint?: {
+    text: string;
+    link: FlowQuickLink;
+  };
 }
 
 export interface GuidedStepDefinition {
@@ -1255,6 +1259,13 @@ export const WORKFLOW_TRACKS: WorkflowTrack[] = [
         border: '#99f6e4',
         icon: 'inquiry',
         summary: '入庫した品番の在庫数が増えているか確認して完了',
+        extraHint: {
+          text: '在庫が足りないか心配なときは…',
+          link: {
+            label: '部品供給試算',
+            path: '/production/parts-supply-simulation',
+          },
+        },
         links: [
           { label: '③ 在庫照会を開く', path: '/inventory/inquiry?flow=receipt-flow&fstep=3' },
         ],
@@ -1299,6 +1310,12 @@ export const WORKFLOW_TRACKS: WorkflowTrack[] = [
         actionSteps: [
           '① 品番・倉庫で絞り込み「検索」を押す',
           '② 入庫した数量が「現在庫数」に反映されているか確認して完了',
+        ],
+        subButtons: [
+          {
+            label: '在庫が足りないか心配なときは：部品供給試算',
+            path: '/production/parts-supply-simulation',
+          },
         ],
         nextButtonLabel: '✓ 完了（トップへ戻る）',
       },

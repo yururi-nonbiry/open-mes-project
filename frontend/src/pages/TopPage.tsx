@@ -245,6 +245,17 @@ const TopPage: React.FC<TopPageProps> = ({
                           ))}
                         </div>
                       )}
+
+                      {phase.extraHint && (
+                        <div className="workflow-phase-extra-hint">
+                          <span className="extra-hint-text">{phase.extraHint.text}</span>
+                          <Link to={phase.extraHint.link.path} className="workflow-quick-chip extra-hint-chip">
+                            <NavIcon name="simulation" size={13} />
+                            <span>{phase.extraHint.link.label}</span>
+                            <span className="chip-arrow">›</span>
+                          </Link>
+                        </div>
+                      )}
                     </div>
                   </React.Fragment>
                 ))}
