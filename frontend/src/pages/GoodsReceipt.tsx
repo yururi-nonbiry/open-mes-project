@@ -3,6 +3,8 @@ import { Modal, Button, Spinner, Alert } from 'react-bootstrap';
 import { useStockPurposes } from '../hooks/useStockPurposes';
 import ReceiptLocationMap from '../components/common/ReceiptLocationMap';
 import authFetch, { ApiError } from '../utils/api';
+import { executeQrAction } from '../utils/qrAction';
+import { useNavigate } from 'react-router-dom';
 import inventoryService from '../services/inventoryService';
 import { NavIcon } from '../components/NavIcon';
 import './InventoryInquiry.css';
@@ -78,6 +80,7 @@ const GoodsReceipt: React.FC = () => {
   const [searchFields, setSearchFields] = useState<DisplaySetting[]>([]);
 
   const [filters, setFilters] = useState<Record<string, string>>(defaultFilters);
+  const navigate = useNavigate();
 
   // 入庫処理モーダル
   const [receiptModal, setReceiptModal] = useState<{
@@ -230,6 +233,32 @@ const GoodsReceipt: React.FC = () => {
 
   const handleSearch = () => {
     fetchPurchaseOrders();
+  };
+
+  // 検索欄でEnter(ハンディQRリーダーの読取含む): QRコードアクションに一致すれば実行し、なければ通常の検索
+  const handleSearchEnter = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
+    e.preventDefault();
+    const fieldName = e.currentTarget.name;
+    const text = e.currentTarget.value.trim();
+    if (!text) {
+      handleSearch();
+      return;
+    }
+    try {
+      const result = await executeQrAction<PurchaseOrderRow>(text);
+      if (result?.action === 'goods_receipt' && result.payload) {
+        openReceiptModal(result.payload);
+      } else if (result?.action === 'navigate' && result.navigate) {
+        navigate(result.navigate, { state: result.state });
+      } else if (result?.updateSearch) {
+        setFilters(prev => ({ ...prev, [fieldName]: result.updateSearch as string }));
+      } else {
+        handleSearch();
+      }
+    } catch (err) {
+      setError(`QRコード処理エラー: ${err instanceof Error ? err.message : String(err)}`);
+    }
   };
 
   // 入庫処理モーダルの開閉
@@ -537,6 +566,7 @@ const GoodsReceipt: React.FC = () => {
                   name={field.model_field_name}
                   value={filters[field.model_field_name] || ''}
                   onChange={handleFilterChange}
+                  onKeyDown={handleSearchEnter}
                   className="form-control form-control-sm"
                   placeholder={`${labelText}を入力...`}
                 />

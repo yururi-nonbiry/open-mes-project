@@ -5,6 +5,8 @@ import { NavIcon } from '../components/NavIcon';
 import { useWorkCenters } from '../hooks/useWorkCenters';
 import WarehouseLocationMapModal from './inventory/WarehouseLocationMapModal';
 import authFetch from '../utils/api';
+import { executeQrAction } from '../utils/qrAction';
+import { useNavigate } from 'react-router-dom';
 import type { DisplaySetting, ModelFieldInfo } from './types/listPage';
 
 const NUMERIC_FIELDS = ['quantity', 'shipped_quantity', 'reserved_quantity', 'remaining_quantity'];
@@ -41,6 +43,7 @@ const GoodsIssue: React.FC = () => {
   const [lineFilter, setLineFilter] = useState('');
   const [groupByLine, setGroupByLine] = useState(false);
   const workCenters = useWorkCenters();
+  const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
@@ -126,6 +129,34 @@ const GoodsIssue: React.FC = () => {
     }, 400);
     return () => clearTimeout(t);
   }, [keyword]);
+
+  // 検索欄でEnter(ハンディQRリーダーの読取含む): QRコードアクションに一致すれば実行し、なければ通常の検索
+  const handleKeywordEnter = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
+    e.preventDefault();
+    const text = keyword.trim();
+    if (!text) return;
+    try {
+      const result = await executeQrAction<SalesOrder>(text);
+      if (!result) {
+        setCommittedKeyword(keyword);
+        setCurrentPage(1);
+        return;
+      }
+      if (result.action === 'goods_issue' && result.payload) {
+        openModal(result.payload);
+      } else if (result.action === 'navigate' && result.navigate) {
+        navigate(result.navigate, { state: result.state });
+      } else if (result.updateSearch) {
+        setKeyword(result.updateSearch);
+      } else {
+        setCommittedKeyword(keyword);
+        setCurrentPage(1);
+      }
+    } catch (err) {
+      setError(`QRコード処理エラー: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  };
 
   const openModal = (order: SalesOrder) => {
     setSelectedOrder(order);
@@ -306,6 +337,7 @@ const GoodsIssue: React.FC = () => {
               type="text"
               value={keyword}
               onChange={e => setKeyword(e.target.value)}
+              onKeyDown={handleKeywordEnter}
               className="form-control form-control-sm"
               placeholder="受注番号・品番・倉庫を入力..."
             />
