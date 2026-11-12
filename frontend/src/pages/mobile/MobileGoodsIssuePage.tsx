@@ -233,7 +233,7 @@ const MobileGoodsIssuePage = () => {
                 setTimeout(() => {
                     handleCloseModal();
                     // Re-fetch data for the current page
-                    fetchSalesOrders(currentPage, committedSearchParams.q, committedSearchParams.status, committedSearchParams.from, committedSearchParams.to);
+                    fetchSalesOrders(currentPage, committedSearchParams.q, committedSearchParams.status, committedSearchParams.from, committedSearchParams.to, groupByLine);
                 }, 1500);
             } else {
                 setModalMessage({ text: result.message, type: 'danger' });

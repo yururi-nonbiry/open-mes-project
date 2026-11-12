@@ -4,6 +4,7 @@ from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
 
+from master.calendar import WorkCalendar
 from master.models import BillOfMaterial, Item
 
 from ..models import ProductionPlan, ProductionPlanMaterial
@@ -56,7 +57,10 @@ class IntermediatePlanTests(ProductionAPITestBase):
         self.assertEqual(child.planned_quantity, 20)
         self.assertEqual(child.status, "PENDING")
         self.assertEqual(child.planned_end_datetime, plan.planned_start_datetime)
-        self.assertEqual(child.planned_start_datetime, plan.planned_start_datetime - timedelta(days=2))
+        # リードタイムは稼働日数(土日・休日をまたぐと暦日とは一致しない)
+        self.assertEqual(
+            child.planned_start_datetime, WorkCalendar().subtract_workdays(plan.planned_start_datetime, 2)
+        )
         self.assertEqual(
             list(child.materials.values_list("material_id", "required_quantity")), [(self.material_item2.code, 60)]
         )
