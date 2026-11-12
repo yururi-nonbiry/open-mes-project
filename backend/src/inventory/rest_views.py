@@ -200,6 +200,9 @@ PURCHASE_ORDER_TEXT_SEARCH_FIELDS = (
 )
 
 
+PURCHASE_ORDER_INTEGER_SEARCH_FIELDS = ("quantity", "received_quantity", "delivered_quantity")
+
+
 class PurchaseOrderViewSet(viewsets.ModelViewSet):
     """
     API endpoint that allows purchase orders to be viewed or edited.
@@ -246,6 +249,15 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
                 | Q(item__icontains=search_q)
                 | Q(model_type__icontains=search_q)
             )
+
+        # 数値項目は完全一致。数値でない入力は無視する(StockMovementの数量検索と同じ扱い)
+        for field_name in PURCHASE_ORDER_INTEGER_SEARCH_FIELDS:
+            value = self.request.query_params.get(f"search_{field_name}")
+            if value:
+                try:
+                    filters &= Q(**{field_name: int(value)})
+                except ValueError:
+                    pass
 
         search_item_product_name = self.request.query_params.get("search_item_product_name")
         if search_item_product_name:

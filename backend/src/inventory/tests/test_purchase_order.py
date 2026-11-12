@@ -112,6 +112,31 @@ class PurchaseOrderCrudTests(InventoryAPITestBase):
                 self.assertEqual(response.status_code, status.HTTP_200_OK)
                 self.assertEqual([r["order_number"] for r in response.data["results"]], ["PO-001"])
 
+    def test_po_crud_16_every_text_field_is_searchable(self):
+        """モデルに文字列項目が増えたのに検索対象へ入れ忘れる(=画面で検索しても無視される)ことを防ぐ。"""
+        from django.db import models as dj_models
+
+        from inventory.rest_views import PURCHASE_ORDER_TEXT_SEARCH_FIELDS
+
+        handled = set(PURCHASE_ORDER_TEXT_SEARCH_FIELDS) | {"order_number", "shipment_number", "status"}
+        text_fields = {
+            f.name
+            for f in PurchaseOrder._meta.get_fields()
+            if isinstance(f, (dj_models.CharField, dj_models.TextField)) and not f.is_relation
+        }
+        self.assertEqual(text_fields - handled, set())
+
+    def test_po_crud_17_search_integer_fields(self):
+        url = reverse("inventory_api:purchaseorder-list")
+        response = self.client.get(url, {"search_quantity": "20"})
+        self.assertEqual([r["order_number"] for r in response.data["results"]], ["PO-002"])
+        response = self.client.get(url, {"search_received_quantity": "5"})
+        self.assertEqual([r["order_number"] for r in response.data["results"]], ["PO-002"])
+        # 数値でない入力はエラーにせず無視する
+        response = self.client.get(url, {"search_quantity": "abc"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 2)
+
     def test_po_crud_08_search_order_date_range(self):
         url = reverse("inventory_api:purchaseorder-list")
         # order_date は auto_now_add のため今日の日付を含む範囲で検索できることを確認する
