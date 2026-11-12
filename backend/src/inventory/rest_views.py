@@ -454,7 +454,11 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
         if self.request.query_params.get("exclude_internal", "false").lower() == "true":
             queryset = queryset.exclude(order_number__startswith=SalesOrder.INTERNAL_ORDER_PREFIX)
 
-        return queryset.select_related("item_rel", "warehouse_rel").order_by("expected_shipment", "order_number")
+        queryset = queryset.select_related("item_rel", "warehouse_rel")
+        # ラインごとにまとめて表示する場合は、出庫先ライン順(ライン未指定は最後)に並べる
+        if self.request.query_params.get("group_by_line", "false").lower() == "true":
+            return queryset.order_by(F("line_rel__code").asc(nulls_last=True), "expected_shipment", "order_number")
+        return queryset.order_by("expected_shipment", "order_number")
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()

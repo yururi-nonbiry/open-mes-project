@@ -3,6 +3,7 @@ import WarehouseLocationMapModal from '../inventory/WarehouseLocationMapModal';
 import { Container, Form, Button, Row, Col, Card, Badge, Modal, Spinner, Alert, Pagination as BootstrapPagination, InputGroup } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import authFetch, { handleError } from '../../utils/api';
+import { useWorkCenters } from '../../hooks/useWorkCenters';
 import inventoryService, { SalesOrder, validateIssueQuantity } from '../../services/inventoryService';
 import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library';
 import CameraIcon from '../../components/common/CameraIcon';
@@ -28,6 +29,8 @@ const MobileGoodsIssuePage = () => {
     const [searchStatusInput, setSearchStatusInput] = useState('pending');
     const [dateFromInput, setDateFromInput] = useState(todayLocal);
     const [dateToInput, setDateToInput] = useState('');
+    const [groupByLine, setGroupByLine] = useState(false);
+    const workCenters = useWorkCenters();
 
     // State for committed search params that trigger fetch
     const [committedSearchParams, setCommittedSearchParams] = useState({ q: '', status: 'pending', from: todayLocal(), to: '' });
@@ -58,12 +61,12 @@ const MobileGoodsIssuePage = () => {
 
     const navigate = useNavigate();
 
-    const fetchSalesOrders = useCallback(async (page: number, query: string, status: string, from: string, to: string) => {
+    const fetchSalesOrders = useCallback(async (page: number, query: string, status: string, from: string, to: string, grouped: boolean) => {
         setLoading(true);
         setError(null);
         
         try {
-            const data = await inventoryService.getIssuableSalesOrders({ page, pageSize, q: query, status, expectedFrom: from, expectedTo: to });
+            const data = await inventoryService.getIssuableSalesOrders({ page, pageSize, q: query, status, expectedFrom: from, expectedTo: to, groupByLine: grouped });
             setSalesOrders(data.results || []);
             setTotalPages(data.total_pages || 0);
             setTotalCount(data.count || 0);
@@ -79,8 +82,8 @@ const MobileGoodsIssuePage = () => {
 
     // Effect to fetch data when page or committed search params change
     useEffect(() => {
-        fetchSalesOrders(currentPage, committedSearchParams.q, committedSearchParams.status, committedSearchParams.from, committedSearchParams.to);
-    }, [currentPage, committedSearchParams, fetchSalesOrders]);
+        fetchSalesOrders(currentPage, committedSearchParams.q, committedSearchParams.status, committedSearchParams.from, committedSearchParams.to, groupByLine);
+    }, [currentPage, committedSearchParams, groupByLine, fetchSalesOrders]);
 
     // --- Camera Scan Logic ---
     const startCameraScan = (targetSetter: ScanTargetSetter) => {
@@ -200,6 +203,7 @@ const MobileGoodsIssuePage = () => {
         setSearchStatusInput('pending');
         setDateFromInput(todayLocal());
         setDateToInput('');
+        setGroupByLine(false);
         setCurrentPage(1);
         setCommittedSearchParams({ q: '', status: 'pending', from: todayLocal(), to: '' });
     };
@@ -326,6 +330,14 @@ const MobileGoodsIssuePage = () => {
                         </Form.Group>
                     </Col>
                 </Row>
+                <Form.Check
+                    className="mb-2"
+                    type="checkbox"
+                    id="group-by-line"
+                    label="ラインごとにまとめて表示"
+                    checked={groupByLine}
+                    onChange={(e) => { setGroupByLine(e.target.checked); setCurrentPage(1); }}
+                />
                 <Row className="g-2">
                     <Col xs={6}>
                         <Button variant="secondary" className="w-100" type="button" onClick={handleReset}>リセット</Button>
@@ -345,8 +357,18 @@ const MobileGoodsIssuePage = () => {
             ) : error ? (
                 <Alert variant="danger">{error}</Alert>
             ) : salesOrders.length > 0 ? (
-                salesOrders.map(order => (
-                    <Card className="mb-3" key={order.id}>
+                salesOrders.map((order, index) => {
+                  const lineCode = order.line || '';
+                  const showLineHeader = groupByLine && (index === 0 || (salesOrders[index - 1].line || '') !== lineCode);
+                  const lineName = workCenters.find(w => w.code === lineCode)?.name;
+                  return (
+                    <div key={order.id}>
+                    {showLineHeader && (
+                        <h6 className="bg-secondary text-white rounded px-2 py-1 mb-2">
+                            {lineCode ? `${lineCode}${lineName ? `（${lineName}）` : ''}` : '出庫先ライン未指定'}
+                        </h6>
+                    )}
+                    <Card className="mb-3">
                         <Card.Header className="d-flex justify-content-between align-items-center">
                             <h5 className="mb-0">{order.order_number || 'N/A'}</h5>
                             <Badge bg="info" text="dark">{order.status_display || ''}</Badge>
@@ -391,7 +413,9 @@ const MobileGoodsIssuePage = () => {
                             </Button>
                         </Card.Footer>
                     </Card>
-                ))
+                    </div>
+                  );
+                })
             ) : (
                 <Alert variant="secondary" className="text-center">データがありません。</Alert>
             )}

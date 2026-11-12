@@ -39,6 +39,7 @@ const GoodsIssue: React.FC = () => {
   const [dateFrom, setDateFrom] = useState(todayLocal);
   const [dateTo, setDateTo] = useState('');
   const [lineFilter, setLineFilter] = useState('');
+  const [groupByLine, setGroupByLine] = useState(false);
   const workCenters = useWorkCenters();
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -66,6 +67,7 @@ const GoodsIssue: React.FC = () => {
         expectedFrom: dateFrom || undefined,
         expectedTo: dateTo || undefined,
         line: lineFilter || undefined,
+        groupByLine,
       });
       setSalesOrders(data.results || []);
       setTotalPages(data.total_pages || 1);
@@ -76,7 +78,7 @@ const GoodsIssue: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, committedKeyword, dateFrom, dateTo, lineFilter]);
+  }, [currentPage, committedKeyword, dateFrom, dateTo, lineFilter, groupByLine]);
 
   useEffect(() => {
     fetchSalesOrders();
@@ -244,9 +246,28 @@ const GoodsIssue: React.FC = () => {
         </tr>
       );
     }
-    return filteredOrders.map(order => {
+    const lineLabel = (code: string) => {
+      if (!code) return '出庫先ライン未指定';
+      const w = workCenters.find(x => x.code === code);
+      return w?.name ? `${code}（${w.name}）` : code;
+    };
+    return filteredOrders.flatMap((order, index) => {
       const canIssue = order.remaining_quantity > 0;
-      return (
+      const lineCode = order.line || '';
+      const rows: React.ReactNode[] = [];
+      // ラインごとにまとめて表示する場合は、ラインが変わるところに見出し行を入れる
+      if (groupByLine && (index === 0 || (filteredOrders[index - 1].line || '') !== lineCode)) {
+        const countInPage = filteredOrders.filter(o => (o.line || '') === lineCode).length;
+        rows.push(
+          <tr key={`line-header-${lineCode || 'none'}-${index}`} className="table-secondary">
+            <td colSpan={colSpan} className="fw-bold">
+              {lineLabel(lineCode)}
+              <span className="ms-2 small fw-normal text-muted">このページ {countInPage} 件</span>
+            </td>
+          </tr>
+        );
+      }
+      rows.push(
         <tr key={order.id} className={canIssue ? '' : 'receipt-row-completed'}>
           {columns.map((setting: DisplaySetting) => renderCell(order, setting.model_field_name, canIssue))}
           <td className="text-center text-nowrap">
@@ -268,6 +289,7 @@ const GoodsIssue: React.FC = () => {
           </td>
         </tr>
       );
+      return rows;
     });
   };
 
@@ -328,6 +350,20 @@ const GoodsIssue: React.FC = () => {
                 <option key={w.code} value={w.code}>{w.code}{w.name ? `（${w.name}）` : ''}</option>
               ))}
             </select>
+          </div>
+          <div className="receipt-search-field d-flex align-items-end">
+            <div className="form-check mb-1">
+              <input
+                id="issue-group-by-line"
+                type="checkbox"
+                className="form-check-input"
+                checked={groupByLine}
+                onChange={e => { setGroupByLine(e.target.checked); setCurrentPage(1); }}
+              />
+              <label className="form-check-label small fw-semibold" htmlFor="issue-group-by-line">
+                ラインごとにまとめて表示
+              </label>
+            </div>
           </div>
           <div className="receipt-search-actions">
             <button type="button" onClick={fetchSalesOrders} className="btn btn-primary btn-sm fw-bold px-3">

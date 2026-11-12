@@ -34,6 +34,24 @@ class SalesOrderCrudTests(InventoryAPITestBase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual([r["order_number"] for r in response.data["results"]], ["SO-001"])
 
+    def test_so_crud_10_group_by_line_orders_by_line_with_unassigned_last(self):
+        from master.models import WorkCenter
+
+        WorkCenter.objects.create(code="L2", name="ライン2")
+        WorkCenter.objects.create(code="L1", name="ライン1")
+        so3 = self.create_sales_order(
+            order_number="SO-003", item=self.item1.code, warehouse=self.warehouse_a.warehouse_number, quantity=1
+        )
+        self.so1.line_rel_id = "L2"
+        self.so1.save()
+        so3.line_rel_id = "L1"
+        so3.save()
+        url = reverse("inventory_api:salesorder-list")
+        response = self.client.get(url, {"group_by_line": "true"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # L1 → L2 → ライン未指定(SO-002)の順
+        self.assertEqual([r["order_number"] for r in response.data["results"]], ["SO-003", "SO-001", "SO-002"])
+
     def test_so_crud_02_search_order_number(self):
         url = reverse("inventory_api:salesorder-list")
         response = self.client.get(url, {"search_order_number": "SO-001"})
