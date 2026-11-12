@@ -76,6 +76,42 @@ class PurchaseOrderCrudTests(InventoryAPITestBase):
         self.assertEqual(response.data["count"], 1)
         self.assertEqual(response.data["results"][0]["order_number"], "PO-001")
 
+    def test_po_crud_14_search_model_type(self):
+        self.po1.model_type = "ABC-100"
+        self.po1.save()
+        self.po2.model_type = "XYZ-200"
+        self.po2.save()
+        url = reverse("inventory_api:purchaseorder-list")
+        response = self.client.get(url, {"search_model_type": "abc"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual([r["order_number"] for r in response.data["results"]], ["PO-001"])
+        # モバイル用の横断検索でも機種で探せる
+        response = self.client.get(url, {"search_q": "XYZ"})
+        self.assertEqual([r["order_number"] for r in response.data["results"]], ["PO-002"])
+
+    def test_po_crud_15_search_other_text_fields(self):
+        fields = {
+            "item": "Item A",
+            "product_name": "ProdName",
+            "parent_part_number": "PARENT-1",
+            "instruction_document": "DOC-1",
+            "color_info": "RED",
+            "delivery_destination": "DEST-1",
+            "delivery_source": "SRC-1",
+            "location": "LOC-1",
+            "remarks1": "REM-1",
+            "remarks5": "REM-5",
+        }
+        for name, value in fields.items():
+            setattr(self.po1, name, value)
+        self.po1.save()
+        url = reverse("inventory_api:purchaseorder-list")
+        for name, value in fields.items():
+            with self.subTest(field=name):
+                response = self.client.get(url, {f"search_{name}": value.lower()})
+                self.assertEqual(response.status_code, status.HTTP_200_OK)
+                self.assertEqual([r["order_number"] for r in response.data["results"]], ["PO-001"])
+
     def test_po_crud_08_search_order_date_range(self):
         url = reverse("inventory_api:purchaseorder-list")
         # order_date は auto_now_add のため今日の日付を含む範囲で検索できることを確認する

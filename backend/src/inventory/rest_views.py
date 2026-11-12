@@ -181,6 +181,25 @@ class InventoryViewSet(viewsets.ModelViewSet):
         return Response({"message": "在庫を正常に調整しました。"})
 
 
+# 入庫予定の検索項目として画面から `search_<フィールド名>` で送られうる文字列フィールド
+PURCHASE_ORDER_TEXT_SEARCH_FIELDS = (
+    "item",
+    "product_name",
+    "parent_part_number",
+    "instruction_document",
+    "model_type",
+    "color_info",
+    "delivery_destination",
+    "delivery_source",
+    "location",
+    "remarks1",
+    "remarks2",
+    "remarks3",
+    "remarks4",
+    "remarks5",
+)
+
+
 class PurchaseOrderViewSet(viewsets.ModelViewSet):
     """
     API endpoint that allows purchase orders to be viewed or edited.
@@ -206,7 +225,11 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
             "search_supplier": "supplier_rel__name__icontains",
             "search_part_number": "part_number_rel__code__icontains",
             "search_warehouse": "warehouse_rel__warehouse_number__icontains",
+            "search_purpose": "purpose_rel__code__icontains",
         }
+        # 表示設定で検索項目にできる文字列フィールドは、画面から `search_<フィールド名>` で送られてくる
+        for field_name in PURCHASE_ORDER_TEXT_SEARCH_FIELDS:
+            search_params_text[f"search_{field_name}"] = f"{field_name}__icontains"
         for param, field_lookup in search_params_text.items():
             value = self.request.query_params.get(param)
             if value:
@@ -221,6 +244,7 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
                 | Q(product_name__icontains=search_q)
                 | Q(supplier_rel__name__icontains=search_q)
                 | Q(item__icontains=search_q)
+                | Q(model_type__icontains=search_q)
             )
 
         search_item_product_name = self.request.query_params.get("search_item_product_name")
@@ -378,6 +402,10 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
         search_warehouse = self.request.query_params.get("search_warehouse")
         if search_warehouse:
             filters &= Q(warehouse_rel__warehouse_number__icontains=search_warehouse)
+
+        search_purpose = self.request.query_params.get("search_purpose")
+        if search_purpose:
+            filters &= Q(purpose_rel__code__icontains=search_purpose)
 
         search_status = self.request.query_params.get("search_status")
         if search_status:
@@ -572,6 +600,8 @@ class StockMovementViewSet(viewsets.ReadOnlyModelViewSet):
             "search_reference_document": "reference_document__icontains",
             "search_description": "description__icontains",
             "search_operator": "operator__username__icontains",
+            "search_location": "location__icontains",
+            "search_purpose": "purpose_rel__code__icontains",
         }
         for param, field_lookup in text_search_params.items():
             value = self.request.query_params.get(param)

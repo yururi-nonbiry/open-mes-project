@@ -23,6 +23,17 @@ class SalesOrderCrudTests(InventoryAPITestBase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["count"], 2)
 
+    def test_so_crud_09_search_purpose(self):
+        from master.models import StockPurpose
+
+        StockPurpose.objects.create(code="PRD-A", name="A製品用")
+        self.so1.purpose_rel_id = "PRD-A"
+        self.so1.save()
+        url = reverse("inventory_api:salesorder-list")
+        response = self.client.get(url, {"search_purpose": "prd-a"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual([r["order_number"] for r in response.data["results"]], ["SO-001"])
+
     def test_so_crud_02_search_order_number(self):
         url = reverse("inventory_api:salesorder-list")
         response = self.client.get(url, {"search_order_number": "SO-001"})

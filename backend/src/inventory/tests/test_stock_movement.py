@@ -57,3 +57,13 @@ class StockMovementTests(InventoryAPITestBase):
         url = reverse("inventory_api:stockmovement-detail", kwargs={"pk": movement.id})
         response = self.client.delete(url)
         self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    def test_sm_list_04_search_location(self):
+        StockMovement.objects.create(
+            part_number=self.item1.code, warehouse=self.warehouse_a.warehouse_number,
+            movement_type="incoming", quantity=1, location="A-01-02",
+        )
+        url = reverse("inventory_api:stockmovement-list")
+        response = self.client.get(url, {"search_location": "a-01"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
