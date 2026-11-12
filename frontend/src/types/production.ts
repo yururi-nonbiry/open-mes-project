@@ -275,3 +275,25 @@ export interface PartsSupplySimulationResult {
     parts: PartsSupplySimulationPartResult[];
 }
 
+
+/** 一覧に表示する、生産計画ごとの引当状況 */
+export type PlanAllocationState = 'NO_MASTER' | 'NO_PARTS' | 'ALLOCATED' | 'READY' | 'SHORTAGE';
+
+export interface PlanAllocationOverview {
+    plan_id: string;
+    state: PlanAllocationState;
+    has_bom: boolean;
+    part_count: number;
+    allocated_part_count: number;
+    shortage_part_count: number;
+    shortage_parts: string[];
+}
+
+/** まとめ引当の計画ごとの結果 */
+export interface BulkAllocationResult {
+    plan_id: string;
+    plan_name: string;
+    status: 'success' | 'partial' | 'skipped' | 'error';
+    message: string;
+    allocated_count: number;
+}

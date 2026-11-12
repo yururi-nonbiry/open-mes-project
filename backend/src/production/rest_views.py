@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Count, Exists, OuterRef, Q
 from master.models import BillOfMaterial
 from django_filters import rest_framework as filters  # django-filterをインポート
@@ -44,6 +45,7 @@ from .services.intermediates import (
     material_required_quantities,
     trim_child_plans,
 )
+from .services.bulk_allocation import bulk_allocate_materials, get_allocation_overview
 from .services.materials import allocated_quantity_by_material, normal_allocations
 
 
@@ -233,6 +235,35 @@ class ProductionPlanViewSet(viewsets.ModelViewSet):
             },
             status=status.HTTP_200_OK,
         )
+
+    def _plans_from_ids(self, ids):
+        """ids(UUID文字列のリスト)に一致する計画を、指定順で返す。"""
+        if not isinstance(ids, list) or not ids:
+            raise ValueError("生産計画を1件以上指定してください。")
+        try:
+            plans = {str(p.id): p for p in self.get_queryset().filter(pk__in=ids)}
+        except (DjangoValidationError, ValueError):
+            raise ValueError("生産計画の指定が不正です。") from None
+        return [plans[str(i)] for i in ids if str(i) in plans]
+
+    @action(detail=False, methods=["get"], url_path="allocation-overview")
+    def allocation_overview(self, request):
+        """一覧用に、計画ごとの引当状況(マスターの有無・引当の進み具合・在庫が足りているか)を返します。"""
+        ids = [i for i in request.query_params.get("ids", "").split(",") if i]
+        try:
+            plans = self._plans_from_ids(ids)
+        except ValueError as e:
+            return error_response(e)
+        return Response([get_allocation_overview(p, has_bom=p.has_bom) for p in plans])
+
+    @action(detail=False, methods=["post"], url_path="bulk-allocate-materials")
+    def bulk_allocate_materials(self, request):
+        """複数の生産計画の未引当分を、在庫の多い倉庫からまとめて引き当てます。計画ごとに結果を返します。"""
+        try:
+            plans = self._plans_from_ids(request.data.get("plan_ids"))
+        except ValueError as e:
+            return error_response(e)
+        return Response({"results": bulk_allocate_materials(plans)}, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["post"], url_path="update-progress")
     def update_progress(self, request, pk=None):

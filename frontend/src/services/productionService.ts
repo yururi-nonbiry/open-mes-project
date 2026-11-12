@@ -15,7 +15,9 @@ import {
     AdditionalIssueItem,
     MaterialAllocation,
     IntermediateRequirement,
-    IntermediateDecision
+    IntermediateDecision,
+    PlanAllocationOverview,
+    BulkAllocationResult
 } from '../types/production';
 
 /**
@@ -105,6 +107,25 @@ const productionService = {
         });
         await handleError(response, 'Allocation failed');
         return await response.json() as AllocateMaterialsResponse;
+    },
+
+    /** 一覧用: 計画ごとの引当状況(マスターの有無・引当の進み具合・在庫が足りているか) */
+    getAllocationOverview: async (ids: string[]) => {
+        if (ids.length === 0) return [] as PlanAllocationOverview[];
+        const response = await authFetch(`/api/production/plans/allocation-overview/?ids=${ids.map(encodeURIComponent).join(',')}`);
+        await handleError(response, '引当状況の取得に失敗しました。');
+        return await response.json() as PlanAllocationOverview[];
+    },
+
+    /** 複数の計画の未引当分をまとめて引き当てる */
+    bulkAllocateMaterials: async (planIds: string[]) => {
+        const response = await authFetch('/api/production/plans/bulk-allocate-materials/', {
+            method: 'POST',
+            body: JSON.stringify({ plan_ids: planIds }),
+        });
+        await handleError(response, 'まとめ引当に失敗しました。');
+        const data = await response.json() as { results: BulkAllocationResult[] };
+        return data.results;
     },
 
     /** 生産計画の所要部品(部品構成)の一覧 */

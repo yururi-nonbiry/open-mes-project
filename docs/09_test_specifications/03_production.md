@@ -246,6 +246,18 @@
 | PP-LINE-04 | 正常系/異常系 | 引当済みの引当 | ラインをPATCHで変更→ピッキング→再度変更 | 引当済の間は変更でき内部出庫予定にも反映。出庫の在庫移動に出庫時点のラインを記録。ピッキング後の変更は400 | |
 | PP-LINE-05 | 正常系 | LINE-1の引当 | `?line=LINE-1`／`LINE-2`／`none` で一覧取得 | 1件／0件／0件 | |
 
+### 5.14 一覧での引当状況とまとめ引当（`GET plans/allocation-overview/`・`POST plans/bulk-allocate-materials/`、`production/tests/test_bulk_allocation.py`）
+
+| ケースID | 分類 | 対象 | 前提条件 | 手順・入力 | 期待結果 | 備考 |
+|---|---|---|---|---|---|---|
+| PP-BULK-01 | 正常系 | `allocation-overview` | 製品にBOMなし | 計画IDを指定 | state=NO_MASTER | |
+| PP-BULK-02 | 正常系 | `allocation-overview` | 在庫あり→在庫のない部品を追加 | 計画IDを指定 | READY、その後SHORTAGE(不足部品のコードを返す) | |
+| PP-BULK-03 | 正常系 | `bulk-allocate-materials` | 1倉庫では足りず2倉庫の合計で足りる | 計画IDを指定 | 200、倉庫をまたいで所要数を引当、state=ALLOCATED | |
+| PP-BULK-04 | 正常系 | `bulk-allocate-materials` | 在庫が所要に満たない | 計画IDを指定 | status=partial、引当可能な数量だけ引当 | |
+| PP-BULK-05 | 正常系 | `bulk-allocate-materials` | 完了計画と通常の計画を同時に指定 | 計画IDを指定 | 完了計画は対象外(引当なし)、通常の計画は引当される | |
+| PP-BULK-06 | 正常系 | `bulk-allocate-materials` | 引当済みの計画 | 2回続けて実行 | 2回目は対象外で、引当が重複しない | |
+| PP-BULK-07 | 異常系 | `bulk-allocate-materials` | 計画IDが空・不正 | 実行 | 400 | |
+
 ## 6. シリアライザの read_only_fields 確認
 
 | ケースID | 分類 | 対象 | 内容 |
