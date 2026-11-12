@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { applyShelfInput } from '../../utils/shelfQr';
 import authFetch, { ApiError, handleError } from '../../utils/api';
 import inventoryService from '../../services/inventoryService';
 import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library';
@@ -205,7 +206,7 @@ const MobileGoodsReceiptPage = () => {
 
   const handleReceiptFormChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setReceiptFormData(prev => ({ ...prev, [name]: value }));
+    setReceiptFormData(prev => applyShelfInput(prev, name, value, 'location', 'warehouse'));
   };
 
   const handleReceiptSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -307,7 +308,7 @@ const MobileGoodsReceiptPage = () => {
               <label htmlFor="location" className="form-label">入庫棚番</label>
               <div className="input-group">
                 <input type="text" id="location" name="location" value={receiptFormData.location} onChange={handleReceiptFormChange} className="form-control" placeholder="棚番" />
-                <button className="btn btn-outline-secondary" type="button" onClick={() => startCameraScan((value: string) => setReceiptFormData(prev => ({ ...prev, location: value })))} title="カメラでスキャン" aria-label="カメラでスキャン"><CameraIcon /></button>
+                <button className="btn btn-outline-secondary" type="button" onClick={() => startCameraScan((value: string) => setReceiptFormData(prev => applyShelfInput(prev, 'location', value, 'location', 'warehouse')))} title="カメラでスキャン" aria-label="カメラでスキャン"><CameraIcon /></button>
               </div>
             </div>
             <div className="mb-3">

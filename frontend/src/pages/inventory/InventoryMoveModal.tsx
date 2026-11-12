@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Button, Alert } from 'react-bootstrap';
 import inventoryService, { InventoryItem } from '../../services/inventoryService';
 import { NavIcon } from '../../components/NavIcon';
+import { applyShelfInput, parseShelfQr } from '../../utils/shelfQr';
 import type { ApiErrorLike } from '../apiError';
 
 interface InventoryMoveModalProps {
@@ -37,6 +38,11 @@ const InventoryMoveModal: React.FC<InventoryMoveModalProps> = ({
 
     const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
+        if (name === 'target_location' && parseShelfQr(value)) {
+            // バーコードリーダーで棚番QRが入力された場合は倉庫と棚番に振り分ける
+            setFormData(prev => applyShelfInput(prev, name, value, 'target_location', 'target_warehouse'));
+            return;
+        }
         setFormData(prev => ({
             ...prev,
             [name]: name === 'quantity_to_move' ? parseInt(value) || 0 : value

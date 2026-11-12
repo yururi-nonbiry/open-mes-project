@@ -4,6 +4,7 @@ import { useStockPurposes } from '../hooks/useStockPurposes';
 import ReceiptLocationMap from '../components/common/ReceiptLocationMap';
 import authFetch, { ApiError } from '../utils/api';
 import { executeQrAction } from '../utils/qrAction';
+import { applyShelfInput } from '../utils/shelfQr';
 import { useNavigate } from 'react-router-dom';
 import inventoryService from '../services/inventoryService';
 import { NavIcon } from '../components/NavIcon';
@@ -279,7 +280,8 @@ const GoodsReceipt: React.FC = () => {
 
   const handleReceiptFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setReceiptFormData(prev => ({ ...prev, [name]: value }));
+    // バーコードリーダーで棚番QR({"warehouse","shelf"})が入力された場合は倉庫と棚番に振り分ける
+    setReceiptFormData(prev => applyShelfInput(prev, name, value, 'location', 'warehouse'));
   };
 
   const handleReceiptSubmit = async (e: React.FormEvent) => {

@@ -8,6 +8,7 @@ import { useStockPurposes } from '../../hooks/useStockPurposes';
 import './MobileLocationTransferPage.css'; // 新しいCSSファイルをインポート
 import type { ChangeEvent, FormEvent } from 'react';
 import { errorMessage } from './mobileTypes';
+import { parseShelfQr } from '../../utils/shelfQr';
 import type { CameraState, LocationInventoryItem, MobileMessage, QrActionResponse, ScanTargetSetter, TransferModalState } from './mobileTypes';
 
 const MobileLocationTransferPage = () => {
@@ -96,6 +97,21 @@ const MobileLocationTransferPage = () => {
   const handleModalFormChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setModalState(prev => ({ ...prev, [name]: value }));
+  };
+
+  // 棚番QR({"warehouse","shelf"})の読取・入力なら倉庫と棚番に振り分け、それ以外は入力値をそのまま設定する
+  const applySourceInput = (value: string) => {
+    const shelf = parseShelfQr(value);
+    if (!shelf) {
+      setSourceLocation(value);
+      return;
+    }
+    setSourceLocation(shelf.shelf);
+    if (shelf.warehouse) setWarehouse(shelf.warehouse);
+  };
+  const applyTargetInput = (value: string) => {
+    const shelf = parseShelfQr(value);
+    setModalState(prev => ({ ...prev, targetLocation: shelf ? shelf.shelf : value }));
   };
 
   // 移動実行処理
@@ -299,8 +315,8 @@ const MobileLocationTransferPage = () => {
         <div className="mb-3">
           <label htmlFor="source_location_input" className="form-label fw-bold">移動元棚番</label>
           <div className="input-group">
-            <input type="text" className="form-control form-control-lg" id="source_location_input" placeholder="移動元をスキャン" value={sourceLocation} onChange={e => setSourceLocation(e.target.value)} required />
-            <button className="btn btn-outline-secondary" type="button" onClick={() => startCameraScan(setSourceLocation)} title="カメラでスキャン" aria-label="カメラでスキャン"><CameraIcon /></button>
+            <input type="text" className="form-control form-control-lg" id="source_location_input" placeholder="移動元をスキャン" value={sourceLocation} onChange={e => applySourceInput(e.target.value)} required />
+            <button className="btn btn-outline-secondary" type="button" onClick={() => startCameraScan(applySourceInput)} title="カメラでスキャン" aria-label="カメラでスキャン"><CameraIcon /></button>
           </div>
         </div>
         {renderMessage(message)}
@@ -342,8 +358,8 @@ const MobileLocationTransferPage = () => {
                 <div className="mb-3">
                   <label htmlFor="targetLocation" className="form-label fw-bold">移動先棚番</label>
                   <div className="input-group">
-                    <input type="text" id="targetLocation" name="targetLocation" className="form-control form-control-lg" placeholder="移動先をスキャン" value={targetLocation} onChange={handleModalFormChange} required />
-                    <button className="btn btn-outline-secondary" type="button" onClick={() => startCameraScan((val: string) => setModalState(p => ({ ...p, targetLocation: val })))} title="カメラでスキャン" aria-label="カメラでスキャン"><CameraIcon /></button>
+                    <input type="text" id="targetLocation" name="targetLocation" className="form-control form-control-lg" placeholder="移動先をスキャン" value={targetLocation} onChange={e => applyTargetInput(e.target.value)} required />
+                    <button className="btn btn-outline-secondary" type="button" onClick={() => startCameraScan(applyTargetInput)} title="カメラでスキャン" aria-label="カメラでスキャン"><CameraIcon /></button>
                   </div>
                 </div>
                 {renderMessage(modalMessage)}
