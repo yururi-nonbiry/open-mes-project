@@ -105,3 +105,32 @@ class QrCodeActionExecuteTests(BaseAPITestBase):
         response = self.client.post(self.url, {"qr_data": "ITEM-001"}, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["action_name"], self.qr_action.name)
+
+
+class QrCodeActionUpdateSearchTests(BaseAPITestBase):
+    """BASE-QRSEARCH-* : update_search。読み取った値から必要な部分だけを検索語として返す。"""
+
+    QR = "LOT-12345-X    sample value"
+
+    def setUp(self):
+        super().setUp()
+        self.url = reverse("base_api:qr-code-action-execute-action")
+        self.client.force_authenticate(user=self.user)
+
+    def test_base_qrsearch_01_extracts_first_group(self):
+        """前後の文字列は変わっても、括弧で囲んだ数字5桁だけが検索語になる。"""
+        self.create_qr_code_action(qr_code_pattern=r"^LOT-(\d{5})-[A-Z]", action_name="update_search")
+        for qr, expected in [(self.QR, "12345"), ("LOT-67890-Y rest", "67890")]:
+            response = self.client.post(self.url, {"qr_data": qr}, format="json")
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            self.assertEqual(response.data["result"], {"action": "update_search", "updateSearch": expected})
+
+    def test_base_qrsearch_02_no_group_uses_whole_value(self):
+        self.create_qr_code_action(qr_code_pattern=r"^PO-.+", action_name="update_search")
+        response = self.client.post(self.url, {"qr_data": "PO-001"}, format="json")
+        self.assertEqual(response.data["result"]["updateSearch"], "PO-001")
+
+    def test_base_qrsearch_03_non_matching_value_returns_404(self):
+        self.create_qr_code_action(qr_code_pattern=r"^LOT-(\d{5})-[A-Z]", action_name="update_search")
+        response = self.client.post(self.url, {"qr_data": "ABC"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)

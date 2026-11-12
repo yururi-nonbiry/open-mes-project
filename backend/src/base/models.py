@@ -182,6 +182,7 @@ class QrCodeAction(models.Model):
     ]
 
     ACTION_NAME_CHOICES = [
+        ("update_search", _("検索欄に入力（パターンで抜き出した部分）")),
         ("mark_as_received", _("入庫としてマーク")),
         ("update_inventory", _("在庫更新")),
     ]

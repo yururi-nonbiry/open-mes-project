@@ -384,18 +384,27 @@ class CsvColumnMappingViewSet(AuditSettingsChangeMixin, IntegrityErrorAsBadReque
 
 
 # 安全に実行可能なアクション関数を定義
-def action_mark_as_received(qr_data):
+def action_update_search(qr_data, match=None):
+    keyword = qr_data
+    if match is not None:
+        keyword = next((g for g in match.groups() if g), None) if match.re.groups else None
+        keyword = keyword or match.group(0) or qr_data
+    return {"action": "update_search", "updateSearch": keyword}
+
+
+def action_mark_as_received(qr_data, match=None):
     """入庫としてマーク（仮実装）"""
     return {"status": "received", "data": qr_data}
 
 
-def action_update_inventory(qr_data):
+def action_update_inventory(qr_data, match=None):
     """在庫更新（仮実装）"""
     return {"status": "updated", "data": qr_data}
 
 
 # アクション名と関数のマッピング
 REGISTERED_ACTIONS = {
+    "update_search": action_update_search,
     "mark_as_received": action_mark_as_received,
     "update_inventory": action_update_inventory,
 }
@@ -439,7 +448,7 @@ class QrCodeActionViewSet(AuditSettingsChangeMixin, viewsets.ModelViewSet):
                     action_func = REGISTERED_ACTIONS.get(action_obj.action_name)
                     if action_func:
                         # 実行時の想定外例外は共通の例外ハンドラがログ出力して500を返す
-                        result = action_func(qr_data)
+                        result = action_func(qr_data, matched)
                         return Response({"action_name": action_obj.name, "result": result})
 
         return error_response("No matching action found for the given QR data.", status.HTTP_404_NOT_FOUND)
