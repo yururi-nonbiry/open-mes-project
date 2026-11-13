@@ -38,6 +38,19 @@ export interface SalesOrder {
     is_internal: boolean;
 }
 
+export interface AdminPurchaseOrder {
+    id: string;
+    order_number: string | null;
+    item: string | null;
+    part_number: string | null;
+    product_name: string | null;
+    quantity: number | null;
+    received_quantity: number;
+    expected_arrival: string | null;
+    warehouse: string | null;
+    status: string;
+}
+
 export interface PaginatedResponse<T> {
     count: number;
     total_pages: number;
@@ -244,6 +257,38 @@ const inventoryService = {
             { method: 'PATCH', body: JSON.stringify(payload) },
             '納品情報の更新に失敗しました。'
         ),
+
+    /** 管理者画面向けの入庫予定一覧(全ステータス)。 */
+    getPurchaseOrdersForAdmin: async (
+        { page = 1, pageSize = 20, q, status }: { page?: number; pageSize?: number; q?: string; status?: string } = {}
+    ) => {
+        const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
+        if (q) params.append('search_q', q);
+        if (status) params.append('search_status', status);
+        const response = await authFetch(`/api/inventory/purchase-orders/?${params.toString()}`);
+        await handleError(response, 'データの読み込みに失敗しました。');
+        return await response.json() as PaginatedResponse<AdminPurchaseOrder>;
+    },
+
+    /** 管理者画面向けの出庫予定一覧(全ステータス。内部受注は削除不可のため除外)。 */
+    getSalesOrdersForAdmin: async (
+        { page = 1, pageSize = 20, q, status }: { page?: number; pageSize?: number; q?: string; status?: string } = {}
+    ) => {
+        const params = new URLSearchParams({ page: String(page), page_size: String(pageSize), exclude_internal: 'true' });
+        if (q) params.append('search_q', q);
+        if (status) params.append('search_status', status);
+        const response = await authFetch(`/api/inventory/sales-orders/?${params.toString()}`);
+        await handleError(response, 'データの読み込みに失敗しました。');
+        return await response.json() as PaginatedResponse<SalesOrder>;
+    },
+
+    /** 入庫予定の削除(管理者のみ)。入庫実績がある場合はサーバーが拒否する。 */
+    deletePurchaseOrder: (id: string | number) =>
+        apiRequest(`/api/inventory/purchase-orders/${id}/`, { method: 'DELETE' }, '入庫予定の削除に失敗しました。'),
+
+    /** 出庫予定の削除(管理者のみ)。引当は在庫側へ解放される。 */
+    deleteSalesOrder: (id: string | number) =>
+        apiRequest(`/api/inventory/sales-orders/${id}/`, { method: 'DELETE' }, '出庫予定の削除に失敗しました。'),
 
     /** 受注の出庫。失敗時は例外を送出せず ok=false とサーバーのメッセージで返す。 */
     issueSalesOrder: async (orderId: string, quantityToShip: number): Promise<IssueResult> => {

@@ -25,6 +25,12 @@ class InventoryAPITestBase(APITestCase):
         self.warehouse_a = Warehouse.objects.create(warehouse_number="WH-A", name="Warehouse A")
         self.warehouse_b = Warehouse.objects.create(warehouse_number="WH-B", name="Warehouse B")
 
+    def login_as_staff(self):
+        """予定の削除など、管理者(スタッフ)限定のAPIを呼ぶテスト用に管理者へ切り替える。"""
+        self.user.is_staff = True
+        self.user.save()
+        self.client.force_authenticate(user=self.user)
+
     def create_inventory(self, **kwargs):
         defaults = {
             "part_number": self.item1.code,

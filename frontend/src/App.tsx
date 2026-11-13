@@ -45,6 +45,7 @@ const ShelfQrCodeCreation = lazy(() => import('./pages/ShelfQrCodeCreation'));
 const WarehouseLayoutCreation = lazy(() => import('./pages/WarehouseLayoutCreation'));
 const StockPurposeMaster = lazy(() => import('./pages/StockPurposeMaster'));
 const WorkCalendarMaster = lazy(() => import('./pages/WorkCalendarMaster'));
+const OrderDeletion = lazy(() => import('./pages/OrderDeletion'));
 const FeatureSettings = lazy(() => import('./pages/FeatureSettings'));
 const UsagePage = lazy(() => import('./pages/UsagePage'));
 const MobileTopPage = lazy(() => import('./pages/MobileTopPage'));
@@ -187,6 +188,7 @@ function AppContent() {
           <Route path="/master/warehouse-layout" element={<StaffRoute><WarehouseLayoutCreation /></StaffRoute>} />
           <Route path="/master/stock-purposes" element={<StaffRoute><StockPurposeMaster /></StaffRoute>} />
           <Route path="/master/work-calendar" element={<StaffRoute><WorkCalendarMaster /></StaffRoute>} />
+          <Route path="/system/order-deletion" element={<StaffRoute><OrderDeletion /></StaffRoute>} />
           <Route path="/system/feature-settings" element={<StaffRoute><FeatureSettings /></StaffRoute>} />
         </Route>
 

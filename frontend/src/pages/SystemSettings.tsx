@@ -46,6 +46,13 @@ const SETTING_ITEMS: SettingMenuItem[] = [
     description: 'QRコードを読み取った際の検索・画面遷移ルールを設定します。',
     icon: 'qr-action',
   },
+  {
+    path: '/system/order-deletion',
+    title: '入出庫予定の削除',
+    tag: '管理者専用',
+    description: '入庫予定・出庫予定を削除します。誤操作防止のため、一般の入出庫画面には削除操作がありません。',
+    icon: 'settings',
+  },
 ];
 
 const SystemSettings = () => {

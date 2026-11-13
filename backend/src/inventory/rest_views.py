@@ -7,7 +7,7 @@ from django.db.models import (
 )
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 
 from base.pagination import StandardResultsSetPagination
@@ -210,6 +210,12 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
 
     serializer_class = PurchaseOrderSerializer
     pagination_class = StandardResultsSetPagination
+
+    def get_permissions(self):
+        # 予定の削除は誤操作の影響が大きいため、管理者(スタッフ)のみに限定する
+        if self.action == "destroy":
+            return [IsAdminUser()]
+        return super().get_permissions()
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -465,6 +471,12 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
         if instance.is_internal:
             return error_response(services.internal_order_error(instance).message)
         return super().update(request, *args, **kwargs)
+
+    def get_permissions(self):
+        # 予定の削除は誤操作の影響が大きいため、管理者(スタッフ)のみに限定する
+        if self.action == "destroy":
+            return [IsAdminUser()]
+        return super().get_permissions()
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()

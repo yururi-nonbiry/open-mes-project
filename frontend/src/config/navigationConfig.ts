@@ -622,6 +622,22 @@ export const NAV_CATEGORIES: NavCategory[] = [
         staffOnly: true,
       },
       {
+        path: '/system/order-deletion',
+        label: '入出庫予定の削除',
+        pageTitle: '入出庫予定の削除（管理者専用）',
+        pageSubtitle:
+          '不要になった入庫予定・出庫予定を削除します。誤操作防止のため、削除は管理者のみがこの画面から行えます。',
+        guideSteps: [
+          '入庫予定／出庫予定のタブを選び、番号などで検索',
+          '削除する予定の「削除」ボタンを押し、確認ダイアログで承認',
+          '入庫実績のある入庫予定は削除不可（出庫予定は引当を解放して削除）',
+        ],
+        stepTag: '予定削除',
+        description: '入庫予定・出庫予定を管理者が削除します',
+        icon: 'settings',
+        staffOnly: true,
+      },
+      {
         path: '/system/qr-code-actions',
         label: 'QRコードアクション設定',
         pageTitle: 'QRコードアクション設定（読取時の動作ルール管理）',

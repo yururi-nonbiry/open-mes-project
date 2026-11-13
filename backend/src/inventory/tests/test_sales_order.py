@@ -97,10 +97,17 @@ class SalesOrderReservationCrudTests(InventoryAPITestBase):
         self.url = reverse("inventory_api:salesorder-detail", args=[self.so.id])
 
     def test_so_crud_06_delete_releases_reservation(self):
+        self.login_as_staff()
         response = self.client.delete(self.url)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.inventory.refresh_from_db()
         self.assertEqual(self.inventory.reserved, 0)
+
+    def test_so_crud_06b_delete_forbidden_for_non_staff(self):
+        response = self.client.delete(self.url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.inventory.refresh_from_db()
+        self.assertEqual(self.inventory.reserved, 4)
 
     def test_so_crud_07_quantity_below_reserved_rejected(self):
         response = self.client.patch(self.url, {"quantity": 3}, format="json")

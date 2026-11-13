@@ -42,6 +42,7 @@ class InternalSalesOrderTests(InventoryAPITestBase):
     def test_so_int_02_update_and_delete_rejected(self):
         response = self.client.patch(self._detail_url(self.internal_so), {"quantity": 1}, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.login_as_staff()
         response = self.client.delete(self._detail_url(self.internal_so))
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertTrue(SalesOrder.objects.filter(pk=self.internal_so.pk, quantity=5).exists())

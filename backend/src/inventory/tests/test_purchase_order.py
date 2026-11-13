@@ -37,18 +37,26 @@ class PurchaseOrderCrudTests(InventoryAPITestBase):
         self.assertIn("order_number", response.data["errors"])
 
     def test_po_crud_04_delete_without_receipt(self):
+        self.login_as_staff()
         url = reverse("inventory_api:purchaseorder-detail", kwargs={"pk": self.po1.id})
         response = self.client.delete(url)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertEqual(PurchaseOrder.objects.count(), 1)
 
     def test_po_crud_05_delete_protected_when_receipt_exists(self):
+        self.login_as_staff()
         Receipt.objects.create(
             purchase_order=self.po1, received_quantity=1, warehouse=self.warehouse_a.warehouse_number
         )
         url = reverse("inventory_api:purchaseorder-detail", kwargs={"pk": self.po1.id})
         response = self.client.delete(url)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertTrue(PurchaseOrder.objects.filter(pk=self.po1.pk).exists())
+
+    def test_po_crud_05b_delete_forbidden_for_non_staff(self):
+        url = reverse("inventory_api:purchaseorder-detail", kwargs={"pk": self.po1.id})
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertTrue(PurchaseOrder.objects.filter(pk=self.po1.pk).exists())
 
     def test_po_crud_06_search_status_received_matches_both(self):
