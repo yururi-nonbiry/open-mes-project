@@ -294,7 +294,14 @@ const PageDisplaySettings = () => {
                     </OverlayTrigger>
                 </td>
                 <td className="align-middle">
-                    <span>{item.display_name || item.verbose_name.replace(/ \(.+\)$/, '') || item.verbose_name}</span>
+                    <Form.Control
+                        type="text"
+                        size="sm"
+                        name="display_name"
+                        value={item.display_name}
+                        placeholder={item.verbose_name.replace(/ \(.+\)$/, '') || item.verbose_name}
+                        onChange={(e) => handleInputChange(originalIndex, e)}
+                    />
                 </td>
                 <td className="text-center align-middle">
                     <Form.Check type="switch" id={`is_list_display-${type}-${originalIndex}`} name="is_list_display" checked={item.is_list_display} onChange={(e) => handleInputChange(originalIndex, e)} />
