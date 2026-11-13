@@ -109,6 +109,16 @@ const MobileLocationTransferPage = () => {
     setSourceLocation(shelf.shelf);
     if (shelf.warehouse) setWarehouse(shelf.warehouse);
   };
+  // 倉庫欄に棚番QRが入力された場合も、倉庫と棚番に振り分ける
+  const applyWarehouseInput = (value: string) => {
+    const shelf = parseShelfQr(value);
+    if (!shelf) {
+      setWarehouse(value);
+      return;
+    }
+    if (shelf.warehouse) setWarehouse(shelf.warehouse);
+    setSourceLocation(shelf.shelf);
+  };
   const applyTargetInput = (value: string) => {
     const shelf = parseShelfQr(value);
     setModalState(prev => ({ ...prev, targetLocation: shelf ? shelf.shelf : value }));
@@ -310,7 +320,7 @@ const MobileLocationTransferPage = () => {
       <div className="card p-3 shadow-sm">
         <div className="mb-3">
           <label htmlFor="warehouse_input" className="form-label fw-bold">倉庫</label>
-          <input type="text" className="form-control form-control-lg" id="warehouse_input" value={warehouse} onChange={e => setWarehouse(e.target.value)} required />
+          <input type="text" className="form-control form-control-lg" id="warehouse_input" value={warehouse} onChange={e => applyWarehouseInput(e.target.value)} required />
         </div>
         <div className="mb-3">
           <label htmlFor="source_location_input" className="form-label fw-bold">移動元棚番</label>

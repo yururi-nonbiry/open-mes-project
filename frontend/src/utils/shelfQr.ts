@@ -23,8 +23,8 @@ export const parseShelfQr = (text: string): ShelfQr | null => {
 };
 
 /**
- * フォーム状態に入力値を反映する。棚番QRなら棚番欄に棚番、倉庫欄に倉庫を設定し(倉庫が空のQRでは倉庫は変えない)、
- * それ以外は通常どおり指定の欄に値を設定する。
+ * フォーム状態に入力値を反映する。棚番QRなら(棚番欄・倉庫欄のどちらに入力されても)棚番欄に棚番、倉庫欄に倉庫を設定し
+ * (倉庫が空のQRでは倉庫は変えない)、それ以外は通常どおり指定の欄に値を設定する。
  */
 export const applyShelfInput = <T extends object>(
     prev: T,
@@ -33,7 +33,8 @@ export const applyShelfInput = <T extends object>(
     locationField: string,
     warehouseField?: string
 ): T => {
-    const shelf = field === locationField ? parseShelfQr(value) : null;
+    const isShelfTarget = field === locationField || (warehouseField !== undefined && field === warehouseField);
+    const shelf = isShelfTarget ? parseShelfQr(value) : null;
     if (!shelf) return { ...prev, [field]: value };
     const next = { ...prev, [locationField]: shelf.shelf } as Record<string, unknown>;
     if (warehouseField && shelf.warehouse) next[warehouseField] = shelf.warehouse;

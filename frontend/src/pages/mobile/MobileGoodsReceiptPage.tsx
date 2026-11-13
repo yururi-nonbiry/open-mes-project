@@ -301,7 +301,7 @@ const MobileGoodsReceiptPage = () => {
               <label htmlFor="warehouse" className="form-label">入庫倉庫</label>
               <div className="input-group">
                 <input type="text" id="warehouse" name="warehouse" value={receiptFormData.warehouse} onChange={handleReceiptFormChange} className="form-control" placeholder="倉庫" />
-                <button className="btn btn-outline-secondary" type="button" onClick={() => startCameraScan((value: string) => setReceiptFormData(prev => ({ ...prev, warehouse: value })))} title="カメラでスキャン" aria-label="カメラでスキャン"><CameraIcon /></button>
+                <button className="btn btn-outline-secondary" type="button" onClick={() => startCameraScan((value: string) => setReceiptFormData(prev => applyShelfInput(prev, 'warehouse', value, 'location', 'warehouse')))} title="カメラでスキャン" aria-label="カメラでスキャン"><CameraIcon /></button>
               </div>
             </div>
             <div className="mb-3">
