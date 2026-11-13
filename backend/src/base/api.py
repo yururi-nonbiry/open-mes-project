@@ -90,6 +90,48 @@ class FeatureOptionsView(APIView):
         return Response(self._current())
 
 
+class ScheduleDateDefaultsView(APIView):
+    """
+    入庫予定・出庫予定の期間フィルタの初期値(今日からの相対日数。null=指定なし)。
+    参照はログインユーザー全員、変更は管理者のみ。
+    """
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [permissions.IsAuthenticated()]
+        return [permissions.IsAdminUser()]
+
+    @staticmethod
+    def _current():
+        return {name: feature_settings.get_schedule_date_offset(name) for name in feature_settings.SCHEDULE_DATE_OFFSET_NAMES}
+
+    def get(self, request, *args, **kwargs):
+        return Response(self._current())
+
+    def put(self, request, *args, **kwargs):
+        limit = feature_settings.SCHEDULE_DATE_OFFSET_LIMIT
+        updates = {}
+        for name in feature_settings.SCHEDULE_DATE_OFFSET_NAMES:
+            if name not in request.data:
+                continue
+            value = request.data[name]
+            if value is not None and (isinstance(value, bool) or not isinstance(value, int) or abs(value) > limit):
+                return error_response(f"{name} は整数(±{limit}以内)または null で指定してください。")
+            updates[name] = value
+        from_days = updates.get(feature_settings.SCHEDULE_DATE_FROM_OFFSET, self._current()[feature_settings.SCHEDULE_DATE_FROM_OFFSET])
+        to_days = updates.get(feature_settings.SCHEDULE_DATE_TO_OFFSET, self._current()[feature_settings.SCHEDULE_DATE_TO_OFFSET])
+        if from_days is not None and to_days is not None and from_days > to_days:
+            return error_response("開始日の相対日数は終了日の相対日数以下にしてください。")
+        for name, value in updates.items():
+            feature_settings.set_schedule_date_offset(name, value)
+            log_event(
+                AccessLog.EventType.SETTINGS_CHANGED,
+                request,
+                detail={"setting": "schedule_date_default", "operation": "update", "name": name, "value": value},
+            )
+        return Response(self._current())
+
+
 class HealthCheckView(APIView):
     permission_classes = [permissions.AllowAny]
 

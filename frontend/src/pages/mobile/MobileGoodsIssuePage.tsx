@@ -10,15 +10,11 @@ import CameraIcon from '../../components/common/CameraIcon';
 import './MobileLocationTransferPage.css'; // スタイルを再利用
 import type { FormEvent } from 'react';
 import { errorMessage } from './mobileTypes';
+import { useScheduleDateDefaults } from '../../hooks/useScheduleDateDefaults';
+import type { ScheduleDateDefaults } from '../../services/scheduleDateDefaultsService';
 import type { CameraState, MobileMessage, QrActionResponse, ScanTargetSetter } from './mobileTypes';
 
-// ローカル日付(YYYY-MM-DD)。予定日フィルタの既定値(今日以降)に使う
-const todayLocal = () => {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-};
-
-const MobileGoodsIssuePage = () => {
+const MobileGoodsIssuePageContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefaults }) => {
     // State for data and UI
     const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([]);
     const [loading, setLoading] = useState(true);
@@ -27,13 +23,13 @@ const MobileGoodsIssuePage = () => {
     // State for search inputs
     const [searchQueryInput, setSearchQueryInput] = useState('');
     const [searchStatusInput, setSearchStatusInput] = useState('pending');
-    const [dateFromInput, setDateFromInput] = useState(todayLocal);
-    const [dateToInput, setDateToInput] = useState('');
+    const [dateFromInput, setDateFromInput] = useState(dateDefaults.from);
+    const [dateToInput, setDateToInput] = useState(dateDefaults.to);
     const [groupByLine, setGroupByLine] = useState(false);
     const workCenters = useWorkCenters();
 
     // State for committed search params that trigger fetch
-    const [committedSearchParams, setCommittedSearchParams] = useState({ q: '', status: 'pending', from: todayLocal(), to: '' });
+    const [committedSearchParams, setCommittedSearchParams] = useState({ q: '', status: 'pending', from: dateDefaults.from, to: dateDefaults.to });
 
     // State for pagination
     const [currentPage, setCurrentPage] = useState(1);
@@ -201,11 +197,11 @@ const MobileGoodsIssuePage = () => {
     const handleReset = () => {
         setSearchQueryInput('');
         setSearchStatusInput('pending');
-        setDateFromInput(todayLocal());
-        setDateToInput('');
+        setDateFromInput(dateDefaults.from);
+        setDateToInput(dateDefaults.to);
         setGroupByLine(false);
         setCurrentPage(1);
-        setCommittedSearchParams({ q: '', status: 'pending', from: todayLocal(), to: '' });
+        setCommittedSearchParams({ q: '', status: 'pending', from: dateDefaults.from, to: dateDefaults.to });
     };
 
     const handleCloseModal = () => {
@@ -489,6 +485,13 @@ const MobileGoodsIssuePage = () => {
         )}
     </Container>
   );
+};
+
+// 予定日フィルタの初期値(管理者設定。入庫・出庫共通)の取得を待ってから画面を描画する
+const MobileGoodsIssuePage = () => {
+  const dateDefaults = useScheduleDateDefaults();
+  if (!dateDefaults) return <div className="p-4 text-center text-muted">読み込み中...</div>;
+  return <MobileGoodsIssuePageContent dateDefaults={dateDefaults} />;
 };
 
 export default MobileGoodsIssuePage;

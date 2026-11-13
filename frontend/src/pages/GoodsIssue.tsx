@@ -3,6 +3,8 @@ import { Modal, Button, Spinner, Alert } from 'react-bootstrap';
 import inventoryService, { SalesOrder, validateIssueQuantity } from '../services/inventoryService';
 import { NavIcon } from '../components/NavIcon';
 import { useWorkCenters } from '../hooks/useWorkCenters';
+import { useScheduleDateDefaults } from '../hooks/useScheduleDateDefaults';
+import type { ScheduleDateDefaults } from '../services/scheduleDateDefaultsService';
 import WarehouseLocationMapModal from './inventory/WarehouseLocationMapModal';
 import authFetch from '../utils/api';
 import { executeQrAction } from '../utils/qrAction';
@@ -25,21 +27,16 @@ const DEFAULT_COLUMNS = [
   { model_field_name: 'expected_shipment', verbose_name: '出庫予定日' },
 ];
 
-// ローカル日付(YYYY-MM-DD)。出庫予定の期間フィルタの既定値(今日以降)に使う
-const todayLocal = () => {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-};
 const DEFAULT_LABELS = new Map<string, string>(DEFAULT_COLUMNS.map(c => [c.model_field_name, c.verbose_name]));
 
-const GoodsIssue: React.FC = () => {
+const GoodsIssueContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefaults }) => {
   const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [keyword, setKeyword] = useState('');
   const [committedKeyword, setCommittedKeyword] = useState('');
-  const [dateFrom, setDateFrom] = useState(todayLocal);
-  const [dateTo, setDateTo] = useState('');
+  const [dateFrom, setDateFrom] = useState(dateDefaults.from);
+  const [dateTo, setDateTo] = useState(dateDefaults.to);
   const [lineFilter, setLineFilter] = useState('');
   const [groupByLine, setGroupByLine] = useState(false);
   const workCenters = useWorkCenters();
@@ -401,10 +398,10 @@ const GoodsIssue: React.FC = () => {
             <button type="button" onClick={fetchSalesOrders} className="btn btn-primary btn-sm fw-bold px-3">
               再読み込み
             </button>
-            {(keyword || dateTo || lineFilter || dateFrom !== todayLocal()) && (
+            {(keyword || dateTo !== dateDefaults.to || lineFilter || dateFrom !== dateDefaults.from) && (
               <button
                 type="button"
-                onClick={() => { setKeyword(''); setDateFrom(todayLocal()); setDateTo(''); setLineFilter(''); setCurrentPage(1); }}
+                onClick={() => { setKeyword(''); setDateFrom(dateDefaults.from); setDateTo(dateDefaults.to); setLineFilter(''); setCurrentPage(1); }}
                 className="btn btn-outline-secondary btn-sm"
               >
                 条件リセット
@@ -550,6 +547,13 @@ const GoodsIssue: React.FC = () => {
       <WarehouseLocationMapModal isOpen={isMapModalOpen} onClose={closeMapModal} orderId={mapOrderId} />
     </div>
   );
+};
+
+// 予定日フィルタの初期値(管理者設定。入庫・出庫共通)の取得を待ってから画面を描画する
+const GoodsIssue: React.FC = () => {
+  const dateDefaults = useScheduleDateDefaults();
+  if (!dateDefaults) return <div className="p-4 text-center text-muted">読み込み中...</div>;
+  return <GoodsIssueContent dateDefaults={dateDefaults} />;
 };
 
 export default GoodsIssue;

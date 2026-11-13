@@ -9,6 +9,7 @@ from .api import (
     ModelDisplaySettingViewSet,
     ModelFieldsView,
     QrCodeActionViewSet,
+    ScheduleDateDefaultsView,
 )
 
 app_name = "base_api"
@@ -21,6 +22,7 @@ router.register(r"qr-code-actions", QrCodeActionViewSet, basename="qr-code-actio
 urlpatterns = [
     path("info/", AppInfoView.as_view(), name="app-info"),
     path("feature-options/", FeatureOptionsView.as_view(), name="feature-options"),
+    path("schedule-date-defaults/", ScheduleDateDefaultsView.as_view(), name="schedule-date-defaults"),
     path("health/", HealthCheckView.as_view(), name="health-check"),
     path("model-fields/", ModelFieldsView.as_view(), name="model-fields"),
     path(

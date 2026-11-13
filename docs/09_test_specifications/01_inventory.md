@@ -80,6 +80,8 @@
 | INV-ADJ-02 | 正常系 | `quantity=10, reserved=2` | `quantity=7` | 200。`quantity=7`。`StockMovement`（`outgoing`, `quantity=3`）が作成される | |
 | INV-ADJ-03 | 正常系 | `quantity=10` | `quantity=10`（変更なし） | 200。`StockMovement` は作成されない（diff=0） | |
 | INV-ADJ-04 | 異常系 | `reserved=5` | `quantity=3`（reserved未満） | 400「調整後の数量は引当済数量以上である必要があります」 | |
+| INV-ADJ-04b | 異常系 | `reserved=0, quantity=5` | `quantity=-1` | 400「数量は0以上で指定してください」。数量・履歴は変わらない | 2026-11-13 追加 |
+| INV-ADJ-04c | 正常系 | `reserved=0, quantity=5` | `quantity=0` | 200、数量が0になる | 誤入力は0に修正して対応する運用 |
 | INV-ADJ-05 | 異常系 | - | `quantity` キー未指定 | 400 | |
 | INV-ADJ-06 | 異常系 | - | `quantity` が数値変換不可 | 400 | |
 | INV-ADJ-07 | 正常系 | - | `location` を併せて指定 | `location` が更新される | 未指定時は棚番が変更されないことも確認 |

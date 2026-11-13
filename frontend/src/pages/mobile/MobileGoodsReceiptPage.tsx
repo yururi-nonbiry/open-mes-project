@@ -5,6 +5,8 @@ import authFetch, { ApiError, handleError } from '../../utils/api';
 import inventoryService from '../../services/inventoryService';
 import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library';
 import { useStockPurposes } from '../../hooks/useStockPurposes';
+import { useScheduleDateDefaults } from '../../hooks/useScheduleDateDefaults';
+import type { ScheduleDateDefaults } from '../../services/scheduleDateDefaultsService';
 import ReceiptLocationMap from '../../components/common/ReceiptLocationMap';
 import CameraIcon from '../../components/common/CameraIcon';
 import './MobileGoodsReceiptPage.css';
@@ -17,13 +19,7 @@ import type { CameraState, QrActionResponse, ScanTargetSetter } from './mobileTy
 // 発注の残数量(数量 - 入庫済数量)
 const remainingOf = (order: PurchaseOrderRow) => (order.quantity ?? 0) - (order.received_quantity ?? 0);
 
-// ローカル日付(YYYY-MM-DD)。予定日フィルタの既定値(今日以降)に使う
-const todayLocal = () => {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-};
-
-const MobileGoodsReceiptPage = () => {
+const MobileGoodsReceiptPageContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefaults }) => {
   // State for purchase orders, loading/error status
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrderRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -31,8 +27,8 @@ const MobileGoodsReceiptPage = () => {
 
   // State for search
   const [searchTerm, setSearchTerm] = useState('');
-  const [dateFrom, setDateFrom] = useState(todayLocal);
-  const [dateTo, setDateTo] = useState('');
+  const [dateFrom, setDateFrom] = useState(dateDefaults.from);
+  const [dateTo, setDateTo] = useState(dateDefaults.to);
 
   // State for pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -367,6 +363,13 @@ const MobileGoodsReceiptPage = () => {
       )}
     </div>
   );
+};
+
+// 予定日フィルタの初期値(管理者設定。入庫・出庫共通)の取得を待ってから画面を描画する
+const MobileGoodsReceiptPage = () => {
+  const dateDefaults = useScheduleDateDefaults();
+  if (!dateDefaults) return <div className="p-4 text-center text-muted">読み込み中...</div>;
+  return <MobileGoodsReceiptPageContent dateDefaults={dateDefaults} />;
 };
 
 export default MobileGoodsReceiptPage;

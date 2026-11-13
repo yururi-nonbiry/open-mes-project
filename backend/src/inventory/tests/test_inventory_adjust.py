@@ -40,6 +40,23 @@ class InventoryAdjustTests(InventoryAPITestBase):
         self.inventory.refresh_from_db()
         self.assertEqual(self.inventory.quantity, 10)
 
+    def test_inv_adj_04b_negative_rejected(self):
+        inventory = self.create_inventory(location="NEG-1", quantity=5, reserved=0)
+        url = reverse("inventory_api:inventory-adjust", kwargs={"pk": inventory.id})
+        response = self.client.post(url, {"quantity": -1}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        inventory.refresh_from_db()
+        self.assertEqual(inventory.quantity, 5)
+        self.assertEqual(StockMovement.objects.count(), 0)
+
+    def test_inv_adj_04c_zero_allowed(self):
+        inventory = self.create_inventory(location="ZERO-1", quantity=5, reserved=0)
+        url = reverse("inventory_api:inventory-adjust", kwargs={"pk": inventory.id})
+        response = self.client.post(url, {"quantity": 0}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        inventory.refresh_from_db()
+        self.assertEqual(inventory.quantity, 0)
+
     def test_inv_adj_05_missing_quantity(self):
         response = self.client.post(self.url, {}, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

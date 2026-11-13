@@ -383,6 +383,9 @@ def adjust_inventory(inventory_pk, new_quantity, new_location, user, confirm_mix
     with transaction.atomic():
         inventory = Inventory.objects.select_for_update().get(pk=inventory_pk)
 
+        if new_quantity < 0:
+            raise InventoryServiceError("数量は0以上で指定してください。")
+
         if new_quantity < inventory.reserved:
             raise InventoryServiceError(
                 f"調整後の数量({new_quantity})は引当済数量({inventory.reserved})以上である必要があります。"

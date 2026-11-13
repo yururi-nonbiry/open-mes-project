@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import inventoryService from '../services/inventoryService';
 import { ApiError } from '../utils/api';
+import scheduleDateDefaultsService, { offsetToDate } from '../services/scheduleDateDefaultsService';
 import { WORKFLOW_TRACKS } from '../config/navigationConfig';
 import { NavIcon } from '../components/NavIcon';
 import {
@@ -41,6 +42,54 @@ const FeatureSettings: React.FC = () => {
   // 入庫時のデフォルト棚番登録の確認(サーバー側に保存。全端末・全ユーザーに適用)
   const [confirmDefaultLocation, setConfirmDefaultLocation] = useState<boolean | null>(null);
   const [optionMessage, setOptionMessage] = useState<{ type: 'success' | 'danger'; text: string } | null>(null);
+
+  // 入庫・出庫の予定日フィルタの初期値(今日からの相対日数。空欄=指定なし。サーバー側に保存)
+  const [dateFromOffset, setDateFromOffset] = useState('');
+  const [dateToOffset, setDateToOffset] = useState('');
+  const [dateDefaultsLoaded, setDateDefaultsLoaded] = useState(false);
+  const [dateDefaultsMessage, setDateDefaultsMessage] = useState<{ type: 'success' | 'danger'; text: string } | null>(null);
+
+  useEffect(() => {
+    scheduleDateDefaultsService.getOffsets().then((o) => {
+      setDateFromOffset(o.schedule_date_from_offset_days === null ? '' : String(o.schedule_date_from_offset_days));
+      setDateToOffset(o.schedule_date_to_offset_days === null ? '' : String(o.schedule_date_to_offset_days));
+      setDateDefaultsLoaded(true);
+    });
+  }, []);
+
+  const parseOffset = (value: string): number | null | undefined => {
+    if (value.trim() === '') return null;
+    const n = Number(value);
+    return Number.isInteger(n) ? n : undefined; // undefined = 不正
+  };
+
+  const handleSaveDateDefaults = async () => {
+    setDateDefaultsMessage(null);
+    const from = parseOffset(dateFromOffset);
+    const to = parseOffset(dateToOffset);
+    if (from === undefined || to === undefined) {
+      setDateDefaultsMessage({ type: 'danger', text: '相対日数は整数で入力してください（空欄は指定なし）。' });
+      return;
+    }
+    try {
+      await scheduleDateDefaultsService.updateOffsets({
+        schedule_date_from_offset_days: from,
+        schedule_date_to_offset_days: to,
+      });
+      setDateDefaultsMessage({ type: 'success', text: '予定日の初期値を保存しました。次に画面を開いたときから反映されます。' });
+    } catch (err) {
+      setDateDefaultsMessage({
+        type: 'danger',
+        text: err instanceof ApiError ? err.message : '設定の保存中に通信エラーが発生しました。',
+      });
+    }
+  };
+
+  const datePreview = (value: string) => {
+    const n = parseOffset(value);
+    if (n === undefined) return '（整数で入力）';
+    return n === null ? '指定なし' : `今日の日付で ${offsetToDate(n)}`;
+  };
 
   useEffect(() => {
     inventoryService.getFeatureOptions().then((o) => setConfirmDefaultLocation(o.confirm_register_default_location));
@@ -140,6 +189,63 @@ const FeatureSettings: React.FC = () => {
             {optionMessage && (
               <div className={`alert alert-${optionMessage.type} mt-3 mb-0 py-2`} role="alert">
                 {optionMessage.text}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="card shadow-sm mb-4">
+          <div className="card-body">
+            <h5 className="fw-bold mb-2">入庫・出庫の予定日の初期値</h5>
+            <p className="text-muted small mb-3">
+              入庫処理・出庫処理（PC・スマホ共通）で、予定日の検索期間にあらかじめ入れておく値を、今日からの相対日数で指定します
+              （例: 開始 -7、終了 14 なら「7日前〜14日後」、0 は今日）。空欄にすると日付で絞り込みません。
+              画面を開いたとき（および条件リセット時）の初期値で、利用者は画面上で変更できます。
+              バーコード・QRで品番を検索した場合も、この期間が適用されたままになります。
+            </p>
+            <div className="row g-3 align-items-end">
+              <div className="col-12 col-md-4">
+                <label className="form-label fw-bold" htmlFor="schedule-date-from-offset">開始日（今日から何日後）</label>
+                <input
+                  type="number"
+                  step="1"
+                  className="form-control"
+                  id="schedule-date-from-offset"
+                  value={dateFromOffset}
+                  placeholder="指定なし"
+                  disabled={!dateDefaultsLoaded}
+                  onChange={(e) => setDateFromOffset(e.target.value)}
+                />
+                <div className="form-text">{datePreview(dateFromOffset)}</div>
+              </div>
+              <div className="col-12 col-md-4">
+                <label className="form-label fw-bold" htmlFor="schedule-date-to-offset">終了日（今日から何日後）</label>
+                <input
+                  type="number"
+                  step="1"
+                  className="form-control"
+                  id="schedule-date-to-offset"
+                  value={dateToOffset}
+                  placeholder="指定なし"
+                  disabled={!dateDefaultsLoaded}
+                  onChange={(e) => setDateToOffset(e.target.value)}
+                />
+                <div className="form-text">{datePreview(dateToOffset)}</div>
+              </div>
+              <div className="col-12 col-md-4">
+                <button
+                  type="button"
+                  className="btn btn-primary fw-bold"
+                  disabled={!dateDefaultsLoaded}
+                  onClick={handleSaveDateDefaults}
+                >
+                  初期値を保存
+                </button>
+              </div>
+            </div>
+            {dateDefaultsMessage && (
+              <div className={`alert alert-${dateDefaultsMessage.type} mt-3 mb-0 py-2`} role="alert">
+                {dateDefaultsMessage.text}
               </div>
             )}
           </div>

@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Modal, Button, Spinner, Alert } from 'react-bootstrap';
 import { useStockPurposes } from '../hooks/useStockPurposes';
+import { useScheduleDateDefaults } from '../hooks/useScheduleDateDefaults';
+import type { ScheduleDateDefaults } from '../services/scheduleDateDefaultsService';
 import ReceiptLocationMap from '../components/common/ReceiptLocationMap';
 import authFetch, { ApiError } from '../utils/api';
 import { executeQrAction } from '../utils/qrAction';
@@ -49,18 +51,13 @@ const STATUS_META: Record<string, { label: string; className: string }> = {
   canceled: { label: 'キャンセル', className: 'receipt-status-badge status-canceled' },
 };
 
-// ローカル日付(YYYY-MM-DD)。入庫予定の期間フィルタの既定値(今日以降)に使う
-const todayLocal = () => {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-};
-
-const defaultFilters = (): Record<string, string> => ({
+const defaultFilters = (dateDefaults: ScheduleDateDefaults): Record<string, string> => ({
   status: 'pending',
-  expected_arrival_from: todayLocal(),
+  ...(dateDefaults.from ? { expected_arrival_from: dateDefaults.from } : {}),
+  ...(dateDefaults.to ? { expected_arrival_to: dateDefaults.to } : {}),
 });
 
-const GoodsReceipt: React.FC = () => {
+const GoodsReceiptContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefaults }) => {
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrderRow[]>([]);
   const [pagination, setPagination] = useState<{
     count: number;
@@ -80,7 +77,7 @@ const GoodsReceipt: React.FC = () => {
   const [displaySettings, setDisplaySettings] = useState<DisplaySetting[]>([]);
   const [searchFields, setSearchFields] = useState<DisplaySetting[]>([]);
 
-  const [filters, setFilters] = useState<Record<string, string>>(defaultFilters);
+  const [filters, setFilters] = useState<Record<string, string>>(() => defaultFilters(dateDefaults));
   const navigate = useNavigate();
 
   // 入庫処理モーダル
@@ -229,7 +226,7 @@ const GoodsReceipt: React.FC = () => {
   };
 
   const handleClearFilters = () => {
-    setFilters(defaultFilters());
+    setFilters(defaultFilters(dateDefaults));
   };
 
   const handleSearch = () => {
@@ -940,6 +937,13 @@ const GoodsReceipt: React.FC = () => {
       </Modal>
     </div>
   );
+};
+
+// 予定日フィルタの初期値(管理者設定。入庫・出庫共通)の取得を待ってから画面を描画する
+const GoodsReceipt: React.FC = () => {
+  const dateDefaults = useScheduleDateDefaults();
+  if (!dateDefaults) return <div className="p-4 text-center text-muted">読み込み中...</div>;
+  return <GoodsReceiptContent dateDefaults={dateDefaults} />;
 };
 
 export default GoodsReceipt;

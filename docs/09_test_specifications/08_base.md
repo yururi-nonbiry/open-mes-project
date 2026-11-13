@@ -71,6 +71,18 @@
 | BASE-INFO-01 | 正常系 | `GET base/info/` | - | 未認証で呼び出し | 200、`{"version": ...}` | `AllowAny` |
 | BASE-INFO-02 | 正常系 | `GET base/health/` | - | 未認証で呼び出し | 200、`{"status": "ok"}` | `AllowAny` |
 
+### 入庫・出庫の予定日の初期値（`base/schedule-date-defaults/`）
+
+| ID | 区分 | 対象 | 条件 | 期待結果 |
+|---|---|---|---|---|
+| BASE-SCHDATE-01 | 正常系 | GET | 未設定 | 200、開始・終了とも `null`（指定なし） |
+| BASE-SCHDATE-02 | 正常系 | PUT→GET | 開始 -7、終了 14 | 200、保存した値が返る |
+| BASE-SCHDATE-03 | 正常系 | PUT | 開始を `null` | 開始のみ指定なしに戻り、終了は保持 |
+| BASE-SCHDATE-04 | 異常系 | PUT | 文字列・小数・真偽値・±3660超 | 400、保存されない |
+| BASE-SCHDATE-05 | 異常系 | PUT | 開始 > 終了 | 400 |
+| BASE-SCHDATE-06 | 権限 | GET/PUT | 一般ユーザー | GETは200、PUTは403 |
+| BASE-SCHDATE-07 | 権限 | GET | 未認証 | 401 |
+
 ### 5.2 モデルフィールド定義取得（`ModelFieldsView`、`base/tests/test_model_fields.py`）
 
 | ケースID | 分類 | 対象 | 前提条件 | 手順・入力 | 期待結果 | 備考 |

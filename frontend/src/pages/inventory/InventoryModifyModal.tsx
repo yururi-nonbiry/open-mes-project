@@ -41,7 +41,7 @@ const InventoryModifyModal: React.FC<InventoryModifyModalProps> = ({
             setFormData(prev => applyShelfInput(prev, name, value, 'location'));
             return;
         }
-        setFormData(prev => ({ ...prev, [name]: name === 'quantity' ? parseInt(value) || 0 : value }));
+        setFormData(prev => ({ ...prev, [name]: name === 'quantity' ? Math.max(0, parseInt(value) || 0) : value }));
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -126,9 +126,11 @@ const InventoryModifyModal: React.FC<InventoryModifyModalProps> = ({
                                     value={formData.quantity}
                                     onChange={handleFormChange}
                                     className="form-control mes-modal-input text-end fw-bold"
+                                    min={0}
+                                    step={1}
                                     required
                                 />
-                                <span className="mes-modal-field-help">実在庫の数量を入力してください</span>
+                                <span className="mes-modal-field-help">実在庫の数量を0以上で入力してください（入力を間違えたときは0に修正）</span>
                             </div>
                         </div>
 
