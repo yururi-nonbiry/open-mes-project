@@ -169,12 +169,10 @@ class QrCodeAction(models.Model):
     """
     QRコード読み取り後のアクションを定義するモデル。
     特定のパターンにマッチするQRコードが読み取られた際に、
-    定義されたPythonスクリプトを実行します。
+    `action_name` で選択したアクションを実行します。
 
     アクションタイプ:
-    - 正規表現で判定 (regex): `qr_code_pattern` にマッチした場合に `script` を実行します。
-    - スクリプトで判定 (script): `script` 内でQRデータの内容を判定し、アクションを決定します。
-      `qr_code_pattern` は使用されません。
+    - 正規表現で判定 (regex): `qr_code_pattern` にマッチした場合に `action_name` のアクションを実行します。
     """
 
     ACTION_TYPE_CHOICES = [
