@@ -13,15 +13,14 @@ export interface MobileMessage {
     type: string;
 }
 
-/** QRコードアクション実行APIのレスポンス */
-export interface QrActionResponse<TPayload = Record<string, unknown>> {
+/**
+ * QRコードアクション実行APIのレスポンス。
+ * バックエンドが実行するのは「検索欄に入力」(update_search)のみで、抜き出した文字列を updateSearch で返す。
+ */
+export interface QrActionResponse {
     result?: {
         action?: string;
-        payload?: TPayload;
-        navigate?: string;
-        state?: unknown;
         updateSearch?: string;
-        updateFields?: Record<string, string>;
     };
 }
 

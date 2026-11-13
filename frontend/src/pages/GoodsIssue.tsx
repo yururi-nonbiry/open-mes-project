@@ -8,7 +8,6 @@ import type { ScheduleDateDefaults } from '../services/scheduleDateDefaultsServi
 import WarehouseLocationMapModal from './inventory/WarehouseLocationMapModal';
 import authFetch from '../utils/api';
 import { executeQrAction } from '../utils/qrAction';
-import { useNavigate } from 'react-router-dom';
 import type { DisplaySetting, ModelFieldInfo } from './types/listPage';
 
 const NUMERIC_FIELDS = ['quantity', 'shipped_quantity', 'reserved_quantity', 'remaining_quantity'];
@@ -40,7 +39,6 @@ const GoodsIssueContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefault
   const [lineFilter, setLineFilter] = useState('');
   const [groupByLine, setGroupByLine] = useState(false);
   const workCenters = useWorkCenters();
-  const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
@@ -134,22 +132,12 @@ const GoodsIssueContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefault
     const text = keyword.trim();
     if (!text) return;
     try {
-      const result = await executeQrAction<SalesOrder>(text);
-      if (!result) {
-        setCommittedKeyword(keyword);
-        setCurrentPage(1);
-        return;
-      }
-      if (result.action === 'goods_issue' && result.payload) {
-        openModal(result.payload);
-      } else if (result.action === 'navigate' && result.navigate) {
-        navigate(result.navigate, { state: result.state });
-      } else if (result.updateSearch) {
-        setKeyword(result.updateSearch);
-      } else {
-        setCommittedKeyword(keyword);
-        setCurrentPage(1);
-      }
+      const result = await executeQrAction(text);
+      // 「検索欄に入力」アクションに一致した場合は抜き出した文字列で、それ以外は入力値のまま検索する
+      const searchText = result?.updateSearch || keyword;
+      setKeyword(searchText);
+      setCommittedKeyword(searchText);
+      setCurrentPage(1);
     } catch (err) {
       setError(`QRコード処理エラー: ${err instanceof Error ? err.message : String(err)}`);
     }

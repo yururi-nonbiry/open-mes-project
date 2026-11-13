@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { applyShelfInput } from '../../utils/shelfQr';
 import authFetch, { ApiError, handleError } from '../../utils/api';
 import inventoryService from '../../services/inventoryService';
@@ -50,7 +49,6 @@ const MobileGoodsReceiptPageContent = ({ dateDefaults }: { dateDefaults: Schedul
   const videoRef = useRef<HTMLVideoElement>(null);
   const codeReader = useRef(new BrowserMultiFormatReader());
 
-  const navigate = useNavigate();
 
   // API call to fetch purchase order data
   const fetchPurchaseOrders = useCallback(async () => {
@@ -155,46 +153,20 @@ const MobileGoodsReceiptPageContent = ({ dateDefaults }: { dateDefaults: Schedul
 
       await handleError(response, `サーバーエラー: ${response.status}`);
 
-      const data: QrActionResponse<PurchaseOrderRow> = await response.json();
-      const { action, payload, navigate: navTarget, state, updateSearch, updateFields } = data.result || {};
+      const data: QrActionResponse = await response.json();
+      const { updateSearch } = data.result || {};
 
-      let handled = false;
-      if (action) {
-        switch (action) {
-          case 'goods_receipt':
-            if (payload) {
-              openReceiptForm(payload);
-              handled = true;
-            }
-            break;
-          case 'navigate':
-            if (navTarget) {
-              navigate(navTarget, { state });
-              handled = true;
-            }
-            break;
-          case 'update_search':
-            if (updateSearch) {
-              setSearchTerm(updateSearch);
-              handled = true;
-            }
-            break;
-          case 'update_fields':
-            if (updateFields) {
-              setReceiptFormData(prev => ({ ...prev, ...updateFields }));
-              handled = true;
-            }
-            break;
-        }
+      if (updateSearch) {
+        setSearchTerm(updateSearch);
+      } else if (defaultSetter) {
+        defaultSetter(decodedText);
       }
-
-      if (!handled && defaultSetter) defaultSetter(decodedText);
     } catch (err) {
       setError(`QRコード処理エラー: ${errorMessage(err)}`);
     } finally {
       setIsLoading(false);
     }
-  }, [navigate, openReceiptForm]);
+  }, []);
 
   const closeReceiptForm = () => {
     setSelectedOrder(null);

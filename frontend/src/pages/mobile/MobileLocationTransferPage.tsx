@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import authFetch, { describeError, handleError } from '../../utils/api';
 import inventoryService from '../../services/inventoryService';
 import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library';
@@ -44,7 +43,6 @@ const MobileLocationTransferPage = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const codeReader = useRef(new BrowserMultiFormatReader());
 
-  const navigate = useNavigate();
 
   // メッセージ表示関数
   const showMessage = useCallback((msg: string, type: string, isModal = false) => {
@@ -242,69 +240,10 @@ const MobileLocationTransferPage = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cameraState.isOpen, cameraState.targetSetter, showMessage]);
 
-  const handleQrCodeResult = useCallback(async (decodedText: string, defaultSetter: ScanTargetSetter | null) => {
-    setIsLoading(true);
-    showMessage('', ''); // Clear main message
-
-    try {
-        const response = await authFetch('/api/base/qr-code-actions/execute/', {
-            method: 'POST',
-            body: JSON.stringify({ qr_data: decodedText }),
-        });
-
-        if (response.status === 404) {
-            if (defaultSetter) defaultSetter(decodedText);
-            return;
-        }
-
-        await handleError(response, `サーバーエラー: ${response.status}`);
-
-        const data: QrActionResponse<Record<string, string>> = await response.json();
-        const { action, payload, navigate: navTarget, state, updateFields } = data.result || {};
-
-        let handled = false;
-        if (action) {
-            switch (action) {
-                case 'location_transfer':
-                case 'update_fields': // Treat update_fields as an alias for location_transfer action
-                    {
-                    const fields = payload || updateFields;
-                    if (fields) {
-                        if (fields.sourceLocation !== undefined) setSourceLocation(fields.sourceLocation);
-                        if (fields.warehouse !== undefined) setWarehouse(fields.warehouse);
-                        if (fields.targetLocation !== undefined) {
-                            setModalState(prev => ({ ...prev, targetLocation: fields.targetLocation }));
-                        }
-                        handled = true;
-                    }
-                    }
-                    break;
-                case 'navigate':
-                    if (navTarget) {
-                        navigate(navTarget, { state });
-                        handled = true;
-                    }
-                    break;
-            }
-        }
-
-        // Fallback for older action format
-        if (!handled && updateFields) {
-            const fields = updateFields;
-            if (fields.sourceLocation !== undefined) setSourceLocation(fields.sourceLocation);
-            if (fields.warehouse !== undefined) setWarehouse(fields.warehouse);
-            if (fields.targetLocation !== undefined) {
-                setModalState(prev => ({ ...prev, targetLocation: fields.targetLocation }));
-            }
-        }
-
-        if (!handled && defaultSetter) defaultSetter(decodedText);
-    } catch (err) {
-        showMessage(`QRコード処理エラー: ${errorMessage(err)}`, 'error');
-    } finally {
-        setIsLoading(false);
-    }
-  }, [navigate, showMessage]);
+  // 棚番移動画面の入力欄には、QRコードアクション(検索欄への入力)の対象がないため、読み取った文字列をそのまま入力欄に設定する
+  const handleQrCodeResult = useCallback((decodedText: string, defaultSetter: ScanTargetSetter | null) => {
+    if (defaultSetter) defaultSetter(decodedText);
+  }, []);
 
   const renderMessage = (msg: MobileMessage) => {
     if (!msg.text) return null;

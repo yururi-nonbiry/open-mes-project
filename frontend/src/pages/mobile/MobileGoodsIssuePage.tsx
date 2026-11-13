@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import WarehouseLocationMapModal from '../inventory/WarehouseLocationMapModal';
 import { Container, Form, Button, Row, Col, Card, Badge, Modal, Spinner, Alert, Pagination as BootstrapPagination, InputGroup } from 'react-bootstrap';
-import { useNavigate } from 'react-router-dom';
 import authFetch, { handleError } from '../../utils/api';
 import { useWorkCenters } from '../../hooks/useWorkCenters';
 import inventoryService, { SalesOrder, validateIssueQuantity } from '../../services/inventoryService';
@@ -55,7 +54,6 @@ const MobileGoodsIssuePageContent = ({ dateDefaults }: { dateDefaults: ScheduleD
     const videoRef = useRef<HTMLVideoElement>(null);
     const codeReader = useRef(new BrowserMultiFormatReader());
 
-    const navigate = useNavigate();
 
     const fetchSalesOrders = useCallback(async (page: number, query: string, status: string, from: string, to: string, grouped: boolean) => {
         setLoading(true);
@@ -143,50 +141,22 @@ const MobileGoodsIssuePageContent = ({ dateDefaults }: { dateDefaults: ScheduleD
 
             await handleError(response, `サーバーエラー: ${response.status}`);
 
-            const data: QrActionResponse<SalesOrder> = await response.json();
-            const { action, payload, navigate: navTarget, state, updateSearch } = data.result || {};
+            const data: QrActionResponse = await response.json();
+            const { updateSearch } = data.result || {};
 
-            let handled = false;
-            if (action) {
-                switch (action) {
-                    case 'goods_issue':
-                        if (payload) {
-                            handleOpenModal(payload);
-                            handled = true;
-                        }
-                        break;
-                    case 'navigate':
-                        if (navTarget) {
-                            navigate(navTarget, { state });
-                            handled = true;
-                        }
-                        break;
-                    case 'update_search':
-                        if (updateSearch) {
-                            setSearchQueryInput(updateSearch);
-                            setCommittedSearchParams(prev => ({ ...prev, q: updateSearch, status: searchStatusInput }));
-                            setCurrentPage(1);
-                            handled = true;
-                        }
-                        break;
-                }
-            }
-
-            // Fallback for older action format
-            if (!handled && updateSearch) {
+            if (updateSearch) {
                 setSearchQueryInput(updateSearch);
                 setCommittedSearchParams(prev => ({ ...prev, q: updateSearch, status: searchStatusInput }));
                 setCurrentPage(1);
-                handled = true;
+            } else if (defaultSetter) {
+                defaultSetter(decodedText);
             }
-
-            if (!handled && defaultSetter) defaultSetter(decodedText);
         } catch (err) {
             setError(`QRコード処理エラー: ${errorMessage(err)}`);
         } finally {
             setLoading(false);
         }
-    }, [navigate, searchStatusInput, handleOpenModal]);
+    }, [searchStatusInput]);
     
     const handleSearch = (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();

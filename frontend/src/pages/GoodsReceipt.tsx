@@ -7,7 +7,6 @@ import ReceiptLocationMap from '../components/common/ReceiptLocationMap';
 import authFetch, { ApiError } from '../utils/api';
 import { executeQrAction } from '../utils/qrAction';
 import { applyShelfInput } from '../utils/shelfQr';
-import { useNavigate } from 'react-router-dom';
 import inventoryService from '../services/inventoryService';
 import { NavIcon } from '../components/NavIcon';
 import './InventoryInquiry.css';
@@ -78,7 +77,6 @@ const GoodsReceiptContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefau
   const [searchFields, setSearchFields] = useState<DisplaySetting[]>([]);
 
   const [filters, setFilters] = useState<Record<string, string>>(() => defaultFilters(dateDefaults));
-  const navigate = useNavigate();
 
   // 入庫処理モーダル
   const [receiptModal, setReceiptModal] = useState<{
@@ -244,12 +242,8 @@ const GoodsReceiptContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefau
       return;
     }
     try {
-      const result = await executeQrAction<PurchaseOrderRow>(text);
-      if (result?.action === 'goods_receipt' && result.payload) {
-        openReceiptModal(result.payload);
-      } else if (result?.action === 'navigate' && result.navigate) {
-        navigate(result.navigate, { state: result.state });
-      } else if (result?.updateSearch) {
+      const result = await executeQrAction(text);
+      if (result?.updateSearch) {
         setFilters(prev => ({ ...prev, [fieldName]: result.updateSearch as string }));
       } else {
         handleSearch();
