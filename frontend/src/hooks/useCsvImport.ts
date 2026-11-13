@@ -29,7 +29,7 @@ export const useCsvImport = () => {
         pollingInterval.current = setInterval(async () => {
             try {
                 const result = await importService.getTaskStatus(currentTaskId);
-                setTaskStatus(result.status_display);
+                setTaskStatus(result.status_display ?? result.status);
                 setProgress(result.progress || 0);
 
                 if (result.status === 'SUCCESS') {
@@ -39,7 +39,7 @@ export const useCsvImport = () => {
                     setIsLoading(false);
                 } else if (result.status === 'FAILURE') {
                     stopPolling();
-                    setCsvResult({ message: 'インポート中にエラーが発生しました', isError: true, errors: [result.error_message || '不明なエラー'] });
+                    setCsvResult({ message: 'インポート中にエラーが発生しました', isError: true, errors: [result.error_message || (typeof result.result === 'string' ? result.result : '') || '不明なエラー'] });
                     setShowResultModal(true);
                     setIsLoading(false);
                 }

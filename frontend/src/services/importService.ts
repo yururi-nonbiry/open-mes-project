@@ -33,10 +33,9 @@ const importService = {
 
     importCsv: async (file: File, dataType: string) => {
         const formData = new FormData();
-        formData.append('file', file);
-        formData.append('data_type', dataType);
+        formData.append('csv_file', file);
 
-        const response = await authFetch('/api/base/csv-import/', {
+        const response = await authFetch(`/api/base/csv-mappings/import-csv/?data_type=${encodeURIComponent(dataType)}`, {
             method: 'POST',
             body: formData,
         });
@@ -45,7 +44,7 @@ const importService = {
     },
 
     getTaskStatus: async (taskId: string) => {
-        const response = await authFetch(`/api/base/async-tasks/${taskId}/`);
+        const response = await authFetch(`/api/base/csv-import-status/${taskId}/`);
         await handleError(response, 'Failed to fetch task status');
         return await response.json();
     }

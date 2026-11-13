@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { Card, Row, Col, Form, Button, ProgressBar } from 'react-bootstrap';
 import { useDropzone } from 'react-dropzone';
 import { CSV_DATA_TYPES } from '../../config/dataImportConfigs';
+import authFetch from '../../utils/api';
 
 interface CsvImportSectionProps {
     isLoading: boolean;
@@ -18,6 +19,28 @@ const CsvImportSection: React.FC<CsvImportSectionProps> = ({
     const [csvDataType, setCsvDataType] = useState('');
     const [csvFile, setCsvFile] = useState<File | null>(null);
     const [csvTemplateUrl, setCsvTemplateUrl] = useState('');
+    const [templateError, setTemplateError] = useState('');
+
+    // JWT認証のため単純なリンクでは認証ヘッダーが付かない。fetchで取得してBlobとして保存する。
+    const handleTemplateDownload = async (e: React.MouseEvent) => {
+        e.preventDefault();
+        setTemplateError('');
+        try {
+            const response = await authFetch(csvTemplateUrl);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${csvDataType}_template.csv`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            setTemplateError(`テンプレートのダウンロードに失敗しました (${(err as Error).message})`);
+        }
+    };
 
     const onDrop = useCallback((acceptedFiles: File[]) => {
         if (acceptedFiles.length > 0) setCsvFile(acceptedFiles[0]);
@@ -32,7 +55,7 @@ const CsvImportSection: React.FC<CsvImportSectionProps> = ({
     const handleCsvDataTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const type = e.target.value;
         setCsvDataType(type);
-        setCsvTemplateUrl(`/api/base/csv-template/?data_type=${type}`);
+        setCsvTemplateUrl(`/api/base/csv-mappings/csv-template/?data_type=${type}`);
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -78,7 +101,8 @@ const CsvImportSection: React.FC<CsvImportSectionProps> = ({
                         </Row>
                         {csvTemplateUrl && (
                             <div className="mt-2 text-end">
-                                <a href={csvTemplateUrl} className="small text-decoration-none">テンプレートCSVのダウンロード</a>
+                                <a href={csvTemplateUrl} onClick={handleTemplateDownload} className="small text-decoration-none">テンプレートCSVのダウンロード</a>
+                                {templateError && <div className="small text-danger">{templateError}</div>}
                             </div>
                         )}
                     </Form>
