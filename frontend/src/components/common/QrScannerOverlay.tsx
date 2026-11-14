@@ -26,7 +26,7 @@ const debugText = (s: QrScannerStats) =>
     `経過: ${(s.elapsedMs / 1000).toFixed(1)}s`,
     `video: ${s.video}`,
     `track: ${s.track}`,
-    `detect: ${s.detectCalls}回 空${s.detectEmpty} 例外${s.detectErrors} 無応答${s.detectTimeouts}`,
+    `detect: ${s.detectCalls}回 空${s.detectEmpty} 例外${s.detectErrors} 無応答${s.detectTimeouts} canvas経由${s.canvasMode ? 'はい' : 'いいえ'}`,
     `detect時間: 直近${s.detectLastMs}ms 最大${s.detectMaxMs}ms`,
     `zxing: ${s.zxingCallbacks}回 未検出${s.zxingNotFound}`,
     `formats: ${s.formats}`,

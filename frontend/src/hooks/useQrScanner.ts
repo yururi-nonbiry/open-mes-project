@@ -6,7 +6,7 @@ interface DetectedBarcode {
   rawValue: string;
 }
 interface BarcodeDetectorLike {
-  detect(source: HTMLVideoElement): Promise<DetectedBarcode[]>;
+  detect(source: HTMLVideoElement | HTMLCanvasElement): Promise<DetectedBarcode[]>;
 }
 interface BarcodeDetectorConstructor {
   new (options?: { formats?: string[] }): BarcodeDetectorLike;
@@ -14,6 +14,8 @@ interface BarcodeDetectorConstructor {
 }
 
 const SCAN_INTERVAL_MS = 120;
+// detect() が例外を返し続ける場合に ZXing へ切り替えるまでの連続失敗回数(約4秒分)
+const MAX_CONSECUTIVE_DETECT_ERRORS = 30;
 // detect() がこの時間内に返らない場合は固まったとみなし ZXing に切り替える
 const DETECT_TIMEOUT_MS = 2000;
 class DetectTimeoutError extends Error {}
@@ -57,6 +59,8 @@ export interface QrScannerStats {
   detectCalls: number;
   detectEmpty: number;
   detectErrors: number;
+  /** video 要素を直接渡せず canvas 経由で検出しているか */
+  canvasMode: boolean;
   detectTimeouts: number;
   detectLastMs: number;
   detectMaxMs: number;
@@ -76,6 +80,7 @@ const initialStats = (): QrScannerStats => ({
   detectCalls: 0,
   detectEmpty: 0,
   detectErrors: 0,
+  canvasMode: false,
   detectTimeouts: 0,
   detectLastMs: 0,
   detectMaxMs: 0,
@@ -218,12 +223,27 @@ export function useQrScanner({ isOpen, videoRef, onResult, onError }: UseQrScann
         return;
       }
 
+      // 一部の端末(Android Chrome など)では video 要素を直接 detect() に渡すと
+      // InvalidStateError になるため、その場合は canvas に描画してから渡す
+      let useCanvas = false;
+      let consecutiveErrors = 0;
+      let canvas: HTMLCanvasElement | null = null;
+      const detectFrame = () => {
+        if (!useCanvas) return detector.detect(video);
+        if (!canvas) canvas = document.createElement('canvas');
+        if (canvas.width !== video.videoWidth) canvas.width = video.videoWidth;
+        if (canvas.height !== video.videoHeight) canvas.height = video.videoHeight;
+        canvas.getContext('2d')?.drawImage(video, 0, 0);
+        return detector.detect(canvas);
+      };
+
       const tick = async () => {
         if (cancelled) return;
         try {
           if (video.readyState >= 2) {
             const t0 = performance.now();
-            const codes = await withTimeout(detector.detect(video), DETECT_TIMEOUT_MS);
+            const codes = await withTimeout(detectFrame(), DETECT_TIMEOUT_MS);
+            consecutiveErrors = 0;
             st.detectLastMs = Math.round(performance.now() - t0);
             st.detectMaxMs = Math.max(st.detectMaxMs, st.detectLastMs);
             st.detectCalls++;
@@ -235,8 +255,8 @@ export function useQrScanner({ isOpen, videoRef, onResult, onError }: UseQrScann
             }
           }
         } catch (e) {
+          if (cancelled) return;
           if (e instanceof DetectTimeoutError) {
-            if (cancelled) return;
             st.detectTimeouts++;
             note('detect() が応答せず ZXing へ切替');
             console.warn('BarcodeDetector が応答しないため ZXing に切り替えます');
@@ -244,9 +264,21 @@ export function useQrScanner({ isOpen, videoRef, onResult, onError }: UseQrScann
             startZxing().catch(fail);
             return;
           }
-          // 1フレームの検出失敗は無視して次のフレームへ
           st.detectErrors++;
           st.lastError = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+          consecutiveErrors++;
+          if (!useCanvas) {
+            // 初回の例外では canvas 経由に切り替えて様子を見る
+            useCanvas = true;
+            st.canvasMode = true;
+            note(`video直接のdetectが失敗 → canvas経由に切替 (${st.lastError})`);
+          } else if (consecutiveErrors >= MAX_CONSECUTIVE_DETECT_ERRORS) {
+            note('detect() が失敗し続けるため ZXing へ切替');
+            console.warn('BarcodeDetector が失敗し続けるため ZXing に切り替えます', e);
+            stopCamera();
+            startZxing().catch(fail);
+            return;
+          }
         }
         timer = setTimeout(tick, SCAN_INTERVAL_MS);
       };
