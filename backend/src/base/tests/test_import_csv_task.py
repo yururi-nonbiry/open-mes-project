@@ -13,6 +13,7 @@ class ImportCsvTaskTests(TestCase):
     """BASE-IMPORTTASK-* : CSVインポートタスク本体 (base.tasks.import_csv_task)。"""
 
     def setUp(self):
+        CsvColumnMapping.objects.all().delete()  # マイグレーション投入の既定マッピングを除外
         CsvColumnMapping.objects.create(
             data_type="item", csv_header="code", model_field_name="code", order=1, is_update_key=True
         )
@@ -70,6 +71,7 @@ class ImportCsvPurposeTests(TestCase):
     _run = ImportCsvTaskTests._run
 
     def setUp(self):
+        CsvColumnMapping.objects.all().delete()  # マイグレーション投入の既定マッピングを除外
         from master.models import StockPurpose
 
         StockPurpose.objects.create(code="PRD-A", name="A製品用")

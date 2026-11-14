@@ -8,6 +8,8 @@ User = get_user_model()
 
 class BaseAPITestBase(APITestCase):
     def setUp(self):
+        # マイグレーションで投入される既定のCSV列マッピングを消し、各テストが自前の設定だけで動くようにする
+        CsvColumnMapping.objects.all().delete()
         self.user = User.objects.create_user(custom_id="testuser", password="testpassword", username="testuser")
         self.admin_user = User.objects.create_user(
             custom_id="adminuser", password="testpassword", username="adminuser", is_staff=True
