@@ -149,7 +149,6 @@
   font-weight: 600;
   background: #475569;
 }
-.qrscan__badge--native { background: #16a34a; }
 .qrscan__badge--wasm { background: #0d9488; }
 .qrscan__badge--zxing { background: #2563eb; }
 .qrscan__badge--error { background: #dc2626; }

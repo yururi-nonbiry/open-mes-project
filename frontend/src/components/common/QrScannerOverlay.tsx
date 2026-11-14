@@ -15,19 +15,18 @@ interface Props {
 const engineLabel: Record<QrScannerStats['engine'], string> = {
   idle: '待機',
   starting: '起動中',
-  native: 'BarcodeDetector',
   wasm: 'WASM',
-  zxing: 'ZXing',
+  zxing: 'ZXing(JS)',
   error: 'エラー',
 };
 
 const debugText = (s: QrScannerStats) =>
   [
-    `engine: ${engineLabel[s.engine]} (BarcodeDetector ${s.hasBarcodeDetector ? 'あり' : 'なし'})`,
+    `engine: ${engineLabel[s.engine]}`,
     `経過: ${(s.elapsedMs / 1000).toFixed(1)}s`,
     `video: ${s.video}`,
     `track: ${s.track}`,
-    `detect: ${s.detectCalls}回 空${s.detectEmpty} 例外${s.detectErrors} 無応答${s.detectTimeouts} canvas経由${s.canvasMode ? 'はい' : 'いいえ'}`,
+    `detect: ${s.detectCalls}回 空${s.detectEmpty} 例外${s.detectErrors} 無応答${s.detectTimeouts}`,
     `detect時間: 直近${s.detectLastMs}ms 最大${s.detectMaxMs}ms`,
     `zxing: ${s.zxingCallbacks}回 未検出${s.zxingNotFound}`,
     `formats: ${s.formats}`,
