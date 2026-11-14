@@ -14,6 +14,17 @@ interface BarcodeDetectorConstructor {
 }
 
 const SCAN_INTERVAL_MS = 120;
+// detect() がこの時間内に返らない場合は固まったとみなし ZXing に切り替える
+const DETECT_TIMEOUT_MS = 2000;
+class DetectTimeoutError extends Error {}
+const withTimeout = <T,>(p: Promise<T>, ms: number): Promise<T> =>
+  new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => reject(new DetectTimeoutError('detect timeout')), ms);
+    p.then(
+      v => { clearTimeout(t); resolve(v); },
+      e => { clearTimeout(t); reject(e); },
+    );
+  });
 // ZXing のスキャン間隔(既定 500ms)。短くして取りこぼしを減らす
 const ZXING_SCAN_INTERVAL_MS = 100;
 
@@ -90,9 +101,9 @@ export function useQrScanner({ isOpen, videoRef, onResult, onError }: UseQrScann
     };
 
     const startZxing = async () => {
-      // TRY_HARDER: 処理は重くなるが、高密度・小さいQRの認識率が上がる。
+      // TRY_HARDER は1フレームの処理が非常に重く、画面が固まる・読み取れなくなる原因になるため使わない。
       // 文字コード(UTF-8 / Shift_JIS)は CHARACTER_SET を固定せず ZXing の自動判定に任せる。
-      const hints = new Map<DecodeHintType, unknown>([[DecodeHintType.TRY_HARDER, true]]);
+      const hints = new Map<DecodeHintType, unknown>();
       zxingReader = new BrowserMultiFormatReader(hints, ZXING_SCAN_INTERVAL_MS);
       await zxingReader.decodeFromConstraints(VIDEO_CONSTRAINTS, video, (result, error) => {
         if (cancelled) return;
@@ -135,13 +146,21 @@ export function useQrScanner({ isOpen, videoRef, onResult, onError }: UseQrScann
         if (cancelled) return;
         try {
           if (video.readyState >= 2) {
-            const codes = await detector.detect(video);
-            if (codes.length > 0 && codes[0].rawValue) {
-              finish(codes[0].rawValue);
+            const codes = await withTimeout(detector.detect(video), DETECT_TIMEOUT_MS);
+            const hit = codes.find(c => c.rawValue);
+            if (hit) {
+              finish(hit.rawValue);
               return;
             }
           }
-        } catch {
+        } catch (e) {
+          if (e instanceof DetectTimeoutError) {
+            if (cancelled) return;
+            console.warn('BarcodeDetector が応答しないため ZXing に切り替えます');
+            stopCamera();
+            startZxing().catch(fail);
+            return;
+          }
           // 1フレームの検出失敗は無視して次のフレームへ
         }
         timer = setTimeout(tick, SCAN_INTERVAL_MS);
