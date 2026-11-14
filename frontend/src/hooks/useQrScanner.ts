@@ -58,14 +58,34 @@ export function useQrScanner({ isOpen, videoRef, onResult, onError }: UseQrScann
     let timer: ReturnType<typeof setTimeout> | null = null;
     let zxingReader: BrowserMultiFormatReader | null = null;
 
+    // カメラを確実に停止する。React の再描画(video 要素の破棄)に頼らず、結果確定時にも即座に呼ぶ
+    const stopCamera = () => {
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
+      try {
+        zxingReader?.reset();
+      } catch {
+        /* 無視 */
+      }
+      stream?.getTracks().forEach(t => t.stop());
+      stream = null;
+      const attached = video.srcObject;
+      if (attached instanceof MediaStream) attached.getTracks().forEach(t => t.stop());
+      video.srcObject = null;
+    };
+
     const finish = (text: string) => {
       if (cancelled) return;
       cancelled = true;
+      stopCamera();
       onResultRef.current(text);
     };
     const fail = (err: unknown) => {
       if (cancelled) return;
       cancelled = true;
+      stopCamera();
       onErrorRef.current(err);
     };
 
@@ -82,6 +102,8 @@ export function useQrScanner({ isOpen, videoRef, onResult, onError }: UseQrScann
           fail(error);
         }
       });
+      // 起動待ちの間に閉じられた場合、後から開始されたカメラが残らないよう止め直す
+      if (cancelled) stopCamera();
     };
 
     const startNative = async (Detector: BarcodeDetectorConstructor) => {
@@ -104,6 +126,10 @@ export function useQrScanner({ isOpen, videoRef, onResult, onError }: UseQrScann
       }
       video.srcObject = stream;
       await video.play();
+      if (cancelled) {
+        stopCamera();
+        return;
+      }
 
       const tick = async () => {
         if (cancelled) return;
@@ -139,10 +165,7 @@ export function useQrScanner({ isOpen, videoRef, onResult, onError }: UseQrScann
             throw err;
           }
           console.warn('BarcodeDetector での起動に失敗したため ZXing にフォールバックします', err);
-          if (stream) {
-            (stream as MediaStream).getTracks().forEach(t => t.stop());
-            stream = null;
-          }
+          stopCamera();
         }
       }
       if (!cancelled) await startZxing();
@@ -152,10 +175,7 @@ export function useQrScanner({ isOpen, videoRef, onResult, onError }: UseQrScann
 
     return () => {
       cancelled = true;
-      if (timer) clearTimeout(timer);
-      if (zxingReader) zxingReader.reset();
-      if (stream) stream.getTracks().forEach(t => t.stop());
-      video.srcObject = null;
+      stopCamera();
     };
   }, [isOpen, videoRef]);
 }
