@@ -211,7 +211,7 @@ const MobileLocationTransferPage = () => {
     setCameraState({ isOpen: false, targetSetter: null });
   }, []);
 
-  const qrStats = useQrScanner({
+  useQrScanner({
     isOpen: cameraState.isOpen,
     videoRef,
     onResult: (text) => {
@@ -335,7 +335,7 @@ const MobileLocationTransferPage = () => {
       )}
 
       {cameraState.isOpen && (
-        <QrScannerOverlay videoRef={videoRef} stats={qrStats} onClose={stopCameraScan} />
+        <QrScannerOverlay videoRef={videoRef} onClose={stopCameraScan} />
       )}
     </div>
   );

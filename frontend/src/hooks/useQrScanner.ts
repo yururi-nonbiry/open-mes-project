@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type RefObject } from 'react';
+import { useEffect, useRef, type RefObject } from 'react';
 import { BrowserMultiFormatReader, DecodeHintType, NotFoundException } from '@zxing/library';
 
 // WASM 版の BarcodeDetector 互換 API(barcode-detector)を扱うための最小限の型
@@ -53,50 +53,11 @@ interface UseQrScannerOptions {
   onError: (err: unknown) => void;
 }
 
-/** 読み取りの状況(デバッグ表示用) */
-export interface QrScannerStats {
-  /** starting: 起動中 / wasm: ZXing-C++(WASM) / zxing: ZXing(JS) / error: 失敗 */
-  engine: 'idle' | 'starting' | 'wasm' | 'zxing' | 'error';
-  formats: string;
-  detectCalls: number;
-  detectEmpty: number;
-  detectErrors: number;
-  detectTimeouts: number;
-  detectLastMs: number;
-  detectMaxMs: number;
-  zxingCallbacks: number;
-  zxingNotFound: number;
-  video: string;
-  track: string;
-  elapsedMs: number;
-  lastError: string;
-  log: string[];
-}
-
-const initialStats = (): QrScannerStats => ({
-  engine: 'idle',
-  formats: '-',
-  detectCalls: 0,
-  detectEmpty: 0,
-  detectErrors: 0,
-  detectTimeouts: 0,
-  detectLastMs: 0,
-  detectMaxMs: 0,
-  zxingCallbacks: 0,
-  zxingNotFound: 0,
-  video: '-',
-  track: '-',
-  elapsedMs: 0,
-  lastError: '',
-  log: [],
-});
-
 /**
  * カメラでQR/バーコードを読み取るフック。
  * WASM(ZXing-C++)で読み取り、使えない場合のみ ZXing(JS) にフォールバックする。
  */
-export function useQrScanner({ isOpen, videoRef, onResult, onError }: UseQrScannerOptions): QrScannerStats {
-  const [stats, setStats] = useState<QrScannerStats>(initialStats);
+export function useQrScanner({ isOpen, videoRef, onResult, onError }: UseQrScannerOptions): void {
   // コールバックは ref 経由で最新を参照し、effect の再実行を避ける
   const onResultRef = useRef(onResult);
   const onErrorRef = useRef(onError);
@@ -111,26 +72,6 @@ export function useQrScanner({ isOpen, videoRef, onResult, onError }: UseQrScann
     let stream: MediaStream | null = null;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let zxingReader: BrowserMultiFormatReader | null = null;
-
-    // デバッグ表示用の統計。毎フレーム再描画しないよう一定間隔で state に反映する
-    const st = initialStats();
-    st.engine = 'starting';
-    const startedAt = performance.now();
-    const note = (msg: string) => {
-      st.log = [...st.log.slice(-5), `${((performance.now() - startedAt) / 1000).toFixed(1)}s ${msg}`];
-    };
-    const flush = () => {
-      st.elapsedMs = Math.round(performance.now() - startedAt);
-      st.video = `${video.videoWidth}x${video.videoHeight} rs=${video.readyState} ${video.paused ? 'paused' : 'playing'}`;
-      const track = (video.srcObject instanceof MediaStream ? video.srcObject : stream)?.getVideoTracks()[0];
-      if (track) {
-        const t = track.getSettings();
-        st.track = `${t.width ?? '?'}x${t.height ?? '?'}@${Math.round(t.frameRate ?? 0)} ${track.readyState}`;
-      }
-      setStats({ ...st });
-    };
-    flush();
-    const statsTimer = setInterval(flush, 250);
 
     // カメラを確実に停止する。React の再描画(video 要素の破棄)に頼らず、結果確定時にも即座に呼ぶ
     const stopCamera = () => {
@@ -153,18 +94,12 @@ export function useQrScanner({ isOpen, videoRef, onResult, onError }: UseQrScann
     const finish = (text: string) => {
       if (cancelled) return;
       cancelled = true;
-      note(`成功 ${text.length}文字`);
-      flush();
       stopCamera();
       onResultRef.current(text);
     };
     const fail = (err: unknown) => {
       if (cancelled) return;
       cancelled = true;
-      st.engine = 'error';
-      st.lastError = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
-      note(`失敗 ${st.lastError}`);
-      flush();
       stopCamera();
       onErrorRef.current(err);
     };
@@ -174,16 +109,11 @@ export function useQrScanner({ isOpen, videoRef, onResult, onError }: UseQrScann
       // 文字コード(UTF-8 / Shift_JIS)は CHARACTER_SET を固定せず ZXing の自動判定に任せる。
       const hints = new Map<DecodeHintType, unknown>();
       zxingReader = new BrowserMultiFormatReader(hints, ZXING_SCAN_INTERVAL_MS);
-      st.engine = 'zxing';
-      note('ZXing 開始');
       await zxingReader.decodeFromConstraints(VIDEO_CONSTRAINTS, video, (result, error) => {
         if (cancelled) return;
-        st.zxingCallbacks++;
         if (result) {
           finish(result.getText());
-        } else if (error instanceof NotFoundException) {
-          st.zxingNotFound++;
-        } else if (error) {
+        } else if (error && !(error instanceof NotFoundException)) {
           fail(error);
         }
       });
@@ -195,13 +125,10 @@ export function useQrScanner({ isOpen, videoRef, onResult, onError }: UseQrScann
     // 使えなくなった場合は onUnusable で次の方式へ切り替える。
     const startDetector = async (
       Detector: BarcodeDetectorConstructor,
-      engine: 'wasm',
       onUnusable: () => void,
     ) => {
       const label = 'WASM(ZXing-C++)';
       const formats = await Detector.getSupportedFormats();
-      st.formats = formats.join(',');
-      note(`${label} 対応形式 ${formats.length}件`);
       const detector = new Detector({ formats });
 
       stream = await navigator.mediaDevices.getUserMedia(VIDEO_CONSTRAINTS);
@@ -220,8 +147,6 @@ export function useQrScanner({ isOpen, videoRef, onResult, onError }: UseQrScann
       }
       video.srcObject = stream;
       await video.play();
-      st.engine = engine;
-      note(`${label} 開始`);
       if (cancelled) {
         stopCamera();
         return;
@@ -246,13 +171,8 @@ export function useQrScanner({ isOpen, videoRef, onResult, onError }: UseQrScann
         if (cancelled) return;
         try {
           if (video.readyState >= 2) {
-            const t0 = performance.now();
             const codes = await withTimeout(detectFrame(), WASM_DETECT_TIMEOUT_MS);
             consecutiveErrors = 0;
-            st.detectLastMs = Math.round(performance.now() - t0);
-            st.detectMaxMs = Math.max(st.detectMaxMs, st.detectLastMs);
-            st.detectCalls++;
-            if (codes.length === 0) st.detectEmpty++;
             const hit = codes.find(c => c.rawValue);
             if (hit) {
               finish(hit.rawValue);
@@ -261,23 +181,18 @@ export function useQrScanner({ isOpen, videoRef, onResult, onError }: UseQrScann
           }
         } catch (e) {
           if (cancelled) return;
-          const message = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
-          const giveUp = (reason: string) => {
-            note(`${label} ${reason} → 次の方式へ切替`);
+          const giveUp = () => {
             console.warn(`${label} が使えないため別の方式に切り替えます`, e);
             stopCamera();
             onUnusable();
           };
           if (e instanceof DetectTimeoutError) {
-            st.detectTimeouts++;
-            giveUp('が応答せず');
+            giveUp();
             return;
           }
-          st.detectErrors++;
-          st.lastError = message;
           consecutiveErrors++;
           if (consecutiveErrors >= MAX_CONSECUTIVE_DETECT_ERRORS) {
-            giveUp('が失敗し続けて');
+            giveUp();
             return;
           }
         }
@@ -292,7 +207,6 @@ export function useQrScanner({ isOpen, videoRef, onResult, onError }: UseQrScann
         if (cancelled) return;
         await startDetector(
           WasmBarcodeDetector as unknown as BarcodeDetectorConstructor,
-          'wasm',
           () => {
             startZxing().catch(fail);
           },
@@ -300,8 +214,6 @@ export function useQrScanner({ isOpen, videoRef, onResult, onError }: UseQrScann
       } catch (err) {
         if (cancelled) return;
         if (isCameraError(err)) throw err;
-        st.lastError = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
-        note(`WASM 起動失敗 ${st.lastError}`);
         console.warn('WASM での起動に失敗したため ZXing(JS) にフォールバックします', err);
         stopCamera();
         await startZxing();
@@ -322,10 +234,8 @@ export function useQrScanner({ isOpen, videoRef, onResult, onError }: UseQrScann
 
     return () => {
       cancelled = true;
-      clearInterval(statsTimer);
       stopCamera();
     };
   }, [isOpen, videoRef]);
 
-  return stats;
 }

@@ -88,7 +88,7 @@ const MobileGoodsIssuePageContent = ({ dateDefaults }: { dateDefaults: ScheduleD
         setCameraState({ isOpen: false, targetSetter: null });
     }, []);
 
-    const qrStats = useQrScanner({
+    useQrScanner({
       isOpen: cameraState.isOpen,
       videoRef,
       onResult: (text) => {
@@ -433,7 +433,7 @@ const MobileGoodsIssuePageContent = ({ dateDefaults }: { dateDefaults: ScheduleD
 
         {/* Camera View */}
         {cameraState.isOpen && (
-        <QrScannerOverlay videoRef={videoRef} stats={qrStats} onClose={stopCameraScan} />
+        <QrScannerOverlay videoRef={videoRef} onClose={stopCameraScan} />
       )}
     </Container>
   );

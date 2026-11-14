@@ -100,7 +100,7 @@ const MobileGoodsReceiptPageContent = ({ dateDefaults }: { dateDefaults: Schedul
     setCameraState({ isOpen: false, targetSetter: null });
   }, []);
 
-  const qrStats = useQrScanner({
+  useQrScanner({
     isOpen: cameraState.isOpen,
     videoRef,
     onResult: (text) => {
@@ -318,7 +318,7 @@ const MobileGoodsReceiptPageContent = ({ dateDefaults }: { dateDefaults: Schedul
 
       {/* Camera View */}
       {cameraState.isOpen && (
-        <QrScannerOverlay videoRef={videoRef} stats={qrStats} onClose={stopCameraScan} />
+        <QrScannerOverlay videoRef={videoRef} onClose={stopCameraScan} />
       )}
     </div>
   );
