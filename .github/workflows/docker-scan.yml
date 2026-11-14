@@ -1,0 +1,57 @@
+name: Docker image scan
+
+# Dockerイメージ(ベースイメージのOSパッケージ含む)をTrivyでスキャンする。
+# 最初はノイズ確認のため「報告のみ」(失敗させない)。結果は Security タブに出る。
+# 厳しくする場合は trivy-action の exit-code を "1" にする。
+on:
+  schedule:
+    - cron: "0 1 * * 1" # 毎週月曜 10:00 JST
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write # SARIFをSecurityタブへアップロードするため
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: backend
+            context: backend/image
+          - name: frontend
+            context: frontend
+          - name: db
+            context: db/image
+          - name: certbot
+            context: certbot
+          - name: reverse-proxy
+            context: reverse-proxy
+          - name: reverse-proxy-https
+            context: reverse-proxy_https
+          - name: reverse-proxy-prod
+            context: reverse-proxy_prod
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t scan-target:${{ matrix.name }} ${{ matrix.context }}
+
+      - name: Trivy scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: scan-target:${{ matrix.name }}
+          format: sarif
+          output: trivy-${{ matrix.name }}.sarif
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "0"
+
+      - name: Upload to Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-${{ matrix.name }}.sarif
+          category: trivy-${{ matrix.name }}

@@ -1,0 +1,31 @@
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /backend/image
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  # 各Dockerfileのベースイメージ
+  - package-ecosystem: docker
+    directories:
+      - /backend/image
+      - /frontend
+      - /db/image
+      - /certbot
+      - /reverse-proxy
+      - /reverse-proxy_https
+      - /reverse-proxy_prod
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

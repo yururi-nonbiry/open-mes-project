@@ -1,0 +1,45 @@
+name: Dependency audit
+
+# ライブラリ(pip / npm)の既知の脆弱性を検査する。
+# 脆弱性が見つかった場合はジョブを失敗させる。
+on:
+  pull_request:
+    paths:
+      - backend/image/requirements.txt
+      - frontend/package.json
+      - frontend/package-lock.json
+      - .github/workflows/dependency-audit.yml
+  push:
+    branches: [main]
+    paths:
+      - backend/image/requirements.txt
+      - frontend/package.json
+      - frontend/package-lock.json
+  schedule:
+    - cron: "0 0 * * 1" # 毎週月曜 09:00 JST
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pip-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pip-audit
+      - run: pip-audit -r backend/image/requirements.txt
+
+  npm-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: npm audit (high以上)
+        working-directory: frontend
+        run: npm audit --audit-level=high
