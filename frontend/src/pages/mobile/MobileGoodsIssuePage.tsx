@@ -5,6 +5,7 @@ import authFetch, { handleError } from '../../utils/api';
 import { useWorkCenters } from '../../hooks/useWorkCenters';
 import inventoryService, { SalesOrder, validateIssueQuantity } from '../../services/inventoryService';
 import { useQrScanner } from '../../hooks/useQrScanner';
+import QrScannerOverlay from '../../components/common/QrScannerOverlay';
 import CameraIcon from '../../components/common/CameraIcon';
 import './MobileLocationTransferPage.css'; // スタイルを再利用
 import type { FormEvent } from 'react';
@@ -87,7 +88,7 @@ const MobileGoodsIssuePageContent = ({ dateDefaults }: { dateDefaults: ScheduleD
         setCameraState({ isOpen: false, targetSetter: null });
     }, []);
 
-    useQrScanner({
+    const qrStats = useQrScanner({
       isOpen: cameraState.isOpen,
       videoRef,
       onResult: (text) => {
@@ -432,12 +433,8 @@ const MobileGoodsIssuePageContent = ({ dateDefaults }: { dateDefaults: ScheduleD
 
         {/* Camera View */}
         {cameraState.isOpen && (
-            <div className="camera-view-container">
-                <video ref={videoRef} className="camera-video-element"></video>
-                <div className="camera-targeting-guide"></div>
-                <button onClick={stopCameraScan} className="btn btn-danger close-camera-button">&times; 閉じる</button>
-            </div>
-        )}
+        <QrScannerOverlay videoRef={videoRef} stats={qrStats} onClose={stopCameraScan} />
+      )}
     </Container>
   );
 };

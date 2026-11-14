@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from 'react';
 import authFetch, { describeError, handleError } from '../../utils/api';
 import inventoryService from '../../services/inventoryService';
 import { useQrScanner } from '../../hooks/useQrScanner';
+import QrScannerOverlay from '../../components/common/QrScannerOverlay';
 import CameraIcon from '../../components/common/CameraIcon';
 import { useStockPurposes } from '../../hooks/useStockPurposes';
 import './MobileLocationTransferPage.css'; // 新しいCSSファイルをインポート
@@ -210,7 +211,7 @@ const MobileLocationTransferPage = () => {
     setCameraState({ isOpen: false, targetSetter: null });
   }, []);
 
-  useQrScanner({
+  const qrStats = useQrScanner({
     isOpen: cameraState.isOpen,
     videoRef,
     onResult: (text) => {
@@ -334,11 +335,7 @@ const MobileLocationTransferPage = () => {
       )}
 
       {cameraState.isOpen && (
-        <div className="camera-view-container">
-          <video ref={videoRef} className="camera-video-element"></video>
-          <div className="camera-targeting-guide"></div>
-          <button onClick={stopCameraScan} className="btn btn-danger close-camera-button">&times; 閉じる</button>
-        </div>
+        <QrScannerOverlay videoRef={videoRef} stats={qrStats} onClose={stopCameraScan} />
       )}
     </div>
   );

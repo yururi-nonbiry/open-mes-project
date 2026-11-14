@@ -3,6 +3,7 @@ import { applyShelfInput } from '../../utils/shelfQr';
 import authFetch, { ApiError, handleError } from '../../utils/api';
 import inventoryService from '../../services/inventoryService';
 import { useQrScanner } from '../../hooks/useQrScanner';
+import QrScannerOverlay from '../../components/common/QrScannerOverlay';
 import { useStockPurposes } from '../../hooks/useStockPurposes';
 import { useScheduleDateDefaults } from '../../hooks/useScheduleDateDefaults';
 import type { ScheduleDateDefaults } from '../../services/scheduleDateDefaultsService';
@@ -99,7 +100,7 @@ const MobileGoodsReceiptPageContent = ({ dateDefaults }: { dateDefaults: Schedul
     setCameraState({ isOpen: false, targetSetter: null });
   }, []);
 
-  useQrScanner({
+  const qrStats = useQrScanner({
     isOpen: cameraState.isOpen,
     videoRef,
     onResult: (text) => {
@@ -317,11 +318,7 @@ const MobileGoodsReceiptPageContent = ({ dateDefaults }: { dateDefaults: Schedul
 
       {/* Camera View */}
       {cameraState.isOpen && (
-          <div className="camera-view-container">
-              <video ref={videoRef} className="camera-video-element"></video>
-              <div className="camera-targeting-guide"></div>
-              <button onClick={stopCameraScan} className="btn btn-danger close-camera-button">&times; 閉じる</button>
-          </div>
+        <QrScannerOverlay videoRef={videoRef} stats={qrStats} onClose={stopCameraScan} />
       )}
     </div>
   );
