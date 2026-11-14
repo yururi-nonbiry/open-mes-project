@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { applyShelfInput } from '../../utils/shelfQr';
 import authFetch, { ApiError, handleError } from '../../utils/api';
 import inventoryService from '../../services/inventoryService';
-import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library';
+import { useQrScanner } from '../../hooks/useQrScanner';
 import { useStockPurposes } from '../../hooks/useStockPurposes';
 import { useScheduleDateDefaults } from '../../hooks/useScheduleDateDefaults';
 import type { ScheduleDateDefaults } from '../../services/scheduleDateDefaultsService';
@@ -47,7 +47,6 @@ const MobileGoodsReceiptPageContent = ({ dateDefaults }: { dateDefaults: Schedul
     targetSetter: null,
   });
   const videoRef = useRef<HTMLVideoElement>(null);
-  const codeReader = useRef(new BrowserMultiFormatReader());
 
 
   // API call to fetch purchase order data
@@ -100,28 +99,19 @@ const MobileGoodsReceiptPageContent = ({ dateDefaults }: { dateDefaults: Schedul
     setCameraState({ isOpen: false, targetSetter: null });
   }, []);
 
-  useEffect(() => {
-    if (cameraState.isOpen && videoRef.current) {
-      codeReader.current
-        .decodeFromVideoDevice(null, videoRef.current,
-          (result, error) => {
-            if (result) {
-              setCameraState({ isOpen: false, targetSetter: null });
-              handleQrCodeResult(result.getText(), cameraState.targetSetter);
-            }
-            if (error && !(error instanceof NotFoundException)) {
-              console.error(error);
-              setError('バーコードの読み取りに失敗しました。');
-              setCameraState({ isOpen: false, targetSetter: null });
-            }
-          }
-        )
-        .catch(err => { console.error(err); setError('カメラの起動に失敗しました。'); setCameraState({ isOpen: false, targetSetter: null }); });
-    }
-    codeReader.current.reset();
-  // handleQrCodeResult はこの後で定義されるため依存配列に含められない
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cameraState.isOpen, cameraState.targetSetter, setError]);
+  useQrScanner({
+    isOpen: cameraState.isOpen,
+    videoRef,
+    onResult: (text) => {
+      setCameraState({ isOpen: false, targetSetter: null });
+      handleQrCodeResult(text, cameraState.targetSetter);
+    },
+    onError: (err) => {
+      console.error(err);
+      setError('カメラの起動に失敗しました。');
+      setCameraState({ isOpen: false, targetSetter: null });
+    },
+  });
 
   const openReceiptForm = useCallback((order: PurchaseOrderRow) => {
     const remainingQuantity = remainingOf(order);

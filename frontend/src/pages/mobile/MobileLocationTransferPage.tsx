@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import authFetch, { describeError, handleError } from '../../utils/api';
 import inventoryService from '../../services/inventoryService';
-import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library';
+import { useQrScanner } from '../../hooks/useQrScanner';
 import CameraIcon from '../../components/common/CameraIcon';
 import { useStockPurposes } from '../../hooks/useStockPurposes';
 import './MobileLocationTransferPage.css'; // 新しいCSSファイルをインポート
@@ -41,7 +41,6 @@ const MobileLocationTransferPage = () => {
     targetSetter: null,
   });
   const videoRef = useRef<HTMLVideoElement>(null);
-  const codeReader = useRef(new BrowserMultiFormatReader());
 
 
   // メッセージ表示関数
@@ -211,34 +210,19 @@ const MobileLocationTransferPage = () => {
     setCameraState({ isOpen: false, targetSetter: null });
   }, []);
 
-  useEffect(() => {
-    if (cameraState.isOpen && videoRef.current) {
-      codeReader.current
-        .decodeFromVideoDevice(null, videoRef.current,
-          (result, error) => {
-            if (result) {
-              // Successful scan, stop the camera
-              setCameraState({ isOpen: false, targetSetter: null });
-              handleQrCodeResult(result.getText(), cameraState.targetSetter);
-            }
-            if (error && !(error instanceof NotFoundException)) {
-              console.error(error);
-              showMessage('バーコードの読み取りに失敗しました。', 'error');
-              setCameraState({ isOpen: false, targetSetter: null });
-            }
-          }
-        )
-        .catch(err => {
-            console.error(err);
-            showMessage('カメラの起動に失敗しました。', 'error');
-            setCameraState({ isOpen: false, targetSetter: null });
-        });
-    }
-    // If cameraState.isOpen is false, ensure the camera is stopped.
-    codeReader.current.reset();
-  // handleQrCodeResult はこの後で定義されるため依存配列に含められない
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cameraState.isOpen, cameraState.targetSetter, showMessage]);
+  useQrScanner({
+    isOpen: cameraState.isOpen,
+    videoRef,
+    onResult: (text) => {
+      setCameraState({ isOpen: false, targetSetter: null });
+      handleQrCodeResult(text, cameraState.targetSetter);
+    },
+    onError: (err) => {
+      console.error(err);
+      showMessage('カメラの起動に失敗しました。', 'error');
+      setCameraState({ isOpen: false, targetSetter: null });
+    },
+  });
 
   // 棚番移動画面の入力欄には、QRコードアクション(検索欄への入力)の対象がないため、読み取った文字列をそのまま入力欄に設定する
   const handleQrCodeResult = useCallback((decodedText: string, defaultSetter: ScanTargetSetter | null) => {

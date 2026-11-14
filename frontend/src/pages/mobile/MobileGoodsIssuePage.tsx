@@ -4,7 +4,7 @@ import { Container, Form, Button, Row, Col, Card, Badge, Modal, Spinner, Alert, 
 import authFetch, { handleError } from '../../utils/api';
 import { useWorkCenters } from '../../hooks/useWorkCenters';
 import inventoryService, { SalesOrder, validateIssueQuantity } from '../../services/inventoryService';
-import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library';
+import { useQrScanner } from '../../hooks/useQrScanner';
 import CameraIcon from '../../components/common/CameraIcon';
 import './MobileLocationTransferPage.css'; // スタイルを再利用
 import type { FormEvent } from 'react';
@@ -52,7 +52,6 @@ const MobileGoodsIssuePageContent = ({ dateDefaults }: { dateDefaults: ScheduleD
         targetSetter: null,
     });
     const videoRef = useRef<HTMLVideoElement>(null);
-    const codeReader = useRef(new BrowserMultiFormatReader());
 
 
     const fetchSalesOrders = useCallback(async (page: number, query: string, status: string, from: string, to: string, grouped: boolean) => {
@@ -88,33 +87,19 @@ const MobileGoodsIssuePageContent = ({ dateDefaults }: { dateDefaults: ScheduleD
         setCameraState({ isOpen: false, targetSetter: null });
     }, []);
 
-    useEffect(() => {
-        if (cameraState.isOpen && videoRef.current) {
-            codeReader.current
-                .decodeFromVideoDevice(null, videoRef.current,
-                    (result, error) => {
-                        if (result) {
-                            // Successful scan, stop the camera
-                            setCameraState({ isOpen: false, targetSetter: null });
-                            handleQrCodeResult(result.getText(), cameraState.targetSetter);
-                        }
-                        if (error && !(error instanceof NotFoundException)) {
-                            console.error(error);
-                            setError('バーコードの読み取りに失敗しました。');
-                            setCameraState({ isOpen: false, targetSetter: null });
-                        }
-                    }
-                )
-                .catch(err => {
-                    console.error(err);
-                    setError('カメラの起動に失敗しました。');
-                    setCameraState({ isOpen: false, targetSetter: null });
-                });
-        }
-        codeReader.current.reset();
-    // handleQrCodeResult はこの後で定義されるため依存配列に含められない
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [cameraState.isOpen, cameraState.targetSetter, setError]);
+    useQrScanner({
+      isOpen: cameraState.isOpen,
+      videoRef,
+      onResult: (text) => {
+        setCameraState({ isOpen: false, targetSetter: null });
+        handleQrCodeResult(text, cameraState.targetSetter);
+      },
+      onError: (err) => {
+        console.error(err);
+        setError('カメラの起動に失敗しました。');
+        setCameraState({ isOpen: false, targetSetter: null });
+      },
+    });
     
     const handleOpenModal = useCallback((order: SalesOrder) => {
         setSelectedOrder(order);
