@@ -16,6 +16,7 @@ const engineLabel: Record<QrScannerStats['engine'], string> = {
   idle: '待機',
   starting: '起動中',
   native: 'BarcodeDetector',
+  wasm: 'WASM',
   zxing: 'ZXing',
   error: 'エラー',
 };

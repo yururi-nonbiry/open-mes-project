@@ -16,6 +16,10 @@ interface BarcodeDetectorConstructor {
 const SCAN_INTERVAL_MS = 120;
 // detect() が例外を返し続ける場合に ZXing へ切り替えるまでの連続失敗回数(約4秒分)
 const MAX_CONSECUTIVE_DETECT_ERRORS = 30;
+// WASM 版は初回にモジュールを読み込むため、無応答とみなすまでの時間を長めにする
+const WASM_DETECT_TIMEOUT_MS = 10000;
+// canvas 経由で検出するときの長辺の上限(処理負荷を抑える)
+const MAX_CANVAS_LONG_SIDE = 1280;
 // detect() がこの時間内に返らない場合は固まったとみなし ZXing に切り替える
 const DETECT_TIMEOUT_MS = 2000;
 class DetectTimeoutError extends Error {}
@@ -53,7 +57,7 @@ interface UseQrScannerOptions {
 /** 読み取りの状況(デバッグ表示用) */
 export interface QrScannerStats {
   /** starting: 起動中 / native: BarcodeDetector / zxing: ZXing / error: 失敗 */
-  engine: 'idle' | 'starting' | 'native' | 'zxing' | 'error';
+  engine: 'idle' | 'starting' | 'native' | 'wasm' | 'zxing' | 'error';
   hasBarcodeDetector: boolean;
   formats: string;
   detectCalls: number;
@@ -194,10 +198,17 @@ export function useQrScanner({ isOpen, videoRef, onResult, onError }: UseQrScann
       if (cancelled) stopCamera();
     };
 
-    const startNative = async (Detector: BarcodeDetectorConstructor) => {
+    // BarcodeDetector 互換の検出器でスキャンする。native は端末標準、wasm は ZXing-C++(WebAssembly)。
+    // 使えなくなった場合は onUnusable で次の方式へ切り替える。
+    const startDetector = async (
+      Detector: BarcodeDetectorConstructor,
+      engine: 'native' | 'wasm',
+      onUnusable: () => void,
+    ) => {
+      const label = engine === 'native' ? 'BarcodeDetector' : 'WASM(ZXing-C++)';
       const formats = await Detector.getSupportedFormats();
-      st.formats = formats.join(',');
-      note(`BarcodeDetector 対応形式 ${formats.length}件`);
+      if (engine === 'native') st.formats = formats.join(',');
+      note(`${label} 対応形式 ${formats.length}件`);
       const detector = new Detector({ formats });
 
       stream = await navigator.mediaDevices.getUserMedia(VIDEO_CONSTRAINTS);
@@ -216,33 +227,40 @@ export function useQrScanner({ isOpen, videoRef, onResult, onError }: UseQrScann
       }
       video.srcObject = stream;
       await video.play();
-      st.engine = 'native';
-      note('BarcodeDetector 開始');
+      st.engine = engine;
+      note(`${label} 開始`);
       if (cancelled) {
         stopCamera();
         return;
       }
 
       // 一部の端末(Android Chrome など)では video 要素を直接 detect() に渡すと
-      // InvalidStateError になるため、その場合は canvas に描画してから渡す
-      let useCanvas = false;
+      // InvalidStateError になるため、その場合は canvas に描画してから渡す。
+      // wasm は canvas 経由が前提(縮小して処理負荷を抑える)。
+      let useCanvas = engine === 'wasm';
       let consecutiveErrors = 0;
       let canvas: HTMLCanvasElement | null = null;
       const detectFrame = () => {
         if (!useCanvas) return detector.detect(video);
         if (!canvas) canvas = document.createElement('canvas');
-        if (canvas.width !== video.videoWidth) canvas.width = video.videoWidth;
-        if (canvas.height !== video.videoHeight) canvas.height = video.videoHeight;
-        canvas.getContext('2d')?.drawImage(video, 0, 0);
+        const scale = Math.min(1, MAX_CANVAS_LONG_SIDE / Math.max(video.videoWidth, video.videoHeight));
+        const w = Math.round(video.videoWidth * scale);
+        const h = Math.round(video.videoHeight * scale);
+        if (canvas.width !== w) canvas.width = w;
+        if (canvas.height !== h) canvas.height = h;
+        canvas.getContext('2d', { willReadFrequently: true })?.drawImage(video, 0, 0, w, h);
         return detector.detect(canvas);
       };
+      // wasm は初回呼び出し時にモジュールを読み込むため、タイムアウトを長めにする
+      let timeoutMs = engine === 'wasm' ? WASM_DETECT_TIMEOUT_MS : DETECT_TIMEOUT_MS;
 
       const tick = async () => {
         if (cancelled) return;
         try {
           if (video.readyState >= 2) {
             const t0 = performance.now();
-            const codes = await withTimeout(detectFrame(), DETECT_TIMEOUT_MS);
+            const codes = await withTimeout(detectFrame(), timeoutMs);
+            timeoutMs = engine === 'wasm' ? WASM_DETECT_TIMEOUT_MS : DETECT_TIMEOUT_MS;
             consecutiveErrors = 0;
             st.detectLastMs = Math.round(performance.now() - t0);
             st.detectMaxMs = Math.max(st.detectMaxMs, st.detectLastMs);
@@ -256,27 +274,33 @@ export function useQrScanner({ isOpen, videoRef, onResult, onError }: UseQrScann
           }
         } catch (e) {
           if (cancelled) return;
+          const message = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+          const giveUp = (reason: string) => {
+            note(`${label} ${reason} → 次の方式へ切替`);
+            console.warn(`${label} が使えないため別の方式に切り替えます`, e);
+            stopCamera();
+            onUnusable();
+          };
           if (e instanceof DetectTimeoutError) {
             st.detectTimeouts++;
-            note('detect() が応答せず ZXing へ切替');
-            console.warn('BarcodeDetector が応答しないため ZXing に切り替えます');
-            stopCamera();
-            startZxing().catch(fail);
+            giveUp('が応答せず');
             return;
           }
           st.detectErrors++;
-          st.lastError = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+          st.lastError = message;
           consecutiveErrors++;
+          if (e instanceof DOMException && e.name === 'NotSupportedError') {
+            // 端末のバーコード検出サービスが使えない場合は復旧しないので、待たずに切り替える
+            giveUp(`利用不可 (${message})`);
+            return;
+          }
           if (!useCanvas) {
             // 初回の例外では canvas 経由に切り替えて様子を見る
             useCanvas = true;
             st.canvasMode = true;
-            note(`video直接のdetectが失敗 → canvas経由に切替 (${st.lastError})`);
+            note(`video直接のdetectが失敗 → canvas経由に切替 (${message})`);
           } else if (consecutiveErrors >= MAX_CONSECUTIVE_DETECT_ERRORS) {
-            note('detect() が失敗し続けるため ZXing へ切替');
-            console.warn('BarcodeDetector が失敗し続けるため ZXing に切り替えます', e);
-            stopCamera();
-            startZxing().catch(fail);
+            giveUp('が失敗し続けて');
             return;
           }
         }
@@ -285,6 +309,32 @@ export function useQrScanner({ isOpen, videoRef, onResult, onError }: UseQrScann
       tick();
     };
 
+    const startWasm = async () => {
+      try {
+        const { WasmBarcodeDetector } = await import('../utils/zxingWasmDetector');
+        if (cancelled) return;
+        await startDetector(
+          WasmBarcodeDetector as unknown as BarcodeDetectorConstructor,
+          'wasm',
+          () => {
+            startZxing().catch(fail);
+          },
+        );
+      } catch (err) {
+        if (cancelled) return;
+        if (isCameraError(err)) throw err;
+        st.lastError = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+        note(`WASM 起動失敗 ${st.lastError}`);
+        console.warn('WASM での起動に失敗したため ZXing(JS) にフォールバックします', err);
+        stopCamera();
+        await startZxing();
+      }
+    };
+
+    const isCameraError = (err: unknown) =>
+      err instanceof DOMException &&
+      ['NotAllowedError', 'NotFoundError', 'NotReadableError', 'SecurityError'].includes(err.name);
+
     const start = async () => {
       const Detector = (window as unknown as { BarcodeDetector?: BarcodeDetectorConstructor })
         .BarcodeDetector;
@@ -292,23 +342,20 @@ export function useQrScanner({ isOpen, videoRef, onResult, onError }: UseQrScann
       note(Detector ? 'BarcodeDetector あり' : 'BarcodeDetector なし');
       if (Detector) {
         try {
-          await startNative(Detector);
+          await startDetector(Detector, 'native', () => {
+            startWasm().catch(fail);
+          });
           return;
         } catch (err) {
-          // カメラ権限拒否などは ZXing でも失敗するのでそのまま通知する
-          if (
-            err instanceof DOMException &&
-            ['NotAllowedError', 'NotFoundError', 'NotReadableError', 'SecurityError'].includes(err.name)
-          ) {
-            throw err;
-          }
+          // カメラ権限拒否などは他の方式でも失敗するのでそのまま通知する
+          if (isCameraError(err)) throw err;
           st.lastError = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
           note(`native 起動失敗 ${st.lastError}`);
-          console.warn('BarcodeDetector での起動に失敗したため ZXing にフォールバックします', err);
+          console.warn('BarcodeDetector での起動に失敗したため WASM にフォールバックします', err);
           stopCamera();
         }
       }
-      if (!cancelled) await startZxing();
+      if (!cancelled) await startWasm();
     };
 
     start().catch(fail);

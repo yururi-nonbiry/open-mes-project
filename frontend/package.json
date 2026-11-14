@@ -18,6 +18,7 @@
     "@hello-pangea/dnd": "18.0.1",
     "@zxing/browser": "0.1.5",
     "@zxing/library": "0.21.3",
+    "barcode-detector": "3.2.3",
     "bootstrap": "5.3.7",
     "html5-qrcode": "2.3.8",
     "qrcode.react": "4.2.0",
