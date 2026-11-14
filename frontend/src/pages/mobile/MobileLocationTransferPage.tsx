@@ -8,7 +8,7 @@ import './MobileLocationTransferPage.css'; // 新しいCSSファイルをイン�
 import type { ChangeEvent, FormEvent } from 'react';
 import { errorMessage } from './mobileTypes';
 import { parseShelfQr } from '../../utils/shelfQr';
-import type { CameraState, LocationInventoryItem, MobileMessage, QrActionResponse, ScanTargetSetter, TransferModalState } from './mobileTypes';
+import type { CameraState, LocationInventoryItem, MobileMessage, ScanTargetSetter, TransferModalState } from './mobileTypes';
 
 const MobileLocationTransferPage = () => {
   // フォーム入力
