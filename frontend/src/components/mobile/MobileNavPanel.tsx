@@ -23,7 +23,8 @@ const MobileNavPanel = ({ isOpen, onLinkClick, onLogout }: MobileNavPanelProps) 
       <ul>
         <li><Link to="/mobile" onClick={onLinkClick}>ホーム</Link></li>
         <li><Link to="/mobile/goods-receipt" onClick={onLinkClick}>入庫処理</Link></li>
-        <li><Link to="/mobile/goods-issue" onClick={onLinkClick}>出庫処理</Link></li>
+        <li><Link to="/mobile/picking" onClick={onLinkClick}>順立て・ピッキング</Link></li>
+        <li><Link to="/mobile/goods-issue" onClick={onLinkClick}>完成品出庫</Link></li>
         <li><Link to="/mobile/location-transfer" onClick={onLinkClick}>棚番移動</Link></li>
         <li>
           <form onSubmit={handleLogoutClick}>

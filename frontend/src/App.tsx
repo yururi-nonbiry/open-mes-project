@@ -51,6 +51,7 @@ const UsagePage = lazy(() => import('./pages/UsagePage'));
 const MobileTopPage = lazy(() => import('./pages/MobileTopPage'));
 const MobileGoodsReceiptPage = lazy(() => import('./pages/mobile/MobileGoodsReceiptPage'));
 const MobileGoodsIssuePage = lazy(() => import('./pages/mobile/MobileGoodsIssuePage'));
+const MobilePickingPage = lazy(() => import('./pages/mobile/MobilePickingPage'));
 const MobileLocationTransferPage = lazy(() => import('./pages/mobile/MobileLocationTransferPage'));
 
 // モバイル専用リダイレクト処理
@@ -196,6 +197,7 @@ function AppContent() {
         <Route element={<ProtectedRoute isAuthenticated={isAuthenticated}><MobileLayout onLogout={logout} /></ProtectedRoute>}>
           <Route path="/mobile" element={<MobileTopPage />} />
           <Route path="/mobile/goods-receipt" element={<MobileGoodsReceiptPage />} />
+          <Route path="/mobile/picking" element={<MobilePickingPage />} />
           <Route path="/mobile/goods-issue" element={<MobileGoodsIssuePage />} />
           <Route path="/mobile/location-transfer" element={<MobileLocationTransferPage />} />
         </Route>

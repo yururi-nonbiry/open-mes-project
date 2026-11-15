@@ -233,7 +233,7 @@ const MobileGoodsIssuePageContent = ({ dateDefaults }: { dateDefaults: ScheduleD
 
   return (
     <Container>
-        <h1 className="mb-3">出庫処理</h1>
+        <h1 className="mb-3">完成品の出庫</h1>
 
         <div id="search-criteria-area" className="mb-3 p-3 border rounded bg-light">
             <Form onSubmit={handleSearch}>

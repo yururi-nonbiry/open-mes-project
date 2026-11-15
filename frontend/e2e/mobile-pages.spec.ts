@@ -14,7 +14,8 @@ import { expectAllVisibleButtonsOperable, expectAuthenticatedLayoutRendered } fr
 const pages: { name: string; path: string }[] = [
   { name: 'モバイルトップ', path: '/mobile' },
   { name: 'モバイル入庫', path: '/mobile/goods-receipt' },
-  { name: 'モバイル出庫', path: '/mobile/goods-issue' },
+  { name: 'モバイルピッキング', path: '/mobile/picking' },
+  { name: 'モバイル完成品出庫', path: '/mobile/goods-issue' },
   { name: 'モバイルロケーション移動', path: '/mobile/location-transfer' },
 ];
 
