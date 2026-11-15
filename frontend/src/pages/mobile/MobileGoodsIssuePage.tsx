@@ -247,6 +247,18 @@ const MobileGoodsIssuePageContent = ({ dateDefaults }: { dateDefaults: ScheduleD
                                     placeholder="受注番号, 品番, 倉庫で検索"
                                     value={searchQueryInput}
                                     onChange={(e) => setSearchQueryInput(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        // バーコードリーダー(Enter送信)の読取: QRコードアクションに一致すれば実行、なければ通常の検索
+                                        if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
+                                        const text = e.currentTarget.value.trim();
+                                        if (!text) return; // 空欄は通常のフォーム送信(検索)に任せる
+                                        e.preventDefault();
+                                        handleQrCodeResult(text, (value) => {
+                                            setSearchQueryInput(value);
+                                            setCommittedSearchParams({ q: value, status: searchStatusInput, from: dateFromInput, to: dateToInput });
+                                            setCurrentPage(1);
+                                        });
+                                    }}
                                 />
                                 <Button variant="outline-secondary" type="button" onClick={() => startCameraScan(setSearchQueryInput)} title="カメラでスキャン" aria-label="カメラでスキャン"><CameraIcon /></Button>
                             </InputGroup>

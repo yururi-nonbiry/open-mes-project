@@ -292,7 +292,14 @@ const MobileGoodsReceiptPageContent = ({ dateDefaults }: { dateDefaults: Schedul
       <h2 className="page-title">入庫処理</h2>
       <div className="mb-3">
         <div className="input-group">
-          <input type="search" className="form-control" placeholder="発注番号などで検索..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} />
+          <input type="search" className="form-control" placeholder="発注番号などで検索..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} onKeyDown={(e) => {
+            // バーコードリーダー(Enter送信)の読取: QRコードアクションに一致すれば実行
+            if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
+            const text = e.currentTarget.value.trim();
+            if (!text) return;
+            e.preventDefault();
+            handleQrCodeResult(text, setSearchTerm);
+          }} />
           <button className="btn btn-outline-secondary" type="button" onClick={() => startCameraScan(setSearchTerm)} title="カメラでスキャン" aria-label="カメラでスキャン"><CameraIcon /></button>
         </div>
         <div className="row g-2 mt-1">
