@@ -15,6 +15,7 @@ from rest_framework.response import Response  # Responseをインポート
 from rest_framework.views import APIView  # APIViewをインポート
 
 from base.pagination import StandardResultsSetPagination
+from base.feature_settings import apply_part_term
 from base.responses import error_response
 
 from .models import MaterialAllocation, PartsUsed, ProductionPlan, ProductionPlanMaterial, WorkProgress
@@ -180,7 +181,9 @@ class ProductionPlanViewSet(viewsets.ModelViewSet):
         plan = self.get_object()
         ensure_plan_materials_editable(plan)
         if normal_allocations(plan.material_allocations.all()).exists():
-            return error_response("材料の引当がある生産計画の部品構成は初期化できません。先に引当を解除してください。")
+            return error_response(
+                apply_part_term("部品の引当がある生産計画の部品構成は初期化できません。先に引当を解除してください。")
+            )
         previous_required = material_required_quantities(plan)
         snapshot_plan_materials(plan)
         trim_child_plans(plan, previous_required)
@@ -408,7 +411,8 @@ class MaterialAllocationViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         return error_response(
-            "順立て（材料引当）は plans/{id}/allocate-materials/ から作成してください。", status.HTTP_405_METHOD_NOT_ALLOWED
+            apply_part_term("順立て（部品引当）は plans/{id}/allocate-materials/ から作成してください。"),
+            status.HTTP_405_METHOD_NOT_ALLOWED,
         )
 
     def destroy(self, request, *args, **kwargs):

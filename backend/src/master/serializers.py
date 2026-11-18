@@ -1,3 +1,4 @@
+from base.feature_settings import lazy_part_term
 from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator, UniqueValidator
 
@@ -283,7 +284,7 @@ class BillOfMaterialCreateUpdateSerializer(serializers.ModelSerializer):
         slug_field="code",
         queryset=Item.objects.filter(item_type__in=Item.CONSUMABLE_TYPES),
         error_messages={
-            "does_not_exist": "指定された部品コードは存在しないか、材料・中間品として登録されていません。"
+            "does_not_exist": lazy_part_term("指定された部品コードは存在しないか、部品・中間品として登録されていません。")
         },
     )
 

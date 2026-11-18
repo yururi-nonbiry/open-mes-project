@@ -10,6 +10,7 @@ from .api import (
     ModelFieldsView,
     QrCodeActionViewSet,
     ScheduleDateDefaultsView,
+    TerminologyView,
 )
 
 app_name = "base_api"
@@ -23,6 +24,7 @@ urlpatterns = [
     path("info/", AppInfoView.as_view(), name="app-info"),
     path("feature-options/", FeatureOptionsView.as_view(), name="feature-options"),
     path("schedule-date-defaults/", ScheduleDateDefaultsView.as_view(), name="schedule-date-defaults"),
+    path("terminology/", TerminologyView.as_view(), name="terminology"),
     path("health/", HealthCheckView.as_view(), name="health-check"),
     path("model-fields/", ModelFieldsView.as_view(), name="model-fields"),
     path(

@@ -83,6 +83,17 @@
 | BASE-SCHDATE-06 | 権限 | GET/PUT | 一般ユーザー | GETは200、PUTは403 |
 | BASE-SCHDATE-07 | 権限 | GET | 未認証 | 401 |
 
+### 「部品」の呼び方の設定（`base/terminology/`、`base/tests/test_terminology.py`）
+
+| ID | 区分 | 対象 | 条件 | 期待結果 |
+|---|---|---|---|---|
+| BASE-TERM-01 | 正常系 | GET | 未設定 | 200、`{"part": "部品"}` |
+| BASE-TERM-02 | 正常系 | PUT→GET | `" 材料 "` | 200、前後の空白を除いた `材料` が返る |
+| BASE-TERM-03 | 異常系 | PUT | 空・空白のみ・11文字以上・文字列以外・未指定 | 400、保存されない |
+| BASE-TERM-04 | 権限 | GET/PUT | 一般ユーザー | GETは200、PUTは403 |
+| BASE-TERM-05 | 権限 | GET | 未認証 | 401 |
+| BASE-TERM-06 | 正常系 | `apply_part_term` / `lazy_part_term` | 呼び方を `材料` に変更 | メッセージ中の「部品」が `材料` に置き換わる |
+
 ### 5.2 モデルフィールド定義取得（`ModelFieldsView`、`base/tests/test_model_fields.py`）
 
 | ケースID | 分類 | 対象 | 前提条件 | 手順・入力 | 期待結果 | 備考 |

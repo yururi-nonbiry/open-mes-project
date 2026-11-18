@@ -132,6 +132,40 @@ class ScheduleDateDefaultsView(APIView):
         return Response(self._current())
 
 
+class TerminologyView(APIView):
+    """
+    画面・メッセージで使う用語の設定(現在は「部品」の呼び方のみ)。
+    参照はログインユーザー全員、変更は管理者のみ。
+    """
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [permissions.IsAuthenticated()]
+        return [permissions.IsAdminUser()]
+
+    @staticmethod
+    def _current():
+        return {"part": feature_settings.get_part_term()}
+
+    def get(self, request, *args, **kwargs):
+        return Response(self._current())
+
+    def put(self, request, *args, **kwargs):
+        if "part" not in request.data:
+            return error_response("part を指定してください。")
+        value = request.data["part"]
+        limit = feature_settings.PART_TERM_MAX_LENGTH
+        if not isinstance(value, str) or not value.strip() or len(value.strip()) > limit:
+            return error_response(f"part は1〜{limit}文字の文字列で指定してください。")
+        feature_settings.set_part_term(value.strip())
+        log_event(
+            AccessLog.EventType.SETTINGS_CHANGED,
+            request,
+            detail={"setting": "terminology", "operation": "update", "name": "part", "value": value.strip()},
+        )
+        return Response(self._current())
+
+
 class HealthCheckView(APIView):
     permission_classes = [permissions.AllowAny]
 

@@ -15,6 +15,7 @@ from django.db.models import F, Q
 from django.utils import timezone
 from rest_framework import serializers
 
+from base.feature_settings import apply_part_term
 from base.responses import INTERNAL_ERROR_MESSAGE, validation_error_body
 from master.models import Item, StockPurpose, Warehouse
 
@@ -627,14 +628,16 @@ def bulk_upsert_purchase_orders(rows):
 
 def _reserved_prefix_error():
     return InventoryServiceError(
-        f"'{SalesOrder.INTERNAL_ORDER_PREFIX}' で始まる受注番号は生産計画の材料引当用に予約されています。"
+        apply_part_term(f"'{SalesOrder.INTERNAL_ORDER_PREFIX}' で始まる受注番号は生産計画の部品引当用に予約されています。")
     )
 
 
 def internal_order_error(sales_order):
     return InventoryServiceError(
-        f"受注 {sales_order.order_number} は生産計画の材料引当用の内部受注のため、"
-        "ここでは変更・出庫できません。順立て（材料引当）画面から操作してください。"
+        apply_part_term(
+            f"受注 {sales_order.order_number} は生産計画の部品引当用の内部受注のため、"
+            "ここでは変更・出庫できません。順立て（部品引当）画面から操作してください。"
+        )
     )
 
 

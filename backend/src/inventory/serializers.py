@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from base.feature_settings import apply_part_term
 from master.models import Item, StockPurpose, Supplier, Warehouse, WorkCenter
 
 from .models import (  # StockMovement, SalesOrder, Receiptモデルをインポート
@@ -348,7 +349,7 @@ class SalesOrderSerializer(serializers.ModelSerializer):
     def validate_order_number(self, value):
         if value and value.startswith(SalesOrder.INTERNAL_ORDER_PREFIX):
             raise serializers.ValidationError(
-                f"'{SalesOrder.INTERNAL_ORDER_PREFIX}' で始まる受注番号は生産計画の材料引当用に予約されています。"
+                apply_part_term(f"'{SalesOrder.INTERNAL_ORDER_PREFIX}' で始まる受注番号は生産計画の部品引当用に予約されています。")
             )
         return value
 

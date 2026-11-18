@@ -12,6 +12,7 @@ from django.utils import timezone
 
 from master.models import StockPurpose, WorkCenter
 
+from .feature_settings import apply_part_term
 from .model_utils import CSV_IMPORT_FK_ALIASES
 from .models import DATA_TYPE_MODEL_MAPPING, AsyncTask, CsvColumnMapping
 
@@ -73,7 +74,7 @@ def _check_purpose(model, data_type, update_kwargs, defaults_data):
         from production.services.materials import normal_allocations
 
         if normal_allocations(existing.material_allocations.all()).exists():
-            return "材料の引当がある生産計画の用途は変更できません。"
+            return apply_part_term("部品の引当がある生産計画の用途は変更できません。")
     return None
 
 
