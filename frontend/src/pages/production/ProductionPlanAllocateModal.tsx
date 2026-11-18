@@ -178,7 +178,7 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
                         <dl className="row mb-2">
                             <dt className="col-sm-3">計画名:</dt><dd className="col-sm-9">{plan.plan_name || 'N/A'}</dd>
                             <dt className="col-sm-3">製品コード:</dt><dd className="col-sm-9">{plan.product_code || 'N/A'}</dd>
-                            <dt className="col-sm-3">出庫先ライン:</dt><dd className="col-sm-9">{plan.line || '未指定'}（引当ごとに変更できます）</dd>
+                            <dt className="col-sm-3">{t('出庫先ライン:')}</dt><dd className="col-sm-9">{plan.line || '未指定'}（引当ごとに変更できます）</dd>
                             <dt className="col-sm-3">計画数量:</dt><dd className="col-sm-9 text-end">{plan.planned_quantity}</dd>
                         </dl>
                         <h6 className="mt-3">{t('必要部品一覧')}</h6>
@@ -199,8 +199,8 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
                                                 />
                                             </th>
                                             <th>{t('部品コード')}</th><th>{t('部品名')}</th><th className="text-end">所要数</th>
-                                            <th className="text-end">引当済</th><th className="text-end">追加ピッキング済</th>
-                                            <th>引当倉庫（引当可能数）</th><th>出庫先ライン</th><th className="text-end">引当数量</th>
+                                            <th className="text-end">引当済</th><th className="text-end">{t('追加ピッキング済')}</th>
+                                            <th>引当倉庫（引当可能数）</th><th>{t('出庫先ライン')}</th><th className="text-end">引当数量</th>
                                             <th className="text-end">引当後の在庫</th><th className="text-end">引当後の不足</th><th>単位</th>
                                         </tr>
                                     </thead>

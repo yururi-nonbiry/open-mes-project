@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Spinner } from 'react-bootstrap';
 import authFetch from '../utils/api';
 import type { DisplaySetting, ModelFieldInfo, SearchParamValue, StockMovementRow } from './types/listPage';
+import { registerTermTarget } from '../utils/terms';
 
 const AVAILABLE_MOVEMENT_TYPES = [
     { key: 'incoming', label: '入庫', badgeClass: 'status-partial', default_selected: true },
@@ -11,6 +12,7 @@ const AVAILABLE_MOVEMENT_TYPES = [
     { key: 'PRODUCTION_REVERSAL', label: '生産完了取消', badgeClass: 'status-pending', default_selected: true },
     { key: 'adjustment', label: '在庫調整', badgeClass: 'status-canceled', default_selected: true },
 ];
+registerTermTarget(AVAILABLE_MOVEMENT_TYPES);
 
 const DEFAULT_COLUMNS = [
     { model_field_name: 'movement_date', verbose_name: '移動日時' },

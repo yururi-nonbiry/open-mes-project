@@ -1,5 +1,6 @@
 import authFetch, { apiRequest, handleError, toApiError, ApiError } from '../utils/api';
 import { WarehouseLocationMap } from './warehouseLocationService';
+import { t } from '../utils/terms';
 
 export interface InventoryItem {
     id: string | number;
@@ -67,8 +68,8 @@ export interface IssueResult {
 /** 出庫数量の入力チェック。問題があればエラーメッセージ、なければ null を返す。 */
 export const validateIssueQuantity = (input: string, remainingQuantity: number): string | null => {
     const quantity = parseInt(input, 10);
-    if (isNaN(quantity) || quantity <= 0) return '出庫数量は1以上の正の整数である必要があります。';
-    if (quantity > remainingQuantity) return '出庫数量が残数量を超えています。';
+    if (isNaN(quantity) || quantity <= 0) return t('出庫数量は1以上の正の整数である必要があります。');
+    if (quantity > remainingQuantity) return t('出庫数量が残数量を超えています。');
     return null;
 };
 
@@ -288,7 +289,7 @@ const inventoryService = {
 
     /** 出庫予定の削除(管理者のみ)。引当は在庫側へ解放される。 */
     deleteSalesOrder: (id: string | number) =>
-        apiRequest(`/api/inventory/sales-orders/${id}/`, { method: 'DELETE' }, '出庫予定の削除に失敗しました。'),
+        apiRequest(`/api/inventory/sales-orders/${id}/`, { method: 'DELETE' }, t('出庫予定の削除に失敗しました。')),
 
     /** 受注の出庫。失敗時は例外を送出せず ok=false とサーバーのメッセージで返す。 */
     issueSalesOrder: async (orderId: string, quantityToShip: number): Promise<IssueResult> => {
@@ -297,11 +298,11 @@ const inventoryService = {
             body: JSON.stringify({ order_id: orderId, quantity_to_ship: quantityToShip }),
         });
         if (!response.ok) {
-            const error = await toApiError(response, '出庫処理中にエラーが発生しました。');
+            const error = await toApiError(response, t('出庫処理中にエラーが発生しました。'));
             return { ok: false, message: error.message };
         }
         const data = await response.json();
-        return { ok: true, message: data.message || '出庫処理が正常に完了しました。' };
+        return { ok: true, message: data.message || t('出庫処理が正常に完了しました。') };
     },
 
     getSalesOrderLocationMap: async (orderId: string | number) => {

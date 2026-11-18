@@ -165,7 +165,7 @@ const ProductionPlanTable: React.FC<ProductionPlanTableProps> = ({
                             )}
                         </button>
                         <button type="button" className="btn btn-sm btn-outline-secondary ms-1" onClick={() => onAdditionalIssue(plan)}>
-                            追加ピッキング
+                            {t('追加ピッキング')}
                         </button>
                         <button type="button" className="btn btn-sm btn-outline-secondary ms-1" onClick={() => onDetail(plan)}>
                             詳細

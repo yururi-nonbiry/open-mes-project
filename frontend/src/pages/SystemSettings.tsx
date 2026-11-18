@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { NavIconName } from '../config/navigationConfig';
 import { NavIcon } from '../components/NavIcon';
+import { registerTermTarget } from '../utils/terms';
 
 interface SettingMenuItem {
   path: string;
@@ -54,6 +55,8 @@ const SETTING_ITEMS: SettingMenuItem[] = [
     icon: 'settings',
   },
 ];
+
+registerTermTarget(SETTING_ITEMS);
 
 const SystemSettings = () => {
   return (

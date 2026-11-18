@@ -4,6 +4,7 @@ import inventoryService from '../../services/inventoryService';
 import { WarehouseLocationMap } from '../../services/warehouseLocationService';
 import WarehouseLayoutGrid from '../master/WarehouseLayoutGrid';
 import type { ApiErrorLike } from '../apiError';
+import { t } from '../../utils/terms';
 
 interface WarehouseLocationMapModalProps {
     isOpen: boolean;
@@ -32,7 +33,7 @@ const WarehouseLocationMapModal: React.FC<WarehouseLocationMapModalProps> = ({ i
     return (
         <Modal isOpen={isOpen} onClose={onClose} maxWidth="900px">
             <div className="p-2">
-                <h4 className="mb-3">出庫ロケーション地図</h4>
+                <h4 className="mb-3">{t('出庫ロケーション地図')}</h4>
                 {loading && <div className="text-center p-4"><div className="spinner-border text-primary" role="status"></div></div>}
                 {error && <div className="alert alert-danger">{error}</div>}
                 {!loading && !error && map && (

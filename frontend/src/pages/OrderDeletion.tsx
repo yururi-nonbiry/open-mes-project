@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Button, Form, Nav, Spinner } from 'react-bootstrap';
 import inventoryService, { AdminPurchaseOrder, SalesOrder } from '../services/inventoryService';
 import type { ApiErrorLike } from './apiError';
-import { t } from '../utils/terms';
+import { t, registerTermTarget } from '../utils/terms';
 
 type Kind = 'purchase' | 'sales';
 
@@ -21,6 +21,8 @@ const SALES_STATUS: Record<string, string> = {
     shipped: '出庫済み',
     canceled: 'キャンセル',
 };
+
+registerTermTarget(SALES_STATUS);
 
 const formatDate = (value: string | null) => (value ? value.slice(0, 10) : '-');
 
@@ -77,7 +79,7 @@ const OrderDeletion: React.FC = () => {
     };
 
     const handleDelete = async (id: string, orderNumber: string | null) => {
-        const label = kind === 'purchase' ? '入庫予定' : '出庫予定';
+        const label = kind === 'purchase' ? '入庫予定' : t('出庫予定');
         if (!window.confirm(`${label}「${orderNumber ?? id}」を削除します。この操作は元に戻せません。よろしいですか？`)) return;
         setError(null);
         setMessage(null);
@@ -97,7 +99,7 @@ const OrderDeletion: React.FC = () => {
         <div className="goods-receipt-page">
             <Nav variant="tabs" activeKey={kind} onSelect={k => k && switchKind(k as Kind)} className="mb-3">
                 <Nav.Item><Nav.Link eventKey="purchase">入庫予定</Nav.Link></Nav.Item>
-                <Nav.Item><Nav.Link eventKey="sales">出庫予定</Nav.Link></Nav.Item>
+                <Nav.Item><Nav.Link eventKey="sales">{t('出庫予定')}</Nav.Link></Nav.Item>
             </Nav>
 
             <div className="goods-receipt-filter-panel">
@@ -133,8 +135,8 @@ const OrderDeletion: React.FC = () => {
                                 </tr>
                             ) : (
                                 <tr>
-                                    <th>受注番号</th><th>品番</th><th>数量</th><th>出庫済</th>
-                                    <th>出庫予定日</th><th>状態</th>
+                                    <th>受注番号</th><th>品番</th><th>数量</th><th>{t('出庫済')}</th>
+                                    <th>{t('出庫予定日')}</th><th>状態</th>
                                     <th className="text-center" style={{ width: '100px' }}>操作</th>
                                 </tr>
                             )}
@@ -159,7 +161,7 @@ const OrderDeletion: React.FC = () => {
                                     </tr>
                                 ))
                             ) : salesOrders.length === 0 ? (
-                                <tr><td colSpan={colSpan} className="text-center py-4 text-muted">出庫予定がありません。</td></tr>
+                                <tr><td colSpan={colSpan} className="text-center py-4 text-muted">{t('出庫予定がありません。')}</td></tr>
                             ) : salesOrders.map(o => (
                                 <tr key={o.id}>
                                     <td className="fw-bold">{o.order_number}</td>

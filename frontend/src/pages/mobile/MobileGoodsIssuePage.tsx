@@ -13,6 +13,7 @@ import { errorMessage } from './mobileTypes';
 import { useScheduleDateDefaults } from '../../hooks/useScheduleDateDefaults';
 import type { ScheduleDateDefaults } from '../../services/scheduleDateDefaultsService';
 import type { CameraState, MobileMessage, QrActionResponse, ScanTargetSetter } from './mobileTypes';
+import { t } from '../../utils/terms';
 
 const MobileGoodsIssuePageContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefaults }) => {
     // State for data and UI
@@ -201,7 +202,7 @@ const MobileGoodsIssuePageContent = ({ dateDefaults }: { dateDefaults: ScheduleD
     const renderPaginationInfo = () => {
         if (loading && !salesOrders.length) return '読み込み中...';
         if (error) return <span className="text-danger">エラーが発生しました</span>;
-        if (totalCount === 0) return '該当する出庫予定はありません。';
+        if (totalCount === 0) return t('該当する出庫予定はありません。');
         const startItem = (currentPage - 1) * pageSize + 1;
         const endItem = Math.min(startItem + pageSize - 1, totalCount);
         return `全 ${totalCount} 件中 ${startItem} - ${endItem} 件を表示 (ページ ${currentPage} / ${totalPages})`;
@@ -233,7 +234,7 @@ const MobileGoodsIssuePageContent = ({ dateDefaults }: { dateDefaults: ScheduleD
 
   return (
     <Container>
-        <h1 className="mb-3">完成品の出庫</h1>
+        <h1 className="mb-3">{t('完成品の出庫')}</h1>
 
         <div id="search-criteria-area" className="mb-3 p-3 border rounded bg-light">
             <Form onSubmit={handleSearch}>
@@ -273,8 +274,8 @@ const MobileGoodsIssuePageContent = ({ dateDefaults }: { dateDefaults: ScheduleD
                                 onChange={(e) => setSearchStatusInput(e.target.value)}
                             >
                                 <option value="">すべて</option>
-                                <option value="pending">未出庫 (Pending)</option>
-                                <option value="shipped">出庫済み (Shipped)</option>
+                                <option value="pending">{t('未出庫 (Pending)')}</option>
+                                <option value="shipped">{t('出庫済み (Shipped)')}</option>
                                 <option value="canceled">キャンセル (Canceled)</option>
                             </Form.Select>
                         </Form.Group>
@@ -283,13 +284,13 @@ const MobileGoodsIssuePageContent = ({ dateDefaults }: { dateDefaults: ScheduleD
                 <Row className="g-2 mb-2">
                     <Col xs={6}>
                         <Form.Group controlId="search-date-from">
-                            <Form.Label className="form-label-sm">出庫予定日(開始):</Form.Label>
+                            <Form.Label className="form-label-sm">{t('出庫予定日(開始):')}</Form.Label>
                             <Form.Control size="sm" type="date" value={dateFromInput} onChange={(e) => setDateFromInput(e.target.value)} />
                         </Form.Group>
                     </Col>
                     <Col xs={6}>
                         <Form.Group controlId="search-date-to">
-                            <Form.Label className="form-label-sm">出庫予定日(終了):</Form.Label>
+                            <Form.Label className="form-label-sm">{t('出庫予定日(終了):')}</Form.Label>
                             <Form.Control size="sm" type="date" value={dateToInput} onChange={(e) => setDateToInput(e.target.value)} />
                         </Form.Group>
                     </Col>
@@ -329,7 +330,7 @@ const MobileGoodsIssuePageContent = ({ dateDefaults }: { dateDefaults: ScheduleD
                     <div key={order.id}>
                     {showLineHeader && (
                         <h6 className="bg-secondary text-white rounded px-2 py-1 mb-2">
-                            {lineCode ? `${lineCode}${lineName ? `（${lineName}）` : ''}` : '出庫先ライン未指定'}
+                            {lineCode ? `${lineCode}${lineName ? `（${lineName}）` : ''}` : t('出庫先ライン未指定')}
                         </h6>
                     )}
                     <Card className="mb-3">
@@ -349,7 +350,7 @@ const MobileGoodsIssuePageContent = ({ dateDefaults }: { dateDefaults: ScheduleD
                                     <span className="fs-5 fw-bold">{order.quantity}</span>
                                 </Col>
                                 <Col>
-                                    <small className="text-muted d-block">出庫済</small>
+                                    <small className="text-muted d-block">{t('出庫済')}</small>
                                     <span className="fs-5 fw-bold">{order.shipped_quantity}</span>
                                 </Col>
                                 <Col>
@@ -359,7 +360,7 @@ const MobileGoodsIssuePageContent = ({ dateDefaults }: { dateDefaults: ScheduleD
                             </Row>
                             <p className="card-text mt-2 mb-0">
                                 <small className="text-muted">
-                                    出庫予定日: {order.expected_shipment ? new Date(order.expected_shipment).toLocaleDateString() : '未定'}
+                                    {t('出庫予定日:')} {order.expected_shipment ? new Date(order.expected_shipment).toLocaleDateString() : '未定'}
                                 </small>
                             </p>
                         </Card.Body>
@@ -373,7 +374,7 @@ const MobileGoodsIssuePageContent = ({ dateDefaults }: { dateDefaults: ScheduleD
                                 onClick={() => handleOpenModal(order)}
                                 disabled={order.remaining_quantity <= 0 || order.status !== 'pending'}
                             >
-                                出庫処理
+                                {t('出庫処理')}
                             </Button>
                         </Card.Footer>
                     </Card>
@@ -394,7 +395,7 @@ const MobileGoodsIssuePageContent = ({ dateDefaults }: { dateDefaults: ScheduleD
         {/* Issue Modal */}
         <Modal show={showModal} onHide={handleCloseModal} centered>
             <Modal.Header closeButton>
-                <Modal.Title>出庫処理</Modal.Title>
+                <Modal.Title>{t('出庫処理')}</Modal.Title>
             </Modal.Header>
             <Modal.Body>
                 {selectedOrder && (
@@ -416,7 +417,7 @@ const MobileGoodsIssuePageContent = ({ dateDefaults }: { dateDefaults: ScheduleD
                             <Form.Control type="number" defaultValue={selectedOrder.remaining_quantity} readOnly />
                         </Form.Group>
                         <Form.Group className="mb-3">
-                            <Form.Label>今回出庫数量:</Form.Label>
+                            <Form.Label>{t('今回出庫数量:')}</Form.Label>
                             <Form.Control
                                 type="number"
                                 value={quantityToShip}
@@ -438,7 +439,7 @@ const MobileGoodsIssuePageContent = ({ dateDefaults }: { dateDefaults: ScheduleD
                     キャンセル
                 </Button>
                 <Button variant="primary" className="btn-lg flex-fill" onClick={handleIssueSubmit} disabled={isSubmitting}>
-                    {isSubmitting ? <><Spinner as="span" animation="border" size="sm" /> 処理中...</> : '出庫実行'}
+                    {isSubmitting ? <><Spinner as="span" animation="border" size="sm" /> 処理中...</> : t('出庫実行')}
                 </Button>
             </Modal.Footer>
         </Modal>

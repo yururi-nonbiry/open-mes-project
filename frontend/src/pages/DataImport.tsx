@@ -86,7 +86,7 @@ const DataImport: React.FC = () => {
                 <div className="usage-mode-card mode-external">
                     <div className="usage-mode-header">
                         <span className="mode-pill external">他アプリを使う場合</span>
-                        <span className="usage-mode-short-desc">入庫予定・出庫予定・BOMは自動同期。生産計画のみここで作成します。</span>
+                        <span className="usage-mode-short-desc">{t('入庫予定・出庫予定・BOMは自動同期。生産計画のみここで作成します。')}</span>
                     </div>
                     <div className="d-flex flex-wrap gap-2 mt-2">
                         <button

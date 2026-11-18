@@ -9,6 +9,7 @@ import WarehouseLocationMapModal from './inventory/WarehouseLocationMapModal';
 import authFetch from '../utils/api';
 import { executeQrAction } from '../utils/qrAction';
 import type { DisplaySetting, ModelFieldInfo } from './types/listPage';
+import { t, registerTermTarget } from '../utils/terms';
 
 const NUMERIC_FIELDS = ['quantity', 'shipped_quantity', 'reserved_quantity', 'remaining_quantity'];
 const DATE_FIELDS = ['expected_shipment', 'order_date'];
@@ -25,8 +26,9 @@ const DEFAULT_COLUMNS = [
   { model_field_name: 'remaining_quantity', verbose_name: '未出庫残' },
   { model_field_name: 'expected_shipment', verbose_name: '出庫予定日' },
 ];
+registerTermTarget(DEFAULT_COLUMNS);
 
-const DEFAULT_LABELS = new Map<string, string>(DEFAULT_COLUMNS.map(c => [c.model_field_name, c.verbose_name]));
+const getDefaultLabels = () => new Map<string, string>(DEFAULT_COLUMNS.map(c => [c.model_field_name, c.verbose_name]));
 
 const GoodsIssueContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefaults }) => {
   const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([]);
@@ -71,7 +73,7 @@ const GoodsIssueContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefault
       setTotalPages(data.total_pages || 1);
       setTotalCount(data.count || 0);
     } catch (e) {
-      setError('出庫待ち受注データの読み込みに失敗しました。');
+      setError(t('出庫待ち受注データの読み込みに失敗しました。'));
       console.error('Fetch error:', e);
     } finally {
       setLoading(false);
@@ -101,7 +103,7 @@ const GoodsIssueContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefault
             ...s,
             // 列名は、既定の列の名前 > モデル項目の名前 > 設定が持つ名前の順に使う
             // (model-fields は管理者専用で、一般ユーザーは取得できない。未出庫残のような計算項目はモデルに無い)
-            verbose_name: DEFAULT_LABELS.get(s.model_field_name) || verboseNames.get(s.model_field_name) || s.verbose_name || s.model_field_name,
+            verbose_name: getDefaultLabels().get(s.model_field_name) || verboseNames.get(s.model_field_name) || s.verbose_name || s.model_field_name,
           }));
         setDisplaySettings(visible);
       } catch (e) {
@@ -181,13 +183,13 @@ const GoodsIssueContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefault
     try {
       const result = await inventoryService.issueSalesOrder(selectedOrder.id, parseInt(issueQuantity, 10));
       if (result.ok) {
-        setModalMessage({ text: result.message || '出庫処理が完了しました。', type: 'success' });
+        setModalMessage({ text: result.message || t('出庫処理が完了しました。'), type: 'success' });
         setTimeout(() => {
           closeModal();
           fetchSalesOrders();
         }, 1200);
       } else {
-        setModalMessage({ text: result.message || '出庫処理に失敗しました。', type: 'danger' });
+        setModalMessage({ text: result.message || t('出庫処理に失敗しました。'), type: 'danger' });
       }
     } catch (err) {
       console.error('Error:', err);
@@ -238,7 +240,7 @@ const GoodsIssueContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefault
         <tr>
           <td colSpan={colSpan} className="text-center py-5">
             <Spinner animation="border" variant="primary" size="sm" className="me-2" />
-            <span className="text-muted">出庫待ちデータを読み込んでいます...</span>
+            <span className="text-muted">{t('出庫待ちデータを読み込んでいます...')}</span>
           </td>
         </tr>
       );
@@ -256,14 +258,14 @@ const GoodsIssueContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefault
       return (
         <tr>
           <td colSpan={colSpan} className="text-center py-5 text-muted">
-            <div className="fw-bold mb-1">出庫待ちの受注データはありません</div>
-            <div className="small">すべての出庫予定が完了しているか、該当する受注がありません。</div>
+            <div className="fw-bold mb-1">{t('出庫待ちの受注データはありません')}</div>
+            <div className="small">{t('すべての出庫予定が完了しているか、該当する受注がありません。')}</div>
           </td>
         </tr>
       );
     }
     const lineLabel = (code: string) => {
-      if (!code) return '出庫先ライン未指定';
+      if (!code) return t('出庫先ライン未指定');
       const w = workCenters.find(x => x.code === code);
       return w?.name ? `${code}（${w.name}）` : code;
     };
@@ -293,7 +295,7 @@ const GoodsIssueContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefault
               onClick={() => openModal(order)}
               disabled={!canIssue}
             >
-              出庫処理
+              {t('出庫処理')}
             </button>
             <button
               type="button"
@@ -329,7 +331,7 @@ const GoodsIssueContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefault
           </div>
           <div className="receipt-search-field">
             <label className="receipt-search-label" htmlFor="issue-date-from">
-              出庫予定日（開始）
+              {t('出庫予定日（開始）')}
             </label>
             <input
               id="issue-date-from"
@@ -341,7 +343,7 @@ const GoodsIssueContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefault
           </div>
           <div className="receipt-search-field">
             <label className="receipt-search-label" htmlFor="issue-date-to">
-              出庫予定日（終了）
+              {t('出庫予定日（終了）')}
             </label>
             <input
               id="issue-date-to"
@@ -353,7 +355,7 @@ const GoodsIssueContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefault
           </div>
           <div className="receipt-search-field">
             <label className="receipt-search-label" htmlFor="issue-line-filter">
-              出庫先ライン
+              {t('出庫先ライン')}
             </label>
             <select
               id="issue-line-filter"
@@ -397,7 +399,7 @@ const GoodsIssueContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefault
             )}
           </div>
           <span className="receipt-result-count ms-auto">
-            出庫待ち件数：<strong>{totalCount}</strong> 件
+            {t('出庫待ち件数：')}<strong>{totalCount}</strong> 件
           </span>
         </div>
       </div>
@@ -412,7 +414,7 @@ const GoodsIssueContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefault
                     {(setting.display_name || '').trim() || setting.verbose_name || setting.model_field_name}
                   </th>
                 ))}
-                <th className="text-center" style={{ width: '190px' }}>出庫・操作</th>
+                <th className="text-center" style={{ width: '190px' }}>{t('出庫・操作')}</th>
               </tr>
             </thead>
             <tbody>{renderTableBody()}</tbody>
@@ -451,11 +453,11 @@ const GoodsIssueContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefault
               </span>
               <div className="mes-modal-title-text">
                 <div className="mes-modal-title-row">
-                  <Modal.Title className="mes-modal-title">出庫処理の登録</Modal.Title>
+                  <Modal.Title className="mes-modal-title">{t('出庫処理の登録')}</Modal.Title>
                   <span className="mes-modal-tag-pill">実在庫から引落</span>
                 </div>
                 <p className="mes-modal-subtitle">
-                  今回出庫する数量を確認して「出庫を確定する」を押してください（複数回に分けて出庫することも可能です）。
+                  {t('今回出庫する数量を確認して「出庫を確定する」を押してください（複数回に分けて出庫することも可能です）。')}
                 </p>
               </div>
             </div>
@@ -473,11 +475,11 @@ const GoodsIssueContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefault
                     <span className="summary-value fw-bold">{selectedOrder.item}</span>
                   </div>
                   <div className="receipt-summary-item">
-                    <span className="summary-label">出庫倉庫</span>
+                    <span className="summary-label">{t('出庫倉庫')}</span>
                     <span className="summary-value fw-bold">{selectedOrder.warehouse || '—'}</span>
                   </div>
                   <div className="receipt-summary-item highlight">
-                    <span className="summary-label">未出庫の残数量</span>
+                    <span className="summary-label">{t('未出庫の残数量')}</span>
                     <span className="summary-value text-primary fw-bold fs-6">{selectedOrder.remaining_quantity}</span>
                   </div>
                 </div>
@@ -485,7 +487,7 @@ const GoodsIssueContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefault
 
               <div className="mes-modal-field-group">
                 <label htmlFor="quantity_to_ship" className="mes-modal-field-label">
-                  <span>今回の出庫数量</span>
+                  <span>{t('今回の出庫数量')}</span>
                   <span className="mes-field-badge required">必須</span>
                 </label>
                 <div className="d-flex align-items-center gap-2">
@@ -525,7 +527,7 @@ const GoodsIssueContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefault
                 キャンセル
               </Button>
               <Button type="submit" variant="primary" className="fw-bold px-4">
-                出庫を確定する
+                {t('出庫を確定する')}
               </Button>
             </Modal.Footer>
           </form>

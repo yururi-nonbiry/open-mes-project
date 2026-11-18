@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Spinner } from 'react-bootstrap';
 import authFetch from '../utils/api';
 import type { SalesOrder } from '../services/inventoryService';
+import { t, registerTermTarget } from '../utils/terms';
 
 const STATUS_TABS = [
   { value: 'pending', label: '未出庫' },
@@ -9,6 +10,7 @@ const STATUS_TABS = [
   { value: 'shipped', label: '出庫済み' },
   { value: '', label: 'すべて表示' },
 ];
+registerTermTarget(STATUS_TABS);
 
 const STATUS_META: Record<string, { label: string; className: string }> = {
   pending: { label: '未出庫', className: 'receipt-status-badge status-pending' },
@@ -16,6 +18,7 @@ const STATUS_META: Record<string, { label: string; className: string }> = {
   shipped: { label: '出庫済み', className: 'receipt-status-badge status-completed' },
   canceled: { label: 'キャンセル', className: 'receipt-status-badge status-canceled' },
 };
+registerTermTarget(STATUS_META);
 
 const ShipmentSchedule: React.FC = () => {
   const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([]);
@@ -38,7 +41,7 @@ const ShipmentSchedule: React.FC = () => {
       const data = await response.json();
       setSalesOrders(data.results || []);
     } catch (e) {
-      setError('出庫予定データの読み込みに失敗しました。');
+      setError(t('出庫予定データの読み込みに失敗しました。'));
       console.error('Fetch error:', e);
     } finally {
       setLoading(false);
@@ -66,7 +69,7 @@ const ShipmentSchedule: React.FC = () => {
         <tr>
           <td colSpan={9} className="text-center py-5">
             <Spinner animation="border" variant="primary" size="sm" className="me-2" />
-            <span className="text-muted">出庫予定データを読み込んでいます...</span>
+            <span className="text-muted">{t('出庫予定データを読み込んでいます...')}</span>
           </td>
         </tr>
       );
@@ -84,7 +87,7 @@ const ShipmentSchedule: React.FC = () => {
       return (
         <tr>
           <td colSpan={9} className="text-center py-5 text-muted">
-            <div className="fw-bold mb-1">該当する出庫予定はありません</div>
+            <div className="fw-bold mb-1">{t('該当する出庫予定はありません')}</div>
             <div className="small">上の状態タブや検索条件を切り替えてご確認ください。</div>
           </td>
         </tr>
@@ -179,12 +182,12 @@ const ShipmentSchedule: React.FC = () => {
               <tr>
                 <th>受注番号</th>
                 <th>製品（品番）</th>
-                <th className="text-end">出庫予定数</th>
-                <th className="text-end">出庫済</th>
-                <th className="text-end">未出庫残</th>
+                <th className="text-end">{t('出庫予定数')}</th>
+                <th className="text-end">{t('出庫済')}</th>
+                <th className="text-end">{t('未出庫残')}</th>
                 <th>受注日</th>
-                <th>出庫予定日</th>
-                <th>出庫先</th>
+                <th>{t('出庫予定日')}</th>
+                <th>{t('出庫先')}</th>
                 <th>状態</th>
               </tr>
             </thead>

@@ -4,7 +4,7 @@ import { Spinner } from 'react-bootstrap';
 import authFetch, { handleError } from '../utils/api';
 import { MaterialAllocation, PaginationData } from '../types/production';
 import { useWorkCenters } from '../hooks/useWorkCenters';
-import { t } from '../utils/terms';
+import { t, registerTermTarget } from '../utils/terms';
 
 const ALLOC_STATUS_TABS = [
   { value: '', label: 'すべて表示' },
@@ -12,6 +12,7 @@ const ALLOC_STATUS_TABS = [
   { value: 'ISSUED', label: 'ピッキング済' },
   { value: 'RETURNED', label: '返却済' },
 ];
+registerTermTarget(ALLOC_STATUS_TABS);
 
 interface ProductionPlanApi {
   id: string;
@@ -99,7 +100,7 @@ const MaterialAllocationPage: React.FC = () => {
     try {
       // 順立て（ピッキング）では完成品ごとに紐づく全部品を表示するため、多めの件数を取得
       const response = await authFetch('/api/production/material-allocations/?page_size=300');
-      await handleError(response, '順立て（ピッキング）データの取得に失敗しました。');
+      await handleError(response, t('順立て（ピッキング）データの取得に失敗しました。'));
       const data = (await response.json()) as PaginationData<MaterialAllocation>;
       const results = data.results || [];
       setAllocations(results);
@@ -233,7 +234,7 @@ const MaterialAllocationPage: React.FC = () => {
 
   // ステータス更新（個別）
   const handleUpdateStatus = async (id: string, newStatus: string) => {
-    const label = newStatus === 'ISSUED' ? 'ピッキング済' : newStatus === 'RETURNED' ? '返却済' : '引当済';
+    const label = newStatus === 'ISSUED' ? t('ピッキング済') : newStatus === 'RETURNED' ? '返却済' : '引当済';
     if (!window.confirm(`ステータスを「${label}」に変更しますか？`)) {
       return;
     }
@@ -294,7 +295,7 @@ const MaterialAllocationPage: React.FC = () => {
         method: 'PATCH',
         body: JSON.stringify({ line: line || null }),
       });
-      await handleError(response, '出庫先ラインの変更に失敗しました。');
+      await handleError(response, t('出庫先ラインの変更に失敗しました。'));
       fetchAllocations();
     } catch (e) {
       alert((e as ApiErrorLike).message);
@@ -322,7 +323,7 @@ const MaterialAllocationPage: React.FC = () => {
       case 'ALLOCATED':
         return <span className="receipt-status-badge status-pending">{display || '引当済'}</span>;
       case 'ISSUED':
-        return <span className="receipt-status-badge status-completed">{display || 'ピッキング済'}</span>;
+        return <span className="receipt-status-badge status-completed">{display || t('ピッキング済')}</span>;
       case 'RETURNED':
         return <span className="receipt-status-badge status-canceled">{display || '返却済'}</span>;
       default:
@@ -337,7 +338,7 @@ const MaterialAllocationPage: React.FC = () => {
         <div className="product-selector-header">
           <div className="d-flex align-items-center gap-2">
             <span className="section-step-badge">ステップ 1</span>
-            <h2 className="section-heading mb-0">ピッキング対象の完成品（製品）を選択</h2>
+            <h2 className="section-heading mb-0">{t('ピッキング対象の完成品（製品）を選択')}</h2>
             <span className="badge bg-light text-dark border ms-2">全 {productGroups.length} 品目</span>
           </div>
           <div className="product-selector-search d-flex gap-2">
@@ -392,7 +393,7 @@ const MaterialAllocationPage: React.FC = () => {
                 <span className="ms-auto badge bg-secondary-subtle text-secondary">横断確認</span>
               </div>
               <div className="product-card-name">{t('すべての完成品の部品')}</div>
-              <div className="product-card-plan">全体の引当・ピッキング状況を確認</div>
+              <div className="product-card-plan">{t('全体の引当・ピッキング状況を確認')}</div>
               <div className="product-card-footer">
                 <span className="small text-muted">{t('総部品:')} {allocations.length} 点</span>
               </div>
@@ -446,7 +447,7 @@ const MaterialAllocationPage: React.FC = () => {
                       ></div>
                     </div>
                     <div className="d-flex justify-content-between small text-muted mt-1">
-                      <span>ピッキング済: {grp.issuedCount}/{grp.items.length} 点</span>
+                      <span>{t('ピッキング済:')} {grp.issuedCount}/{grp.items.length} 点</span>
                       <span>{pickProgress}%</span>
                     </div>
                   </div>
@@ -479,9 +480,9 @@ const MaterialAllocationPage: React.FC = () => {
               {currentGroup && (
                 <div className="current-product-meta text-muted small">
                   対象計画: <strong>{currentGroup.planName}</strong>
-                  {currentGroup.line && <span className="ms-2">出庫先ライン: <strong>{currentGroup.line}</strong></span>}
+                  {currentGroup.line && <span className="ms-2">{t('出庫先ライン: ')}<strong>{currentGroup.line}</strong></span>}
                   <span className="ms-3">
-                    {t('部品総点数:')} <strong>{currentGroup.items.length}</strong> 点（未ピッキング: <strong className="text-danger">{currentGroup.allocatedCount}</strong> 点）
+                    {t('部品総点数:')} <strong>{currentGroup.items.length}</strong>{t(' 点（未ピッキング: ')}<strong className="text-danger">{currentGroup.allocatedCount}</strong> 点）
                   </span>
                 </div>
               )}
@@ -551,13 +552,13 @@ const MaterialAllocationPage: React.FC = () => {
               <tr>
                 <th style={{ width: '22%' }}>{t('部品コード・部品名')}</th>
                 {selectedProductKey === 'all' && <th>完成品（計画）</th>}
-                <th style={{ width: '14%' }}>出庫先ライン</th>
+                <th style={{ width: '14%' }}>{t('出庫先ライン')}</th>
                 <th style={{ width: '12%' }}>保管倉庫</th>
                 <th className="text-end" style={{ width: '10%' }}>引当数量</th>
                 <th style={{ width: '13%' }}>引当日時</th>
                 <th style={{ width: '12%' }}>状態</th>
                 <th>備考</th>
-                <th className="text-center" style={{ width: '140px' }}>ピッキング操作</th>
+                <th className="text-center" style={{ width: '140px' }}>{t('ピッキング操作')}</th>
               </tr>
             </thead>
             <tbody>
@@ -647,7 +648,7 @@ const MaterialAllocationPage: React.FC = () => {
                         {getStatusBadge(alloc.status, alloc.status_display)}
                         {alloc.allocation_type === 'ADDITIONAL' && (
                           <span className="badge bg-danger-subtle text-danger-emphasis ms-1">
-                            {alloc.allocation_type_display || '追加ピッキング'}
+                            {alloc.allocation_type_display || t('追加ピッキング')}
                           </span>
                         )}
                       </td>
@@ -661,7 +662,7 @@ const MaterialAllocationPage: React.FC = () => {
                             className="btn btn-sm btn-primary fw-bold px-3 me-1"
                             onClick={() => handleUpdateStatus(alloc.id, 'ISSUED')}
                           >
-                            ピッキング
+                            {t('ピッキング')}
                           </button>
                         )}
                         {isIssued && (

@@ -5,6 +5,7 @@ import { Table, Button, Form, Spinner, Alert, Tooltip, OverlayTrigger } from 're
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import authFetch, { describeError, toApiError } from '../utils/api';
 import type { PageDisplayRow, ModelDisplaySettingRecord, ModelFieldInfo, SaveStatus, BulkSaveResult, FieldChangeEvent } from './types/displaySettings';
+import { registerTermTarget } from '../utils/terms';
 
 // This could be moved to a shared constants file
 const DATA_TYPE_CHOICES = [
@@ -13,6 +14,7 @@ const DATA_TYPE_CHOICES = [
     { value: 'inventory', label: '在庫照会' },
     { value: 'stock_movement', label: '入出庫履歴' },
 ];
+registerTermTarget(DATA_TYPE_CHOICES);
 
 interface DataTypeConfig {
     fetch: string[];

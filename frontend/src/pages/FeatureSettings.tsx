@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import inventoryService from '../services/inventoryService';
 import { ApiError } from '../utils/api';
 import terminologyService from '../services/terminologyService';
-import { getPartTerm, setPartTerm } from '../utils/terms';
+import { TERM_DEFAULTS, getTerms, setTerms } from '../utils/terms';
+import type { TermKey, Terms } from '../utils/terms';
 import scheduleDateDefaultsService, { offsetToDate } from '../services/scheduleDateDefaultsService';
 import { WORKFLOW_TRACKS } from '../config/navigationConfig';
 import { NavIcon } from '../components/NavIcon';
@@ -36,6 +37,9 @@ const VISIBILITY_OPTIONS: { value: FlowVisibility; label: string; icon: string; 
     description: 'トップページの全体業務フロー一覧から完全に非表示にします。',
   },
 ];
+
+// 呼び方を変えられる用語(label は変更前の語)
+const TERM_FIELDS: { key: TermKey; label: string }[] = (Object.keys(TERM_DEFAULTS) as TermKey[]).map((key) => ({ key, label: TERM_DEFAULTS[key] }));
 
 const FeatureSettings: React.FC = () => {
   const [settings, setSettings] = useState<WorkflowFeatureSettings>(getWorkflowFeatureSettings);
@@ -93,24 +97,28 @@ const FeatureSettings: React.FC = () => {
     return n === null ? '指定なし' : `今日の日付で ${offsetToDate(n)}`;
   };
 
-  // 画面・メッセージでの「部品」の呼び方(サーバー側に保存)
-  const [partTermInput, setPartTermInput] = useState(getPartTerm());
+  // 画面・メッセージでの用語の呼び方(サーバー側に保存)
+  const [termInputs, setTermInputs] = useState<Terms>(getTerms);
   const [termSaving, setTermSaving] = useState(false);
   const [termMessage, setTermMessage] = useState<{ type: 'success' | 'danger'; text: string } | null>(null);
 
-  const handleSavePartTerm = async () => {
+  const handleSaveTerms = async () => {
     setTermMessage(null);
-    const value = partTermInput.trim();
-    if (!value || value.length > 10) {
-      setTermMessage({ type: 'danger', text: '呼び方は1〜10文字で入力してください。' });
-      return;
+    const payload = {} as Terms;
+    for (const { key, label } of TERM_FIELDS) {
+      const value = termInputs[key].trim();
+      if (!value || value.length > 10) {
+        setTermMessage({ type: 'danger', text: `「${label}」の呼び方は1〜10文字で入力してください。` });
+        return;
+      }
+      payload[key] = value;
     }
     setTermSaving(true);
     try {
-      const saved = await terminologyService.update({ part: value });
-      window.alert(`「${saved.part}」に保存しました。画面を更新します。`);
-      setPartTerm(saved.part); // 変更があれば画面全体が描き直される
-      setPartTermInput(saved.part);
+      const saved = await terminologyService.update(payload);
+      window.alert('用語の呼び方を保存しました。画面を更新します。');
+      setTermInputs(saved);
+      setTerms(saved); // 変更があれば画面全体が描き直される
     } catch (err) {
       setTermMessage({
         type: 'danger',
@@ -283,30 +291,31 @@ const FeatureSettings: React.FC = () => {
 
         <div className="card shadow-sm mb-4">
           <div className="card-body">
-            <h5 className="fw-bold mb-2">「部品」の呼び方</h5>
+            <h5 className="fw-bold mb-2">用語の呼び方</h5>
             <p className="text-muted small mb-3">
-              画面・説明書・メッセージで使う「部品」の呼び方を変更します（例: 材料）。
-              品番や品名などの登録データは変わりません。保存するとシステム全体（PC・スマホ）に反映されます。
+              画面・説明書・メッセージで使う「部品」「ピッキング」「出庫」の呼び方を変更します（例: 部品 → 材料、ピッキング → 払出）。
+              品番や品名などの登録データ、「入出庫」という総称は変わりません。保存するとシステム全体（PC・スマホ）に反映されます。
             </p>
             <div className="row g-3 align-items-end">
-              <div className="col-12 col-md-4">
-                <label className="form-label fw-bold" htmlFor="part-term">呼び方（10文字まで）</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  id="part-term"
-                  maxLength={10}
-                  value={partTermInput}
-                  onChange={(e) => setPartTermInput(e.target.value)}
-                />
-                <div className="form-text">例: 部品引当 → {partTermInput.trim() || '部品'}引当</div>
-              </div>
-              <div className="col-12 col-md-4">
+              {TERM_FIELDS.map(({ key, label }) => (
+                <div className="col-12 col-md-3" key={key}>
+                  <label className="form-label fw-bold" htmlFor={`term-${key}`}>「{label}」の呼び方</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    id={`term-${key}`}
+                    maxLength={10}
+                    value={termInputs[key]}
+                    onChange={(e) => setTermInputs((prev) => ({ ...prev, [key]: e.target.value }))}
+                  />
+                </div>
+              ))}
+              <div className="col-12 col-md-3">
                 <button
                   type="button"
                   className="btn btn-primary fw-bold"
                   disabled={termSaving}
-                  onClick={handleSavePartTerm}
+                  onClick={handleSaveTerms}
                 >
                   呼び方を保存
                 </button>

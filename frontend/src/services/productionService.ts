@@ -161,7 +161,7 @@ const productionService = {
         apiRequest<{ message: string; data: MaterialAllocation[] }>(
             `/api/production/plans/${planId}/issue-additional-materials/`,
             { method: 'POST', body: JSON.stringify({ items, remarks }) },
-            '追加出庫に失敗しました。'
+            t('追加出庫に失敗しました。')
         ),
 
     /** 中間品ごとの手配状況(在庫の見込み・子計画・不足) */

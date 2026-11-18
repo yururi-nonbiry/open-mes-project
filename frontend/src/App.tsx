@@ -1,6 +1,6 @@
 import { Fragment, useState, useEffect, lazy, Suspense } from 'react';
 import terminologyService from './services/terminologyService';
-import { getPartTerm, onPartTermChange, setPartTerm } from './utils/terms';
+import { onTermsChange, setTerms } from './utils/terms';
 import type { ReactNode } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation, Outlet } from 'react-router-dom';
 import './App.css';
@@ -103,12 +103,12 @@ function AppContent() {
     return () => { document.body.classList.remove('menu-open-no-scroll'); };
   }, [menuOpen]);
 
-  // 管理者が設定した「部品」の呼び方。変わったら画面を描き直して反映する
-  const [partTerm, setTerm] = useState(getPartTerm());
-  useEffect(() => onPartTermChange(() => setTerm(getPartTerm())), []);
+  // 管理者が設定した用語(部品・ピッキング・出庫)の呼び方。変わったら画面を描き直して反映する
+  const [termsVersion, setTermsVersion] = useState(0);
+  useEffect(() => onTermsChange(() => setTermsVersion(v => v + 1)), []);
   useEffect(() => {
     if (!isAuthenticated) return;
-    terminologyService.get().then(({ part }) => { setPartTerm(part); });
+    terminologyService.get().then((terms) => { setTerms(terms); });
   }, [isAuthenticated]);
 
   if (loading) return <div className="p-4">読み込み中...</div>;
@@ -122,7 +122,7 @@ function AppContent() {
   };
 
   return (
-    <Fragment key={partTerm}>
+    <Fragment key={termsVersion}>
       <MobileRedirector />
 
       <Suspense fallback={<div className="p-4">読み込み中...</div>}>

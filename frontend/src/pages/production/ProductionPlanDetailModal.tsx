@@ -4,6 +4,7 @@ import Modal from '../../components/Modal';
 import productionService from '../../services/productionService';
 import { useWorkCenters } from '../../hooks/useWorkCenters';
 import { ProductionPlan } from '../../types/production';
+import { t } from '../../utils/terms';
 
 interface ProductionPlanDetailModalProps {
     isOpen: boolean;
@@ -34,7 +35,7 @@ const ProductionPlanDetailModal: React.FC<ProductionPlanDetailModalProps> = ({
         setMessage(null);
         try {
             const updated = await productionService.updatePlanLine(plan.id, line);
-            setMessage({ type: 'success', text: '出庫先ラインを更新しました。今後の引当の既定値に使われます(引当済みの出庫先は変わりません)。' });
+            setMessage({ type: 'success', text: t('出庫先ラインを更新しました。今後の引当の既定値に使われます(引当済みの出庫先は変わりません)。') });
             onUpdated?.({ ...plan, ...updated });
         } catch (e) {
             setMessage({ type: 'danger', text: (e as ApiErrorLike).message });
@@ -56,7 +57,7 @@ const ProductionPlanDetailModal: React.FC<ProductionPlanDetailModalProps> = ({
                     <dt className="col-sm-4">計画名:</dt><dd className="col-sm-8">{plan.plan_name || 'N/A'}</dd>
                     <dt className="col-sm-4">製品コード:</dt><dd className="col-sm-8">{plan.product_code || 'N/A'}</dd>
                     <dt className="col-sm-4">使用する在庫の用途:</dt><dd className="col-sm-8">{plan.purpose ? `${plan.purpose}（この用途→汎用の順で使用）` : '汎用のみ'}</dd>
-                    <dt className="col-sm-4">出庫先ライン:</dt><dd className="col-sm-8">
+                    <dt className="col-sm-4">{t('出庫先ライン:')}</dt><dd className="col-sm-8">
                         <div className="d-flex gap-2">
                             <select
                                 className="form-select form-select-sm" value={line}

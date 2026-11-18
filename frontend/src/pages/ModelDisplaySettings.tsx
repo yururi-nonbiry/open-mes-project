@@ -5,6 +5,7 @@ import { Table, Button, Form, Spinner, Alert, Tooltip, OverlayTrigger } from 're
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import authFetch, { apiRequest, describeError } from '../utils/api';
 import type { ModelDisplayRow, ModelDisplaySettingRecord, ModelFieldInfo, SaveStatus, BulkSaveResult, FieldChangeEvent } from './types/displaySettings';
+import { registerTermTarget } from '../utils/terms';
 
 // This could be moved to a shared constants file
 const DATA_TYPE_CHOICES = [
@@ -18,6 +19,7 @@ const DATA_TYPE_CHOICES = [
     { value: 'work_center', label: 'ワークセンターマスター' },
     { value: 'unit_cost', label: '標準単価' },
 ];
+registerTermTarget(DATA_TYPE_CHOICES);
 
 const ModelDisplaySettings = () => {
     const [fieldsData, setFieldsData] = useState<ModelDisplayRow[]>([]);

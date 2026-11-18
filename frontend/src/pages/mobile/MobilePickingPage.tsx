@@ -21,6 +21,7 @@ const STATUS_FILTERS = [
     { value: 'ISSUED', label: 'ピッキング済' },
     { value: '', label: 'すべて' },
 ];
+registerTermTarget(STATUS_FILTERS);
 
 const statusBadge = (a: MaterialAllocation) => {
     const bg = a.status === 'ALLOCATED' ? 'warning' : a.status === 'ISSUED' ? 'success' : 'secondary';
@@ -45,7 +46,7 @@ const MobilePickingPage = () => {
         setError(null);
         try {
             const response = await authFetch('/api/production/material-allocations/?page_size=300');
-            await handleError(response, '順立て（ピッキング）データの取得に失敗しました。');
+            await handleError(response, t('順立て（ピッキング）データの取得に失敗しました。'));
             const data = (await response.json()) as PaginationData<MaterialAllocation>;
             setAllocations(data.results || []);
         } catch (e) {
@@ -106,12 +107,12 @@ const MobilePickingPage = () => {
     };
 
     const handlePick = async (a: MaterialAllocation) => {
-        if (!window.confirm(`${a.material_code} ${a.material_name || ''} を ${a.allocated_quantity} 個ピッキングしますか？`)) return;
+        if (!window.confirm(t(`${a.material_code} ${a.material_name || ''} を ${a.allocated_quantity} 個ピッキングしますか？`))) return;
         setBusyId(a.id);
         setMessage(null);
         try {
             await changeStatus(a.id, 'ISSUED');
-            setMessage({ text: `${a.material_code} をピッキングしました。`, type: 'success' });
+            setMessage({ text: t(`${a.material_code} をピッキングしました。`), type: 'success' });
             await fetchAllocations();
         } catch (e) {
             setMessage({ text: errorMessage(e), type: 'danger' });
@@ -145,7 +146,7 @@ const MobilePickingPage = () => {
 
     return (
         <Container>
-            <h1 className="mb-3">順立て・ピッキング</h1>
+            <h1 className="mb-3">{t('順立て・ピッキング')}</h1>
 
             <div className="mb-3 p-3 border rounded bg-light">
                 <InputGroup size="sm" className="mb-2">
@@ -157,7 +158,7 @@ const MobilePickingPage = () => {
                     />
                 </InputGroup>
                 <div className="d-flex gap-2">
-                    <Form.Select size="sm" aria-label="出庫先ライン" value={lineFilter} onChange={(e) => setLineFilter(e.target.value)}>
+                    <Form.Select size="sm" aria-label={t('出庫先ライン')} value={lineFilter} onChange={(e) => setLineFilter(e.target.value)}>
                         <option value="">ライン: すべて</option>
                         <option value="none">未指定</option>
                         {workCenters.map((w) => <option key={w.code} value={w.code}>{w.code}</option>)}
@@ -175,7 +176,7 @@ const MobilePickingPage = () => {
             ) : error ? (
                 <Alert variant="danger">{error}</Alert>
             ) : visibleGroups.length === 0 ? (
-                <Alert variant="secondary" className="text-center">該当するピッキング対象はありません。</Alert>
+                <Alert variant="secondary" className="text-center">{t('該当するピッキング対象はありません。')}</Alert>
             ) : (
                 visibleGroups.map((g) => (
                     <Card key={g.key} className="mb-3">
@@ -210,7 +211,7 @@ const MobilePickingPage = () => {
                                             onClick={() => handlePick(a)}
                                             disabled={busyId !== null}
                                         >
-                                            {busyId === a.id ? <Spinner as="span" animation="border" size="sm" /> : 'ピッキング'}
+                                            {busyId === a.id ? <Spinner as="span" animation="border" size="sm" /> : t('ピッキング')}
                                         </Button>
                                     )}
                                 </div>
@@ -219,7 +220,7 @@ const MobilePickingPage = () => {
                         {g.allocatedCount > 0 && (
                             <Card.Footer className="bg-white border-0 p-2">
                                 <Button variant="primary" className="w-100" onClick={() => handlePickAll(g)} disabled={busyId !== null}>
-                                    {busyId === g.key ? <Spinner as="span" animation="border" size="sm" /> : `未ピッキングを一括ピッキング (${g.allocatedCount}件)`}
+                                    {busyId === g.key ? <Spinner as="span" animation="border" size="sm" /> : t(`未ピッキングを一括ピッキング (${g.allocatedCount}件)`)}
                                 </Button>
                             </Card.Footer>
                         )}
@@ -232,4 +233,4 @@ const MobilePickingPage = () => {
 
 export default MobilePickingPage;
 
-import { t } from '../../utils/terms';
+import { t, registerTermTarget } from '../../utils/terms';
