@@ -1445,7 +1445,7 @@ const main = async () => {
   await page.waitForTimeout(300);
   await page.getByRole('button', { name: /材料引当/ }).first().click();
   await page.getByRole('heading', { name: '材料引き当て' }).waitFor();
-  await page.getByRole('button', { name: '引き当て実行' }).waitFor();
+  await page.getByRole('button', { name: 'チェックした部品を引き当て' }).waitFor();
   await shoot(page, '15-production-plan-allocate');
 
   // 使用部品マスター・多階層展開
@@ -1460,9 +1460,12 @@ const main = async () => {
 
   // 材料引当ステータス一覧
   await page.goto(`${BASE_URL}/production/material-allocation`);
-  await page.getByRole('heading', { name: /材料引当/ }).first().waitFor();
-  await page.locator('table tbody tr').first().waitFor();
+  await page.getByRole('heading', { name: /ピッキング対象の完成品/ }).waitFor();
+  await page.locator('.product-select-card').nth(1).waitFor();
   await shoot(page, '18-material-allocation');
+  await page.locator('.product-select-card:not(.all-items-card)').first().click();
+  await page.locator('table tbody tr').first().waitFor();
+  await shoot(page, '18b-material-allocation-items', { fullPage: true });
 
   // 部品供給シミュレーション
   await page.goto(`${BASE_URL}/production/parts-supply-simulation`);
@@ -1605,7 +1608,7 @@ const main = async () => {
 
   const mobilePage = await mobileContext.newPage();
   await mobilePage.goto(`${BASE_URL}/mobile`);
-  await mobilePage.getByRole('heading', { name: 'ようこそ！' }).waitFor();
+  await mobilePage.getByRole('heading', { name: '現場業務メニュー' }).waitFor();
   await shoot(mobilePage, '41-mobile-top');
 
   await mobilePage.goto(`${BASE_URL}/mobile/goods-receipt`);
@@ -1614,10 +1617,15 @@ const main = async () => {
   await mobilePage.getByRole('button', { name: '入庫実行' }).waitFor();
   await shoot(mobilePage, '42-mobile-goods-receipt');
 
+  await mobilePage.goto(`${BASE_URL}/mobile/picking`);
+  await mobilePage.getByRole('heading', { name: '順立て・ピッキング' }).waitFor();
+  await mobilePage.getByRole('button', { name: 'ピッキング', exact: true }).first().waitFor();
+  await shoot(mobilePage, '43-mobile-picking');
+
   await mobilePage.goto(`${BASE_URL}/mobile/goods-issue`);
-  await mobilePage.getByRole('heading', { name: '出庫処理' }).waitFor();
+  await mobilePage.getByRole('heading', { name: '完成品の出庫' }).waitFor();
   await mobilePage.locator('#sales-order-list .card').first().waitFor();
-  await shoot(mobilePage, '43-mobile-goods-issue');
+  await shoot(mobilePage, '44-mobile-goods-issue');
 
   await mobilePage.goto(`${BASE_URL}/mobile/location-transfer`);
   await mobilePage.getByRole('heading', { name: '棚番移動' }).waitFor();
@@ -1627,7 +1635,7 @@ const main = async () => {
   await mobilePage.getByRole('heading', { name: '在庫移動' }).waitFor();
   await mobilePage.locator('#transferQuantity').fill('10');
   await mobilePage.locator('#targetLocation').fill('A-01-02');
-  await shoot(mobilePage, '44-mobile-location-transfer');
+  await shoot(mobilePage, '45-mobile-location-transfer');
 
   await mobileContext.close();
   await browser.close();
