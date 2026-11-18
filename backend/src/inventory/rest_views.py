@@ -10,6 +10,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 
+from base.feature_settings import apply_terms
 from base.pagination import StandardResultsSetPagination
 from base.responses import error_response
 from master.models import WarehouseLocation
@@ -511,7 +512,7 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
         order = self.get_object()
         warehouse = order.warehouse_rel
         if warehouse is None:
-            return error_response(f"受注 {order.order_number} に出庫倉庫が設定されていません。")
+            return error_response(apply_terms(f"受注 {order.order_number} に出庫倉庫が設定されていません。"))
 
         qty_by_location = {
             row["location"]: row["total_qty"]
@@ -596,7 +597,7 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
         try:
             quantity_to_ship = int(quantity_to_ship_str)
         except (TypeError, ValueError):
-            return error_response("出庫数量は有効な数値である必要があります。")
+            return error_response(apply_terms("出庫数量は有効な数値である必要があります。"))
 
         try:
             sales_order = services.issue_sales_order(order_id, quantity_to_ship, request.user)
@@ -605,7 +606,7 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
         return Response(
             {
                 "message": (
-                    f"受注 {sales_order.order_number} から {quantity_to_ship} 個の {sales_order.item} を出庫しました。"
+                    apply_terms(f"受注 {sales_order.order_number} から {quantity_to_ship} 個の {sales_order.item} を出庫しました。")
                 ),
             }
         )

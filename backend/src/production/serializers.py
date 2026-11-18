@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from base.feature_settings import apply_part_term, lazy_part_term
+from base.feature_settings import apply_terms, lazy_terms
 from master.models import Item, StockPurpose, Warehouse, WorkCenter
 
 from .models import MaterialAllocation, PartsUsed, ProductionPlan, ProductionPlanMaterial, WorkProgress
@@ -98,14 +98,14 @@ class ProductionPlanSerializer(serializers.ModelSerializer):
         if self.instance and new_product is not None and new_product.code != self.instance.product_id:
             if normal_allocations(self.instance.material_allocations.all()).exists():
                 raise serializers.ValidationError(
-                    {"product_code": apply_part_term("部品の引当がある生産計画の製品は変更できません。先に引当を解除してください。")}
+                    {"product_code": apply_terms("部品の引当がある生産計画の製品は変更できません。先に引当を解除してください。")}
                 )
 
         # 用途を変えると使う在庫が変わるため、引当が残っている計画では変更させない
         if self.instance and "purpose_rel" in data and data["purpose_rel"] != self.instance.purpose_rel:
             if normal_allocations(self.instance.material_allocations.all()).exists():
                 raise serializers.ValidationError(
-                    {"purpose": apply_part_term("部品の引当がある生産計画の用途は変更できません。先に引当を解除してください。")}
+                    {"purpose": apply_terms("部品の引当がある生産計画の用途は変更できません。先に引当を解除してください。")}
                 )
 
         if planned_start is not None and planned_end is not None:
@@ -179,7 +179,7 @@ class ProductionPlanMaterialSerializer(serializers.ModelSerializer):
         source="material",
         slug_field="code",
         queryset=Item.objects.filter(item_type__in=Item.CONSUMABLE_TYPES),
-        error_messages={"does_not_exist": lazy_part_term("指定された部品コードは存在しないか、部品・中間品として登録されていません。")},
+        error_messages={"does_not_exist": lazy_terms("指定された部品コードは存在しないか、部品・中間品として登録されていません。")},
     )
     material_name = serializers.CharField(source="material.name", read_only=True)
     material_unit = serializers.CharField(source="material.unit", read_only=True)
@@ -322,7 +322,7 @@ class MaterialAllocationSerializer(serializers.ModelSerializer):
         # 出庫済み・返却済みの引当は履歴のためラインを変更できない
         if self.instance and "line_rel" in data and data["line_rel"] != self.instance.line_rel:
             if self.instance.status != MaterialAllocation.Status.ALLOCATED:
-                raise serializers.ValidationError({"line": "出庫済み・返却済みの引当はラインを変更できません。"})
+                raise serializers.ValidationError({"line": apply_terms("出庫済み・返却済みの引当はラインを変更できません。")})
         return data
 
     def update(self, instance, validated_data):

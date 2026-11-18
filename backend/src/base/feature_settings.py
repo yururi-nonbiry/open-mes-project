@@ -1,5 +1,7 @@
 """管理者画面から切り替える機能のON/OFF設定(BaseSetting に保存する)。"""
 
+import re
+
 from django.utils.functional import lazy
 
 from .models import BaseSetting
@@ -56,30 +58,45 @@ def set_schedule_date_offset(name, days):
     )
 
 
-# 画面・メッセージで使う「部品」の呼び方(例: 部品 / 材料)。説明書や画面の文言は「部品」で書き、この設定の語に置き換えて表示する。
-PART_TERM = "part_term"
-PART_TERM_DEFAULT = "部品"
-PART_TERM_MAX_LENGTH = 10
+# 画面・メッセージで使う用語の呼び方。文言は下記の既定の語(部品・ピッキング・出庫)で書き、
+# 管理者が設定した語に置き換えて表示する。
+TERM_MAX_LENGTH = 10
+# キー: (BaseSetting名, 既定の語)
+TERMS = {
+    "part": ("part_term", "部品"),
+    "picking": ("picking_term", "ピッキング"),
+    "issue": ("issue_term", "出庫"),
+}
+# 「入出庫」は入庫・出庫の総称として使うため、出庫の置き換え対象にしない
+_TERM_PATTERN = re.compile("部品|ピッキング|(?<!入)出庫")
 
 
-def get_part_term():
-    setting = BaseSetting.objects.filter(name=PART_TERM, is_deleted=False).first()
+def get_term(key):
+    name, default = TERMS[key]
+    setting = BaseSetting.objects.filter(name=name, is_deleted=False).first()
     if setting is None or not setting.is_active:
-        return PART_TERM_DEFAULT
-    return setting.value.strip() or PART_TERM_DEFAULT
+        return default
+    return setting.value.strip() or default
 
 
-def set_part_term(term):
+def get_terms():
+    return {key: get_term(key) for key in TERMS}
+
+
+def set_term(key, term):
+    name, _default = TERMS[key]
     BaseSetting.objects.update_or_create(
-        name=PART_TERM,
+        name=name,
         defaults={"value": term, "is_active": True, "is_deleted": False},
     )
 
 
-def apply_part_term(text):
-    """「部品」で書いた文言を、設定された呼び方に置き換える。"""
-    return text.replace(PART_TERM_DEFAULT, get_part_term())
+def apply_terms(text):
+    """既定の語で書いた文言を、設定された呼び方に置き換える(1回の走査で置き換える)。"""
+    by_default = {default: key for key, (_name, default) in TERMS.items()}
+    terms = get_terms()
+    return _TERM_PATTERN.sub(lambda m: terms[by_default[m.group(0)]], text)
 
 
 # 画面に出る文言のクラス定義時に使う遅延評価版(表示する時点で設定を読む)
-lazy_part_term = lazy(apply_part_term, str)
+lazy_terms = lazy(apply_terms, str)

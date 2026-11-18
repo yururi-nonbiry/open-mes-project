@@ -83,16 +83,20 @@
 | BASE-SCHDATE-06 | 権限 | GET/PUT | 一般ユーザー | GETは200、PUTは403 |
 | BASE-SCHDATE-07 | 権限 | GET | 未認証 | 401 |
 
-### 「部品」の呼び方の設定（`base/terminology/`、`base/tests/test_terminology.py`）
+### 用語の呼び方の設定（`base/terminology/`、`base/tests/test_terminology.py`）
+
+部品・ピッキング・出庫の3語（キー `part` / `picking` / `issue`）の呼び方を設定する。「入出庫」は置き換えない。
 
 | ID | 区分 | 対象 | 条件 | 期待結果 |
 |---|---|---|---|---|
-| BASE-TERM-01 | 正常系 | GET | 未設定 | 200、`{"part": "部品"}` |
-| BASE-TERM-02 | 正常系 | PUT→GET | `" 材料 "` | 200、前後の空白を除いた `材料` が返る |
+| BASE-TERM-01 | 正常系 | GET | 未設定 | 200、`{"part": "部品", "picking": "ピッキング", "issue": "出庫"}` |
+| BASE-TERM-02 | 正常系 | PUT→GET | `part` に `" 材料 "` | 200、前後の空白を除いた `材料` が返る |
 | BASE-TERM-03 | 異常系 | PUT | 空・空白のみ・11文字以上・文字列以外・未指定 | 400、保存されない |
+| BASE-TERM-03b | 正常系 | PUT | `picking` と `issue` のみ | 200、指定した2語だけ変わり `part` は保持 |
 | BASE-TERM-04 | 権限 | GET/PUT | 一般ユーザー | GETは200、PUTは403 |
 | BASE-TERM-05 | 権限 | GET | 未認証 | 401 |
-| BASE-TERM-06 | 正常系 | `apply_part_term` / `lazy_part_term` | 呼び方を `材料` に変更 | メッセージ中の「部品」が `材料` に置き換わる |
+| BASE-TERM-06 | 正常系 | `apply_terms` / `lazy_terms` | 3語を変更 | メッセージ中の語が置き換わり、「入出庫」は変わらない |
+| BASE-TERM-07 | 正常系 | `apply_terms` | ピッキングと出庫を入れ替え | 1回の走査で置き換え、二重に置換されない |
 
 ### 5.2 モデルフィールド定義取得（`ModelFieldsView`、`base/tests/test_model_fields.py`）
 

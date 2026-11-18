@@ -15,7 +15,7 @@ from django.db.models import F, Q
 from django.utils import timezone
 from rest_framework import serializers
 
-from base.feature_settings import apply_part_term
+from base.feature_settings import apply_terms
 from base.responses import INTERNAL_ERROR_MESSAGE, validation_error_body
 from master.models import Item, StockPurpose, Warehouse
 
@@ -207,8 +207,10 @@ def consume_stock(rows, quantity, own_reserved=0):
     shippable_quantity = max(0, total_quantity - others_reserved)
     if shippable_quantity < quantity:
         raise InventoryServiceError(
-            f"実在庫: {total_quantity}, 他の引当: {others_reserved}, "
-            f"出庫可能: {shippable_quantity}, 要求: {quantity}。"
+            apply_terms(
+                f"実在庫: {total_quantity}, 他の引当: {others_reserved}, "
+                f"出庫可能: {shippable_quantity}, 要求: {quantity}。"
+            )
         )
     consumed = consume_fifo(rows, quantity)
     released = release_reserved_fifo(rows, min(own_reserved, quantity))
@@ -628,13 +630,13 @@ def bulk_upsert_purchase_orders(rows):
 
 def _reserved_prefix_error():
     return InventoryServiceError(
-        apply_part_term(f"'{SalesOrder.INTERNAL_ORDER_PREFIX}' で始まる受注番号は生産計画の部品引当用に予約されています。")
+        apply_terms(f"'{SalesOrder.INTERNAL_ORDER_PREFIX}' で始まる受注番号は生産計画の部品引当用に予約されています。")
     )
 
 
 def internal_order_error(sales_order):
     return InventoryServiceError(
-        apply_part_term(
+        apply_terms(
             f"受注 {sales_order.order_number} は生産計画の部品引当用の内部受注のため、"
             "ここでは変更・出庫できません。順立て（部品引当）画面から操作してください。"
         )
@@ -726,7 +728,7 @@ def allocate_sales_order(sales_order_ref, allocations_data, purpose=_UNSET):
                 )
             if sales_order.status != SalesOrder.Status.PENDING:
                 raise InventoryServiceError(
-                    f"受注 '{sales_order_ref}' は出庫済みまたはキャンセル済みのため引当できません。"
+                    apply_terms(f"受注 '{sales_order_ref}' は出庫済みまたはキャンセル済みのため引当できません。")
                 )
 
             # 受注ごとの引当数量を記録する(出庫時に自身の引当分だけを解放するため)。
@@ -757,7 +759,7 @@ def issue_sales_order(order_id, quantity_to_ship, user):
     他の受注・材料引当が確保している在庫は出庫できない。
     """
     if quantity_to_ship <= 0:
-        raise InventoryServiceError("出庫数量は0より大きい必要があります。")
+        raise InventoryServiceError(apply_terms("出庫数量は0より大きい必要があります。"))
 
     with transaction.atomic():
         try:
@@ -768,14 +770,14 @@ def issue_sales_order(order_id, quantity_to_ship, user):
         if sales_order.is_internal:
             raise internal_order_error(sales_order)
         if sales_order.status == SalesOrder.Status.SHIPPED:
-            raise InventoryServiceError(f"受注 {sales_order.order_number} は既に出庫済みです。")
+            raise InventoryServiceError(apply_terms(f"受注 {sales_order.order_number} は既に出庫済みです。"))
         if sales_order.status == SalesOrder.Status.CANCELED:
             raise InventoryServiceError(f"受注 {sales_order.order_number} はキャンセルされています。")
         if not sales_order.item or not sales_order.warehouse:
             raise InventoryServiceError(f"受注 {sales_order.order_number} に品目または倉庫が指定されていません。")
         if quantity_to_ship > sales_order.remaining_quantity:
             raise InventoryServiceError(
-                f"出庫数量 ({quantity_to_ship}) が残数量 ({sales_order.remaining_quantity}) を超えています。"
+                apply_terms(f"出庫数量 ({quantity_to_ship}) が残数量 ({sales_order.remaining_quantity}) を超えています。")
             )
 
         inventory_rows = lock_inventory_rows(sales_order.item, sales_order.warehouse, sales_order.purpose)
@@ -844,7 +846,7 @@ def change_sales_order_status(sales_order_pk, new_status):
             if sales_order.status == SalesOrder.Status.CANCELED:
                 return sales_order
             if sales_order.shipped_quantity > 0:
-                raise InventoryServiceError(f"受注 {sales_order.order_number} は出庫済数量があるためキャンセルできません。")
+                raise InventoryServiceError(apply_terms(f"受注 {sales_order.order_number} は出庫済数量があるためキャンセルできません。"))
             if sales_order.reserved_quantity > 0:
                 rows = lock_inventory_rows(sales_order.item, sales_order.warehouse, sales_order.purpose)
                 release_reserved_fifo(rows, sales_order.reserved_quantity)

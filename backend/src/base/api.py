@@ -134,7 +134,7 @@ class ScheduleDateDefaultsView(APIView):
 
 class TerminologyView(APIView):
     """
-    画面・メッセージで使う用語の設定(現在は「部品」の呼び方のみ)。
+    画面・メッセージで使う用語の呼び方(part=部品 / picking=ピッキング / issue=出庫)。
     参照はログインユーザー全員、変更は管理者のみ。
     """
 
@@ -143,27 +143,29 @@ class TerminologyView(APIView):
             return [permissions.IsAuthenticated()]
         return [permissions.IsAdminUser()]
 
-    @staticmethod
-    def _current():
-        return {"part": feature_settings.get_part_term()}
-
     def get(self, request, *args, **kwargs):
-        return Response(self._current())
+        return Response(feature_settings.get_terms())
 
     def put(self, request, *args, **kwargs):
-        if "part" not in request.data:
-            return error_response("part を指定してください。")
-        value = request.data["part"]
-        limit = feature_settings.PART_TERM_MAX_LENGTH
-        if not isinstance(value, str) or not value.strip() or len(value.strip()) > limit:
-            return error_response(f"part は1〜{limit}文字の文字列で指定してください。")
-        feature_settings.set_part_term(value.strip())
-        log_event(
-            AccessLog.EventType.SETTINGS_CHANGED,
-            request,
-            detail={"setting": "terminology", "operation": "update", "name": "part", "value": value.strip()},
-        )
-        return Response(self._current())
+        limit = feature_settings.TERM_MAX_LENGTH
+        updates = {}
+        for key in feature_settings.TERMS:
+            if key not in request.data:
+                continue
+            value = request.data[key]
+            if not isinstance(value, str) or not value.strip() or len(value.strip()) > limit:
+                return error_response(f"{key} は1〜{limit}文字の文字列で指定してください。")
+            updates[key] = value.strip()
+        if not updates:
+            return error_response("変更する用語(part / picking / issue)を指定してください。")
+        for key, value in updates.items():
+            feature_settings.set_term(key, value)
+            log_event(
+                AccessLog.EventType.SETTINGS_CHANGED,
+                request,
+                detail={"setting": "terminology", "operation": "update", "name": key, "value": value},
+            )
+        return Response(feature_settings.get_terms())
 
 
 class HealthCheckView(APIView):

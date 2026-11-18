@@ -3,6 +3,7 @@ import logging
 from django.db import transaction
 from django.utils import timezone
 
+from base.feature_settings import apply_terms
 from inventory.models import SalesOrder, StockMovement
 from inventory.services import (
     InventoryServiceError,
@@ -290,9 +291,9 @@ def issue_additional_materials_service(production_plan, items, user, remarks=Non
     items: [{"part_number": 部品コード, "warehouse": 倉庫番号, "quantity": 数量}, ...]
     """
     if production_plan.status == ProductionPlan.Status.CANCELLED:
-        raise ValueError("中止された生産計画には追加ピッキングできません。")
+        raise ValueError(apply_terms("中止された生産計画には追加ピッキングできません。"))
     if not isinstance(items, list) or not items:
-        raise ValueError("追加ピッキングする部品を1件以上指定してください。")
+        raise ValueError(apply_terms("追加ピッキングする部品を1件以上指定してください。"))
 
     now = now or timezone.now()
     operator = user if user and user.is_authenticated else None

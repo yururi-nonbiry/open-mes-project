@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from base.feature_settings import apply_part_term
+from base.feature_settings import apply_terms
 from master.models import Item, StockPurpose, Supplier, Warehouse, WorkCenter
 
 from .models import (  # StockMovement, SalesOrder, Receiptモデルをインポート
@@ -342,14 +342,14 @@ class SalesOrderSerializer(serializers.ModelSerializer):
             minimum = instance.shipped_quantity + instance.reserved_quantity
             if data["quantity"] < minimum:
                 raise serializers.ValidationError(
-                    {"quantity": f"出庫予定数量は出庫済数量+引当済数量({minimum})以上である必要があります。"}
+                    {"quantity": apply_terms(f"出庫予定数量は出庫済数量+引当済数量({minimum})以上である必要があります。")}
                 )
         return data
 
     def validate_order_number(self, value):
         if value and value.startswith(SalesOrder.INTERNAL_ORDER_PREFIX):
             raise serializers.ValidationError(
-                apply_part_term(f"'{SalesOrder.INTERNAL_ORDER_PREFIX}' で始まる受注番号は生産計画の部品引当用に予約されています。")
+                apply_terms(f"'{SalesOrder.INTERNAL_ORDER_PREFIX}' で始まる受注番号は生産計画の部品引当用に予約されています。")
             )
         return value
 

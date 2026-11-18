@@ -16,19 +16,24 @@ class TerminologyTests(BaseAPITestBase):
     def test_base_term_01_default_is_buhin(self):
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data, {"part": "部品"})
+        self.assertEqual(response.data, {"part": "部品", "picking": "ピッキング", "issue": "出庫"})
 
     def test_base_term_02_update_and_get(self):
         response = self.client.put(self.url, {"part": " 材料 "}, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(self.client.get(self.url).data, {"part": "材料"})
+        self.assertEqual(self.client.get(self.url).data["part"], "材料")
 
     def test_base_term_03_invalid_rejected(self):
         for bad in ("", "   ", "あ" * 11, 5, None):
             response = self.client.put(self.url, {"part": bad}, format="json")
             self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, bad)
         self.assertEqual(self.client.put(self.url, {}, format="json").status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertFalse(BaseSetting.objects.filter(name=feature_settings.PART_TERM).exists())
+        self.assertFalse(BaseSetting.objects.filter(name=feature_settings.TERMS["part"][0]).exists())
+
+    def test_base_term_03b_update_picking_issue_partial(self):
+        response = self.client.put(self.url, {"picking": "払出", "issue": "払出し"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data, {"part": "部品", "picking": "払出", "issue": "払出し"})
 
     def test_base_term_04_non_admin_can_read_not_write(self):
         self.client.force_authenticate(user=self.user)
@@ -40,9 +45,17 @@ class TerminologyTests(BaseAPITestBase):
         self.client.force_authenticate(user=None)
         self.assertEqual(self.client.get(self.url).status_code, status.HTTP_401_UNAUTHORIZED)
 
-    def test_base_term_06_apply_part_term_replaces_message(self):
-        text = "部品の引当があります。"
-        self.assertEqual(feature_settings.apply_part_term(text), text)
-        feature_settings.set_part_term("材料")
-        self.assertEqual(feature_settings.apply_part_term(text), "材料の引当があります。")
-        self.assertEqual(str(feature_settings.lazy_part_term("部品・中間品")), "材料・中間品")
+    def test_base_term_06_apply_terms_replaces_message(self):
+        text = "部品の出庫と追加ピッキングと入出庫履歴"
+        self.assertEqual(feature_settings.apply_terms(text), text)
+        feature_settings.set_term("part", "材料")
+        feature_settings.set_term("picking", "払出")
+        feature_settings.set_term("issue", "出荷")
+        # 「入出庫」は置き換えない
+        self.assertEqual(feature_settings.apply_terms(text), "材料の出荷と追加払出と入出庫履歴")
+        self.assertEqual(str(feature_settings.lazy_terms("部品・中間品")), "材料・中間品")
+
+    def test_base_term_07_swapped_terms_replaced_in_one_pass(self):
+        feature_settings.set_term("picking", "出庫")
+        feature_settings.set_term("issue", "ピッキング")
+        self.assertEqual(feature_settings.apply_terms("ピッキングと出庫"), "出庫とピッキング")
