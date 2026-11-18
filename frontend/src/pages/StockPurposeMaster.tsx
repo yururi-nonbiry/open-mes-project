@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Button, Form, Spinner } from 'react-bootstrap';
 import stockPurposeService, { StockPurpose } from '../services/stockPurposeService';
 import type { ApiErrorLike } from './apiError';
+import { t } from '../utils/terms';
 
 const EMPTY: StockPurpose = { code: '', name: '', is_active: true };
 
@@ -142,7 +143,7 @@ const StockPurposeMaster: React.FC = () => {
                 </div>
             </div>
             <p className="small text-muted mt-2">
-                用途は、同じ品番の在庫を「何用の部品か」で区別して持つための区分です。在庫で使用中の用途は削除できないため、無効にしてください。
+                {t('用途は、同じ品番の在庫を「何用の部品か」で区別して持つための区分です。在庫で使用中の用途は削除できないため、無効にしてください。')}
             </p>
         </div>
     );

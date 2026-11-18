@@ -3,6 +3,7 @@ import { useState, useCallback, useEffect } from 'react';
 import productionService from '../../services/productionService';
 import type { ProductionPlan } from '../../types/production';
 import { PartsSupplySimulationResult } from '../../types/production';
+import { t } from '../../utils/terms';
 
 const STATUS_OPTIONS: { value: string; label: string }[] = [
     { value: 'PENDING', label: '未着手' },
@@ -179,7 +180,7 @@ const PartsSupplySimulationPage = () => {
                                             <th>計画開始日時（納期相当）</th>
                                             <th className="text-end">計画数量</th>
                                             <th>判定</th>
-                                            <th>不足部品</th>
+                                            <th>{t('不足部品')}</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -213,20 +214,20 @@ const PartsSupplySimulationPage = () => {
 
                     <div className="card border-0 shadow-sm rounded-3">
                         <div className="card-body p-0">
-                            <h5 className="p-3 mb-0 border-bottom">部品別 供給状況（支給元連絡用）</h5>
+                            <h5 className="p-3 mb-0 border-bottom">{t('部品別 供給状況（支給元連絡用）')}</h5>
                             <p className="px-3 text-muted small mb-2">
-                                不足が見込まれる部品は、不足発生日から部品マスターの調達リードタイム分をさかのぼった
+                                {t('不足が見込まれる部品は、不足発生日から部品マスターの調達リードタイム分をさかのぼった')}
                                 「発注要否期限」までに支給元へ必要数の連絡が必要です。期限を過ぎている行は赤色で表示されます。
                                 「入荷見込み（生産予定）」は計画終了日時に入荷するとみなした生産計画で、入荷分は先に発生した不足の穴埋めに充てます。
                                 不足数量は、すべての計画を賄うために前倒しで追加手配が必要な数量です。
-                                「要注意」は、その生産計画自身が部品不足で予定どおり作れない見込みであることを示します。
+                                {t('「要注意」は、その生産計画自身が部品不足で予定どおり作れない見込みであることを示します。')}
                             </p>
                             <div className="table-responsive">
                                 <table className="table table-hover align-middle mb-0">
                                     <thead className="table-light">
                                         <tr>
-                                            <th className="ps-3">部品コード</th>
-                                            <th>部品名</th>
+                                            <th className="ps-3">{t('部品コード')}</th>
+                                            <th>{t('部品名')}</th>
                                             <th>倉庫</th>
                                             <th className="text-end">現在庫（利用可能）</th>
                                             <th>入荷見込み（生産予定）</th>
@@ -240,7 +241,7 @@ const PartsSupplySimulationPage = () => {
                                     </thead>
                                     <tbody>
                                         {result.parts.length === 0 ? (
-                                            <tr><td colSpan={11} className="text-center py-4 text-muted">対象の部品データがありません。</td></tr>
+                                            <tr><td colSpan={11} className="text-center py-4 text-muted">{t('対象の部品データがありません。')}</td></tr>
                                         ) : result.parts.map(part => (
                                             <tr
                                                 key={`${part.part_code}-${part.warehouse ?? 'ALL'}`}
@@ -286,13 +287,13 @@ const PartsSupplySimulationPage = () => {
 
                     {overdueParts.length > 0 && (
                         <div className="alert alert-danger mt-4">
-                            <strong>{overdueParts.length}件の部品で、リードタイムを考慮した発注要否期限を既に過ぎています。</strong>
+                            <strong>{overdueParts.length}{t('件の部品で、リードタイムを考慮した発注要否期限を既に過ぎています。')}</strong>
                             至急、支給元へ連絡してください。
                         </div>
                     )}
                     {shortageParts.length > 0 && (
                         <div className="alert alert-warning mt-4">
-                            <strong>{shortageParts.length}件の部品で供給不足が見込まれます。</strong>
+                            <strong>{shortageParts.length}{t('件の部品で供給不足が見込まれます。')}</strong>
                             対象の生産計画の納期に間に合うよう、上表の「不足数量」「発注要否期限」を目安に支給元へ連絡してください。
                         </div>
                     )}

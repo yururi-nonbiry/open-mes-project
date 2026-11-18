@@ -3,6 +3,7 @@ import { Modal, Button, Form, Table, Spinner, Alert } from 'react-bootstrap';
 import { DATA_CONFIG, getDataTypeDisplayName, getFormFields, FormField } from '../../config/dataImportConfigs';
 import { NavIcon } from '../../components/NavIcon';
 import type { FormDataRecord, ImportModalConfig, ImportListData, DeleteTarget, RowRecord, ImportCsvResult } from './types';
+import { t } from '../../utils/terms';
 
 interface GenericFormProps {
     fields: FormField[];
@@ -29,7 +30,7 @@ const formatCellValue = (key: string, value: unknown): string => {
     if (key === 'item_type') {
         const map: Record<string, string> = {
             product: '製品（完成品）',
-            material: '材料・部品',
+            material: t('部品'),
             intermediate: '中間品（半製品）'
         };
         return map[String(value)] || String(value);

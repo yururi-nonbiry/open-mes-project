@@ -5,6 +5,7 @@ import productionService from '../../services/productionService';
 import { useWorkCenters } from '../../hooks/useWorkCenters';
 import { ProductionPlan, RequiredPart } from '../../types/production';
 import { unwrapList, type AllocationResultData, type MaybeWrapped, type RawRequiredPart } from './types';
+import { t } from '../../utils/terms';
 
 /** 画面上の行。倉庫は引当時に選ぶため、行ごとに選択中の倉庫を持つ */
 interface AllocationRow extends RequiredPart {
@@ -145,20 +146,20 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
         <Modal isOpen={isOpen} onClose={onClose} maxWidth="1200px">
             <div className="p-3">
                 <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
-                    <h5 className="mb-0">{allocationResult?.type === 'success' ? '材料引き当て完了' : '材料引き当て'}</h5>
+                    <h5 className="mb-0">{allocationResult?.type === 'success' ? t('部品引き当て完了') : t('部品引き当て')}</h5>
                     <button type="button" className="btn-close" aria-label="Close" onClick={onClose}></button>
                 </div>
 
                 {allocationResult ? (
                     <div>
                         <div className={`alert alert-${allocationResult.type === 'success' ? 'success' : 'danger'}`}>
-                            {allocationResult.type === 'success' ? allocationResult.data?.message || '材料の引き当てが完了しました。' : allocationResult.message}
+                            {allocationResult.type === 'success' ? allocationResult.data?.message || t('部品の引き当てが完了しました。') : allocationResult.message}
                         </div>
                         {allocationResult.type === 'success' && allocationResult.data?.allocations_summary && (
                             <div className="border p-2 mb-3" style={{ maxHeight: '200px', overflowY: 'auto' }}>
                                 <table className="table table-sm table-bordered">
                                     <thead className="table-light">
-                                        <tr><th>部品番号</th><th className="text-end">引当数量</th><th>ステータス</th></tr>
+                                        <tr><th>{t('部品番号')}</th><th className="text-end">引当数量</th><th>ステータス</th></tr>
                                     </thead>
                                     <tbody>
                                         {allocationResult.data?.allocations_summary?.map((item, i) => (
@@ -180,9 +181,9 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
                             <dt className="col-sm-3">出庫先ライン:</dt><dd className="col-sm-9">{plan.line || '未指定'}（引当ごとに変更できます）</dd>
                             <dt className="col-sm-3">計画数量:</dt><dd className="col-sm-9 text-end">{plan.planned_quantity}</dd>
                         </dl>
-                        <h6 className="mt-3">必要部品一覧</h6>
+                        <h6 className="mt-3">{t('必要部品一覧')}</h6>
                         <div className="border p-2 mt-1 mb-3" style={{ maxHeight: '350px', overflowY: 'auto' }}>
-                            {loading && <p>部品情報を読み込み中...</p>}
+                            {loading && <p>{t('部品情報を読み込み中...')}</p>}
                             {error && <p className="text-danger">{error}</p>}
                             {!loading && !error && (
                                 <table className="table table-sm table-bordered table-hover">
@@ -197,7 +198,7 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
                                                     onChange={(e) => handleCheckAll(e.target.checked)}
                                                 />
                                             </th>
-                                            <th>部品コード</th><th>部品名</th><th className="text-end">所要数</th>
+                                            <th>{t('部品コード')}</th><th>{t('部品名')}</th><th className="text-end">所要数</th>
                                             <th className="text-end">引当済</th><th className="text-end">追加ピッキング済</th>
                                             <th>引当倉庫（引当可能数）</th><th>出庫先ライン</th><th className="text-end">引当数量</th>
                                             <th className="text-end">引当後の在庫</th><th className="text-end">引当後の不足</th><th>単位</th>
@@ -209,8 +210,8 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
                                                 <td colSpan={12} className="text-center py-3">
                                                     {plan.has_bom === false
                                                         ? <><span className="badge bg-secondary me-2">マスターなし</span>この製品には構成マスター(BOM)が登録されていません。</>
-                                                        : 'この計画には所要部品が登録されていません。'}
-                                                    {' '}「部品構成」から登録するか、BOMマスターから読み込んでください。
+                                                        : t('この計画には所要部品が登録されていません。')}
+                                                    {' '}{t('「部品構成」から登録するか、BOMマスターから読み込んでください。')}
                                                 </td>
                                             </tr>
                                         )}
@@ -300,13 +301,13 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
                                 <div className={`alert ${lacking.length === 0 ? 'alert-success' : 'alert-warning'} py-2 mb-0`}>
                                     チェックした {checkedParts.length} 件を引き当てると、
                                     {lacking.length === 0
-                                        ? ' すべての部品の所要を満たせます。'
-                                        : ` ${lacking.length} 件の部品が不足のままです(${lacking.map(p => p.part_code).join('、')})。`}
+                                        ? t(' すべての部品の所要を満たせます。')
+                                        : t(` ${lacking.length} 件の部品が不足のままです(${lacking.map(p => p.part_code).join('、')})。`)}
                                 </div>
                             );
                         })()}
                         <div className="text-end mt-4">
-                            <button className="btn btn-primary" onClick={handleSubmit} disabled={loading || !!error}>チェックした部品を引き当て</button>
+                            <button className="btn btn-primary" onClick={handleSubmit} disabled={loading || !!error}>{t('チェックした部品を引き当て')}</button>
                             <button className="btn btn-secondary ms-2" onClick={onClose}>キャンセル</button>
                         </div>
                     </div>

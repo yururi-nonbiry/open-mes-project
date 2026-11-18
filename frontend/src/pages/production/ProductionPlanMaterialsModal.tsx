@@ -5,6 +5,7 @@ import bomService, { MasterItem, isConsumableItem, itemTypeLabel } from '../../s
 import { ApiError } from '../../utils/api';
 import { PlanMaterial, ProductionPlan } from '../../types/production';
 import { unwrapList, type MaybeWrapped } from './types';
+import { t } from '../../utils/terms';
 
 interface ProductionPlanMaterialsModalProps {
     isOpen: boolean;
@@ -86,7 +87,7 @@ const ProductionPlanMaterialsModal: React.FC<ProductionPlanMaterialsModalProps> 
         );
 
     const handleDelete = (material: PlanMaterial) => {
-        if (!window.confirm(`${material.material_code} をこの計画の部品構成から削除しますか？`)) return;
+        if (!window.confirm(t(`${material.material_code} をこの計画の部品構成から削除しますか？`))) return;
         run(() => productionService.deletePlanMaterial(material.id!), `${material.material_code} を削除しました。`);
     };
 
@@ -102,7 +103,7 @@ const ProductionPlanMaterialsModal: React.FC<ProductionPlanMaterialsModalProps> 
     const handleReset = () => {
         if (!plan) return;
         if (!window.confirm('BOMマスターの構成で読み込み直します。この計画で編集した内容は失われます。よろしいですか？')) return;
-        run(() => productionService.resetPlanMaterials(plan.id), '部品構成をBOMマスターから読み込み直しました。');
+        run(() => productionService.resetPlanMaterials(plan.id), t('部品構成をBOMマスターから読み込み直しました。'));
     };
 
     if (!plan) return null;
@@ -111,7 +112,7 @@ const ProductionPlanMaterialsModal: React.FC<ProductionPlanMaterialsModalProps> 
         <Modal isOpen={isOpen} onClose={onClose} maxWidth="900px">
             <div className="p-3">
                 <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
-                    <h5 className="mb-0">部品構成（{plan.plan_name}）</h5>
+                    <h5 className="mb-0">{t('部品構成')}（{plan.plan_name}）</h5>
                     <button type="button" className="btn-close" aria-label="Close" onClick={onClose}></button>
                 </div>
                 <dl className="row mb-2">
@@ -122,7 +123,7 @@ const ProductionPlanMaterialsModal: React.FC<ProductionPlanMaterialsModalProps> 
                     計画作成時にBOMマスターの構成がコピーされています。この計画だけ構成を変える場合はここで編集します。
                     所要数は「1個あたり × 計画数量」を切り上げた値です。歩留まり・ロスによる不足分は「追加出庫」で出庫してください。
                     中間品の見込みが足りなくなった場合は子計画が自動で作られ、所要数を減らした・中間品を外した場合は未着手の子計画が減ります（「中間品」ボタンで確認・手配）。
-                    {readOnly && <><br /><strong>完了・中止した計画の部品構成は変更できません。</strong></>}
+                    {readOnly && <><br /><strong>{t('完了・中止した計画の部品構成は変更できません。')}</strong></>}
                 </p>
 
                 {message.text && <div className={`alert alert-${message.type}`}>{message.text}</div>}
@@ -131,7 +132,7 @@ const ProductionPlanMaterialsModal: React.FC<ProductionPlanMaterialsModalProps> 
                     <table className="table table-sm table-bordered">
                         <thead className="table-light">
                             <tr>
-                                <th>部品</th><th className="text-end">1個あたり</th><th className="text-end">所要数</th><th>単位</th>
+                                <th>{t('部品')}</th><th className="text-end">1個あたり</th><th className="text-end">所要数</th><th>単位</th>
                                 {!readOnly && <th style={{ width: '150px' }}>操作</th>}
                             </tr>
                         </thead>
@@ -139,7 +140,7 @@ const ProductionPlanMaterialsModal: React.FC<ProductionPlanMaterialsModalProps> 
                             {loading ? (
                                 <tr><td colSpan={5}>読み込み中...</td></tr>
                             ) : materials.length === 0 ? (
-                                <tr><td colSpan={5}>部品構成が登録されていません。</td></tr>
+                                <tr><td colSpan={5}>{t('部品構成が登録されていません。')}</td></tr>
                             ) : materials.map(m => (
                                 <tr key={m.id}>
                                     <td>
@@ -176,14 +177,14 @@ const ProductionPlanMaterialsModal: React.FC<ProductionPlanMaterialsModalProps> 
                     <>
                         <form className="d-flex flex-wrap gap-2 align-items-end mb-3" onSubmit={handleAdd}>
                             <div>
-                                <label htmlFor="plan_material_code" className="form-label">部品を追加</label>
+                                <label htmlFor="plan_material_code" className="form-label">{t('部品を追加')}</label>
                                 <select
                                     id="plan_material_code" className="form-select form-select-sm"
                                     value={newMaterial.material_code}
                                     onChange={e => setNewMaterial(prev => ({ ...prev, material_code: e.target.value }))}
                                     required
                                 >
-                                    <option value="">-- 材料・中間品を選択 --</option>
+                                    <option value="">{t('-- 部品・中間品を選択 --')}</option>
                                     {itemOptions.map(item => (
                                         <option key={item.id} value={item.code}>
                                             [{item.code}] {item.name}（{itemTypeLabel(item.item_type)}）

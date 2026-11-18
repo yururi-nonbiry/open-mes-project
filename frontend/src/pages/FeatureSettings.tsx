@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import inventoryService from '../services/inventoryService';
 import { ApiError } from '../utils/api';
+import terminologyService from '../services/terminologyService';
+import { getPartTerm, setPartTerm } from '../utils/terms';
 import scheduleDateDefaultsService, { offsetToDate } from '../services/scheduleDateDefaultsService';
 import { WORKFLOW_TRACKS } from '../config/navigationConfig';
 import { NavIcon } from '../components/NavIcon';
@@ -89,6 +91,34 @@ const FeatureSettings: React.FC = () => {
     const n = parseOffset(value);
     if (n === undefined) return '（整数で入力）';
     return n === null ? '指定なし' : `今日の日付で ${offsetToDate(n)}`;
+  };
+
+  // 画面・メッセージでの「部品」の呼び方(サーバー側に保存)
+  const [partTermInput, setPartTermInput] = useState(getPartTerm());
+  const [termSaving, setTermSaving] = useState(false);
+  const [termMessage, setTermMessage] = useState<{ type: 'success' | 'danger'; text: string } | null>(null);
+
+  const handleSavePartTerm = async () => {
+    setTermMessage(null);
+    const value = partTermInput.trim();
+    if (!value || value.length > 10) {
+      setTermMessage({ type: 'danger', text: '呼び方は1〜10文字で入力してください。' });
+      return;
+    }
+    setTermSaving(true);
+    try {
+      const saved = await terminologyService.update({ part: value });
+      window.alert(`「${saved.part}」に保存しました。画面を更新します。`);
+      setPartTerm(saved.part); // 変更があれば画面全体が描き直される
+      setPartTermInput(saved.part);
+    } catch (err) {
+      setTermMessage({
+        type: 'danger',
+        text: err instanceof ApiError ? err.message : '設定の保存中に通信エラーが発生しました。',
+      });
+    } finally {
+      setTermSaving(false);
+    }
   };
 
   useEffect(() => {
@@ -246,6 +276,45 @@ const FeatureSettings: React.FC = () => {
             {dateDefaultsMessage && (
               <div className={`alert alert-${dateDefaultsMessage.type} mt-3 mb-0 py-2`} role="alert">
                 {dateDefaultsMessage.text}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="card shadow-sm mb-4">
+          <div className="card-body">
+            <h5 className="fw-bold mb-2">「部品」の呼び方</h5>
+            <p className="text-muted small mb-3">
+              画面・説明書・メッセージで使う「部品」の呼び方を変更します（例: 材料）。
+              品番や品名などの登録データは変わりません。保存するとシステム全体（PC・スマホ）に反映されます。
+            </p>
+            <div className="row g-3 align-items-end">
+              <div className="col-12 col-md-4">
+                <label className="form-label fw-bold" htmlFor="part-term">呼び方（10文字まで）</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  id="part-term"
+                  maxLength={10}
+                  value={partTermInput}
+                  onChange={(e) => setPartTermInput(e.target.value)}
+                />
+                <div className="form-text">例: 部品引当 → {partTermInput.trim() || '部品'}引当</div>
+              </div>
+              <div className="col-12 col-md-4">
+                <button
+                  type="button"
+                  className="btn btn-primary fw-bold"
+                  disabled={termSaving}
+                  onClick={handleSavePartTerm}
+                >
+                  呼び方を保存
+                </button>
+              </div>
+            </div>
+            {termMessage && (
+              <div className={`alert alert-${termMessage.type} mt-3 mb-0 py-2`} role="alert">
+                {termMessage.text}
               </div>
             )}
           </div>

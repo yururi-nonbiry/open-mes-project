@@ -128,7 +128,7 @@ const MASTER_ITEMS = [
     code: '71031-AK100',
     name: 'ブラケット本体プレス品',
     item_type: 'Material',
-    item_type_display: '材料',
+    item_type_display: '部品',
     unit: '個',
     default_warehouse: '第1倉庫',
     default_location: 'B-01-01',
@@ -142,7 +142,7 @@ const MASTER_ITEMS = [
     code: '71032-AK100',
     name: '補強プレート',
     item_type: 'Material',
-    item_type_display: '材料',
+    item_type_display: '部品',
     unit: '枚',
     default_warehouse: '第1倉庫',
     default_location: 'B-01-02',
@@ -156,7 +156,7 @@ const MASTER_ITEMS = [
     code: '90105-00010',
     name: '六角フランジボルト M8×25',
     item_type: 'Material',
-    item_type_display: '材料',
+    item_type_display: '部品',
     unit: '本',
     default_warehouse: '第2倉庫',
     default_location: 'C-01-01',
@@ -276,7 +276,7 @@ const STOCK_MOVEMENTS = [
     movement_type_display: '生産使用',
     quantity: 20,
     operator_username: '鈴木 花子',
-    description: '材料引当出庫 (PLAN-2402)',
+    description: '部品引当出庫 (PLAN-2402)',
     reference_document: 'ALLOC-108',
   },
   {
@@ -1432,10 +1432,10 @@ const main = async () => {
   await page.locator('.modal-content svg').waitFor();
   await shoot(page, '12-goods-issue-map');
 
-  // 生産計画・中間品手配・材料引当
+  // 生産計画・中間品手配・部品引当
   await page.goto(`${BASE_URL}/production/plan`);
   await page.getByRole('heading', { name: /生産計画/ }).first().waitFor();
-  await page.getByRole('button', { name: /材料引当/ }).first().waitFor();
+  await page.getByRole('button', { name: /部品引当/ }).first().waitFor();
   await shoot(page, '13-production-plan');
   await page.getByRole('button', { name: /中間品/ }).first().click();
   await page.getByRole('heading', { name: /中間品の手配/ }).waitFor();
@@ -1443,8 +1443,8 @@ const main = async () => {
   await shoot(page, '14-production-plan-intermediates');
   await page.locator('.modal-content').getByRole('button', { name: '閉じる' }).click();
   await page.waitForTimeout(300);
-  await page.getByRole('button', { name: /材料引当/ }).first().click();
-  await page.getByRole('heading', { name: '材料引き当て' }).waitFor();
+  await page.getByRole('button', { name: /部品引当/ }).first().click();
+  await page.getByRole('heading', { name: '部品引き当て' }).waitFor();
   await page.getByRole('button', { name: 'チェックした部品を引き当て' }).waitFor();
   await shoot(page, '15-production-plan-allocate');
 
@@ -1455,10 +1455,10 @@ const main = async () => {
   await shoot(page, '16-bom-master');
   await page.locator('table').getByRole('button', { name: '構成展開' }).first().click();
   await page.getByRole('heading', { name: '部品構成の展開（多階層）' }).waitFor();
-  await page.getByText('最下位の材料の合計所要量').waitFor();
+  await page.getByText('最下位の部品の合計所要量').waitFor();
   await shoot(page, '17-bom-explode');
 
-  // 材料引当ステータス一覧
+  // 部品引当ステータス一覧
   await page.goto(`${BASE_URL}/production/material-allocation`);
   await page.getByRole('heading', { name: /ピッキング対象の完成品/ }).waitFor();
   await page.locator('.product-select-card').nth(1).waitFor();

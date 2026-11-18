@@ -4,6 +4,7 @@ import productionService from '../../services/productionService';
 import { describeError } from '../../utils/api';
 import { IntermediateDecision, IntermediateRequirement, ProductionPlan } from '../../types/production';
 import { unwrapList, type MaybeWrapped } from './types';
+import { t } from '../../utils/terms';
 
 interface ProductionPlanIntermediatesModalProps {
     isOpen: boolean;
@@ -122,7 +123,7 @@ const ProductionPlanIntermediatesModal: React.FC<ProductionPlanIntermediatesModa
                             {loading ? (
                                 <tr><td colSpan={7}>読み込み中...</td></tr>
                             ) : rows.length === 0 ? (
-                                <tr><td colSpan={7}>この計画の部品構成に中間品はありません。</td></tr>
+                                <tr><td colSpan={7}>{t('この計画の部品構成に中間品はありません。')}</td></tr>
                             ) : rows.map(row => (
                                 <tr key={row.material_code}>
                                     <td>

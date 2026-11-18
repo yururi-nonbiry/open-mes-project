@@ -8,6 +8,7 @@ import DataCardList from './import/DataCardList';
 import CsvImportSection from './import/CsvImportSection';
 import type { DeleteTarget, RowRecord } from './import/types';
 import { RegisterModal, ListModal, DeleteConfirmModal, CsvResultModal } from './import/ManagementModals';
+import { t } from '../utils/terms';
 
 const DataImport: React.FC = () => {
     const {
@@ -96,7 +97,7 @@ const DataImport: React.FC = () => {
                             ① 生産計画を作成
                         </button>
                         <Link to="/production/plan" className="btn btn-sm btn-outline-primary fw-bold">
-                            ② 生産計画（材料引当）へ →
+                            {t('② 生産計画（部品引当）へ →')}
                         </Link>
                     </div>
                 </div>
@@ -131,7 +132,7 @@ const DataImport: React.FC = () => {
                         </button>
                         <span className="text-muted fw-bold">→</span>
                         <Link to="/production/bom-master" className="btn btn-sm btn-outline-primary fw-bold bg-white">
-                            ④ 使用部品マスターへ →
+                            {t('④ 使用部品マスターへ →')}
                         </Link>
                     </div>
                 </div>

@@ -1,5 +1,6 @@
 import React from 'react';
 import { BillOfMaterial } from '../../services/bomService';
+import { t } from '../../utils/terms';
 
 interface BomMasterTableProps {
     items: BillOfMaterial[];
@@ -17,8 +18,8 @@ const BomMasterTable: React.FC<BomMasterTableProps> = ({ items, onEdit, onDelete
                         <tr>
                             <th>親品目コード</th>
                             <th>親品目名</th>
-                            <th>使用部品コード</th>
-                            <th>部品名</th>
+                            <th>{t('使用部品コード')}</th>
+                            <th>{t('部品名')}</th>
                             <th className="text-end">所要数量</th>
                             <th>単位</th>
                             <th>備考</th>
@@ -64,7 +65,7 @@ const BomMasterTable: React.FC<BomMasterTableProps> = ({ items, onEdit, onDelete
                         )) : (
                             <tr>
                                 <td colSpan={8} className="text-center py-5 text-muted">
-                                    登録されている使用部品構成（BOM）はありません。
+                                    {t('登録されている使用部品構成（BOM）はありません。')}
                                 </td>
                             </tr>
                         )}

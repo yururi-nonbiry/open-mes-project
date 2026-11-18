@@ -1,6 +1,7 @@
 import React from 'react';
 import { Spinner } from 'react-bootstrap';
 import { BulkAllocationResult, PlanAllocationOverview, ProductionPlan } from '../../types/production';
+import { t } from '../../utils/terms';
 
 interface ProductionPlanTableProps {
     plans: ProductionPlan[];
@@ -35,18 +36,18 @@ const BULK_RESULT_META: Record<BulkAllocationResult['status'], { label: string; 
 /** 引当状況の列の表示 */
 const renderMaterialStatus = (overview: PlanAllocationOverview | undefined) => {
     if (!overview) return <span className="text-muted">—</span>;
-    const progress = `引当 ${overview.allocated_part_count}/${overview.part_count} 部品`;
+    const progress = t(`引当 ${overview.allocated_part_count}/${overview.part_count} 部品`);
     switch (overview.state) {
         case 'NO_MASTER':
             return <span className="badge bg-secondary" title="この製品には構成マスター(BOM)が登録されていません">マスターなし</span>;
         case 'NO_PARTS':
-            return <span className="badge bg-secondary" title="計画に所要部品がありません。「部品構成」から登録してください">部品未登録</span>;
+            return <span className="badge bg-secondary" title={t('計画に所要部品がありません。「部品構成」から登録してください')}>{t('部品未登録')}</span>;
         case 'ALLOCATED':
             return <><span className="badge bg-success">引当済</span><div className="small text-muted">{progress}</div></>;
         case 'SHORTAGE':
             return (
                 <>
-                    <span className="badge bg-danger" title={`在庫が足りない部品: ${overview.shortage_parts.join('、')}`}>
+                    <span className="badge bg-danger" title={t(`在庫が足りない部品: ${overview.shortage_parts.join('、')}`)}>
                         在庫不足 {overview.shortage_part_count}件
                     </span>
                     <div className="small text-muted">{progress}</div>
@@ -150,10 +151,10 @@ const ProductionPlanTable: React.FC<ProductionPlanTableProps> = ({
                     <td>{renderMaterialStatus(overviews[plan.id])}</td>
                     <td className="text-center text-nowrap">
                         <button type="button" className="btn btn-sm btn-outline-primary fw-bold" onClick={() => onMaterials(plan)}>
-                            ① 部品構成
+                            {t('① 部品構成')}
                         </button>
                         <button type="button" className="btn btn-sm btn-primary fw-bold ms-1" onClick={() => onAllocate(plan)}>
-                            ② 材料引当
+                            {t('② 部品引当')}
                         </button>
                         <button type="button" className="btn btn-sm btn-outline-secondary ms-1" onClick={() => onIntermediates(plan)}>
                             中間品
@@ -185,7 +186,7 @@ const ProductionPlanTable: React.FC<ProductionPlanTableProps> = ({
                 >
                     {bulkLoading ? '引当中...' : `チェックした計画をまとめて引当（${selectedIds.size}件）`}
                 </button>
-                <span className="small text-muted">在庫の多い倉庫から未引当分を引き当てます。倉庫・数量・ラインを指定する場合は各計画の「② 材料引当」から行ってください。</span>
+                <span className="small text-muted">{t('在庫の多い倉庫から未引当分を引き当てます。倉庫・数量・ラインを指定する場合は各計画の「② 部品引当」から行ってください。')}</span>
             </div>
             {bulkError && (
                 <div className="alert alert-danger m-2 d-flex justify-content-between">
@@ -228,7 +229,7 @@ const ProductionPlanTable: React.FC<ProductionPlanTableProps> = ({
                             <th className="text-center">開始予定日時</th>
                             <th className="text-center">終了予定日時</th>
                             <th className="text-center">状態</th>
-                            <th>材料の状況</th>
+                            <th>{t('部品の状況')}</th>
                             <th className="text-center" style={{ width: '360px' }}>構成・引当・操作</th>
                         </tr>
                     </thead>

@@ -1,3 +1,5 @@
+import { registerTermTarget } from '../utils/terms';
+
 export type NavIconName =
   | 'home'
   | 'inventory'
@@ -120,7 +122,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
         label: '入庫処置',
         pageTitle: '入庫処置（受入・入庫登録）',
         pageSubtitle:
-          '入荷した部品・材料の予定一覧から「入庫処理」を押し、入庫数量・倉庫・棚番を確定して実在庫へ反映します。',
+          '入荷した部品の予定一覧から「入庫処理」を押し、入庫数量・倉庫・棚番を確定して実在庫へ反映します。',
         guideSteps: [
           '未入庫の発注（入庫予定）を確認',
           '行右側の「入庫処理」ボタンを押す',
@@ -245,7 +247,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
         label: '使用部品マスター',
         pageTitle: '使用部品マスター（BOM・部品構成の登録）',
         pageSubtitle:
-          '製品・中間品1個を製造するのに必要な使用部品（材料・中間品）と所要数量を登録・管理します。',
+          '製品・中間品1個を製造するのに必要な使用部品（中間品を含む）と所要数量を登録・管理します。',
         guideSteps: [
           '「新規登録」を押し、親品目（製品・中間品）と子品目（使用部品）を選択',
           '製品1個あたりの使用数量（所要数）を入力して保存',
@@ -253,10 +255,10 @@ export const NAV_CATEGORIES: NavCategory[] = [
         ],
         step: 1,
         stepTag: '部品構成(BOM)',
-        description: '完成品1個に必要な材料と所要数を登録・確認します',
+        description: '完成品1個に必要な部品と所要数を登録・確認します',
         manualHint: '生産計画を作る前に、部品構成が登録されているか確認します',
         nextActions: [
-          { label: '入庫処置へ', subLabel: '材料を入庫する', path: '/inventory/purchase' },
+          { label: '入庫処置へ', subLabel: '部品を入庫する', path: '/inventory/purchase' },
           { label: '＋ 生産計画を作成', subLabel: 'データ投入画面へ', path: '/data/import?open=production_plan', highlight: true },
         ],
         icon: 'bom',
@@ -264,17 +266,17 @@ export const NAV_CATEGORIES: NavCategory[] = [
       {
         path: '/production/plan',
         label: '生産計画',
-        pageTitle: '生産計画（部品構成の確認・材料引当）',
+        pageTitle: '生産計画（部品構成の確認・部品引当）',
         pageSubtitle:
-          '生産計画ごとに使用部品（所要数）を確認し、倉庫在庫からの「材料引当」や中間品の手配を行います。',
+          '生産計画ごとに使用部品（所要数）を確認し、倉庫在庫からの「部品引当」や中間品の手配を行います。',
         guideSteps: [
           '行の「部品構成」で使用部品と所要数を確認（計画ごとの変更も可）',
-          '行の「材料引当」を押し、倉庫と引当数量を確認して「引き当て実行」',
+          '行の「部品引当」を押し、倉庫と引当数量を確認して「引き当て実行」',
           '引当が完了したら「作業進捗」へ進み、製造完了登録を実施',
         ],
         step: 2,
-        stepTag: '構成確認・材料引当',
-        description: '計画の「部品構成」確認と「材料引当」を行います',
+        stepTag: '構成確認・部品引当',
+        description: '計画の「部品構成」確認と「部品引当」を行います',
         manualHint: 'PC画面のほか現場スマホアプリでも順立て・ピッキングを行えます',
         mobileAppSupported: true,
         nextActions: [
@@ -288,18 +290,18 @@ export const NAV_CATEGORIES: NavCategory[] = [
         label: '作業進捗',
         pageTitle: '作業進捗（進捗更新・完了登録・完成品入庫）',
         pageSubtitle:
-          '製造の開始・完了ステータスと良品数（OK）・不良数（NG）を登録し、完成品の自動入庫と引当材料の消費を反映します。',
+          '製造の開始・完了ステータスと良品数（OK）・不良数（NG）を登録し、完成品の自動入庫と引当部品の消費を反映します。',
         guideSteps: [
           '対象の生産計画を探し、行右側の「進捗・完了登録」ボタンを押す',
           'ステータスを「完了」に変更し、製作数量・NG数量を入力',
-          '「進捗を登録」で確定（OK数分の完成品が自動入庫され、引当材料が消費されます）',
+          '「進捗を登録」で確定（OK数分の完成品が自動入庫され、引当部品が消費されます）',
         ],
         step: 3,
         stepTag: '完了登録・自動入庫',
         description: 'ステータスを「完了」にして製作数・NG数を登録します',
-        manualHint: '「進捗・完了登録」で完了にすると、OK数量分の完成品が自動入庫され引当材料が減ります',
+        manualHint: '「進捗・完了登録」で完了にすると、OK数量分の完成品が自動入庫され引当部品が減ります',
         nextActions: [
-          { label: '在庫照会で確認', subLabel: '完成品と材料残数', path: '/inventory/inquiry' },
+          { label: '在庫照会で確認', subLabel: '完成品と部品残数', path: '/inventory/inquiry' },
           { label: '出庫処理へ進む', subLabel: '完成品を出庫', path: '/inventory/issue', highlight: true },
         ],
         icon: 'progress',
@@ -309,14 +311,14 @@ export const NAV_CATEGORIES: NavCategory[] = [
         label: '順立て（ピッキング）',
         pageTitle: '順立て（ピッキング）',
         pageSubtitle:
-          '完成品を選択し、紐づけられた材料のピッキングや未使用分の倉庫在庫への返却を行います。',
+          '完成品を選択し、紐づけられた部品のピッキングや未使用分の倉庫在庫への返却を行います。',
         guideSteps: [
-          '対象の完成品（製品）を選択して紐づく材料一覧を表示',
-          '各材料の引当数量・保管場所を確認し、「ピッキング」を実行',
-          '未使用・余剰の材料がある場合は「返却」から倉庫在庫へ戻す',
+          '対象の完成品（製品）を選択して紐づく部品一覧を表示',
+          '各部品の引当数量・保管場所を確認し、「ピッキング」を実行',
+          '未使用・余剰の部品がある場合は「返却」から倉庫在庫へ戻す',
         ],
         stepTag: '完成品選択・ピッキング',
-        description: '完成品を選択し、紐づく材料のピッキングや返却を行います',
+        description: '完成品を選択し、紐づく部品のピッキングや返却を行います',
         nextActions: [
           { label: '生産計画を見る', path: '/production/plan', highlight: true },
           { label: '在庫照会を見る', path: '/inventory/inquiry' },
@@ -375,10 +377,10 @@ export const NAV_CATEGORIES: NavCategory[] = [
         ],
         stepTag: '計画作成・マスタ・CSV',
         description: '生産計画の新規作成や、各種マスター・CSV一括登録を行います',
-        manualHint: '生産計画を保存したら「生産計画」画面へ進み、材料引当を行います',
+        manualHint: '生産計画を保存したら「生産計画」画面へ進み、部品引当を行います',
         nextActions: [
-          { label: '生産計画へ進む', subLabel: '部品構成・材料引当', path: '/production/plan', highlight: true },
-          { label: '入庫処置へ進む', subLabel: '材料を入庫する', path: '/inventory/purchase' },
+          { label: '生産計画へ進む', subLabel: '部品構成・部品引当', path: '/production/plan', highlight: true },
+          { label: '入庫処置へ進む', subLabel: '部品を入庫する', path: '/inventory/purchase' },
         ],
         icon: 'upload',
       },
@@ -425,9 +427,9 @@ export const NAV_CATEGORIES: NavCategory[] = [
       {
         path: '/quality/acceptance-inspection',
         label: '受入検査',
-        pageTitle: '受入検査（入荷材料・部品の品質検査記録）',
+        pageTitle: '受入検査（入荷部品の品質検査記録）',
         pageSubtitle:
-          '仕入先から入荷した材料・部品の受入検査を実施し、測定値と合否判定を記録します。',
+          '仕入先から入荷した部品の受入検査を実施し、測定値と合否判定を記録します。',
         guideSteps: [
           '検査対象の入荷品目・ロットを選択して検査入力画面を開く',
           '検査項目ごとの測定値・チェック結果を入力',
@@ -435,7 +437,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
         ],
         step: 2,
         stepTag: '入荷品検査',
-        description: '入荷した材料・部品の検査結果を記録します',
+        description: '入荷した部品の検査結果を記録します',
         nextActions: [
           { label: '入庫処置を見る', path: '/inventory/purchase', highlight: true },
           { label: '点検・検査履歴を見る', path: '/machine/inspection-history' },
@@ -848,7 +850,7 @@ export const WORKFLOW_TRACKS: WorkflowTrack[] = [
     id: 'receipt-flow',
     badge: 'フロー ①',
     title: 'データ投入から入庫まで',
-    subtitle: '支給品・材料を倉庫へ入庫し、在庫を確認する流れ',
+    subtitle: '支給品・部品を倉庫へ入庫し、在庫を確認する流れ',
     accentColor: '#0284c7',
     bgGradient: '#f8fafc',
     borderColor: '#bae6fd',
@@ -978,7 +980,7 @@ export const WORKFLOW_TRACKS: WorkflowTrack[] = [
     id: 'production-plan-flow',
     badge: 'フロー ②',
     title: '生産計画からピッキングまで',
-    subtitle: 'マスタ登録・部品構成・生産計画（材料引当）から順立て（ピッキング）までの流れ',
+    subtitle: 'マスタ登録・部品構成・生産計画（部品引当）から順立て（ピッキング）までの流れ',
     accentColor: '#2563eb',
     bgGradient: '#f8fafc',
     borderColor: '#bfdbfe',
@@ -995,9 +997,9 @@ export const WORKFLOW_TRACKS: WorkflowTrack[] = [
         bgLight: '#f0f9ff',
         border: '#bae6fd',
         icon: 'bom',
-        summary: '完成品1個に必要な材料・所要数(BOM)を準備します',
+        summary: '完成品1個に必要な部品・所要数(BOM)を準備します',
         dataInputGuide: {
-          withExternalApp: '他アプリで順立て・材料・出庫予定を同期',
+          withExternalApp: '他アプリで順立て・部品・出庫予定を同期',
           externalLinks: [
             {
               label: '同期済 → ① 使用部品マスターへ',
@@ -1021,14 +1023,14 @@ export const WORKFLOW_TRACKS: WorkflowTrack[] = [
       },
       {
         step: 2,
-        title: '生産計画（材料引当）',
+        title: '生産計画（部品引当）',
         categoryLabel: '生産管理',
-        scenarioBadge: '計画作成と材料引当',
+        scenarioBadge: '計画作成と部品引当',
         color: '#0369A1',
         bgLight: '#f0f9ff',
         border: '#bae6fd',
         icon: 'plan',
-        summary: '「生産計画」で製造する製品・数量を登録し、材料を引き当て',
+        summary: '「生産計画」で製造する製品・数量を登録し、部品を引き当て',
         links: [
           { label: '② 生産計画を開く', path: '/production/plan?flow=production-plan-flow&fstep=3' },
         ],
@@ -1042,7 +1044,7 @@ export const WORKFLOW_TRACKS: WorkflowTrack[] = [
         bgLight: '#f0fdfa',
         border: '#99f6e4',
         icon: 'progress',
-        summary: '計画一覧や専用スマホアプリで材料を順立て・ピッキング',
+        summary: '計画一覧や専用スマホアプリで部品を順立て・ピッキング',
         mobileAppSupported: true,
         mobileAppLabel: 'スマホアプリ対応',
         mobileAppNote: '専用スマホアプリでも順立て（ピッキング）を行えます',
@@ -1059,7 +1061,7 @@ export const WORKFLOW_TRACKS: WorkflowTrack[] = [
         path: '/data/import',
         actionSteps: [
           '① 倉庫マスターの「新規作成」で倉庫を登録',
-          '② 品番マスターの「新規作成」で完成品・材料を登録',
+          '② 品番マスターの「新規作成」で完成品・部品を登録',
         ],
         subButtons: [
           { label: '① 倉庫マスターを新規作成', path: '/data/import?flow=production-plan-flow&fstep=1&open=warehouse' },
@@ -1076,16 +1078,16 @@ export const WORKFLOW_TRACKS: WorkflowTrack[] = [
           '①「新規登録」から親品目と使用部品・所要数量を登録',
           '② 行の「構成展開」で多階層の構成と合計必要数を確認',
         ],
-        nextButtonLabel: '次へ：3. 生産計画（材料引当）へ →',
+        nextButtonLabel: '次へ：3. 生産計画（部品引当）へ →',
       },
       {
         stepIndex: 3,
-        title: '生産計画（計画作成と材料引当）',
-        shortTitle: '3. 生産計画（材料引当）',
+        title: '生産計画（計画作成と部品引当）',
+        shortTitle: '3. 生産計画（部品引当）',
         path: '/production/plan',
         actionSteps: [
           '①「新規作成」で製造する製品・数量・開始／終了予定を登録',
-          '② 計画行の「材料引当」を押し、数量を確認して「引き当て実行」',
+          '② 計画行の「部品引当」を押し、数量を確認して「引き当て実行」',
         ],
         nextButtonLabel: '次へ：4. 順立て（ピッキング）へ →',
       },
@@ -1097,8 +1099,8 @@ export const WORKFLOW_TRACKS: WorkflowTrack[] = [
         mobileHint: '専用スマホアプリでも順立て・ピッキング作業に対応',
         actionSteps: [
           '① ピッキング対象の完成品（製品）を選択',
-          '② 紐づく材料の数量・保管場所を確認し「ピッキング」を押す',
-          '③ 全材料をピッキングしたら出庫先ラインへ供給して完了',
+          '② 紐づく部品の数量・保管場所を確認し「ピッキング」を押す',
+          '③ 全部品をピッキングしたら出庫先ラインへ供給して完了',
         ],
         nextButtonLabel: '✓ 完了（トップへ戻る）',
       },
@@ -1191,6 +1193,9 @@ export const WORKFLOW_TRACKS: WorkflowTrack[] = [
     ],
   },
 ];
+
+registerTermTarget(NAV_CATEGORIES);
+registerTermTarget(WORKFLOW_TRACKS);
 
 export const OVERALL_WORKFLOW_PHASES: OverallWorkflowPhase[] =
   WORKFLOW_TRACKS[1].phases;

@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import bomService, { BillOfMaterial } from '../services/bomService';
+import { t } from '../utils/terms';
 
 export const useBomMaster = () => {
     const [items, setItems] = useState<BillOfMaterial[]>([]);
@@ -24,7 +25,7 @@ export const useBomMaster = () => {
     }, [fetchItems]);
 
     const deleteItem = useCallback(async (id: string, product: string, material: string) => {
-        if (window.confirm(`使用部品構成「${product} → ${material}」を本当に削除しますか？`)) {
+        if (window.confirm(t(`使用部品構成「${product} → ${material}」を本当に削除しますか？`))) {
             try {
                 const result = await bomService.deleteBillOfMaterial(id);
                 alert(result.message);

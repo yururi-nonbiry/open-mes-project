@@ -5,6 +5,7 @@ import productionService from '../../services/productionService';
 import { ProductionPlan, ProgressUpdatePayload } from '../../types/production';
 import type { StatusOption } from './types';
 import { NavIcon } from '../../components/NavIcon';
+import { t } from '../../utils/terms';
 
 interface WorkProgressModalProps {
     isOpen: boolean;
@@ -113,7 +114,7 @@ const WorkProgressModal: React.FC<WorkProgressModalProps> = ({
                     <div className="mes-modal-title-text">
                         <div className="mes-modal-title-row">
                             <Modal.Title className="mes-modal-title">作業進捗・完了の登録</Modal.Title>
-                            <span className="mes-modal-tag-pill">完成品入庫・材料消費</span>
+                            <span className="mes-modal-tag-pill">{t('完成品入庫・部品消費')}</span>
                         </div>
                         <p className="mes-modal-subtitle">
                             ステータスを「完了」にして製作数量・NG数量を登録すると、OK数量分の完成品が自動入庫されます。

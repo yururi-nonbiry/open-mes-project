@@ -1,4 +1,5 @@
 import { apiRequest } from '../utils/api';
+import { t } from '../utils/terms';
 
 export interface BillOfMaterial {
     id?: string;
@@ -25,10 +26,10 @@ export interface MasterItem {
 const itemTypeOf = (item: MasterItem) => item.item_type?.toLowerCase();
 /** 生産計画で作れる品目(BOMの親になれる品目): 製品・中間品 */
 export const isProducibleItem = (item: MasterItem) => ['product', 'intermediate'].includes(itemTypeOf(item));
-/** 部品として使える品目(BOMの子になれる品目): 材料・中間品 */
+/** 部品として使える品目(BOMの子になれる品目): 部品・中間品 */
 export const isConsumableItem = (item: MasterItem) => ['material', 'intermediate'].includes(itemTypeOf(item));
 export const itemTypeLabel = (itemType: string) =>
-    ({ product: '製品', material: '材料', intermediate: '中間品' } as Record<string, string>)[itemType?.toLowerCase()] || itemType;
+    ({ product: '製品', material: t('部品'), intermediate: '中間品' } as Record<string, string>)[itemType?.toLowerCase()] || itemType;
 
 export interface BomExplosionNode {
     item_code: string;

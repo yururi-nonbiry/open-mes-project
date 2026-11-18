@@ -4,6 +4,7 @@ import { Spinner } from 'react-bootstrap';
 import authFetch, { handleError } from '../utils/api';
 import { MaterialAllocation, PaginationData } from '../types/production';
 import { useWorkCenters } from '../hooks/useWorkCenters';
+import { t } from '../utils/terms';
 
 const ALLOC_STATUS_TABS = [
   { value: '', label: 'すべて表示' },
@@ -96,7 +97,7 @@ const MaterialAllocationPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      // 順立て（ピッキング）では完成品ごとに紐づく全材料を表示するため、多めの件数を取得
+      // 順立て（ピッキング）では完成品ごとに紐づく全部品を表示するため、多めの件数を取得
       const response = await authFetch('/api/production/material-allocations/?page_size=300');
       await handleError(response, '順立て（ピッキング）データの取得に失敗しました。');
       const data = (await response.json()) as PaginationData<MaterialAllocation>;
@@ -209,7 +210,7 @@ const MaterialAllocationPage: React.FC = () => {
     return productGroups.find((g) => g.key === selectedProductKey) || null;
   }, [productGroups, selectedProductKey]);
 
-  // 表示対象の材料レコード
+  // 表示対象の部品レコード
   const displayedAllocations = useMemo(() => {
     let list: MaterialAllocation[] = [];
     if (selectedProductKey === 'all' || !currentGroup) {
@@ -248,18 +249,18 @@ const MaterialAllocationPage: React.FC = () => {
     }
   };
 
-  // 選択中完成品の未ピッキング材料を一括ピッキング
+  // 選択中完成品の未ピッキング部品を一括ピッキング
   const handleBatchPickAll = async () => {
     if (!currentGroup) return;
     const targetItems = currentGroup.items.filter((item) => item.status === 'ALLOCATED');
     if (targetItems.length === 0) {
-      alert('未ピッキング（引当済）の材料はありません。');
+      alert(t('未ピッキング（引当済）の部品はありません。'));
       return;
     }
 
     if (
       !window.confirm(
-        `【${currentGroup.productCode} ${currentGroup.productName}】の未ピッキング材料（${targetItems.length}件）を一括ピッキングしますか？`
+        t(`【${currentGroup.productCode} ${currentGroup.productName}】の未ピッキング部品（${targetItems.length}件）を一括ピッキングしますか？`)
       )
     ) {
       return;
@@ -278,7 +279,7 @@ const MaterialAllocationPage: React.FC = () => {
         }
       }
       await fetchAllocations();
-      alert(`${successCount} 件の材料をピッキング済みに更新しました！`);
+      alert(t(`${successCount} 件の部品をピッキング済みに更新しました！`));
     } catch (e) {
       alert(`一括ピッキング中にエラーが発生しました: ${(e as ApiErrorLike).message}`);
     } finally {
@@ -374,7 +375,7 @@ const MaterialAllocationPage: React.FC = () => {
           <div className="alert alert-danger my-3">{error}</div>
         ) : filteredGroups.length === 0 ? (
           <div className="text-center py-4 text-muted">
-            条件に一致する完成品データがありません。生産計画画面で「材料引当」を実行してください。
+            {t('条件に一致する完成品データがありません。生産計画画面で「部品引当」を実行してください。')}
           </div>
         ) : (
           <div className="product-cards-grid mt-3">
@@ -390,10 +391,10 @@ const MaterialAllocationPage: React.FC = () => {
                 <span className="product-card-code">全件表示</span>
                 <span className="ms-auto badge bg-secondary-subtle text-secondary">横断確認</span>
               </div>
-              <div className="product-card-name">すべての完成品の材料</div>
+              <div className="product-card-name">{t('すべての完成品の部品')}</div>
               <div className="product-card-plan">全体の引当・ピッキング状況を確認</div>
               <div className="product-card-footer">
-                <span className="small text-muted">総材料: {allocations.length} 点</span>
+                <span className="small text-muted">{t('総部品:')} {allocations.length} 点</span>
               </div>
             </div>
 
@@ -456,7 +457,7 @@ const MaterialAllocationPage: React.FC = () => {
         )}
       </div>
 
-      {/* ステップ2：選択した完成品の材料ピッキングエリア */}
+      {/* ステップ2：選択した完成品の部品ピッキングエリア */}
       <div className="goods-receipt-table-card material-picking-table-card">
         {/* 現在選択中の完成品ヘッダーバー */}
         <div className="current-product-banner">
@@ -471,7 +472,7 @@ const MaterialAllocationPage: React.FC = () => {
                       {currentGroup.productName}
                     </>
                   ) : (
-                    'すべての完成品の材料（全件横断）'
+                    t('すべての完成品の部品（全件横断）')
                   )}
                 </h3>
               </div>
@@ -480,7 +481,7 @@ const MaterialAllocationPage: React.FC = () => {
                   対象計画: <strong>{currentGroup.planName}</strong>
                   {currentGroup.line && <span className="ms-2">出庫先ライン: <strong>{currentGroup.line}</strong></span>}
                   <span className="ms-3">
-                    材料総点数: <strong>{currentGroup.items.length}</strong> 点（未ピッキング: <strong className="text-danger">{currentGroup.allocatedCount}</strong> 点）
+                    {t('部品総点数:')} <strong>{currentGroup.items.length}</strong> 点（未ピッキング: <strong className="text-danger">{currentGroup.allocatedCount}</strong> 点）
                   </span>
                 </div>
               )}
@@ -501,7 +502,7 @@ const MaterialAllocationPage: React.FC = () => {
                     </>
                   ) : (
                     <>
-                      <span>⚡ 未ピッキング材料を一括ピッキング</span>
+                      <span>{t('⚡ 未ピッキング部品を一括ピッキング')}</span>
                       <span className="badge bg-white text-primary ms-1">{currentGroup.allocatedCount}</span>
                     </>
                   )}
@@ -531,7 +532,7 @@ const MaterialAllocationPage: React.FC = () => {
               <input
                 type="text"
                 className="form-control form-control-sm"
-                placeholder="材料コード・材料名で検索..."
+                placeholder={t('部品コード・部品名で検索...')}
                 value={materialFilter}
                 onChange={(e) => setMaterialFilter(e.target.value)}
                 style={{ width: '220px' }}
@@ -548,7 +549,7 @@ const MaterialAllocationPage: React.FC = () => {
           <table className="table table-hover align-middle goods-receipt-table mb-0">
             <thead>
               <tr>
-                <th style={{ width: '22%' }}>材料コード・材料名</th>
+                <th style={{ width: '22%' }}>{t('部品コード・部品名')}</th>
                 {selectedProductKey === 'all' && <th>完成品（計画）</th>}
                 <th style={{ width: '14%' }}>出庫先ライン</th>
                 <th style={{ width: '12%' }}>保管倉庫</th>
@@ -564,15 +565,15 @@ const MaterialAllocationPage: React.FC = () => {
                 <tr>
                   <td colSpan={selectedProductKey === 'all' ? 9 : 8} className="text-center py-5">
                     <Spinner animation="border" variant="primary" size="sm" className="me-2" />
-                    <span className="text-muted">材料データを読み込んでいます...</span>
+                    <span className="text-muted">{t('部品データを読み込んでいます...')}</span>
                   </td>
                 </tr>
               ) : displayedAllocations.length === 0 ? (
                 <tr>
                   <td colSpan={selectedProductKey === 'all' ? 9 : 8} className="text-center py-5 text-muted">
                     {currentGroup
-                      ? 'この完成品に該当する材料データがありません。'
-                      : '条件に一致する材料データがありません。'}
+                      ? t('この完成品に該当する部品データがありません。')
+                      : t('条件に一致する部品データがありません。')}
                   </td>
                 </tr>
               ) : (

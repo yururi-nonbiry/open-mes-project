@@ -1,4 +1,6 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { Fragment, useState, useEffect, lazy, Suspense } from 'react';
+import terminologyService from './services/terminologyService';
+import { getPartTerm, onPartTermChange, setPartTerm } from './utils/terms';
 import type { ReactNode } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation, Outlet } from 'react-router-dom';
 import './App.css';
@@ -101,6 +103,14 @@ function AppContent() {
     return () => { document.body.classList.remove('menu-open-no-scroll'); };
   }, [menuOpen]);
 
+  // 管理者が設定した「部品」の呼び方。変わったら画面を描き直して反映する
+  const [partTerm, setTerm] = useState(getPartTerm());
+  useEffect(() => onPartTermChange(() => setTerm(getPartTerm())), []);
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    terminologyService.get().then(({ part }) => { setPartTerm(part); });
+  }, [isAuthenticated]);
+
   if (loading) return <div className="p-4">読み込み中...</div>;
 
   const StaffRoute = ({ children }: { children: ReactNode }) => {
@@ -112,7 +122,7 @@ function AppContent() {
   };
 
   return (
-    <>      
+    <Fragment key={partTerm}>
       <MobileRedirector />
 
       <Suspense fallback={<div className="p-4">読み込み中...</div>}>
@@ -205,7 +215,7 @@ function AppContent() {
       </Suspense>
 
       <VersionModal isOpen={versionModalOpen} onClose={() => setVersionModalOpen(false)} />
-    </>
+    </Fragment>
   );
 }
 

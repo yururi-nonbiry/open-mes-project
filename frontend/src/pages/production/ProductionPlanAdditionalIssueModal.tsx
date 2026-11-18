@@ -4,6 +4,7 @@ import productionService from '../../services/productionService';
 import { describeError } from '../../utils/api';
 import { ProductionPlan, RequiredPart } from '../../types/production';
 import { unwrapList, type MaybeWrapped, type RawRequiredPart } from './types';
+import { t } from '../../utils/terms';
 
 interface ProductionPlanAdditionalIssueModalProps {
     isOpen: boolean;
@@ -96,7 +97,7 @@ const ProductionPlanAdditionalIssueModal: React.FC<ProductionPlanAdditionalIssue
                     <button type="button" className="btn-close" aria-label="Close" onClick={onClose}></button>
                 </div>
                 <p className="text-muted small">
-                    歩留まり・ロス等で所要量を超えて必要になった部品を、引当を経ずにすぐピッキングします。所要量の引当とは別に記録され、
+                    {t('歩留まり・ロス等で所要量を超えて必要になった部品を、引当を経ずにすぐピッキングします。所要量の引当とは別に記録され、')}
                     生産完了を取り消しても在庫には戻りません。使わなかった分は順立て（ピッキング）画面から「返却」で在庫に戻せます。
                 </p>
                 {cancelled && <div className="alert alert-warning">中止された生産計画には追加ピッキングできません。</div>}
@@ -107,7 +108,7 @@ const ProductionPlanAdditionalIssueModal: React.FC<ProductionPlanAdditionalIssue
                         <table className="table table-sm table-bordered">
                             <thead className="table-light">
                                 <tr>
-                                    <th>部品</th><th className="text-end">所要数</th><th className="text-end">引当済</th>
+                                    <th>{t('部品')}</th><th className="text-end">所要数</th><th className="text-end">引当済</th>
                                     <th className="text-end">追加ピッキング済</th><th>ピッキング元倉庫（ピッキング可能数）</th><th className="text-end">追加ピッキング数</th><th>単位</th>
                                 </tr>
                             </thead>
@@ -115,7 +116,7 @@ const ProductionPlanAdditionalIssueModal: React.FC<ProductionPlanAdditionalIssue
                                 {loading ? (
                                     <tr><td colSpan={7}>読み込み中...</td></tr>
                                 ) : rows.length === 0 ? (
-                                    <tr><td colSpan={7}>この計画には部品構成が登録されていません。</td></tr>
+                                    <tr><td colSpan={7}>{t('この計画には部品構成が登録されていません。')}</td></tr>
                                 ) : rows.map(row => (
                                     <tr key={row.part_code}>
                                         <td>[{row.part_code}] {row.part_name}</td>

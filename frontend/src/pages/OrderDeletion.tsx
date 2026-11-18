@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Button, Form, Nav, Spinner } from 'react-bootstrap';
 import inventoryService, { AdminPurchaseOrder, SalesOrder } from '../services/inventoryService';
 import type { ApiErrorLike } from './apiError';
+import { t } from '../utils/terms';
 
 type Kind = 'purchase' | 'sales';
 
@@ -186,7 +187,7 @@ const OrderDeletion: React.FC = () => {
             )}
 
             <p className="small text-muted mt-2">
-                削除すると元に戻せません。入庫実績が紐づく入庫予定は削除できません。出庫予定を削除すると、その引当は在庫へ解放されます(生産計画の材料引当用の内部受注は削除できません)。
+                {t('削除すると元に戻せません。入庫実績が紐づく入庫予定は削除できません。出庫予定を削除すると、その引当は在庫へ解放されます(生産計画の部品引当用の内部受注は削除できません)。')}
             </p>
         </div>
     );

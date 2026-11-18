@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Modal from '../../components/Modal';
 import { describeError } from '../../utils/api';
 import bomService, { BomExplosion, BomExplosionNode, MasterItem, isProducibleItem, itemTypeLabel } from '../../services/bomService';
+import { t } from '../../utils/terms';
 
 interface BomExplodeModalProps {
     isOpen: boolean;
@@ -56,10 +57,10 @@ const BomExplodeModal: React.FC<BomExplodeModalProps> = ({ isOpen, onClose, init
     return (
         <Modal isOpen={isOpen} onClose={onClose} maxWidth="900px">
             <div className="p-2">
-                <h3>部品構成の展開（多階層）</h3>
+                <h3>{t('部品構成の展開（多階層）')}</h3>
                 <p className="text-muted small mb-2">
-                    中間品は自身の生産計画で作って在庫から引き当てます。生産計画の所要部品になるのは1階層目のみで、
-                    この画面は構成の確認と、最下位の材料の総所要量の把握に使います。
+                    {t('中間品は自身の生産計画で作って在庫から引き当てます。生産計画の所要部品になるのは1階層目のみで、')}
+                    {t('この画面は構成の確認と、最下位の部品の総所要量の把握に使います。')}
                 </p>
                 <hr />
                 <form className="d-flex flex-wrap gap-2 align-items-end mb-3" onSubmit={handleSubmit}>
@@ -87,7 +88,7 @@ const BomExplodeModal: React.FC<BomExplodeModalProps> = ({ isOpen, onClose, init
 
                 {result && !loading && (
                     result.tree.length === 0 ? (
-                        <p>この品目には使用部品構成が登録されていません。</p>
+                        <p>{t('この品目には使用部品構成が登録されていません。')}</p>
                     ) : (
                         <>
                             <h6>構成（{result.item_code} {result.item_name} × {result.quantity}）</h6>
@@ -115,7 +116,7 @@ const BomExplodeModal: React.FC<BomExplodeModalProps> = ({ isOpen, onClose, init
                                     </tbody>
                                 </table>
                             </div>
-                            <h6>最下位の材料の合計所要量</h6>
+                            <h6>{t('最下位の部品の合計所要量')}</h6>
                             <div className="table-responsive">
                                 <table className="table table-sm table-bordered">
                                     <thead className="table-light">

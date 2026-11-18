@@ -173,7 +173,7 @@ const inventoryService = {
         )),
 
     /**
-     * 出庫画面向けの受注一覧。材料引当用の内部受注(INT-)は出庫APIの対象外のため常に除外する。
+     * 出庫画面向けの受注一覧。部品引当用の内部受注(INT-)は出庫APIの対象外のため常に除外する。
      */
     getIssuableSalesOrders: async (
         { page = 1, pageSize, q, status, expectedFrom, expectedTo, line, groupByLine }: { page?: number; pageSize?: number; q?: string; status?: string; expectedFrom?: string; expectedTo?: string; line?: string; groupByLine?: boolean } = {}

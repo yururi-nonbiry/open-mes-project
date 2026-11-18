@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Button, Alert } from 'react-bootstrap';
 import bomService, { BillOfMaterial, MasterItem, isConsumableItem, isProducibleItem, itemTypeLabel } from '../../services/bomService';
 import { NavIcon } from '../../components/NavIcon';
+import { t } from '../../utils/terms';
 
 interface BomMasterModalProps {
     isOpen: boolean;
@@ -67,7 +68,7 @@ const BomMasterModal: React.FC<BomMasterModalProps> = ({ isOpen, onClose, onSucc
             } else {
                 await bomService.createBillOfMaterial(payload);
             }
-            setGlobalMessage({ text: '使用部品構成を保存しました。', type: 'success' });
+            setGlobalMessage({ text: t('使用部品構成を保存しました。'), type: 'success' });
             setTimeout(() => {
                 onSuccess();
                 onClose();
@@ -94,12 +95,12 @@ const BomMasterModal: React.FC<BomMasterModalProps> = ({ isOpen, onClose, onSucc
                     <div className="mes-modal-title-text">
                         <div className="mes-modal-title-row">
                             <Modal.Title className="mes-modal-title">
-                                {editingItem ? '使用部品構成の編集' : '使用部品構成の新規登録'}
+                                {editingItem ? t('使用部品構成の編集') : t('使用部品構成の新規登録')}
                             </Modal.Title>
-                            <span className="mes-modal-tag-pill">部品構成（BOM）</span>
+                            <span className="mes-modal-tag-pill">{t('部品構成（BOM）')}</span>
                         </div>
                         <p className="mes-modal-subtitle">
-                            親品目（製品・中間品）1個を製造するために必要な使用部品と所要数量を設定します。
+                            {t('親品目（製品・中間品）1個を製造するために必要な使用部品と所要数量を設定します。')}
                         </p>
                     </div>
                 </div>
@@ -136,7 +137,7 @@ const BomMasterModal: React.FC<BomMasterModalProps> = ({ isOpen, onClose, onSucc
                         <div className="col-12 col-md-6">
                             <div className="mes-modal-field-group">
                                 <label htmlFor="bom_material" className="mes-modal-field-label">
-                                    <span>使用部品（材料・中間品）</span>
+                                    <span>{t('使用部品（中間品を含む）')}</span>
                                     <span className="mes-field-badge required">必須</span>
                                 </label>
                                 <select
@@ -147,7 +148,7 @@ const BomMasterModal: React.FC<BomMasterModalProps> = ({ isOpen, onClose, onSucc
                                     className={`form-select mes-modal-input ${formErrors.material ? 'is-invalid' : ''}`}
                                     required
                                 >
-                                    <option value="">-- 使用部品を選択してください --</option>
+                                    <option value="">{t('-- 使用部品を選択してください --')}</option>
                                     {materialOptions.map(item => (
                                         <option key={item.id} value={item.code}>
                                             [{item.code}] {item.name}（{itemTypeLabel(item.item_type)}）
@@ -155,7 +156,7 @@ const BomMasterModal: React.FC<BomMasterModalProps> = ({ isOpen, onClose, onSucc
                                     ))}
                                 </select>
                                 {formErrors.material && <div className="invalid-feedback d-block">{formErrors.material}</div>}
-                                <span className="mes-modal-field-help">製造に使用する部品・材料</span>
+                                <span className="mes-modal-field-help">{t('製造に使用する部品')}</span>
                             </div>
                         </div>
 

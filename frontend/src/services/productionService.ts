@@ -19,6 +19,7 @@ import {
     PlanAllocationOverview,
     BulkAllocationResult
 } from '../types/production';
+import { t } from '../utils/terms';
 
 /**
  * フィルターオブジェクトをAPIパラメータに変換します。
@@ -133,7 +134,7 @@ const productionService = {
         apiRequest<PlanMaterial[]>(
             `/api/production/plan-materials/?production_plan_id=${encodeURIComponent(planId)}`,
             {},
-            '部品構成の取得に失敗しました。'
+            t('部品構成の取得に失敗しました。')
         ),
 
     savePlanMaterial: (material: PlanMaterial) => {
@@ -141,18 +142,18 @@ const productionService = {
         return apiRequest<PlanMaterial>(url, {
             method: material.id ? 'PATCH' : 'POST',
             body: JSON.stringify(material),
-        }, '部品構成の保存に失敗しました。');
+        }, t('部品構成の保存に失敗しました。'));
     },
 
     deletePlanMaterial: (id: string) =>
-        apiRequest(`/api/production/plan-materials/${id}/`, { method: 'DELETE' }, '部品構成の削除に失敗しました。'),
+        apiRequest(`/api/production/plan-materials/${id}/`, { method: 'DELETE' }, t('部品構成の削除に失敗しました。')),
 
     /** 計画の部品構成をBOMマスターから読み込み直す(計画ごとの編集内容は破棄される) */
     resetPlanMaterials: (planId: string) =>
         apiRequest<{ message: string; data: PlanMaterial[] }>(
             `/api/production/plans/${planId}/reset-materials/`,
             { method: 'POST' },
-            '部品構成の初期化に失敗しました。'
+            t('部品構成の初期化に失敗しました。')
         ),
 
     /** 歩留まり・ロス等の不足分を追加出庫する(引当を経ずに即時出庫) */
@@ -198,7 +199,7 @@ const productionService = {
         }
         const queryString = buildQueryString(queryParams);
         const response = await authFetch(`/api/production/parts-supply-simulation/${queryString}`);
-        await handleError(response, '部品供給シミュレーションの取得に失敗しました');
+        await handleError(response, t('部品供給シミュレーションの取得に失敗しました'));
         return await response.json() as PartsSupplySimulationResult;
     }
 };

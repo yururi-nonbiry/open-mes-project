@@ -27,7 +27,7 @@ const statusBadge = (a: MaterialAllocation) => {
     return <Badge bg={bg} text={a.status === 'ALLOCATED' ? 'dark' : undefined}>{a.status_display}</Badge>;
 };
 
-/** モバイル用 順立て・ピッキング(材料の払い出し)画面。完成品の出庫は MobileGoodsIssuePage。 */
+/** モバイル用 順立て・ピッキング(部品の払い出し)画面。完成品の出庫は MobileGoodsIssuePage。 */
 const MobilePickingPage = () => {
     const [allocations, setAllocations] = useState<MaterialAllocation[]>([]);
     const [loading, setLoading] = useState(true);
@@ -123,7 +123,7 @@ const MobilePickingPage = () => {
     const handlePickAll = async (g: PlanGroup) => {
         const targets = g.items.filter((i) => i.status === 'ALLOCATED');
         if (targets.length === 0) return;
-        if (!window.confirm(`【${g.productCode} ${g.productName}】の未ピッキング材料 ${targets.length} 件を一括ピッキングしますか？`)) return;
+        if (!window.confirm(t(`【${g.productCode} ${g.productName}】の未ピッキング部品 ${targets.length} 件を一括ピッキングしますか？`))) return;
         setBusyId(g.key);
         setMessage(null);
         let ok = 0;
@@ -137,7 +137,7 @@ const MobilePickingPage = () => {
             }
         }
         setMessage(ok === targets.length
-            ? { text: `${ok} 件の材料をピッキングしました。`, type: 'success' }
+            ? { text: t(`${ok} 件の部品をピッキングしました。`), type: 'success' }
             : { text: `${targets.length} 件中 ${ok} 件のみ成功しました。${lastError}`, type: 'danger' });
         await fetchAllocations();
         setBusyId(null);
@@ -151,7 +151,7 @@ const MobilePickingPage = () => {
                 <InputGroup size="sm" className="mb-2">
                     <Form.Control
                         type="text"
-                        placeholder="完成品・計画名・材料で絞り込み"
+                        placeholder={t('完成品・計画名・部品で絞り込み')}
                         value={keyword}
                         onChange={(e) => setKeyword(e.target.value)}
                     />
@@ -231,3 +231,5 @@ const MobilePickingPage = () => {
 };
 
 export default MobilePickingPage;
+
+import { t } from '../../utils/terms';

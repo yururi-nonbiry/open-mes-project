@@ -11,6 +11,7 @@ import inventoryService from '../services/inventoryService';
 import { NavIcon } from '../components/NavIcon';
 import './InventoryInquiry.css';
 import type { DisplaySetting, ModelFieldInfo, PurchaseOrderRow } from './types/listPage';
+import { t } from '../utils/terms';
 
 const NUMERIC_FIELDS = ['quantity', 'received_quantity', 'remaining_quantity', 'delivered_quantity'];
 
@@ -792,7 +793,7 @@ const GoodsReceiptContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefau
                       <option key={p.code} value={p.code}>{p.code} - {p.name}</option>
                     ))}
                   </select>
-                  <span className="mes-modal-field-help">何用の部品として入庫するか。用途ごとに別の在庫として管理されます</span>
+                  <span className="mes-modal-field-help">{t('何用の部品として入庫するか。用途ごとに別の在庫として管理されます')}</span>
                 </div>
               </div>
 

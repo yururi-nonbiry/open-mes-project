@@ -1,4 +1,5 @@
 import { NavIconName } from './navigationConfig';
+import { registerTermTarget } from '../utils/terms';
 
 export interface SelectOption {
     value: string;
@@ -38,9 +39,9 @@ export interface DataConfigItem {
 export const DATA_CONFIG: Record<string, DataConfigItem> = {
     'item': {
         name: '品番マスター',
-        description: '製品・部品・材料の品番コードや区分、標準の入庫倉庫を設定します。',
+        description: '製品・部品の品番コードや区分、標準の入庫倉庫を設定します。',
         icon: 'inventory',
-        tag: '品目・材料',
+        tag: '品目・部品',
         listUrl: '/api/master/items/',
         createUrl: '/api/master/items/',
         detailUrl: (id) => `/api/master/items/${id}/`,
@@ -48,7 +49,7 @@ export const DATA_CONFIG: Record<string, DataConfigItem> = {
     },
     'supplier': {
         name: 'サプライヤーマスター',
-        description: '材料・部品の仕入先（サプライヤー）の番号と連絡先を設定します。',
+        description: '部品の仕入先（サプライヤー）の番号と連絡先を設定します。',
         icon: 'supplier',
         tag: '仕入先',
         listUrl: '/api/master/suppliers/',
@@ -125,7 +126,7 @@ export const getFormFields = (type: string): FormField[] => {
                 name: 'code',
                 label: '品番コード',
                 placeholder: '例：PROD-001 / MAT-001',
-                helpText: '製品や材料を一意に識別するコード',
+                helpText: '製品や部品を一意に識別するコード',
                 required: true,
                 colSpan: 6
             },
@@ -143,10 +144,10 @@ export const getFormFields = (type: string): FormField[] => {
                 type: 'select',
                 required: true,
                 colSpan: 6,
-                helpText: '製品（完成品）・材料（部品）・中間品から選択',
+                helpText: '製品（完成品）・部品・中間品から選択',
                 options: [
                     { value: 'product', label: '製品（完成品）' },
-                    { value: 'material', label: '材料・部品' },
+                    { value: 'material', label: '部品' },
                     { value: 'intermediate', label: '中間品（半製品）' }
                 ]
             },
@@ -310,7 +311,7 @@ export const getFormFields = (type: string): FormField[] => {
                 name: 'line',
                 label: '出庫先ラインコード（ワークセンター）',
                 placeholder: '例：LINE-01（空欄は未指定）',
-                helpText: '材料の出庫先ライン。引当時の既定値になり、引当ごとに変更できます',
+                helpText: '部品の出庫先ライン。引当時の既定値になり、引当ごとに変更できます',
                 colSpan: 6
             },
             {
@@ -380,9 +381,9 @@ export const getTableConfig = (type: string): FormField[] => {
 };
 
 export const MASTER_CARDS: DataCardItem[] = [
-    { id: 'item', title: '品番マスター', description: '製品・部品・材料の品目コードや標準倉庫を管理します。', icon: 'inventory', tag: '品目・材料' },
+    { id: 'item', title: '品番マスター', description: '製品・部品の品目コードや標準倉庫を管理します。', icon: 'inventory', tag: '品目・部品' },
     { id: 'warehouse', title: '倉庫マスター', description: '入出庫・保管を行う倉庫コードと名称を管理します。', icon: 'warehouse-map', tag: '保管場所' },
-    { id: 'supplier', title: 'サプライヤー', description: '材料・支給品の仕入先情報を管理します。', icon: 'supplier', tag: '仕入先' },
+    { id: 'supplier', title: 'サプライヤー', description: '部品・支給品の仕入先情報を管理します。', icon: 'supplier', tag: '仕入先' },
     { id: 'customer', title: '顧客マスター', description: '製品の出荷先・得意先情報を管理します。', icon: 'users', tag: '出荷先' },
     { id: 'work-center', title: 'ワークセンター', description: '製造ライン・作業場所・設備の情報を管理します。', icon: 'production', tag: '作業場所' },
 ];
@@ -391,6 +392,10 @@ export const BUSINESS_CARDS: DataCardItem[] = [
     { id: 'production-plan', title: '生産計画', description: '製品の製造スケジュール（計画名・数量・予定日時）を登録・管理します。', icon: 'plan', tag: '製造スケジュール' },
     { id: 'unit-cost', title: '標準単価', description: '品目ごとの標準原価を登録・管理します。', icon: 'cost', tag: '原価管理' },
 ];
+
+registerTermTarget(MASTER_CARDS);
+registerTermTarget(BUSINESS_CARDS);
+registerTermTarget(DATA_CONFIG);
 
 // value はバックエンドの DATA_TYPE_MODEL_MAPPING (backend/src/base/models.py) のキーと
 // 一致させる必要がある（アンダースコア区切り）。DATA_CONFIG等のフロント内部キー（ハイフン区切り）とは別物。
