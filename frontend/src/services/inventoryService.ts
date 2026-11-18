@@ -28,6 +28,8 @@ export interface SalesOrder {
     reserved_quantity: number;
     remaining_quantity: number;
     order_date: string;
+    /** システムへ投入した日時 (自動設定) */
+    created_at?: string;
     expected_shipment: string | null;
     warehouse: string | null;
     /** 使う在庫の用途コード(空は汎用のみ) */

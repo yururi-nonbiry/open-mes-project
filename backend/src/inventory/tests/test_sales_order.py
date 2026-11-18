@@ -1,4 +1,5 @@
 from django.urls import reverse
+from django.utils.dateparse import parse_datetime
 from rest_framework import status
 
 from .test_helpers import InventoryAPITestBase
@@ -22,6 +23,24 @@ class SalesOrderCrudTests(InventoryAPITestBase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["count"], 2)
+
+    def test_so_crud_11_order_date_can_be_set_and_created_at_is_kept(self):
+        """受注日は API から指定でき、投入日時 (created_at) は別に自動で残る。省略時の受注日は登録時刻。"""
+        url = reverse("inventory_api:salesorder-list")
+        body = {"order_number": "SO-DATE", "item": self.item1.code, "quantity": 1}
+        response = self.client.post(url, {**body, "order_date": "2026-01-05T00:00:00+09:00"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertEqual(parse_datetime(response.data["order_date"]), parse_datetime("2026-01-05T00:00:00+09:00"))
+        self.assertFalse(response.data["created_at"].startswith("2026-01"))
+        response = self.client.post(url, {**body, "order_number": "SO-NODATE"}, format="json")
+        self.assertEqual(response.data["order_date"][:19], response.data["created_at"][:19])
+        order_id = response.data["id"]
+        # created_at は更新できない
+        response = self.client.patch(
+            reverse("inventory_api:salesorder-detail", args=[order_id]),
+            {"created_at": "2020-01-01T00:00:00Z"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertFalse(response.data["created_at"].startswith("2020"))
 
     def test_so_crud_09_search_purpose(self):
         from master.models import StockPurpose

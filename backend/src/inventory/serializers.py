@@ -309,6 +309,7 @@ class SalesOrderSerializer(serializers.ModelSerializer):
             "reserved_quantity",
             "remaining_quantity",  # 利用可能在庫 (プロパティ)
             "order_date",
+            "created_at",
             "expected_shipment",
             "warehouse",
             "purpose",
@@ -319,7 +320,7 @@ class SalesOrderSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             "id",
-            "order_date",
+            "created_at",
             "shipped_quantity",
             "reserved_quantity",
             "remaining_quantity",

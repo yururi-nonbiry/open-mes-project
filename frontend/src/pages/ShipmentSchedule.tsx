@@ -67,7 +67,7 @@ const ShipmentSchedule: React.FC = () => {
     if (loading) {
       return (
         <tr>
-          <td colSpan={9} className="text-center py-5">
+          <td colSpan={10} className="text-center py-5">
             <Spinner animation="border" variant="primary" size="sm" className="me-2" />
             <span className="text-muted">{t('出庫予定データを読み込んでいます...')}</span>
           </td>
@@ -111,6 +111,7 @@ const ShipmentSchedule: React.FC = () => {
             </span>
           </td>
           <td>{formatDate(order.order_date)}</td>
+          <td>{formatDate(order.created_at)}</td>
           <td>{formatDate(order.expected_shipment)}</td>
           <td>{order.warehouse || '—'}</td>
           <td>
@@ -186,6 +187,7 @@ const ShipmentSchedule: React.FC = () => {
                 <th className="text-end">{t('出庫済')}</th>
                 <th className="text-end">{t('未出庫残')}</th>
                 <th>受注日</th>
+                <th>投入日時</th>
                 <th>{t('出庫予定日')}</th>
                 <th>{t('出庫先')}</th>
                 <th>状態</th>

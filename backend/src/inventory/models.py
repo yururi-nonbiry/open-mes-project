@@ -340,7 +340,10 @@ class SalesOrder(models.Model):
     # この受注のために在庫(Inventory.reserved)から引き当てている数量。Inventory.reservedは品番+倉庫(+棚番)単位の
     # プールであり、どの受注の引当かを区別できないため、受注側で自身の引当数量を保持する。
     reserved_quantity = models.PositiveIntegerField(default=0, verbose_name="引当済数量")
-    order_date = models.DateTimeField(auto_now_add=True, verbose_name="受注日")  # 受注日
+    # 受注日。連携元などの日付を指定できる。省略時は登録時刻。
+    order_date = models.DateTimeField(default=timezone.now, verbose_name="受注日")
+    # システムへ投入した日時 (自動設定。受注日を連携元の日付にしても投入日時は残る)
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="投入日時")
     expected_shipment = models.DateTimeField(blank=True, null=True, verbose_name="出庫予定日時")  # 出庫予定日
     warehouse_rel = models.ForeignKey(
         "master.Warehouse",
