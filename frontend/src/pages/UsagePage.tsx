@@ -3,6 +3,7 @@ import styles from './UsagePage.module.css';
 import { NavIconName } from '../config/navigationConfig';
 import { NavIcon } from '../components/NavIcon';
 import { registerTermTarget } from '../utils/terms';
+import { buildQuery, findRanges, matchesQuery, normalize, type QueryToken } from '../utils/manualSearch';
 
 // 画面キャプチャは `npm run capture:manual` で public/manual/ に再生成できます
 interface ManualShot {
@@ -486,7 +487,39 @@ const TOC_GROUPS: TocGroup[] = [
 registerTermTarget(SECTIONS);
 registerTermTarget(TOC_GROUPS);
 
+/** 検索語に一致した部分(同義語を含む)を強調表示する。 */
+const Highlight: React.FC<{ text: string; query: QueryToken[] }> = ({ text, query }) => {
+  const ranges = query.length ? findRanges(text, query) : [];
+  if (!ranges.length) return <>{text}</>;
+  const parts: React.ReactNode[] = [];
+  let pos = 0;
+  ranges.forEach(([start, end], i) => {
+    if (start > pos) parts.push(text.slice(pos, start));
+    parts.push(<mark key={i} className={styles.hit}>{text.slice(start, end)}</mark>);
+    pos = end;
+  });
+  if (pos < text.length) parts.push(text.slice(pos));
+  return <>{parts}</>;
+};
+
 const UsagePage: React.FC = () => {
+  const [searchText, setSearchText] = React.useState('');
+  const query = React.useMemo(() => buildQuery(searchText), [searchText]);
+  const searching = query.length > 0;
+  // 画面ごとの検索対象テキスト(正規化済み)。用語設定の変更時は画面が作り直されるので再計算される
+  const searchIndex = React.useMemo(() => {
+    const map = new Map<string, string>();
+    SECTIONS.forEach((s) => {
+      map.set(s.id, normalize([s.title, s.summary, ...s.steps, ...(s.notes ?? []), ...s.shots.map((x) => x.caption)].join('\n')));
+    });
+    return map;
+  }, []);
+  const hitIds = React.useMemo(() => {
+    if (!searching) return null;
+    return new Set(SECTIONS.filter((s) => matchesQuery(searchIndex.get(s.id) ?? '', query)).map((s) => s.id));
+  }, [searching, query, searchIndex]);
+  const isShown = (id: string) => !hitIds || hitIds.has(id);
+
   // セクションIDから通し番号（1〜）とセクション情報を高速検索するマップ
   const sectionMap = React.useMemo(() => {
     const map = new Map<string, { section: ManualSection; index: number; group: TocGroup }>();
@@ -512,6 +545,29 @@ const UsagePage: React.FC = () => {
       <div className={styles.header}>
         <h1>使い方ガイド</h1>
         <p>生産ナビの全体業務フローや各画面の操作手順、操作ポイントをわかりやすく説明します。</p>
+      </div>
+
+      <div className={styles.search} role="search">
+        <input
+          type="search"
+          className={styles.searchInput}
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Escape') setSearchText(''); }}
+          placeholder="キーワードで探す（例: 部品を入庫したい、パスワード、QR）"
+          aria-label="使い方ガイドを検索"
+          id="manual-search"
+        />
+        {searching && (
+          <button type="button" className={styles.searchClear} onClick={() => setSearchText('')}>クリア</button>
+        )}
+        <div className={styles.searchStatus} role="status" aria-live="polite">
+          {hitIds
+            ? hitIds.size > 0
+              ? `${hitIds.size}件の画面・機能が見つかりました（意味の近い言葉も含めて検索しています）`
+              : '該当する説明がありません。別の言葉（例: 「出荷」「材料」）や、短いキーワードでお試しください。'
+            : ''}
+        </div>
       </div>
 
       {/* 業務カテゴリ別に整理したモダンな目次ナビゲーション */}
@@ -548,9 +604,11 @@ const UsagePage: React.FC = () => {
         <div className={styles.tocGrid}>
           {TOC_GROUPS.map((group) => {
             const groupSections = group.sectionIds
+              .filter(isShown)
               .map(id => sectionMap.get(id))
               .filter((item): item is { section: ManualSection; index: number; group: TocGroup } => Boolean(item));
 
+            if (!groupSections.length) return null;
             return (
               <div
                 key={group.id}
@@ -581,7 +639,7 @@ const UsagePage: React.FC = () => {
                         <span className={styles.tocItemNum}>
                           {index < 10 ? `0${index}` : index}
                         </span>
-                        <span className={styles.tocItemText}>{section.title}</span>
+                        <span className={styles.tocItemText}><Highlight text={section.title} query={query} /></span>
                         <span className={styles.tocItemArrow}>›</span>
                       </a>
                     </li>
@@ -595,6 +653,7 @@ const UsagePage: React.FC = () => {
 
       {/* 各画面・機能の詳細マニュアルセクション */}
       {SECTIONS.map((section, index) => {
+        if (!isShown(section.id)) return null;
         const itemInfo = sectionMap.get(section.id);
         const group = itemInfo?.group;
 
@@ -617,10 +676,10 @@ const UsagePage: React.FC = () => {
               )}
               <h2>
                 <span className={styles.sectionNo}>{index + 1}</span>
-                <span>{section.title}</span>
+                <span><Highlight text={section.title} query={query} /></span>
               </h2>
             </div>
-            <p className={styles.summary}>{section.summary}</p>
+            <p className={styles.summary}><Highlight text={section.summary} query={query} /></p>
 
             <div className={section.id === 'mobile' ? styles.mobileShots : styles.shots}>
               {section.shots.map(shot => (
@@ -638,14 +697,14 @@ const UsagePage: React.FC = () => {
 
             <h3>操作手順</h3>
             <ol className={styles.steps}>
-              {section.steps.map(step => <li key={step}>{step}</li>)}
+              {section.steps.map(step => <li key={step}><Highlight text={step} query={query} /></li>)}
             </ol>
 
             {section.notes && (
               <div className={styles.notes}>
                 <h3>操作のポイント</h3>
                 <ul>
-                  {section.notes.map(note => <li key={note}>{note}</li>)}
+                  {section.notes.map(note => <li key={note}><Highlight text={note} query={query} /></li>)}
                 </ul>
               </div>
             )}

@@ -414,3 +414,52 @@
     font-size: 1.85rem;
   }
 }
+
+/* 検索 */
+.search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 1.5rem;
+  scroll-margin-top: 155px;
+}
+
+.searchInput {
+  flex: 1 1 320px;
+  padding: 0.6rem 0.9rem;
+  font-size: 1rem;
+  border: 1.5px solid #94a3b8;
+  border-radius: 0.5rem;
+  background: #ffffff;
+  color: #1e293b;
+}
+
+.searchInput:focus {
+  outline: 2px solid #007bff;
+  outline-offset: 1px;
+  border-color: #007bff;
+}
+
+.searchClear {
+  padding: 0.55rem 0.9rem;
+  border: 1px solid #94a3b8;
+  border-radius: 0.5rem;
+  background: #ffffff;
+  color: #334155;
+  font-weight: 600;
+}
+
+.searchStatus {
+  flex-basis: 100%;
+  min-height: 1.4em;
+  font-size: 0.9rem;
+  color: #475569;
+}
+
+.hit {
+  background: #fde68a;
+  color: inherit;
+  padding: 0 1px;
+  border-radius: 2px;
+}
