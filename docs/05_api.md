@@ -34,6 +34,8 @@ router.register(r"stock-movements", rest_views.StockMovementViewSet, basename="s
 
 これにより、たとえば `GET /api/inventory/inventories/`（一覧・詳細のCRUD）に加え、`@action`デコレータによるカスタムエンドポイント（例: `POST /api/inventory/inventories/{id}/move/` で棚間移動、`POST /api/inventory/sales-orders/allocate/` で複数ロケーションからのFIFO順在庫引当）が提供されます。ビュー本体（ViewSet、シリアライザ、業務ロジック）は各アプリの `rest_views.py`（`users`アプリのみ `rest.py`）に実装されています。
 
+出庫予定（`sales-orders`）の `order_date`（受注日）は、登録・更新時に指定できます（省略時は登録時刻）。`created_at`（投入日時）は登録時刻が自動で入る読み取り専用の項目で、受注日を連携元の日付にしても投入日時は残ります。
+
 ## 認証
 
 - **JWT認証**（メイン）: `djangorestframework-simplejwt` を使用。`users` アプリの `api_urls.py` に以下のエンドポイントがあります。
