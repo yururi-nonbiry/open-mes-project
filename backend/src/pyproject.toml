@@ -2,7 +2,7 @@
 # Django default line length is often 79-88 or 120. 
 # 120 is a good modern compromise.
 line-length = 120
-target-version = "py312"
+target-version = "py314"
 
 [tool.ruff.lint]
 # Enable Pyflakes (`F`), and pycodestyle (`E`, `W`) codes by default.

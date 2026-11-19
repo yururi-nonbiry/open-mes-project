@@ -1,5 +1,5 @@
 # 公式のNode.jsランタイムを親イメージとして使用します
-FROM node:22-alpine
+FROM node:24-alpine
 
 # コンテナ内の作業ディレクトリを設定します
 WORKDIR /app
