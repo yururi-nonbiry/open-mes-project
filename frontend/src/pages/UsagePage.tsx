@@ -3,7 +3,7 @@ import styles from './UsagePage.module.css';
 import { NavIconName } from '../config/navigationConfig';
 import { NavIcon } from '../components/NavIcon';
 import { registerTermTarget } from '../utils/terms';
-import ManualFlow from './ManualFlow';
+import ManualFlow, { ManualRelations } from './ManualFlow';
 import { buildQuery, findRanges, matchesQuery, normalize, type QueryToken } from '../utils/manualSearch';
 
 // 画面キャプチャは `npm run capture:manual` で public/manual/ に再生成できます
@@ -654,6 +654,8 @@ const UsagePage: React.FC = () => {
           })}
         </div>
       </nav>
+
+      {!searching && <ManualRelations />}
 
       {/* 各画面・機能の詳細マニュアルセクション */}
       {SECTIONS.map((section, index) => {

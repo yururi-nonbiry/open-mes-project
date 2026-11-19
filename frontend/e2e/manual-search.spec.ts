@@ -59,3 +59,13 @@ test('FE-MAN-04 業務の流れ図: 項目クリックで該当画面へ移動�
   await flow.getByRole('link', { name: /^入庫/ }).click();
   await expect(page).toHaveURL(/\/inventory\/purchase$/);
 });
+
+test('FE-MAN-05 データの関連図: 表示され、カードのタイトルで該当画面へ移動し、検索中は隠れること', async ({ page }) => {
+  const rel = page.getByRole('region', { name: 'データの関連図' });
+  await expect(rel).toBeVisible();
+  await page.locator('#manual-search').fill('パスワード');
+  await expect(rel).toBeHidden();
+  await page.getByRole('button', { name: 'クリア' }).click();
+  await rel.getByRole('link', { name: '在庫', exact: true }).click();
+  await expect(page).toHaveURL(/\/inventory\/inquiry$/);
+});

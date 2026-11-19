@@ -55,7 +55,73 @@ const LANES: FlowLane[] = [
   },
 ];
 
+interface RelCard {
+  name: string;
+  desc: string;
+  /** つながり(このデータが何と結びつくか) */
+  links: string[];
+  path?: string;
+  sectionId?: string;
+}
+
+interface RelLayer {
+  id: string;
+  title: string;
+  lead: string;
+  color: string;
+  cards: RelCard[];
+}
+
+const RELATIONS: RelLayer[] = [
+  {
+    id: 'master',
+    title: 'マスタ（先に登録しておくもの）',
+    lead: '他のデータから選んで使う、もとになる情報です。',
+    color: '#7c3aed',
+    cards: [
+      { name: '品番', desc: '部品・製品の番号と名前。', links: ['発注・受注・在庫・BOM・生産計画のすべてで使う'], path: '/data/import', sectionId: 'data-import' },
+      { name: '倉庫・棚番', desc: '物を置く場所。', links: ['在庫は倉庫・棚番ごとに持つ', '発注・受注・部品引当でも置き場所として使う'], sectionId: 'admin-system-warehouse' },
+      { name: '仕入先', desc: '部品の購入先。', links: ['発注に結びつく'], path: '/data/import', sectionId: 'data-import' },
+      { name: '在庫用途', desc: '在庫の使い道（通常・生産用など）の区分。', links: ['在庫・発注・入庫・受注に付けて区別する'], sectionId: 'admin-system-warehouse' },
+    ],
+  },
+  {
+    id: 'order',
+    title: '予定と実績（発注・受注）',
+    lead: '予定を登録し、入庫・出庫の実績で消し込みます。',
+    color: '#0284c7',
+    cards: [
+      { name: '発注（入庫予定）', desc: '何をいくつ、いつ届くか。', links: ['品番・仕入先・倉庫を指定する', '入庫すると入庫済みの数が増える'], path: '/inventory/purchase', sectionId: 'goods-receipt' },
+      { name: '入庫実績', desc: '実際に受け入れた記録。', links: ['発注に結びつく', '記録すると在庫が増える'], path: '/inventory/purchase', sectionId: 'goods-receipt' },
+      { name: '受注（出庫予定）', desc: '何をいくつ、いつ出すか。', links: ['品番・倉庫を指定する', '出庫すると出庫済みの数が増える'], path: '/inventory/shipment', sectionId: 'shipment-schedule' },
+    ],
+  },
+  {
+    id: 'stock',
+    title: '在庫',
+    lead: '入庫・出庫・移動の結果が、ここに集まります。',
+    color: '#059669',
+    cards: [
+      { name: '在庫', desc: '品番 × 倉庫 × 棚番 × 在庫用途ごとの数量。', links: ['入庫で増え、出庫で減る', '部品引当で生産用に確保される'], path: '/inventory/inquiry', sectionId: 'inventory-inquiry' },
+      { name: '入出庫履歴', desc: '在庫が動くたびに自動で残る記録。', links: ['入庫・出庫・棚の移動が対象', '後から動きをさかのぼれる'], path: '/inventory/stock-movement-history', sectionId: 'stock-movement-history' },
+    ],
+  },
+  {
+    id: 'production',
+    title: '生産',
+    lead: '製品を作るために、在庫の部品を使います。',
+    color: '#4338ca',
+    cards: [
+      { name: 'BOM（部品表）', desc: '製品1個に必要な部品と数量。', links: ['製品の品番と部品の品番を結びつける'], path: '/production/bom-master', sectionId: 'bom-master' },
+      { name: '生産計画', desc: '製品をいつ・いくつ作るか。', links: ['BOMから必要な部品が決まる'], path: '/production/plan', sectionId: 'production-plan' },
+      { name: '部品引当', desc: '計画に使う部品を在庫から確保する。', links: ['生産計画と在庫を結びつける', 'ピッキングで実際に集める'], path: '/production/material-allocation', sectionId: 'material-allocation' },
+      { name: '作業進捗', desc: '計画ごとの作業の進み具合。', links: ['生産計画に結びつく'], path: '/production/work-progress', sectionId: 'work-progress' },
+    ],
+  },
+];
+
 registerTermTarget(LANES);
+registerTermTarget(RELATIONS);
 
 const scrollToSection = (e: React.MouseEvent<HTMLAnchorElement>, id: string) => {
   e.preventDefault();
@@ -91,6 +157,42 @@ const ManualFlow: React.FC = () => (
           ))}
         </ol>
       </div>
+    ))}
+  </div>
+);
+
+/** データの関連図。どのデータが何と結びついているかを、層ごとのカードで示す。 */
+export const ManualRelations: React.FC = () => (
+  <div className={styles.flow} id="relations" role="region" aria-label="データの関連図">
+    <h2 className={styles.flowTitle}>データの関連図</h2>
+    <p className={styles.flowLead}>
+      上から下へ、先に登録するものから順に並べています。カードのタイトルを押すと、その画面を開きます。
+    </p>
+    {RELATIONS.map((layer, i) => (
+      <React.Fragment key={layer.id}>
+        {i > 0 && <div className={styles.relArrow} aria-hidden="true">↓</div>}
+        <div className={styles.flowLane} style={{ '--lane-color': layer.color } as React.CSSProperties}>
+          <h3 className={styles.flowLaneTitle}>{layer.title}<span className={styles.relLead}>{layer.lead}</span></h3>
+          <ul className={styles.relCards}>
+            {layer.cards.map((card) => (
+              <li key={card.name} className={styles.relCard}>
+                <div className={styles.relName}>
+                  {card.path ? <Link to={card.path}>{card.name}</Link> : card.name}
+                </div>
+                <div className={styles.flowHint}>{card.desc}</div>
+                <ul className={styles.relLinks}>
+                  {card.links.map((l) => <li key={l}>{l}</li>)}
+                </ul>
+                {card.sectionId && (
+                  <a href={`#${card.sectionId}`} onClick={(e) => scrollToSection(e, card.sectionId!)} className={styles.flowHelp}>
+                    説明
+                  </a>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </React.Fragment>
     ))}
   </div>
 );
