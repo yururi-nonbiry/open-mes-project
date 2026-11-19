@@ -20,7 +20,7 @@
 
 ## フロントエンド（`frontend/`）
 
-- **React 19** + **TypeScript** によるSPA。ビルドツールは**Vite 7**。
+- **React 19** + **TypeScript** によるSPA。ビルドツールは**Vite 8**。
 - **react-router-dom 7**: クライアントサイドルーティング。
 - **react-bootstrap** / **bootstrap 5**: UIコンポーネントとスタイリング。
 - **@zxing/browser** / **@zxing/library** / **html5-qrcode**: バーコード・QRコードの読み取り機能（現場でのスキャン作業を想定）。

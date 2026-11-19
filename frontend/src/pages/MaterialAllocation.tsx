@@ -213,12 +213,8 @@ const MaterialAllocationPage: React.FC = () => {
 
   // 表示対象の部品レコード
   const displayedAllocations = useMemo(() => {
-    let list: MaterialAllocation[] = [];
-    if (selectedProductKey === 'all' || !currentGroup) {
-      list = allocations;
-    } else {
-      list = currentGroup.items;
-    }
+    const list: MaterialAllocation[] =
+      selectedProductKey === 'all' || !currentGroup ? allocations : currentGroup.items;
 
     return list.filter((alloc) => {
       if (statusFilter && alloc.status !== statusFilter) return false;
