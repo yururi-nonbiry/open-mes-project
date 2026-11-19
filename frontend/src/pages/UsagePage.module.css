@@ -463,3 +463,119 @@
   padding: 0 1px;
   border-radius: 2px;
 }
+
+/* 業務の流れ図 */
+.flow {
+  margin-bottom: 1.5rem;
+  padding: 1.25rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.75rem;
+  background: #ffffff;
+  scroll-margin-top: 155px;
+}
+
+.flowTitle {
+  margin: 0 0 0.4rem;
+  font-size: 1.2rem;
+  color: #1e293b;
+}
+
+.flowLead {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  color: #475569;
+}
+
+.flowLane {
+  margin-bottom: 1rem;
+}
+
+.flowLaneTitle {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--lane-color);
+}
+
+.flowSteps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.flowStep {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  width: 148px;
+}
+
+/* 次の項目へ向かう矢印 */
+.flowStep:not(:last-child)::after {
+  content: '→';
+  position: absolute;
+  right: -1.3rem;
+  top: 0.9rem;
+  width: 1.2rem;
+  text-align: center;
+  font-weight: 700;
+  color: var(--lane-color);
+}
+
+.flowBox {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0.6rem 0.75rem;
+  border: 2px solid var(--lane-color);
+  border-radius: 0.6rem;
+  background: #ffffff;
+  color: #1e293b;
+  text-decoration: none;
+}
+
+.flowBox:hover,
+.flowBox:focus-visible {
+  background: var(--lane-color);
+  color: #ffffff;
+}
+
+.flowLabel {
+  font-weight: 700;
+}
+
+.flowHint {
+  font-size: 0.78rem;
+  opacity: 0.85;
+}
+
+.flowHelp {
+  align-self: flex-end;
+  font-size: 0.8rem;
+  color: #0369a1;
+}
+
+@media (max-width: 980px) {
+  .flowSteps {
+    flex-direction: column;
+    gap: 1.4rem;
+  }
+
+  .flowStep {
+    width: 100%;
+  }
+
+  .flowStep:not(:last-child)::after {
+    content: '↓';
+    right: auto;
+    left: 0;
+    top: auto;
+    bottom: -1.45rem;
+    width: 100%;
+  }
+}

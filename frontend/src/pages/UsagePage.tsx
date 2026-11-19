@@ -3,6 +3,7 @@ import styles from './UsagePage.module.css';
 import { NavIconName } from '../config/navigationConfig';
 import { NavIcon } from '../components/NavIcon';
 import { registerTermTarget } from '../utils/terms';
+import ManualFlow from './ManualFlow';
 import { buildQuery, findRanges, matchesQuery, normalize, type QueryToken } from '../utils/manualSearch';
 
 // 画面キャプチャは `npm run capture:manual` で public/manual/ に再生成できます
@@ -569,6 +570,9 @@ const UsagePage: React.FC = () => {
             : ''}
         </div>
       </div>
+
+      {/* 検索中は結果に集中できるよう流れ図を隠す */}
+      {!searching && <ManualFlow />}
 
       {/* 業務カテゴリ別に整理したモダンな目次ナビゲーション */}
       <nav id="toc" className={styles.toc} aria-label="使い方ガイド目次">

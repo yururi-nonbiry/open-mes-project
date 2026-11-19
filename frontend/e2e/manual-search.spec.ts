@@ -48,3 +48,14 @@ test('FE-MAN-03 使い方ガイド検索: 該当なしの案内が表示され�
   await page.getByRole('button', { name: 'クリア' }).click();
   await expect(sections(page)).toHaveCount(total);
 });
+
+test('FE-MAN-04 業務の流れ図: 項目クリックで該当画面へ移動し、検索中は図が隠れること', async ({ page }) => {
+  const flow = page.getByRole('region', { name: '業務の流れ図' });
+  await expect(flow).toBeVisible();
+  await page.locator('#manual-search').fill('パスワード');
+  await expect(flow).toBeHidden();
+  await page.getByRole('button', { name: 'クリア' }).click();
+  await expect(flow).toBeVisible();
+  await flow.getByRole('link', { name: /^入庫/ }).click();
+  await expect(page).toHaveURL(/\/inventory\/purchase$/);
+});
