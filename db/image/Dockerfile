@@ -1,1 +1,1 @@
-FROM postgres:15.10
+FROM postgres:15.20-bookworm

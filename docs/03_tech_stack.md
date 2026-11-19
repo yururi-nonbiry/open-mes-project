@@ -4,15 +4,15 @@
 
 主な実装言語はPython 3系です。主要な依存パッケージ（`backend/image/requirements.txt`）は以下の通りです。
 
-- **Django 5.2.18**: Webアプリケーションフレームワーク。今回はテンプレートレンダリングではなくREST APIサーバーとして使用しています。
-- **djangorestframework 3.15**: REST APIの実装に使用。
-- **djangorestframework-simplejwt 5.3**: JWTによる認証（アクセストークン/リフレッシュトークン、ブラックリスト機能）。
+- **Django 6.1**: Webアプリケーションフレームワーク。今回はテンプレートレンダリングではなくREST APIサーバーとして使用しています。
+- **djangorestframework 3.18**: REST APIの実装に使用。
+- **djangorestframework-simplejwt 5.5**: JWTによる認証（アクセストークン/リフレッシュトークン、ブラックリスト機能）。
 - **django-filter**: APIのクエリパラメータによる絞り込み。
 - **django-cors-headers**: フロントエンド（Vite開発サーバーや別オリジン）からのCORSリクエストを許可。
 - **django-vite**: フロントエンドのビルド成果物（`frontend/dist`）をDjango側のテンプレートから参照するための連携。
 - **django-debug-toolbar**: 開発時のデバッグツールバー。
 - **whitenoise**: 本番環境での静的ファイル配信。
-- **celery 5.4** / **redis 5.0**: 非同期タスクの実行（`worker`コンテナ）。
+- **celery 5.7** / **redis（Pythonクライアント 8.1）**: 非同期タスクの実行（`worker`コンテナ）。
 - **psycopg2-binary**: PostgreSQL用のPythonドライバ。
 - **uuid6**: モデルの主キーにUUIDv7を採番するために使用（`Inventory`, `Warehouse`, `ProductionPlan`など多くのモデルで採用）。
 - **gunicorn**: 本番環境のWSGIサーバー。
@@ -33,6 +33,6 @@
 
 ## その他
 
-- **データベース**: PostgreSQL。
+- **データベース**: PostgreSQL 15（`db/image/Dockerfile`）。
 - **キャッシュ/メッセージブローカー**: Redis（Celery用）。
 - **言語**: システムの表示言語はデフォルトで日本語（`LANGUAGE_CODE = "ja"`）、タイムゾーンは `Asia/Tokyo` です。
