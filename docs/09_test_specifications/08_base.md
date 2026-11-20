@@ -131,6 +131,27 @@
 | BASE-CSVTEMPLATE-02 | 異常系 | 同上 | 一般ユーザー | `data_type`未指定 | 400 | |
 | BASE-CSVTEMPLATE-03 | 異常系 | 同上 | 未認証 | 呼び出し | 401 | |
 
+### 5.4.1 CSV書き出し・Excel編集後の取り込み（`csv-export` action、`base/tests/test_csv_export_roundtrip.py`）
+
+Excelでの保存を、CP932・CRLF・末尾の空カンマ行・日時/数値の表示形式変換・セル内改行として再現して検証する。
+
+| ID | 種別 | 内容 | 期待結果 |
+|---|---|---|---|
+| BASE-CSVEXPORT-01 | 正常系 | 既存データを書き出す | BOM付きUTF-8、ヘッダー＋全行 |
+| BASE-CSVEXPORT-02 | 正常系 | 書き出し→Excel保存(CP932)→未編集で取込 | 全件updated、データ不変、末尾空行は件数外 |
+| BASE-CSVEXPORT-03 | 正常系 | 「CSV UTF-8」で保存して取込 | 編集内容が反映される |
+| BASE-CSVEXPORT-04 | 正常系 | 1行の2セルだけ編集して取込 | その行の該当列のみ更新(セル内改行は保持)、他行は不変 |
+| BASE-CSVEXPORT-05 | 正常系 | 変更行・変更列のみのCSVを取込 | 指定した行・列のみ更新、他は不変 |
+| BASE-CSVEXPORT-06 | 正常系 | Excelで行を追加して取込 | 新規作成される |
+| BASE-CSVEXPORT-07 | 正常系 | `1,000` / `1.00E+03` / 全角数字 / `7.0` | 整数として解釈 |
+| BASE-CSVEXPORT-08 | 異常系 | 整数項目に `2.5` / `abc` | 行ごとにエラー、他は継続 |
+| BASE-CSVEXPORT-09 | 異常系 | 空行・カンマだけの行を挟んだエラー行 | エラー行番号がExcelの行番号と一致 |
+| BASE-CSVEXPORT-10 | 異常系 | ヘッダーが全く一致しない | ヘッダー不一致のエラー |
+| BASE-CSVEXPORT-11 | 正常系 | ヘッダーの前後に空白 | 照合できる |
+| BASE-CSVEXPORT-12 | 正常系 | 単価の桁区切り、日時の `2025/1/5 9:00` 形式 | 値が変わらず取り込まれる |
+| BASE-CSVEXPORT-13 | 異常系 | UTF-8/CP932どちらでもない | 文字コードエラー |
+| BASE-CSVEXPORT-14 | 異常系 | `data_type`未指定・対象外・マッピング無し・未認証 | 400 / 400 / 400 / 401 |
+
 ### 5.5 CSVインポート・非同期タスク（`import-csv`/`csv-import-status`/`csv-import-cancel`、Celeryはモック）
 
 | ケースID | 分類 | 対象 | 前提条件 | 手順・入力 | 期待結果 | 備考 |

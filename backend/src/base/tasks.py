@@ -1,7 +1,9 @@
 import csv
 import io
 import os
+import unicodedata
 from datetime import datetime
+from decimal import Decimal, InvalidOperation
 
 from celery import shared_task
 from celery.exceptions import SoftTimeLimitExceeded
@@ -12,6 +14,7 @@ from django.utils import timezone
 
 from master.models import StockPurpose, WorkCenter
 
+from .csv_io import decode_csv_bytes
 from .feature_settings import apply_terms
 from .model_utils import CSV_IMPORT_FK_ALIASES
 from .models import DATA_TYPE_MODEL_MAPPING, AsyncTask, CsvColumnMapping
@@ -36,6 +39,15 @@ DATE_FORMATS = (
 )
 
 
+def _normalize_number(value):
+    """Excel保存で変わりうる数値表記を、Decimalで解釈できる文字列に揃える。"""
+    text = unicodedata.normalize("NFKC", value).replace(",", "").replace(" ", "")
+    try:
+        return str(Decimal(text))
+    except InvalidOperation:
+        raise ValueError("数値ではありません。")
+
+
 def _convert_value(field_obj, value):
     if isinstance(field_obj, (models.DateTimeField, models.DateField)):
         for fmt in DATE_FORMATS:
@@ -50,10 +62,17 @@ def _convert_value(field_obj, value):
             # USE_TZ=True のため、タイムゾーン無しの日時はプロジェクトのタイムゾーンとして解釈する
             return timezone.make_aware(parsed) if timezone.is_naive(parsed) else parsed
         return parsed.date()
-    if isinstance(field_obj, (models.IntegerField, models.PositiveIntegerField)):
-        return int(float(value))
     if isinstance(field_obj, models.BooleanField):
         return value.lower() in ["true", "1", "yes", "t", "はい"]
+    if isinstance(field_obj, (models.IntegerField, models.PositiveIntegerField)):
+        number = _normalize_number(value)
+        as_decimal = Decimal(number)
+        if as_decimal != as_decimal.to_integral_value():
+            raise ValueError("整数ではありません。")
+        return int(as_decimal)
+    if isinstance(field_obj, (models.DecimalField, models.FloatField)):
+        # Excelの桁区切り(1,000)・指数表記(1.00E+05)・全角数字を許容して正規化する
+        return _normalize_number(value)
     return value
 
 
@@ -145,21 +164,31 @@ def import_csv_task(self, data_type, file_path):
                     continue
                 raise Exception(f"マッピング設定の項目 '{model_field_name}' は {model_string} に存在しません。")
 
-        with open(file_path, "r", encoding="utf-8-sig") as f:
-            content = f.read()
+        with open(file_path, "rb") as f:
+            content = decode_csv_bytes(f.read())
 
-        # ファイルの行数をカウントしてtotalを設定
-        total_rows = len(content.splitlines()) - 1  # ヘッダーを除く
+        # Excelで編集・保存したCSVにはセル内改行や末尾の空行が含まれうるため、
+        # 行数はcsvモジュールで数える(空行は取込対象にも件数にも含めない)。
+        reader = csv.DictReader(io.StringIO(content, newline=""))
+        reader.fieldnames = [(h or "").strip() for h in (reader.fieldnames or [])]
+        if not set(reader.fieldnames) & set(header_to_model_map):
+            raise Exception(
+                "CSVのヘッダー行がマッピング設定の列名と一致しません。"
+                f"(想定: {', '.join(header_to_model_map)} / 実際: {', '.join(reader.fieldnames) or '空'})"
+            )
+        # (Excelで見える行番号, 行データ)。空行を飛ばしてもエラー報告の行番号がずれないようにする。
+        rows = [
+            (reader.line_num, r) for r in reader if any((v or "").strip() for v in r.values() if isinstance(v, str))
+        ]
+        total_rows = len(rows)
         task.total = total_rows
         task.save()
-
-        reader = csv.DictReader(io.StringIO(content))
 
         created_count = 0
         updated_count = 0
         errors_list = []
 
-        for i, row in enumerate(reader, start=1):
+        for i, (line_no, row) in enumerate(rows, start=1):
             if _is_revoked(task_id):
                 return {"status": "REVOKED", "message": "タスクがキャンセルされました。"}
 
@@ -177,7 +206,7 @@ def import_csv_task(self, data_type, file_path):
                     row_specific_errors.append(f"フィールド '{csv_header}' の値 '{value}' は型が不正です: {e}")
 
             if row_specific_errors:
-                errors_list.append(f"行 {i + 1}: {'; '.join(row_specific_errors)}")
+                errors_list.append(f"行 {line_no}: {'; '.join(row_specific_errors)}")
             else:
                 update_kwargs = {
                     key: model_data.pop(key)
@@ -186,7 +215,7 @@ def import_csv_task(self, data_type, file_path):
                 }
                 if len(update_kwargs) != len(update_keys_model):
                     errors_list.append(
-                        f"行 {i + 1}: 上書きキー ({', '.join(update_keys_model)}) の値が空、または見つかりません。"
+                        f"行 {line_no}: 上書きキー ({', '.join(update_keys_model)}) の値が空、または見つかりません。"
                     )
                 else:
                     defaults_data = {k: v for k, v in model_data.items() if v is not None}
@@ -209,7 +238,7 @@ def import_csv_task(self, data_type, file_path):
                         else:
                             updated_count += 1
                     except Exception as e:
-                        errors_list.append(f"行 {i + 1} ({update_kwargs}): データベース保存エラー - {e}")
+                        errors_list.append(f"行 {line_no} ({update_kwargs}): データベース保存エラー - {e}")
 
             task.progress = i
             task.save(update_fields=["progress", "updated_at"])

@@ -21,7 +21,9 @@ from security.audit import log_event
 from security.models import AccessLog
 
 from . import feature_settings
+from .csv_io import build_export_csv, format_export_value
 from .model_utils import CSV_IMPORT_FK_ALIASES, fk_alias_name
+from .models import DATA_TYPE_MODEL_MAPPING as CSV_DATA_TYPE_MODELS
 from .models import AsyncTask, CsvColumnMapping, ModelDisplaySetting, QrCodeAction
 from .responses import VALIDATION_ERROR_MESSAGE, error_response
 from .serializers import CsvColumnMappingSerializer, ModelDisplaySettingSerializer, QrCodeActionSerializer
@@ -321,7 +323,7 @@ class CsvColumnMappingViewSet(AuditSettingsChangeMixin, IntegrityErrorAsBadReque
         アクションに応じてパーミッションを動的に設定する。
         'csv_template'アクションは認証済みユーザーなら誰でもアクセス可能とする。
         """
-        if self.action in ["csv_template", "import_csv", "get_task_status", "cancel_task"]:
+        if self.action in ["csv_template", "csv_export", "import_csv", "get_task_status", "cancel_task"]:
             return [permissions.IsAuthenticated()]
         return super().get_permissions()
 
@@ -348,6 +350,36 @@ class CsvColumnMappingViewSet(AuditSettingsChangeMixin, IntegrityErrorAsBadReque
 
         response = HttpResponse(csv_data, content_type="text/csv; charset=utf-8-sig")
         response["Content-Disposition"] = f'attachment; filename="{data_type}_template.csv"'
+        return response
+
+    @action(detail=False, methods=["get"], url_path="csv-export")
+    def csv_export(self, request, *args, **kwargs):
+        """
+        指定されたデータ種別の既存データをCSVで書き出す。
+        列はテンプレートCSVと同じ(有効なマッピングの順)で、そのまま編集して取り込み直せる。
+        取り込みは上書きキーで照合するため、変更したい行・列だけを残して取り込む部分修正もできる。
+        """
+        data_type = request.query_params.get("data_type")
+        if not data_type:
+            return error_response('Query parameter "data_type" is required.')
+
+        model_string = CSV_DATA_TYPE_MODELS.get(data_type)
+        if not model_string:
+            return error_response(f'"{data_type}" は書き出し対象外のデータ種別です。')
+        mappings = list(CsvColumnMapping.objects.filter(data_type=data_type, is_active=True).order_by("order"))
+        if not mappings:
+            return error_response(f'"{data_type}" に有効なCSVマッピング設定がありません。')
+
+        model = apps.get_model(*model_string.split("."))
+        # 外部キーの別名(用途コード等)は getattr で値(コード)を取れる。存在しない項目は空欄にする。
+        rows = (
+            [format_export_value(getattr(obj, m.model_field_name, None)) for m in mappings]
+            for obj in model.objects.order_by("pk").iterator()
+        )
+        csv_data = build_export_csv(rows, [m.csv_header for m in mappings])
+
+        response = HttpResponse(csv_data, content_type="text/csv; charset=utf-8-sig")
+        response["Content-Disposition"] = f'attachment; filename="{data_type}_export.csv"'
         return response
 
     @action(detail=False, methods=["post"], url_path="import-csv")

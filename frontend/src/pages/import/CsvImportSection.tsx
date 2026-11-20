@@ -22,24 +22,38 @@ const CsvImportSection: React.FC<CsvImportSectionProps> = ({
     const [templateError, setTemplateError] = useState('');
 
     // JWT認証のため単純なリンクでは認証ヘッダーが付かない。fetchで取得してBlobとして保存する。
-    const handleTemplateDownload = async (e: React.MouseEvent) => {
-        e.preventDefault();
+    const downloadCsv = async (url: string, filename: string, failureMessage: string) => {
         setTemplateError('');
         try {
-            const response = await authFetch(csvTemplateUrl);
+            const response = await authFetch(url);
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const blob = await response.blob();
-            const url = URL.createObjectURL(blob);
+            const objectUrl = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url;
-            a.download = `${csvDataType}_template.csv`;
+            a.href = objectUrl;
+            a.download = filename;
             document.body.appendChild(a);
             a.click();
             a.remove();
-            URL.revokeObjectURL(url);
+            URL.revokeObjectURL(objectUrl);
         } catch (err) {
-            setTemplateError(`テンプレートのダウンロードに失敗しました (${(err as Error).message})`);
+            setTemplateError(`${failureMessage} (${(err as Error).message})`);
         }
+    };
+
+    const handleTemplateDownload = (e: React.MouseEvent) => {
+        e.preventDefault();
+        return downloadCsv(csvTemplateUrl, `${csvDataType}_template.csv`, 'テンプレートのダウンロードに失敗しました');
+    };
+
+    // 既存データ入りのCSV。編集して取り込み直すと上書きキーが一致する行が更新される(部分修正)。
+    const handleExportDownload = (e: React.MouseEvent) => {
+        e.preventDefault();
+        return downloadCsv(
+            `/api/base/csv-mappings/csv-export/?data_type=${encodeURIComponent(csvDataType)}`,
+            `${csvDataType}_export.csv`,
+            '既存データの書き出しに失敗しました',
+        );
     };
 
     const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -68,7 +82,13 @@ const CsvImportSection: React.FC<CsvImportSectionProps> = ({
     return (
         <div className="mt-5">
             <h3>CSVデータ一括登録</h3>
-            <p className="text-muted">登録したいデータの種類を選択し、CSVファイルをアップロードしてください。</p>
+            <p className="text-muted">
+                登録したいデータの種類を選択し、CSVファイルをアップロードしてください。
+                「既存データをCSVで書き出し」で出力したCSVを編集して取り込むと、品番などのキーが一致する行が更新されます。
+                変更したい行・列だけを残して取り込むこともでき、空欄のセルは現在の値のまま変更されません。
+                Excelで編集する場合は「CSV (コンマ区切り)」または「CSV UTF-8」で保存してください。
+                品番などの先頭の0が消える列は、Excelでセルの書式を「文字列」にしてから入力してください。
+            </p>
             <Card className="shadow-sm border-0">
                 <Card.Body>
                     <Form onSubmit={handleSubmit}>
@@ -102,6 +122,8 @@ const CsvImportSection: React.FC<CsvImportSectionProps> = ({
                         {csvTemplateUrl && (
                             <div className="mt-2 text-end">
                                 <a href={csvTemplateUrl} onClick={handleTemplateDownload} className="small text-decoration-none">テンプレートCSVのダウンロード</a>
+                                <span className="text-muted mx-2">|</span>
+                                <a href="#export" onClick={handleExportDownload} className="small text-decoration-none">既存データをCSVで書き出し</a>
                                 {templateError && <div className="small text-danger">{templateError}</div>}
                             </div>
                         )}
