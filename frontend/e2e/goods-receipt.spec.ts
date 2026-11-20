@@ -7,12 +7,15 @@ import {
   createPurchaseOrder,
   deleteUnreceivedPurchaseOrders,
   getDisplaySettings,
+  getItemDefaultLocation,
   getPurchaseOrder,
+  isRegisterDefaultLocationConfirmEnabled,
   login,
   newApiContext,
   newRunId,
   requireEnv,
   saveDisplaySettings,
+  setItemDefaultLocation,
   type DisplaySetting,
   type PurchaseOrder,
   type Tokens,
@@ -32,6 +35,8 @@ const PREFIX = 'E2E-GR-';
 // 一覧は入荷予定日の昇順で並ぶため、十分に古い日付にして1ページ目の先頭に来るようにする
 const EXPECTED_ARRIVAL = '2000-01-01T00:00:00+09:00';
 const ORDER_COUNT = 30; // 1ページ(25件)を超える件数
+// デフォルト入庫棚番の登録確認(FE-GR-16〜18)専用の品番。他のテストの入庫で未登録確認が出ないよう、E2E_ITEM_CODE は登録済みにしておく
+const DEFAULT_LOCATION_ITEM = 'E2E-GR-DEF-PC';
 
 const DEFAULT_HEADERS = ['発注番号', '仕入先', '品番・品目', '品名', '入庫倉庫', '棚番', '発注数', '入庫済', '未入庫残', '入荷予定日', '状態', '入庫・操作'];
 
@@ -105,6 +110,8 @@ test.beforeAll(async () => {
     purchase_order: await getDisplaySettings(api, 'purchase_order'),
     goods_receipt: await getDisplaySettings(api, 'goods_receipt'),
   };
+
+  await setItemDefaultLocation(api, E2E_ITEM_CODE, 'E2E-LOC');
 
   // 前回の実行が途中で終わった場合に残る未入庫のテストデータを片付けてから作成する
   await deleteUnreceivedPurchaseOrders(api, PREFIX);
@@ -441,4 +448,71 @@ test('FE-GR-13 一部入庫の入庫予定は、残数量を追加で入庫で�
   const saved = await getPurchaseOrder(api, order.id);
   expect(saved.received_quantity).toBe(10);
   expect(saved.status).toBe('fully_received');
+});
+
+// ---- デフォルト入庫棚番の登録確認(FE-GR-16〜18) ----
+const confirmDialog = (page: Page) => page.getByRole('dialog').filter({ hasText: 'デフォルト入庫棚番の登録' });
+
+/** 品番のデフォルト入庫棚番を指定値にして、その品番の入庫予定を作成し、入庫モーダルを開く。 */
+async function openReceiptModalFor(page: Page, defaultLocation: string) {
+  test.skip(!(await isRegisterDefaultLocationConfirmEnabled(api)), '機能設定「デフォルト入庫棚番の登録確認」がOFFのため');
+  await setItemDefaultLocation(api, DEFAULT_LOCATION_ITEM, defaultLocation);
+  const order = await createPurchaseOrder(api, {
+    order_number: `${PREFIX}${newRunId()}-D${Math.floor(Math.random() * 90 + 10)}`,
+    product_name: 'E2Eデフォルト棚番確認品',
+    expected_arrival: EXPECTED_ARRIVAL,
+    part_number: DEFAULT_LOCATION_ITEM,
+  });
+  await setSettings(CUSTOM_SETTINGS);
+  await openPage(page);
+  const row = await searchOrder(page, order.order_number);
+  await row.getByRole('button', { name: '入庫処理', exact: true }).click();
+  await expect(modal(page).locator('.mes-modal-title')).toHaveText('入庫処理の登録');
+  return order;
+}
+
+test('FE-GR-16 デフォルト入庫棚番が未登録の品番を入庫すると確認モーダルが表示され、「登録して入庫」で登録されること', async ({ page }) => {
+  const order = await openReceiptModalFor(page, '');
+  await modal(page).getByRole('button', { name: '入庫を確定する' }).click();
+
+  const dialog = confirmDialog(page);
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText(`品番「${DEFAULT_LOCATION_ITEM}」のデフォルト入庫棚番が未登録です。`);
+  await expect(dialog).toContainText('「E2E-LOC」をデフォルト入庫棚番として登録しますか？');
+  // 確認が済むまで入庫は実行されない
+  expect((await getPurchaseOrder(api, order.id)).received_quantity).toBe(0);
+
+  await dialog.getByRole('button', { name: '登録して入庫' }).click();
+  await expect(dialog).toBeHidden();
+  await expect(modal(page).locator('.alert-success')).toContainText('デフォルト入庫棚番に「E2E-LOC」を登録しました。');
+
+  expect((await getPurchaseOrder(api, order.id)).received_quantity).toBe(10);
+  expect(await getItemDefaultLocation(api, DEFAULT_LOCATION_ITEM)).toBe('E2E-LOC');
+});
+
+test('FE-GR-17 確認モーダルで「登録しないで入庫」を選ぶと、入庫のみ実行されデフォルト入庫棚番は登録されないこと', async ({ page }) => {
+  const order = await openReceiptModalFor(page, '');
+  await modal(page).getByRole('button', { name: '入庫を確定する' }).click();
+
+  const dialog = confirmDialog(page);
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: '登録しないで入庫' }).click();
+  await expect(dialog).toBeHidden();
+  await expect(modal(page).locator('.alert-success')).toContainText('入庫処理が完了し、在庫へ反映されました。');
+  await expect(modal(page).locator('.alert-success')).not.toContainText('デフォルト入庫棚番に');
+
+  expect((await getPurchaseOrder(api, order.id)).received_quantity).toBe(10);
+  expect(await getItemDefaultLocation(api, DEFAULT_LOCATION_ITEM)).toBe('');
+});
+
+test('FE-GR-18 デフォルト入庫棚番が登録済みの品番を入庫する場合、確認モーダルが表示されないこと', async ({ page }) => {
+  const order = await openReceiptModalFor(page, 'E2E-REGISTERED');
+  await modal(page).getByRole('button', { name: '入庫を確定する' }).click();
+
+  await expect(modal(page).locator('.alert-success')).toContainText('入庫処理が完了し、在庫へ反映されました。');
+  await expect(confirmDialog(page)).toHaveCount(0);
+
+  expect((await getPurchaseOrder(api, order.id)).received_quantity).toBe(10);
+  // 登録済みの棚番は上書きされない
+  expect(await getItemDefaultLocation(api, DEFAULT_LOCATION_ITEM)).toBe('E2E-REGISTERED');
 });

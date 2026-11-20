@@ -232,22 +232,15 @@ const inventoryService = {
             '設定の保存に失敗しました。'
         ),
 
-    /**
-     * 入庫時に、入庫した棚番を品番のデフォルト入庫棚番として登録するか確認する。
-     * 確認が不要(設定OFF・棚番なし・既に登録済み)な場合や、登録しない場合は false を返す。
-     */
-    confirmRegisterDefaultLocation: async (
-        order: { part_number?: string | null; item_default_location?: string | null },
+    /** デフォルト入庫棚番の登録確認が必要か(棚番入力あり・品番のデフォルト未登録・機能設定ON)を返す。 */
+    shouldConfirmRegisterDefaultLocation: async (
+        order: { item_default_location?: string | null },
         location: string
     ): Promise<boolean> => {
         // item_default_location: null=品番なし、''=未登録、それ以外=登録済み
         if (!location || order.item_default_location !== '') return false;
         const options = await inventoryService.getFeatureOptions();
-        if (!options.confirm_register_default_location) return false;
-        return window.confirm(
-            `品番「${order.part_number ?? ''}」のデフォルト入庫棚番が未登録です。\n` +
-            `今回の棚番「${location}」をデフォルト入庫棚番として登録しますか？`
-        );
+        return !!options.confirm_register_default_location;
     },
 
     /** 入庫予定の納品日・納品数の更新(記録のみで在庫には反映しない)。失敗時は ApiError を送出する。 */

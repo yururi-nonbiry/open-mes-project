@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Modal, Button, Spinner, Alert } from 'react-bootstrap';
 import { useStockPurposes } from '../hooks/useStockPurposes';
 import { useScheduleDateDefaults } from '../hooks/useScheduleDateDefaults';
@@ -95,6 +95,20 @@ const GoodsReceiptContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefau
   });
 
   // 納品記録モーダル
+  // デフォルト入庫棚番の登録確認モーダル(OK/キャンセルの結果を Promise で返す)
+  const [defaultLocationConfirm, setDefaultLocationConfirm] = useState<{ partNumber: string; location: string } | null>(null);
+  const defaultLocationResolver = useRef<((value: boolean) => void) | null>(null);
+  const askRegisterDefaultLocation = (partNumber: string, location: string) =>
+    new Promise<boolean>(resolve => {
+      defaultLocationResolver.current = resolve;
+      setDefaultLocationConfirm({ partNumber, location });
+    });
+  const answerRegisterDefaultLocation = (value: boolean) => {
+    defaultLocationResolver.current?.(value);
+    defaultLocationResolver.current = null;
+    setDefaultLocationConfirm(null);
+  };
+
   const [deliveryModal, setDeliveryModal] = useState<{
     isOpen: boolean;
     order: PurchaseOrderRow | null;
@@ -289,10 +303,9 @@ const GoodsReceiptContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefau
     const targetOrder = receiptModal.order;
     if (!targetOrder) return;
     const location = receiptFormData.location.trim();
-    const registerDefaultLocation = await inventoryService.confirmRegisterDefaultLocation(
-      targetOrder,
-      location
-    );
+    const registerDefaultLocation =
+      (await inventoryService.shouldConfirmRegisterDefaultLocation(targetOrder, location)) &&
+      (await askRegisterDefaultLocation(targetOrder.part_number ?? '', location));
 
     try {
       const result = await inventoryService.receivePurchaseOrder({
@@ -822,6 +835,36 @@ const GoodsReceiptContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefau
             </Button>
           </Modal.Footer>
         </form>
+      </Modal>
+
+      {/* デフォルト入庫棚番の登録確認 */}
+      <Modal
+        show={defaultLocationConfirm !== null}
+        onHide={() => answerRegisterDefaultLocation(false)}
+        centered
+        backdrop="static"
+        className="mes-clean-modal"
+        style={{ zIndex: 1100 }}
+      >
+        <Modal.Header closeButton className="mes-modal-header">
+          <Modal.Title className="mes-modal-title">デフォルト入庫棚番の登録</Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="mes-modal-body">
+          <p className="mb-2">
+            品番「{defaultLocationConfirm?.partNumber}」のデフォルト入庫棚番が未登録です。
+          </p>
+          <p className="mb-0">
+            今回の棚番「<strong>{defaultLocationConfirm?.location}</strong>」をデフォルト入庫棚番として登録しますか？
+          </p>
+        </Modal.Body>
+        <Modal.Footer className="mes-modal-footer">
+          <Button variant="outline-secondary" onClick={() => answerRegisterDefaultLocation(false)}>
+            登録しないで入庫
+          </Button>
+          <Button variant="primary" onClick={() => answerRegisterDefaultLocation(true)} autoFocus>
+            登録して入庫
+          </Button>
+        </Modal.Footer>
       </Modal>
 
       {/* 納品記録（受領メモ）の編集ポップアップ */}

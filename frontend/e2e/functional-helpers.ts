@@ -88,7 +88,7 @@ export async function saveDisplaySettings(api: APIRequestContext, dataType: stri
 
 export async function createPurchaseOrder(
   api: APIRequestContext,
-  fields: { order_number: string; product_name: string; expected_arrival: string; quantity?: number },
+  fields: { order_number: string; product_name: string; expected_arrival: string; quantity?: number; part_number?: string },
 ): Promise<PurchaseOrder> {
   const response = await api.post('/api/inventory/purchase-orders/', {
     data: {
@@ -131,4 +131,42 @@ export async function deleteUnreceivedPurchaseOrders(api: APIRequestContext, pre
 /** 実行ごとに一意な発注番号の一部(6桁)。発注番号は最大20文字のため短くしている。 */
 export function newRunId(): string {
   return Date.now().toString(36).slice(-6).toUpperCase();
+}
+
+type MasterItem = { id: string | number; code: string; default_location: string | null };
+
+/** 品目一覧は { data: [...] } 形式(ページ分割なし)で返る。 */
+async function findItem(api: APIRequestContext, code: string): Promise<MasterItem | undefined> {
+  const response = await api.get('/api/master/items/');
+  expect(response.ok()).toBeTruthy();
+  const body = await response.json();
+  const list: MasterItem[] = Array.isArray(body) ? body : body.data;
+  return list.find((i) => i.code === code);
+}
+
+/**
+ * 品目マスタのデフォルト入庫棚番を指定値にする(品目が無ければ作成する。空文字で未登録の状態)。
+ * 入庫時の「デフォルト入庫棚番の登録確認」は、未登録の品番にだけ表示される。
+ */
+export async function setItemDefaultLocation(api: APIRequestContext, code: string, defaultLocation: string) {
+  const item = await findItem(api, code);
+  const response = item
+    ? await api.patch(`/api/master/items/${item.id}/`, { data: { default_location: defaultLocation } })
+    : await api.post('/api/master/items/', {
+        data: { code, name: code, item_type: 'material', unit: '個', default_location: defaultLocation },
+      });
+  expect(response.ok(), `品目 ${code} のデフォルト入庫棚番を ${defaultLocation || '(未登録)'} にできること`).toBeTruthy();
+}
+
+export async function getItemDefaultLocation(api: APIRequestContext, code: string): Promise<string> {
+  const item = await findItem(api, code);
+  expect(item, `品目 ${code} が存在すること`).toBeTruthy();
+  return item!.default_location ?? '';
+}
+
+/** 機能設定「デフォルト入庫棚番の登録確認」がONか。 */
+export async function isRegisterDefaultLocationConfirmEnabled(api: APIRequestContext): Promise<boolean> {
+  const response = await api.get('/api/base/feature-options/');
+  expect(response.ok()).toBeTruthy();
+  return (await response.json()).confirm_register_default_location === true;
 }

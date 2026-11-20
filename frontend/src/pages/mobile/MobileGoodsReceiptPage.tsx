@@ -20,6 +20,20 @@ import type { CameraState, QrActionResponse, ScanTargetSetter } from './mobileTy
 const remainingOf = (order: PurchaseOrderRow) => (order.quantity ?? 0) - (order.received_quantity ?? 0);
 
 const MobileGoodsReceiptPageContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefaults }) => {
+  // デフォルト入庫棚番の登録確認モーダル(結果を Promise で返す)
+  const [defaultLocationConfirm, setDefaultLocationConfirm] = useState<{ partNumber: string; location: string } | null>(null);
+  const defaultLocationResolver = useRef<((value: boolean) => void) | null>(null);
+  const askRegisterDefaultLocation = (partNumber: string, location: string) =>
+    new Promise<boolean>(resolve => {
+      defaultLocationResolver.current = resolve;
+      setDefaultLocationConfirm({ partNumber, location });
+    });
+  const answerRegisterDefaultLocation = (value: boolean) => {
+    defaultLocationResolver.current?.(value);
+    defaultLocationResolver.current = null;
+    setDefaultLocationConfirm(null);
+  };
+
   // State for purchase orders, loading/error status
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrderRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -185,7 +199,9 @@ const MobileGoodsReceiptPageContent = ({ dateDefaults }: { dateDefaults: Schedul
 
     if (!selectedOrder) return;
     const location = receiptFormData.location.trim();
-    const registerDefaultLocation = await inventoryService.confirmRegisterDefaultLocation(selectedOrder, location);
+    const registerDefaultLocation =
+      (await inventoryService.shouldConfirmRegisterDefaultLocation(selectedOrder, location)) &&
+      (await askRegisterDefaultLocation(selectedOrder.part_number ?? '', location));
 
     try {
       const result = await inventoryService.receivePurchaseOrder({
@@ -322,6 +338,21 @@ const MobileGoodsReceiptPageContent = ({ dateDefaults }: { dateDefaults: Schedul
         </div>
       )}
       {renderReceiptForm()}
+
+      {/* デフォルト入庫棚番の登録確認 */}
+      {defaultLocationConfirm && (
+        <div className="mobile-receipt-modal-overlay" style={{ zIndex: 1100 }} role="dialog" aria-modal="true">
+          <div className="mobile-receipt-modal-content">
+            <h5 className="mb-3">デフォルト入庫棚番の登録</h5>
+            <p className="mb-2">品番「{defaultLocationConfirm.partNumber}」のデフォルト入庫棚番が未登録です。</p>
+            <p className="mb-0">今回の棚番「<strong>{defaultLocationConfirm.location}</strong>」をデフォルト入庫棚番として登録しますか？</p>
+            <div className="d-grid gap-2 mt-4">
+              <button type="button" className="btn btn-primary" onClick={() => answerRegisterDefaultLocation(true)}>登録して入庫</button>
+              <button type="button" className="btn btn-secondary" onClick={() => answerRegisterDefaultLocation(false)}>登録しないで入庫</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Camera View */}
       {cameraState.isOpen && (

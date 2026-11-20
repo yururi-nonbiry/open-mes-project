@@ -18,6 +18,8 @@ from inventory.models import Inventory, PurchaseOrder, Receipt, SalesOrder, Stoc
 from master.models import Item, StockPurpose, Supplier, Warehouse
 
 ITEM_CODE = "E2E-GR-ITEM"
+# デフォルト入庫棚番の登録確認(FE-GR-16〜18 / FE-GRM-06〜08)用の品番。テスト自身がAPIで作成するため seed では投入せず、cleanup でのみ削除する
+DEFAULT_LOCATION_ITEM_CODES = ("E2E-GR-DEF-PC", "E2E-GR-DEF-MB")
 WAREHOUSE_NUMBER = "E2E-WH"
 SUPPLIER_NUMBER = "E2E-SUP"
 # 出庫処置画面のE2E(goods-issue.spec.ts)で用途(車種)として使うマスタ
@@ -30,7 +32,9 @@ ORDER_NUMBER_PREFIXES = ("E2E-GR-", "E2E-GM-", "E2E-GI-")
 
 def seed():
     Item.objects.get_or_create(
-        code=ITEM_CODE, defaults={"name": "E2E入庫テスト品", "item_type": "material", "unit": "個"}
+        code=ITEM_CODE,
+        # 入庫時の「デフォルト入庫棚番の登録確認」が出ないよう、デフォルト入庫棚番を登録済みにしておく
+        defaults={"name": "E2E入庫テスト品", "item_type": "material", "unit": "個", "default_location": "E2E-LOC"},
     )
     Warehouse.objects.get_or_create(warehouse_number=WAREHOUSE_NUMBER, defaults={"name": "E2Eテスト倉庫"})
     Supplier.objects.get_or_create(supplier_number=SUPPLIER_NUMBER, defaults={"name": "E2Eテスト仕入先"})
@@ -39,6 +43,7 @@ def seed():
 
 
 def cleanup():
+    ITEM_CODES = (ITEM_CODE, *DEFAULT_LOCATION_ITEM_CODES)
     with transaction.atomic():
         orders = PurchaseOrder.objects.none()
         for prefix in ORDER_NUMBER_PREFIXES:
@@ -47,10 +52,10 @@ def cleanup():
             "sales_orders": SalesOrder.objects.filter(order_number__startswith=SALES_ORDER_PREFIX).delete()[0],
             "receipts": Receipt.objects.filter(purchase_order__in=orders).delete()[0],
             "purchase_orders": orders.delete()[0],
-            "stock_movements": StockMovement.objects.filter(part_number_rel_id=ITEM_CODE).delete()[0],
-            "inventories": Inventory.objects.filter(part_number_rel_id=ITEM_CODE).delete()[0],
+            "stock_movements": StockMovement.objects.filter(part_number_rel_id__in=ITEM_CODES).delete()[0],
+            "inventories": Inventory.objects.filter(part_number_rel_id__in=ITEM_CODES).delete()[0],
             "purposes": StockPurpose.objects.filter(code=PURPOSE_CODE).delete()[0],
-            "items": Item.objects.filter(code=ITEM_CODE).delete()[0],
+            "items": Item.objects.filter(code__in=ITEM_CODES).delete()[0],
             "warehouses": Warehouse.objects.filter(warehouse_number=WAREHOUSE_NUMBER).delete()[0],
             "suppliers": Supplier.objects.filter(supplier_number=SUPPLIER_NUMBER).delete()[0],
         }
