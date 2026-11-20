@@ -119,3 +119,18 @@ class ModelDisplaySettingBulkSaveTests(BaseAPITestBase):
         self.client.force_authenticate(user=self.user)
         response = self.client.post(f"{self.url}?data_type=item", [], format="json")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_base_mdsbulk_03_allocation_screen_columns_saved_and_listed_by_normal_user(self):
+        """モデルを持たない部品引当画面(production_allocation)の列設定を保存でき、一般ユーザーも参照できる。"""
+        payload = [
+            {"model_field_name": "part_code", "display_name": "部品", "display_order": 20, "is_list_display": True},
+            {"model_field_name": "unit", "display_name": "単位", "display_order": 10, "is_list_display": False},
+        ]
+        response = self.client.post(f"{self.url}?data_type=production_allocation", payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.client.force_authenticate(user=self.user)
+        listed = self.client.get(reverse("base_api:model-display-setting-list"), {"data_type": "production_allocation"})
+        self.assertEqual(listed.status_code, status.HTTP_200_OK)
+        by_name = {r["model_field_name"]: r for r in listed.data}
+        self.assertEqual(by_name["part_code"]["display_name"], "部品")
+        self.assertFalse(by_name["unit"]["is_list_display"])

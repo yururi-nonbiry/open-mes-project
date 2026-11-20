@@ -204,6 +204,7 @@ Excelでの保存を、CP932・CRLF・末尾の空カンマ行・日時/数値�
 | BASE-MDS-11 | 正常系 | `POST model-display-settings/` | 管理者 | `data_type="stock_movement"`, `model_field_name="movement_date"` | 201、`verbose_name`が「移動日時」 | 入出庫履歴は`models.DATA_TYPE_MODEL_MAPPING`に無いため、シリアライザ側で対象モデルを補っている |
 | BASE-MDSBULK-01 | 正常系 | `POST model-display-settings/bulk-save/?data_type=item` | 管理者、既存設定が存在 | 一括保存 | 200、既存分は削除され新しい内容に置き換わる | |
 | BASE-MDSBULK-02 | 異常系 | 同上 | 一般ユーザー | 呼び出し | 403 | |
+| BASE-MDSBULK-03 | 正常系 | `POST model-display-settings/bulk-save/?data_type=production_allocation` | 管理者。モデルを持たない部品引当画面の列設定 | 列設定を一括保存し、一般ユーザーで一覧取得 | 200、保存した表示名・表示可否・順序が一般ユーザーにも参照できる | |
 
 ### 5.9 エラー応答形式の統一（`base.responses.api_exception_handler`、`base/tests/test_error_responses.py`）
 

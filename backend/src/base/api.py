@@ -178,7 +178,10 @@ class HealthCheckView(APIView):
 
 
 class ModelDisplaySettingFilter(django_filters.FilterSet):
-    data_type = django_filters.ChoiceFilter(choices=[(k, k) for k in DATA_TYPE_MODEL_MAPPING.keys()])
+    # production_allocation は対応するモデルを持たない画面(部品引当画面)の列設定
+    data_type = django_filters.ChoiceFilter(
+        choices=[(k, k) for k in [*DATA_TYPE_MODEL_MAPPING.keys(), "production_allocation"]]
+    )
 
     class Meta:
         model = ModelDisplaySetting

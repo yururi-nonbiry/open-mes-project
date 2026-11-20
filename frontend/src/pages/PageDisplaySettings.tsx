@@ -6,6 +6,7 @@ import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import authFetch, { describeError, toApiError } from '../utils/api';
 import type { PageDisplayRow, ModelDisplaySettingRecord, ModelFieldInfo, SaveStatus, BulkSaveResult, FieldChangeEvent } from './types/displaySettings';
 import { registerTermTarget } from '../utils/terms';
+import { ALLOCATION_COLUMNS, ALLOCATION_DATA_TYPE } from '../config/allocationColumns';
 
 // This could be moved to a shared constants file
 const DATA_TYPE_CHOICES = [
@@ -13,6 +14,7 @@ const DATA_TYPE_CHOICES = [
     { value: 'sales_order', label: '出庫処理' },
     { value: 'inventory', label: '在庫照会' },
     { value: 'stock_movement', label: '入出庫履歴' },
+    { value: ALLOCATION_DATA_TYPE, label: '部品引当(生産計画)' },
 ];
 registerTermTarget(DATA_TYPE_CHOICES);
 
@@ -20,6 +22,8 @@ interface DataTypeConfig {
     fetch: string[];
     save: string[];
     model_source_labels?: Record<string, string>;
+    /** モデルを持たない画面の固定の項目。model-fields APIは使わずこの一覧を項目として扱う */
+    virtualFields?: ModelFieldInfo[];
 }
 
 interface CombinedField extends ModelFieldInfo {
@@ -49,7 +53,12 @@ const DATA_TYPE_MAP: Record<string, DataTypeConfig> = {
     stock_movement: {
         fetch: ['stock_movement'],
         save: ['stock_movement'],
-    }
+    },
+    [ALLOCATION_DATA_TYPE]: {
+        fetch: [ALLOCATION_DATA_TYPE],
+        save: [ALLOCATION_DATA_TYPE],
+        virtualFields: ALLOCATION_COLUMNS.map(c => ({ name: c.name, verbose_name: c.label, help_text: c.help })),
+    },
 };
 
 const PageDisplaySettings = () => {
@@ -74,8 +83,11 @@ const PageDisplaySettings = () => {
 
             const promises = dataTypesToFetch.flatMap(type => [
                 authFetch(`/api/base/model-display-settings/?data_type=${type}`),
-                // 仕入先・品番・倉庫などの外部キー項目も選択できるよう、外部キーを含めて取得する
-                authFetch(`/api/base/model-fields/?data_type=${type}&include_relations=true`)
+                // 仕入先・品番・倉庫などの外部キー項目も選択できるよう、外部キーを含めて取得する。
+                // モデルを持たない画面(部品引当)は固定の項目一覧を使う。
+                config.virtualFields
+                    ? Promise.resolve(new Response(JSON.stringify(config.virtualFields)))
+                    : authFetch(`/api/base/model-fields/?data_type=${type}&include_relations=true`)
             ]);
 
             const responses = await Promise.all(promises);

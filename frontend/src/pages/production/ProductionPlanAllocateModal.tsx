@@ -6,6 +6,8 @@ import { useWorkCenters } from '../../hooks/useWorkCenters';
 import { ProductionPlan, RequiredPart } from '../../types/production';
 import { unwrapList, type AllocationResultData, type MaybeWrapped, type RawRequiredPart } from './types';
 import { t } from '../../utils/terms';
+import inventoryService from '../../services/inventoryService';
+import { ALLOCATION_COLUMNS, ALLOCATION_DATA_TYPE, type AllocationColumn } from '../../config/allocationColumns';
 
 /** 画面上の行。倉庫は引当時に選ぶため、行ごとに選択中の倉庫を持つ */
 interface AllocationRow extends RequiredPart {
@@ -49,6 +51,26 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [allocationResult, setAllocationResult] = useState<{ type: 'success' | 'error', message?: string, data?: AllocationResultData } | null>(null);
+
+    // 列の表示/非表示・並び順・表示名は、モデル項目表示設定(production_allocation)で変更できる。
+    // 設定が無い(取得できない)場合は既定の列をすべて表示する。
+    const [columns, setColumns] = useState<(AllocationColumn & { title: string })[]>(
+        ALLOCATION_COLUMNS.map(c => ({ ...c, title: c.label }))
+    );
+    useEffect(() => {
+        if (!isOpen) return;
+        inventoryService.getDisplaySettings(ALLOCATION_DATA_TYPE).then(settings => {
+            if (settings.length === 0) return;
+            const byName = new Map(settings.map(s => [s.model_field_name, s]));
+            const configured = ALLOCATION_COLUMNS
+                .map((c, index) => ({ c, setting: byName.get(c.name), index }))
+                // 設定に無い列(後から追加された列)は既定の位置に表示する
+                .filter(({ c, setting }) => c.alwaysVisible || !setting || setting.is_list_display)
+                .sort((a, b) => (a.setting?.display_order ?? (a.index + 1) * 10) - (b.setting?.display_order ?? (b.index + 1) * 10))
+                .map(({ c, setting }) => ({ ...c, title: setting?.display_name || c.label }));
+            setColumns(configured);
+        }).catch(() => { /* 設定を取得できなくても既定の列で引当は続けられる */ });
+    }, [isOpen]);
 
     useEffect(() => {
         if (isOpen && plan && !allocationResult) {
@@ -198,16 +220,15 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
                                                     onChange={(e) => handleCheckAll(e.target.checked)}
                                                 />
                                             </th>
-                                            <th>{t('部品コード')}</th><th>{t('部品名')}</th><th className="text-end">所要数</th>
-                                            <th className="text-end">引当済</th><th className="text-end">{t('追加ピッキング済')}</th>
-                                            <th>引当倉庫（引当可能数）</th><th>{t('出庫先ライン')}</th><th className="text-end">引当数量</th>
-                                            <th className="text-end">引当後の在庫</th><th className="text-end">引当後の不足</th><th>単位</th>
+                                            {columns.map(col => (
+                                                <th key={col.name} className={col.align === 'end' ? 'text-end' : undefined}>{t(col.title)}</th>
+                                            ))}
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {requiredParts.length === 0 && (
                                             <tr className="table-secondary">
-                                                <td colSpan={12} className="text-center py-3">
+                                                <td colSpan={columns.length + 1} className="text-center py-3">
                                                     {plan.has_bom === false
                                                         ? <><span className="badge bg-secondary me-2">マスターなし</span>この製品には構成マスター(BOM)が登録されていません。</>
                                                         : t('この計画には所要部品が登録されていません。')}
@@ -222,27 +243,23 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
                                             const qty = allocQty(part);
                                             const stockAfter = availableIn(part, part.selected_warehouse) - qty;
                                             const shortAfter = Math.max(0, needed - qty);
-                                            return (
-                                            <tr key={part.part_code} className={shortage ? 'table-danger' : needed === 0 ? 'table-light text-muted' : ''}>
-                                                <td className="text-center">
-                                                    <input
-                                                        type="checkbox" className="form-check-input"
-                                                        aria-label={`${part.part_code}を引当対象にする`}
-                                                        checked={part.checked}
-                                                        disabled={!part.selected_warehouse}
-                                                        onChange={(e) => handleCheckChange(part.part_code, e.target.checked)}
-                                                    />
-                                                </td>
-                                                <td>{part.part_code}</td>
-                                                <td>
-                                                    {part.part_name}
-                                                    {shortage && <span className="badge bg-danger ms-1" title={`未引当 ${needed} に対し、引当可能な在庫は計 ${stock}`}>在庫不足 {needed - stock}</span>}
-                                                </td>
-                                                <td className="text-end">{part.required_quantity}</td>
-                                                <td className="text-end">{part.already_allocated_quantity}</td>
-                                                <td className="text-end">{part.additional_issued_quantity}</td>
-                                                <td>
-                                                    {part.warehouses.length > 0 ? (
+                                            const cellClass = (name: string) =>
+                                                name === 'stock_after' && stockAfter < 0 ? 'text-danger fw-bold'
+                                                    : name === 'shortage_after' ? (shortAfter > 0 ? 'text-danger fw-bold' : 'text-success')
+                                                        : '';
+                                            const renderCell = (name: string): React.ReactNode => {
+                                                switch (name) {
+                                                    case 'part_code': return part.part_code;
+                                                    case 'part_name': return (
+                                                        <>
+                                                            {part.part_name}
+                                                            {shortage && <span className="badge bg-danger ms-1" title={`未引当 ${needed} に対し、引当可能な在庫は計 ${stock}`}>在庫不足 {needed - stock}</span>}
+                                                        </>
+                                                    );
+                                                    case 'required_quantity': return part.required_quantity;
+                                                    case 'already_allocated_quantity': return part.already_allocated_quantity;
+                                                    case 'additional_issued_quantity': return part.additional_issued_quantity;
+                                                    case 'warehouse': return part.warehouses.length > 0 ? (
                                                         <select
                                                             className="form-select form-select-sm"
                                                             value={part.selected_warehouse}
@@ -256,37 +273,51 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
                                                         </select>
                                                     ) : (
                                                         <span className="text-danger">引当可能な在庫なし</span>
-                                                    )}
-                                                </td>
-                                                <td>
-                                                    <select
-                                                        className="form-select form-select-sm"
-                                                        value={part.selected_line}
-                                                        onChange={(e) => handleLineChange(part.part_code, e.target.value)}
-                                                    >
-                                                        <option value="">未指定</option>
-                                                        {workCenters.map(w => (
-                                                            <option key={w.code} value={w.code}>{w.code}{w.name ? `（${w.name}）` : ''}</option>
-                                                        ))}
-                                                    </select>
-                                                </td>
-                                                <td className="text-end">
+                                                    );
+                                                    case 'line': return (
+                                                        <select
+                                                            className="form-select form-select-sm"
+                                                            value={part.selected_line}
+                                                            onChange={(e) => handleLineChange(part.part_code, e.target.value)}
+                                                        >
+                                                            <option value="">未指定</option>
+                                                            {workCenters.map(w => (
+                                                                <option key={w.code} value={w.code}>{w.code}{w.name ? `（${w.name}）` : ''}</option>
+                                                            ))}
+                                                        </select>
+                                                    );
+                                                    case 'quantity_to_allocate': return (
+                                                        <input
+                                                            type="number" className="form-control form-control-sm text-end"
+                                                            value={part.quantity_to_allocate}
+                                                            onChange={(e) => handleQuantityChange(part.part_code, e.target.value)}
+                                                            min="0" max={availableIn(part, part.selected_warehouse)}
+                                                            disabled={!part.selected_warehouse}
+                                                            style={{ width: '80px' }}
+                                                        />
+                                                    );
+                                                    case 'stock_after': return part.selected_warehouse ? stockAfter : '—';
+                                                    case 'shortage_after': return shortAfter > 0 ? shortAfter : '充足';
+                                                    case 'unit': return part.unit;
+                                                    default: return null;
+                                                }
+                                            };
+                                            return (
+                                            <tr key={part.part_code} className={shortage ? 'table-danger' : needed === 0 ? 'table-light text-muted' : ''}>
+                                                <td className="text-center">
                                                     <input
-                                                        type="number" className="form-control form-control-sm text-end"
-                                                        value={part.quantity_to_allocate}
-                                                        onChange={(e) => handleQuantityChange(part.part_code, e.target.value)}
-                                                        min="0" max={availableIn(part, part.selected_warehouse)}
+                                                        type="checkbox" className="form-check-input"
+                                                        aria-label={`${part.part_code}を引当対象にする`}
+                                                        checked={part.checked}
                                                         disabled={!part.selected_warehouse}
-                                                        style={{ width: '80px' }}
+                                                        onChange={(e) => handleCheckChange(part.part_code, e.target.checked)}
                                                     />
                                                 </td>
-                                                <td className={`text-end ${stockAfter < 0 ? 'text-danger fw-bold' : ''}`}>
-                                                    {part.selected_warehouse ? stockAfter : '—'}
-                                                </td>
-                                                <td className={`text-end ${shortAfter > 0 ? 'text-danger fw-bold' : 'text-success'}`}>
-                                                    {shortAfter > 0 ? shortAfter : '充足'}
-                                                </td>
-                                                <td>{part.unit}</td>
+                                                {columns.map(col => (
+                                                    <td key={col.name} className={`${col.align === 'end' ? 'text-end' : ''} ${cellClass(col.name)}`.trim()}>
+                                                        {renderCell(col.name)}
+                                                    </td>
+                                                ))}
                                             </tr>
                                             );
                                         })}
