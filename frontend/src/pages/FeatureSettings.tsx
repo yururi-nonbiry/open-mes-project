@@ -6,6 +6,8 @@ import terminologyService from '../services/terminologyService';
 import { TERM_DEFAULTS, getTerms, setTerms } from '../utils/terms';
 import type { TermKey, Terms } from '../utils/terms';
 import scheduleDateDefaultsService, { offsetToDate } from '../services/scheduleDateDefaultsService';
+import pickingSearchFieldsService, { PICKING_SEARCH_FIELDS } from '../services/pickingSearchFieldsService';
+import type { PickingSearchField } from '../services/pickingSearchFieldsService';
 import { WORKFLOW_TRACKS } from '../config/navigationConfig';
 import { NavIcon } from '../components/NavIcon';
 import {
@@ -96,6 +98,33 @@ const FeatureSettings: React.FC = () => {
     const n = parseOffset(value);
     if (n === undefined) return '（整数で入力）';
     return n === null ? '指定なし' : `今日の日付で ${offsetToDate(n)}`;
+  };
+
+  // スマホのピッキング画面のキーワード検索の対象項目(サーバー側に保存)
+  const [searchFields, setSearchFields] = useState<PickingSearchField[] | null>(null);
+  const [searchFieldsMessage, setSearchFieldsMessage] = useState<{ type: 'success' | 'danger'; text: string } | null>(null);
+
+  useEffect(() => {
+    pickingSearchFieldsService.get().then(setSearchFields);
+  }, []);
+
+  const toggleSearchField = (key: PickingSearchField, checked: boolean) => {
+    setSearchFields((prev) => (prev ? (checked ? [...prev, key] : prev.filter((k) => k !== key)) : prev));
+  };
+
+  const handleSaveSearchFields = async () => {
+    if (!searchFields) return;
+    setSearchFieldsMessage(null);
+    try {
+      const saved = await pickingSearchFieldsService.update(searchFields);
+      setSearchFields(saved.fields);
+      setSearchFieldsMessage({ type: 'success', text: '検索対象を保存しました。次に画面を開いたときから反映されます。' });
+    } catch (err) {
+      setSearchFieldsMessage({
+        type: 'danger',
+        text: err instanceof ApiError ? err.message : '設定の保存中に通信エラーが発生しました。',
+      });
+    }
   };
 
   // 画面・メッセージでの用語の呼び方(サーバー側に保存)
@@ -331,6 +360,46 @@ const FeatureSettings: React.FC = () => {
             {dateDefaultsMessage && (
               <div className={`alert alert-${dateDefaultsMessage.type} mt-3 mb-0 py-2`} role="alert">
                 {dateDefaultsMessage.text}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="card shadow-sm mb-4">
+          <div className="card-body">
+            <h5 className="fw-bold mb-2">ピッキング画面のキーワード検索の対象</h5>
+            <p className="text-muted small mb-3">
+              スマホの順立て・ピッキング画面で、キーワード検索の対象にする項目を選びます。
+              チェックを外した項目は検索にヒットしなくなります（すべて外すとキーワードでは絞り込めません）。
+            </p>
+            <div className="row g-2 mb-3">
+              {PICKING_SEARCH_FIELDS.map(({ key, label }) => (
+                <div className="col-6 col-md-3" key={key}>
+                  <div className="form-check">
+                    <input
+                      className="form-check-input"
+                      type="checkbox"
+                      id={`picking-search-${key}`}
+                      checked={!!searchFields?.includes(key)}
+                      disabled={searchFields === null}
+                      onChange={(e) => toggleSearchField(key, e.target.checked)}
+                    />
+                    <label className="form-check-label" htmlFor={`picking-search-${key}`}>{label}</label>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              className="btn btn-primary fw-bold"
+              disabled={searchFields === null}
+              onClick={handleSaveSearchFields}
+            >
+              検索対象を保存
+            </button>
+            {searchFieldsMessage && (
+              <div className={`alert alert-${searchFieldsMessage.type} mt-3 mb-0 py-2`} role="alert">
+                {searchFieldsMessage.text}
               </div>
             )}
           </div>

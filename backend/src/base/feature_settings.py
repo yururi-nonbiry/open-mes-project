@@ -62,6 +62,43 @@ def set_schedule_date_offset(name, days):
     )
 
 
+# スマホのピッキング画面のキーワード検索で対象にする項目(カンマ区切りで保存)。
+# キー: 項目の識別子。表示名はフロントエンド側で持つ。
+PICKING_SEARCH_FIELD_SETTING = "picking_search_fields"
+PICKING_SEARCH_FIELD_CHOICES = (
+    "product_code",
+    "product_name",
+    "plan_name",
+    "line",
+    "purpose",
+    "material_code",
+    "material_name",
+)
+# 既定は従来の検索対象(使用用途は管理者が必要に応じて追加する)
+PICKING_SEARCH_FIELD_DEFAULTS = tuple(f for f in PICKING_SEARCH_FIELD_CHOICES if f != "purpose")
+
+
+def get_picking_search_fields():
+    """検索対象の項目キーのリスト(選択肢の順)。未設定・無効は既定。"""
+    setting = BaseSetting.objects.filter(name=PICKING_SEARCH_FIELD_SETTING, is_deleted=False).first()
+    if setting is None or not setting.is_active:
+        return list(PICKING_SEARCH_FIELD_DEFAULTS)
+    selected = {v.strip() for v in setting.value.split(",")}
+    return [f for f in PICKING_SEARCH_FIELD_CHOICES if f in selected]
+
+
+def set_picking_search_fields(fields):
+    selected = set(fields)
+    BaseSetting.objects.update_or_create(
+        name=PICKING_SEARCH_FIELD_SETTING,
+        defaults={
+            "value": ",".join(f for f in PICKING_SEARCH_FIELD_CHOICES if f in selected),
+            "is_active": True,
+            "is_deleted": False,
+        },
+    )
+
+
 # 画面・メッセージで使う用語の呼び方。文言は下記の既定の語(部品・ピッキング・出庫)で書き、
 # 管理者が設定した語に置き換えて表示する。
 TERM_MAX_LENGTH = 10

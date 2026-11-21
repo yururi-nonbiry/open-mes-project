@@ -3,6 +3,8 @@ import { Container, Form, Button, Card, Badge, Spinner, Alert, InputGroup } from
 import authFetch, { handleError } from '../../utils/api';
 import { useWorkCenters } from '../../hooks/useWorkCenters';
 import type { MaterialAllocation, PaginationData } from '../../types/production';
+import pickingSearchFieldsService, { DEFAULT_PICKING_SEARCH_FIELDS } from '../../services/pickingSearchFieldsService';
+import type { PickingSearchField } from '../../services/pickingSearchFieldsService';
 import { errorMessage } from './mobileTypes';
 import './MobileLocationTransferPage.css'; // スタイルを再利用
 
@@ -40,6 +42,9 @@ const MobilePickingPage = () => {
     const [lineFilter, setLineFilter] = useState('');
     const [statusFilter, setStatusFilter] = useState('ALLOCATED');
     const workCenters = useWorkCenters();
+    // キーワード検索の対象項目(管理者画面で設定。取得できるまでは既定)
+    const [searchFields, setSearchFields] = useState<PickingSearchField[]>(DEFAULT_PICKING_SEARCH_FIELDS);
+    useEffect(() => { pickingSearchFieldsService.get().then(setSearchFields); }, []);
 
     const fetchAllocations = useCallback(async () => {
         setLoading(true);
@@ -91,12 +96,20 @@ const MobilePickingPage = () => {
             .filter((g) => {
                 if (lineFilter === 'none' ? g.line : lineFilter && g.line !== lineFilter) return false;
                 if (!kw) return true;
-                return [g.productCode, g.productName, g.planName, g.line].some((s) => s.toLowerCase().includes(kw))
-                    || g.items.some((i) => i.material_code.toLowerCase().includes(kw) || (i.material_name || '').toLowerCase().includes(kw));
+                const matches = (v?: string | null) => (v || '').toLowerCase().includes(kw);
+                const on = (f: PickingSearchField) => searchFields.includes(f);
+                return (on('product_code') && matches(g.productCode))
+                    || (on('product_name') && matches(g.productName))
+                    || (on('plan_name') && matches(g.planName))
+                    || (on('line') && matches(g.line))
+                    || g.items.some((i) =>
+                        (on('purpose') && matches(i.purpose))
+                        || (on('material_code') && matches(i.material_code))
+                        || (on('material_name') && matches(i.material_name)));
             })
             .map((g) => ({ ...g, shown: g.items.filter((i) => !statusFilter || i.status === statusFilter) }))
             .filter((g) => g.shown.length > 0);
-    }, [groups, keyword, lineFilter, statusFilter]);
+    }, [groups, keyword, lineFilter, statusFilter, searchFields]);
 
     const changeStatus = async (id: string, status: string) => {
         const response = await authFetch(`/api/production/material-allocations/${id}/change-status/`, {
@@ -152,7 +165,7 @@ const MobilePickingPage = () => {
                 <InputGroup size="sm" className="mb-2">
                     <Form.Control
                         type="text"
-                        placeholder={t('完成品・計画名・部品で絞り込み')}
+                        placeholder={t('キーワードで絞り込み')}
                         value={keyword}
                         onChange={(e) => setKeyword(e.target.value)}
                     />

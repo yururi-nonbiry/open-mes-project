@@ -82,6 +82,12 @@
 | BASE-SCHDATE-05 | 異常系 | PUT | 開始 > 終了 | 400 |
 | BASE-SCHDATE-06 | 権限 | GET/PUT | 一般ユーザー | GETは200、PUTは403 |
 | BASE-SCHDATE-07 | 権限 | GET | 未認証 | 401 |
+| BASE-PKSEARCH-01 | 正常系 | GET | 未設定 | 200、従来の検索対象（使用用途は含まない）が返る |
+| BASE-PKSEARCH-02 | 正常系 | PUT→GET | 用途・完成品品番 | 200、選択した項目が選択肢の順で返る |
+| BASE-PKSEARCH-03 | 正常系 | PUT | 空配列 | 200、検索対象なし |
+| BASE-PKSEARCH-04 | 異常系 | PUT | 文字列・未知の項目・数値・null | 400 |
+| BASE-PKSEARCH-05 | 権限 | GET/PUT | 一般ユーザー | GETは200、PUTは403 |
+| BASE-PKSEARCH-06 | 権限 | GET | 未認証 | 401 |
 
 ### 用語の呼び方の設定（`base/terminology/`、`base/tests/test_terminology.py`）
 

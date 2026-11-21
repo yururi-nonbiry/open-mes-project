@@ -225,6 +225,8 @@ export interface MaterialAllocation {
     allocation_type_display?: string;
     remarks: string | null;
     warehouse?: string;
+    /** 使用用途(用途コード)。 */
+    purpose?: string | null;
     /** 出庫先ライン(ワークセンターコード)。空は未指定。 */
     line?: string | null;
 }

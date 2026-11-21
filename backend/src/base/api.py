@@ -134,6 +134,38 @@ class ScheduleDateDefaultsView(APIView):
         return Response(self._current())
 
 
+class PickingSearchFieldsView(APIView):
+    """
+    スマホのピッキング画面のキーワード検索で対象にする項目。
+    参照はログインユーザー全員、変更は管理者のみ。
+    """
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [permissions.IsAuthenticated()]
+        return [permissions.IsAdminUser()]
+
+    @staticmethod
+    def _current():
+        return {"fields": feature_settings.get_picking_search_fields()}
+
+    def get(self, request, *args, **kwargs):
+        return Response(self._current())
+
+    def put(self, request, *args, **kwargs):
+        fields = request.data.get("fields")
+        choices = feature_settings.PICKING_SEARCH_FIELD_CHOICES
+        if not isinstance(fields, list) or any(not isinstance(f, str) or f not in choices for f in fields):
+            return error_response(f"fields は {', '.join(choices)} から選んだ配列で指定してください。")
+        feature_settings.set_picking_search_fields(fields)
+        log_event(
+            AccessLog.EventType.SETTINGS_CHANGED,
+            request,
+            detail={"setting": "picking_search_fields", "operation": "update", "value": self._current()["fields"]},
+        )
+        return Response(self._current())
+
+
 class TerminologyView(APIView):
     """
     画面・メッセージで使う用語の呼び方(part=部品 / picking=ピッキング / issue=出庫)。
