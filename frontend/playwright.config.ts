@@ -28,7 +28,7 @@ const functionalProjects = [
   },
   {
     name: 'functional-smartphone',
-    testMatch: '**/goods-receipt-mobile.spec.ts',
+    testMatch: ['**/goods-receipt-mobile.spec.ts', '**/picking-search-fields.spec.ts'],
     use: { ...smartphoneViewport, ...functionalUse },
   },
 ];
@@ -38,6 +38,8 @@ const isFunctionalSuite = process.env.E2E_SUITE === 'functional';
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
+  // 画面機能確認はシステム全体で共有する設定(用語・検索対象など)を一時的に変更するため、プロジェクト間も含めて直列に実行する
+  workers: process.env.E2E_SUITE === 'functional' ? 1 : undefined,
   reporter: [['list']],
   use: {
     baseURL: 'http://localhost:5173',

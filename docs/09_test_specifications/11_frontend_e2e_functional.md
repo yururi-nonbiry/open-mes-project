@@ -230,7 +230,7 @@ docker compose exec -T -e E2E_DATA_ACTION=cleanup backend python manage.py shell
 
 ### ピッキング画面の検索対象設定（`frontend/e2e/picking-search-fields.spec.ts`、FE-PKS-*）
 
-用途 `E2E-CAR`・製品 `E2E-PM-PROD`・部品 `E2E-PM-MAT`（在庫あり）は `script/e2e_goods_receipt_data.py` が投入する。テストは用途 `E2E-CAR` の生産計画を作って部品を引き当て、スマホ向けピッキング画面（`/mobile/picking`）のキーワード検索を確認する。検索対象の設定は開始時に退避して終了時に復元する。
+用途 `E2E-CAR`・製品 `E2E-PM-PROD`・部品 `E2E-PM-MAT`（在庫あり）は `script/e2e_goods_receipt_data.py` が投入する。テストは用途 `E2E-CAR` の生産計画を作って部品を引き当て、スマホ向けピッキング画面（`/mobile/picking`）のキーワード検索を確認する。検索対象の設定は開始時に退避して終了時に復元する。ピッキング画面はスマホ専用のため FE-PKS-01〜04 は `functional-smartphone`、管理者設定の FE-PKS-05 は `functional-hd` で実行する（もう一方のプロジェクトではスキップされる）。
 
 | ケースID | 分類 | 前提条件 | 手順 | 期待結果 |
 |---|---|---|---|---|

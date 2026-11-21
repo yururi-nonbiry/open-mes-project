@@ -5,6 +5,9 @@ import { authenticate, login, newApiContext, newRunId, requireEnv, type Tokens }
  * 画面機能確認: ピッキング画面のキーワード検索の対象項目(/mobile/picking と /system/feature-settings)。
  * テストケースは docs/09_test_specifications/11_frontend_e2e_functional.md の FE-PKS-* に対応する。
  *
+ * ピッキング画面はスマホ専用(PCでは開けない)ため FE-PKS-01〜04 は functional-smartphone、管理者設定の FE-PKS-05 は
+ * functional-hd で実行する(playwright.config.ts で両プロジェクトに登録し、各テストが対象外のプロジェクトではスキップする)。
+ *
  * 製品 E2E-PM-PROD・部品 E2E-PM-MAT(在庫あり)・用途 E2E-CAR は script/e2e_goods_receipt_data.py が投入する。
  * 検索対象の設定はシステム全体で共有されるため、開始時に退避して終了時に復元する。
  */
@@ -17,6 +20,9 @@ let adminTokens: Tokens;
 let api: APIRequestContext;
 let originalFields: string[];
 let planName: string;
+
+const onlyOn = (project: 'functional-smartphone' | 'functional-hd') =>
+  test.skip(test.info().project.name !== project, `${project} でのみ実行する`);
 
 const putFields = async (fields: string[]) => {
   const response = await api.put('/api/base/picking-search-fields/', { data: { fields } });
@@ -69,6 +75,7 @@ test.afterAll(async () => {
 });
 
 test('FE-PKS-01 既定の検索対象: 品番・計画名では見つかるが、使用用途では見つからないこと', async ({ page }) => {
+  onlyOn('functional-smartphone');
   await putFields(['product_code', 'product_name', 'plan_name', 'line', 'material_code', 'material_name']);
   await openPicking(page);
   await expect(await search(page, planName)).toHaveCount(1);
@@ -77,6 +84,7 @@ test('FE-PKS-01 既定の検索対象: 品番・計画名では見つかるが�
 });
 
 test('FE-PKS-02 使用用途を検索対象にすると、使用用途のキーワードで見つかること', async ({ page }) => {
+  onlyOn('functional-smartphone');
   await putFields(['product_code', 'plan_name', 'purpose']);
   await openPicking(page);
   await expect(await search(page, PURPOSE)).toHaveCount(1);
@@ -84,6 +92,7 @@ test('FE-PKS-02 使用用途を検索対象にすると、使用用途のキー�
 });
 
 test('FE-PKS-03 検索対象から外した項目では見つからず、残した項目では見つかること', async ({ page }) => {
+  onlyOn('functional-smartphone');
   await putFields(['plan_name']);
   await openPicking(page);
   await expect(await search(page, planName)).toHaveCount(1);
@@ -92,6 +101,7 @@ test('FE-PKS-03 検索対象から外した項目では見つからず、残し�
 });
 
 test('FE-PKS-04 検索対象を空にすると、キーワードでは絞り込めず(該当なし)、空欄なら表示されること', async ({ page }) => {
+  onlyOn('functional-smartphone');
   await putFields([]);
   await openPicking(page);
   await expect(await search(page, planName)).toHaveCount(0);
@@ -99,6 +109,7 @@ test('FE-PKS-04 検索対象を空にすると、キーワードでは絞り込�
 });
 
 test('FE-PKS-05 管理者設定: 機能設定で「使用用途」にチェックして保存すると、APIに保存されること', async ({ page }) => {
+  onlyOn('functional-hd');
   await putFields(['plan_name']);
   await authenticate(page, adminTokens);
   await page.goto('/system/feature-settings');
