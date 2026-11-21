@@ -418,7 +418,7 @@ const GoodsReceiptContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefau
           </th>
         );
       })}
-      <th className="text-center" style={{ width: '170px' }}>入庫・操作</th>
+      <th className="text-center sticky-action-col" style={{ width: '170px' }}>入庫・操作</th>
     </tr>
   );
 
@@ -506,7 +506,7 @@ const GoodsReceiptContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefau
       return (
         <tr key={order.id} className={canReceive ? '' : 'receipt-row-completed'}>
           {cells}
-          <td className="text-center text-nowrap">
+          <td className="text-center text-nowrap sticky-action-col">
             <button
               type="button"
               className={`btn btn-sm fw-bold ${canReceive ? 'btn-primary' : 'btn-outline-secondary'}`}

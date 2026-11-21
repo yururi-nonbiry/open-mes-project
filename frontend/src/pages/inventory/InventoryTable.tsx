@@ -39,7 +39,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                     </th>
                 );
             })}
-            <th className="text-center" style={{ width: '260px' }}>在庫操作</th>
+            <th className="text-center sticky-action-col" style={{ width: '260px' }}>在庫操作</th>
         </tr>
     );
 
@@ -129,7 +129,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                         </td>
                     );
                 })}
-                <td className="text-center text-nowrap">
+                <td className="text-center text-nowrap sticky-action-col">
                     <button
                         type="button"
                         className="btn btn-sm btn-primary fw-bold"

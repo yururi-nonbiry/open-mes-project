@@ -149,7 +149,7 @@ const ProductionPlanTable: React.FC<ProductionPlanTableProps> = ({
                         <span className={meta.className}>{meta.label}</span>
                     </td>
                     <td>{renderMaterialStatus(overviews[plan.id])}</td>
-                    <td className="text-center text-nowrap">
+                    <td className="text-center text-nowrap sticky-action-col">
                         <button type="button" className="btn btn-sm btn-outline-primary fw-bold" onClick={() => onMaterials(plan)}>
                             {t('① 部品構成')}
                         </button>
@@ -230,7 +230,7 @@ const ProductionPlanTable: React.FC<ProductionPlanTableProps> = ({
                             <th className="text-center">終了予定日時</th>
                             <th className="text-center">状態</th>
                             <th>{t('部品の状況')}</th>
-                            <th className="text-center" style={{ width: '360px' }}>構成・引当・操作</th>
+                            <th className="text-center sticky-action-col" style={{ width: '360px' }}>構成・引当・操作</th>
                         </tr>
                     </thead>
                     <tbody>{renderBody()}</tbody>

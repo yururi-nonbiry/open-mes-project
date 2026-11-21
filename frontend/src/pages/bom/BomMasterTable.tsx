@@ -23,7 +23,7 @@ const BomMasterTable: React.FC<BomMasterTableProps> = ({ items, onEdit, onDelete
                             <th className="text-end">所要数量</th>
                             <th>単位</th>
                             <th>備考</th>
-                            <th className="text-center" style={{ width: '210px' }}>構成操作</th>
+                            <th className="text-center sticky-action-col" style={{ width: '210px' }}>構成操作</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -38,7 +38,7 @@ const BomMasterTable: React.FC<BomMasterTableProps> = ({ items, onEdit, onDelete
                                 </td>
                                 <td>{item.material_unit || '—'}</td>
                                 <td>{item.remarks || '—'}</td>
-                                <td className="text-center text-nowrap">
+                                <td className="text-center text-nowrap sticky-action-col">
                                     <button
                                         type="button"
                                         className="btn btn-sm btn-outline-primary fw-bold"

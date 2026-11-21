@@ -554,7 +554,7 @@ const MaterialAllocationPage: React.FC = () => {
                 <th style={{ width: '13%' }}>引当日時</th>
                 <th style={{ width: '12%' }}>状態</th>
                 <th>備考</th>
-                <th className="text-center" style={{ width: '140px' }}>{t('ピッキング操作')}</th>
+                <th className="text-center sticky-action-col" style={{ width: '140px' }}>{t('ピッキング操作')}</th>
               </tr>
             </thead>
             <tbody>
@@ -651,7 +651,7 @@ const MaterialAllocationPage: React.FC = () => {
 
                       <td className="small text-muted">{alloc.remarks || '—'}</td>
 
-                      <td className="text-center text-nowrap">
+                      <td className="text-center text-nowrap sticky-action-col">
                         {isAllocated && (
                           <button
                             type="button"

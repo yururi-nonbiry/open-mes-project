@@ -81,7 +81,7 @@ const WorkProgressTable: React.FC<WorkProgressTableProps> = ({
                             {statusInfo?.label || plan.status}
                         </span>
                     </td>
-                    <td className="text-center text-nowrap">
+                    <td className="text-center text-nowrap sticky-action-col">
                         <button
                             type="button"
                             className="btn btn-sm btn-primary fw-bold px-3"
@@ -116,7 +116,7 @@ const WorkProgressTable: React.FC<WorkProgressTableProps> = ({
                             <th className="text-center" onClick={() => onSort('status')} style={{ cursor: 'pointer' }}>
                                 状態{renderSortIndicator('status')}
                             </th>
-                            <th className="text-center" style={{ width: '160px' }}>進捗操作</th>
+                            <th className="text-center sticky-action-col" style={{ width: '160px' }}>進捗操作</th>
                         </tr>
                     </thead>
                     <tbody>{renderBody()}</tbody>

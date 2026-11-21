@@ -288,7 +288,7 @@ const GoodsIssueContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefault
       rows.push(
         <tr key={order.id} className={canIssue ? '' : 'receipt-row-completed'}>
           {columns.map((setting: DisplaySetting) => renderCell(order, setting.model_field_name, canIssue))}
-          <td className="text-center text-nowrap">
+          <td className="text-center text-nowrap sticky-action-col">
             <button
               type="button"
               className="btn btn-sm btn-primary fw-bold me-1"
@@ -414,7 +414,7 @@ const GoodsIssueContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefault
                     {(setting.display_name || '').trim() || setting.verbose_name || setting.model_field_name}
                   </th>
                 ))}
-                <th className="text-center" style={{ width: '190px' }}>{t('出庫・操作')}</th>
+                <th className="text-center sticky-action-col" style={{ width: '190px' }}>{t('出庫・操作')}</th>
               </tr>
             </thead>
             <tbody>{renderTableBody()}</tbody>

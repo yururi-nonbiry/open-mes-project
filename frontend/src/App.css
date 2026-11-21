@@ -3556,3 +3556,26 @@ main .card>.card-header {
     background-color: #fffbeb !important;
 }
 
+
+/* 横スクロール時も操作ボタン列を画面右に固定する */
+.table .sticky-action-col {
+    position: sticky;
+    right: 0;
+    z-index: 2;
+    background: #ffffff;
+    box-shadow: -2px 0 4px rgba(15, 23, 42, 0.08);
+}
+
+main .table thead th.sticky-action-col,
+.modal-content .table thead th.sticky-action-col {
+    background: #f0f9ff !important;
+    z-index: 3;
+}
+
+.table-hover > tbody > tr:hover > .sticky-action-col {
+    background: #f1f5f9;
+}
+
+.table tbody tr.receipt-row-completed > .sticky-action-col {
+    background: #f8fafc;
+}
