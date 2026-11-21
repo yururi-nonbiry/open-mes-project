@@ -6,10 +6,15 @@ from master.models import BillOfMaterial
 
 from ..models import ProductionPlan
 from .allocation import allocate_materials_service
+from .merge import find_merge_groups, merge_plans
 from .queries import get_production_plan_required_parts
 
 # 材料引当の対象にしない計画の状態
-NOT_ALLOCATABLE_STATUSES = (ProductionPlan.Status.COMPLETED, ProductionPlan.Status.CANCELLED)
+NOT_ALLOCATABLE_STATUSES = (
+    ProductionPlan.Status.COMPLETED,
+    ProductionPlan.Status.CANCELLED,
+    ProductionPlan.Status.MERGED,
+)
 
 
 class AllocationState:
@@ -84,14 +89,44 @@ def build_auto_allocations(plan):
     return allocations
 
 
-def bulk_allocate_materials(plans):
+def merge_selected_plans(plans):
+    """選んだ計画のうち、同一品番で統合できるものを統合計画にまとめる。(引当対象の計画リスト, 統合元の名前の対応)を返す。"""
+    merged_from = {}
+    replaced = {}
+    for group in find_merge_groups(plans):
+        merged = merge_plans(group)
+        merged_from[merged.id] = [p.plan_name for p in group]
+        replaced[group[0].id] = merged
+        for p in group:
+            replaced.setdefault(p.id, None)
+    targets = []
+    for plan in plans:
+        if plan.id not in replaced:
+            targets.append(plan)
+        elif replaced[plan.id] is not None:
+            targets.append(replaced[plan.id])  # グループの先頭の位置に統合計画を置く
+    return targets, merged_from
+
+
+def bulk_allocate_materials(plans, merge=False):
     """
     複数の生産計画をまとめて引き当てる。計画ごとに独立して処理し、失敗した計画は引当せずに理由を返す。
+    merge=True のときは、同一品番の計画を先に統合計画にまとめ、統合計画に対して引き当てる。
     戻り値: 計画ごとの結果のリスト。
     """
+    merged_from = {}
+    if merge:
+        plans, merged_from = merge_selected_plans(plans)
     results = []
     for plan in plans:
-        result = {"plan_id": plan.id, "plan_name": plan.plan_name, "status": "", "message": "", "allocated_count": 0}
+        result = {
+            "plan_id": plan.id,
+            "plan_name": plan.plan_name,
+            "status": "",
+            "message": "",
+            "allocated_count": 0,
+            "merged_from": merged_from.get(plan.id, []),
+        }
         if plan.status in NOT_ALLOCATABLE_STATUSES:
             result.update(status="skipped", message="完了・中止の計画は引き当てできません。")
         else:
@@ -117,5 +152,7 @@ def bulk_allocate_materials(plans):
                             message=f"在庫不足の部品が{shortage}件あり、引き当てられる分のみ引き当てました。" if shortage else "引き当てました。",
                             allocated_count=len(summary),
                         )
+        if result["merged_from"]:
+            result["message"] = f"{len(result['merged_from'])}件の計画を統合しました。" + result["message"]
         results.append(result)
     return results

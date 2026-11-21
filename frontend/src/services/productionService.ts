@@ -17,7 +17,8 @@ import {
     IntermediateRequirement,
     IntermediateDecision,
     PlanAllocationOverview,
-    BulkAllocationResult
+    BulkAllocationResult,
+    MergeCandidateGroup
 } from '../types/production';
 import { t } from '../utils/terms';
 
@@ -118,11 +119,24 @@ const productionService = {
         return await response.json() as PlanAllocationOverview[];
     },
 
-    /** 複数の計画の未引当分をまとめて引き当てる */
-    bulkAllocateMaterials: async (planIds: string[]) => {
+    /** 指定した計画のうち、同一品番で1つの統合計画にまとめられるグループ */
+    getMergeCandidates: async (ids: string[]) => {
+        const response = await authFetch(`/api/production/plans/merge-candidates/?ids=${ids.map(encodeURIComponent).join(',')}`);
+        await handleError(response, '統合できる計画の取得に失敗しました。');
+        return await response.json() as MergeCandidateGroup[];
+    },
+
+    /** 統合計画の統合を解除し、元の計画を未着手に戻す */
+    unmergePlan: async (id: string) => {
+        const response = await authFetch(`/api/production/plans/${id}/unmerge/`, { method: 'POST' });
+        await handleError(response, '統合の解除に失敗しました。');
+    },
+
+    /** 複数の計画の未引当分をまとめて引き当てる(merge=true なら同一品番の計画を先に統合する) */
+    bulkAllocateMaterials: async (planIds: string[], merge = false) => {
         const response = await authFetch('/api/production/plans/bulk-allocate-materials/', {
             method: 'POST',
-            body: JSON.stringify({ plan_ids: planIds }),
+            body: JSON.stringify({ plan_ids: planIds, merge }),
         });
         await handleError(response, 'まとめ引当に失敗しました。');
         const data = await response.json() as { results: BulkAllocationResult[] };

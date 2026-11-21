@@ -15,6 +15,9 @@ class ProductionPlanSerializer(serializers.ModelSerializer):
         queryset=Item.objects.filter(item_type__in=Item.PRODUCIBLE_TYPES)
     )
     parent_plan_name = serializers.CharField(source="parent_plan.plan_name", read_only=True, default=None)
+    merged_into_name = serializers.CharField(source="merged_into.plan_name", read_only=True, default=None)
+    # 統合計画のとき、統合元の計画の数(ProductionPlanViewSet で集計)
+    merged_plan_count = serializers.IntegerField(read_only=True, default=0)
     # 使う在庫の用途コード。この用途の在庫を先に、足りなければ汎用の在庫を使う(空は汎用のみ)。
     purpose = serializers.SlugRelatedField(
         source="purpose_rel",
@@ -49,6 +52,9 @@ class ProductionPlanSerializer(serializers.ModelSerializer):
             "status_display",  # ステータスの表示名 (例: '未着手', '進行中')
             "parent_plan",
             "parent_plan_name",
+            "merged_into",
+            "merged_into_name",
+            "merged_plan_count",
             "purpose",
             "line",
             "child_plan_count",
@@ -69,6 +75,7 @@ class ProductionPlanSerializer(serializers.ModelSerializer):
             "actual_start_datetime",
             "actual_end_datetime",
             "parent_plan",
+            "merged_into",
         ]
 
     def validate(self, data):
@@ -252,7 +259,7 @@ class ProductionPlanMaterialSerializer(serializers.ModelSerializer):
 
 def ensure_plan_materials_editable(plan):
     """完了・中止した計画の所要部品は履歴として固定する。"""
-    if plan.status in (ProductionPlan.Status.COMPLETED, ProductionPlan.Status.CANCELLED):
+    if plan.status in (ProductionPlan.Status.COMPLETED, ProductionPlan.Status.CANCELLED, ProductionPlan.Status.MERGED):
         raise serializers.ValidationError(f"{plan.get_status_display()}の生産計画の部品構成は変更できません。")
 
 

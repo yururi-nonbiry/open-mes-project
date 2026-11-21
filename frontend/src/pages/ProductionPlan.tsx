@@ -2,7 +2,8 @@ import type { ApiErrorLike } from './apiErrorTypes';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useProductionPlans } from '../hooks/useProductionPlans';
 import productionService, { ProductionPlan as ProductionPlanType } from '../services/productionService';
-import { BulkAllocationResult, PlanAllocationOverview } from '../types/production';
+import { BulkAllocationResult, MergeCandidateGroup, PlanAllocationOverview } from '../types/production';
+import inventoryService from '../services/inventoryService';
 import ProductionPlanTable from './production/ProductionPlanTable';
 import ProductionPlanFilters from './production/ProductionPlanFilters';
 import ProductionPlanDetailModal from './production/ProductionPlanDetailModal';
@@ -10,6 +11,7 @@ import ProductionPlanAllocateModal from './production/ProductionPlanAllocateModa
 import ProductionPlanMaterialsModal from './production/ProductionPlanMaterialsModal';
 import ProductionPlanAdditionalIssueModal from './production/ProductionPlanAdditionalIssueModal';
 import ProductionPlanIntermediatesModal from './production/ProductionPlanIntermediatesModal';
+import ProductionPlanMergeModal from './production/ProductionPlanMergeModal';
 
 type PlanModalState = { isOpen: boolean; plan: ProductionPlanType | null };
 const closedModal: PlanModalState = { isOpen: false, plan: null };
@@ -39,6 +41,10 @@ const ProductionPlan: React.FC = () => {
     const [bulkLoading, setBulkLoading] = useState(false);
     const [bulkResults, setBulkResults] = useState<BulkAllocationResult[] | null>(null);
     const [bulkError, setBulkError] = useState<string | null>(null);
+    // 同一品番の計画をまとめるかの確認(管理者設定がONで、まとめられる計画があるときだけ出す)
+    const [mergeGroups, setMergeGroups] = useState<MergeCandidateGroup[] | null>(null);
+    // モーダルを開いた時点の対象(一覧の再読込でチェックが外れても、確認した計画を引き当てる)
+    const [mergeTargetIds, setMergeTargetIds] = useState<string[]>([]);
 
     const loadOverviews = useCallback(async (targets: ProductionPlanType[]) => {
         try {
@@ -68,18 +74,11 @@ const ProductionPlan: React.FC = () => {
     });
     const toggleAll = (checked: boolean) => setSelectedIds(checked ? new Set(selectablePlans.map(p => p.id)) : new Set());
 
-    const handleBulkAllocate = async () => {
-        const targets = plans.filter(p => selectedIds.has(p.id));
-        if (targets.length === 0) return;
-        const shortageCount = targets.filter(p => overviews[p.id]?.state === 'SHORTAGE').length;
-        const message = `チェックした ${targets.length} 件の生産計画の未引当分を、在庫の多い倉庫から引き当てます。`
-            + (shortageCount > 0 ? `\n在庫不足の計画が ${shortageCount} 件あり、引き当てられる分のみ引き当てます。` : '')
-            + '\nよろしいですか？';
-        if (!window.confirm(message)) return;
+    const runBulkAllocate = async (planIds: string[], merge: boolean) => {
         setBulkLoading(true);
         setBulkError(null);
         try {
-            setBulkResults(await productionService.bulkAllocateMaterials(targets.map(p => p.id)));
+            setBulkResults(await productionService.bulkAllocateMaterials(planIds, merge));
         } catch (e) {
             setBulkResults(null);
             setBulkError((e as ApiErrorLike).message);
@@ -87,6 +86,49 @@ const ProductionPlan: React.FC = () => {
             setBulkLoading(false);
         }
         handleSearch(); // 一覧と引当状況を最新にする
+    };
+
+    const handleBulkAllocate = async () => {
+        const targets = plans.filter(p => selectedIds.has(p.id));
+        if (targets.length === 0) return;
+
+        // 管理者設定がONなら、同一品番の計画をまとめるかをモーダルで確認する
+        try {
+            const options = await inventoryService.getFeatureOptions();
+            if (options.merge_plans_on_allocation) {
+                const groups = await productionService.getMergeCandidates(targets.map(p => p.id));
+                if (groups.length > 0) {
+                    setMergeTargetIds(targets.map(p => p.id));
+                    setMergeGroups(groups);
+                    return;
+                }
+            }
+        } catch (e) {
+            setBulkError((e as ApiErrorLike).message);
+            return;
+        }
+
+        const shortageCount = targets.filter(p => overviews[p.id]?.state === 'SHORTAGE').length;
+        const message = `チェックした ${targets.length} 件の生産計画の未引当分を、在庫の多い倉庫から引き当てます。`
+            + (shortageCount > 0 ? `\n在庫不足の計画が ${shortageCount} 件あり、引き当てられる分のみ引き当てます。` : '')
+            + '\nよろしいですか？';
+        if (!window.confirm(message)) return;
+        await runBulkAllocate(targets.map(p => p.id), false);
+    };
+
+    const handleMergeChoice = async (merge: boolean) => {
+        setMergeGroups(null);
+        await runBulkAllocate(mergeTargetIds, merge);
+    };
+
+    const handleUnmerge = async (plan: ProductionPlanType) => {
+        if (!window.confirm(`「${plan.plan_name}」の統合を解除し、元の計画を未着手に戻します。よろしいですか？`)) return;
+        try {
+            await productionService.unmergePlan(plan.id);
+        } catch (e) {
+            setBulkError((e as ApiErrorLike).message);
+        }
+        handleSearch();
     };
 
     const openDetailModal = (plan: ProductionPlanType) => setDetailModal({ isOpen: true, plan });
@@ -113,6 +155,7 @@ const ProductionPlan: React.FC = () => {
                 onMaterials={(plan) => setMaterialsModal({ isOpen: true, plan })}
                 onAdditionalIssue={(plan) => setAdditionalIssueModal({ isOpen: true, plan })}
                 onIntermediates={(plan) => setIntermediatesModal({ isOpen: true, plan })}
+                onUnmerge={handleUnmerge}
                 overviews={overviews}
                 isSelectable={isBulkAllocatable}
                 selectedIds={selectedIds}
@@ -142,6 +185,15 @@ const ProductionPlan: React.FC = () => {
                     次へ
                 </button>
             </div>
+
+            <ProductionPlanMergeModal
+                isOpen={mergeGroups !== null}
+                groups={mergeGroups ?? []}
+                loading={bulkLoading}
+                onMerge={() => handleMergeChoice(true)}
+                onSeparate={() => handleMergeChoice(false)}
+                onCancel={() => setMergeGroups(null)}
+            />
 
             <ProductionPlanDetailModal 
                 isOpen={detailModal.isOpen}

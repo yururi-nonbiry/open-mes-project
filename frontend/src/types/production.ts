@@ -22,6 +22,11 @@ export interface ProductionPlan {
     parent_plan?: string | null;
     parent_plan_name?: string | null;
     child_plan_count?: number;
+    /** 統合済みの計画の、まとめ先の統合計画 */
+    merged_into?: string | null;
+    merged_into_name?: string | null;
+    /** 統合計画のとき、統合元の計画の数 */
+    merged_plan_count?: number;
     /** 在庫で足りるが、子計画を立てるか在庫を使うかが未決定の中間品の数 */
     pending_intermediate_count?: number;
     /** 製品のBOMマスター(構成マスター)が登録されているか */
@@ -296,4 +301,15 @@ export interface BulkAllocationResult {
     status: 'success' | 'partial' | 'skipped' | 'error';
     message: string;
     allocated_count: number;
+    /** 統合計画に対する結果のとき、統合元の計画名(納期順) */
+    merged_from?: string[];
+}
+
+/** 同一品番で1つの統合計画にまとめられる計画のグループ */
+export interface MergeCandidateGroup {
+    product_code: string;
+    product_name: string;
+    total_quantity: number;
+    earliest_end_datetime: string;
+    plans: { id: string; plan_name: string; planned_quantity: number; planned_end_datetime: string }[];
 }

@@ -47,6 +47,7 @@ const FeatureSettings: React.FC = () => {
 
   // 入庫時のデフォルト棚番登録の確認(サーバー側に保存。全端末・全ユーザーに適用)
   const [confirmDefaultLocation, setConfirmDefaultLocation] = useState<boolean | null>(null);
+  const [mergePlans, setMergePlans] = useState<boolean | null>(null);
   const [optionMessage, setOptionMessage] = useState<{ type: 'success' | 'danger'; text: string } | null>(null);
 
   // 入庫・出庫の予定日フィルタの初期値(今日からの相対日数。空欄=指定なし。サーバー側に保存)
@@ -130,7 +131,10 @@ const FeatureSettings: React.FC = () => {
   };
 
   useEffect(() => {
-    inventoryService.getFeatureOptions().then((o) => setConfirmDefaultLocation(o.confirm_register_default_location));
+    inventoryService.getFeatureOptions().then((o) => {
+      setConfirmDefaultLocation(o.confirm_register_default_location);
+      setMergePlans(o.merge_plans_on_allocation);
+    });
   }, []);
 
   const handleConfirmDefaultLocationChange = async (enabled: boolean) => {
@@ -141,6 +145,23 @@ const FeatureSettings: React.FC = () => {
       setOptionMessage({
         type: 'success',
         text: `入庫時のデフォルト棚番登録の確認を${enabled ? 'ON' : 'OFF'}にしました。`,
+      });
+    } catch (err) {
+      setOptionMessage({
+        type: 'danger',
+        text: err instanceof ApiError ? err.message : '設定の保存中に通信エラーが発生しました。',
+      });
+    }
+  };
+
+  const handleMergePlansChange = async (enabled: boolean) => {
+    setOptionMessage(null);
+    try {
+      const result = await inventoryService.updateFeatureOptions({ merge_plans_on_allocation: enabled });
+      setMergePlans(result.merge_plans_on_allocation);
+      setOptionMessage({
+        type: 'success',
+        text: `生産計画の引当時の統合確認を${enabled ? 'ON' : 'OFF'}にしました。`,
       });
     } catch (err) {
       setOptionMessage({
@@ -229,6 +250,32 @@ const FeatureSettings: React.FC = () => {
                 {optionMessage.text}
               </div>
             )}
+          </div>
+        </div>
+
+        <div className="card shadow-sm mb-4">
+          <div className="card-body">
+            <h5 className="fw-bold mb-2">生産計画の引当時の統合確認</h5>
+            <p className="text-muted small mb-3">
+              ONにすると、生産計画で複数の計画を選んで部品引当するとき、同一品番の計画があれば
+              「1つの計画にまとめるか」を確認します。まとめると、部品のピッキングと生産を統合した計画で一括して行えます
+              （納期は最も早い計画のもの。完了数量は納期の早い元の計画から順に割り振られます）。
+              この設定は切り替えた時点でシステム全体に反映されます。
+            </p>
+            <div className="form-check form-switch">
+              <input
+                className="form-check-input"
+                type="checkbox"
+                role="switch"
+                id="merge-plans-on-allocation"
+                checked={!!mergePlans}
+                disabled={mergePlans === null}
+                onChange={(e) => handleMergePlansChange(e.target.checked)}
+              />
+              <label className="form-check-label fw-bold" htmlFor="merge-plans-on-allocation">
+                {mergePlans ? 'ON（確認する）' : 'OFF（確認しない）'}
+              </label>
+            </div>
           </div>
         </div>
 

@@ -9,8 +9,12 @@ from .models import BaseSetting
 # 入庫時、品番にデフォルト入庫棚番が未登録なら、入庫した棚番を登録するか確認する
 CONFIRM_REGISTER_DEFAULT_LOCATION = "confirm_register_default_location"
 
+# 生産計画の部品引当時、同一品番の計画をまとめて1つの統合計画にするか確認する
+MERGE_PLANS_ON_ALLOCATION = "merge_plans_on_allocation"
+
 FEATURE_DEFAULTS = {
     CONFIRM_REGISTER_DEFAULT_LOCATION: True,
+    MERGE_PLANS_ON_ALLOCATION: False,
 }
 
 

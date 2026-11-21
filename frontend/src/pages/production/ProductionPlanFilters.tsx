@@ -21,6 +21,7 @@ const PLAN_STATUS_TABS = [
     { value: 'COMPLETED', label: '完了' },
     { value: 'ON_HOLD', label: '保留' },
     { value: 'CANCELLED', label: '中止' },
+    { value: 'MERGED', label: '統合済' },
 ];
 
 const ProductionPlanFilters: React.FC<ProductionPlanFiltersProps> = ({

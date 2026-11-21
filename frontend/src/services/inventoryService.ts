@@ -101,6 +101,8 @@ export type InventoryPayload = Record<string, string | number | boolean | null |
 export interface FeatureOptions {
     /** 入庫時、デフォルト入庫棚番が未登録なら登録するか確認する */
     confirm_register_default_location: boolean;
+    /** 生産計画の部品引当時、同一品番の計画を統合計画にまとめるか確認する */
+    merge_plans_on_allocation: boolean;
 }
 
 /**
@@ -217,10 +219,10 @@ const inventoryService = {
     getFeatureOptions: async (): Promise<FeatureOptions> => {
         try {
             const response = await authFetch('/api/base/feature-options/');
-            if (!response.ok) return { confirm_register_default_location: false };
+            if (!response.ok) return { confirm_register_default_location: false, merge_plans_on_allocation: false };
             return await response.json() as FeatureOptions;
         } catch (_err) {
-            return { confirm_register_default_location: false };
+            return { confirm_register_default_location: false, merge_plans_on_allocation: false };
         }
     },
 

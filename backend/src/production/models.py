@@ -19,6 +19,8 @@ class ProductionPlan(models.Model):
         COMPLETED = "COMPLETED", "完了"
         ON_HOLD = "ON_HOLD", "保留"
         CANCELLED = "CANCELLED", "中止"
+        # 同一品番の計画をまとめた統合計画に引き継がれた計画。以降の引当・生産は統合計画で行う。
+        MERGED = "MERGED", "統合済"
 
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False)  # UUIDv7を使用
     STATUS_CHOICES = Status.choices
@@ -67,6 +69,16 @@ class ProductionPlan(models.Model):
         blank=True,
         related_name="child_plans",
         verbose_name="親生産計画",
+    )
+
+    # 統合済みの計画が、まとめ先の統合計画を指す。
+    merged_into = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="merged_plans",
+        verbose_name="統合先生産計画",
     )
 
     production_plan = models.CharField(

@@ -12,6 +12,7 @@ interface ProductionPlanTableProps {
     onMaterials: (plan: ProductionPlan) => void;
     onAdditionalIssue: (plan: ProductionPlan) => void;
     onIntermediates: (plan: ProductionPlan) => void;
+    onUnmerge: (plan: ProductionPlan) => void;
     /** 計画ごとの引当状況(マスター・引当の進み具合・在庫) */
     overviews: Record<string, PlanAllocationOverview>;
     /** まとめ引当の対象にできる計画か */
@@ -64,10 +65,11 @@ const PLAN_STATUS_META: Record<string, { label: string; className: string }> = {
     COMPLETED: { label: '完了', className: 'receipt-status-badge status-completed' },
     ON_HOLD: { label: '保留', className: 'receipt-status-badge status-canceled' },
     CANCELLED: { label: '中止', className: 'receipt-status-badge status-canceled' },
+    MERGED: { label: '統合済', className: 'receipt-status-badge status-canceled' },
 };
 
 const ProductionPlanTable: React.FC<ProductionPlanTableProps> = ({
-    plans, loading, error, onDetail, onAllocate, onMaterials, onAdditionalIssue, onIntermediates,
+    plans, loading, error, onDetail, onAllocate, onMaterials, onAdditionalIssue, onIntermediates, onUnmerge,
     overviews, isSelectable, selectedIds, onToggleSelected, onToggleAll, onBulkAllocate,
     bulkLoading, bulkResults, bulkError, onCloseBulkResults
 }) => {
@@ -138,6 +140,8 @@ const ProductionPlanTable: React.FC<ProductionPlanTableProps> = ({
                         <div className="fw-bold text-dark">{plan.plan_name || '—'}</div>
                         {plan.parent_plan_name && <div className="small text-muted">親計画: {plan.parent_plan_name}</div>}
                         {!!plan.child_plan_count && <div className="small text-muted">子計画: {plan.child_plan_count}件</div>}
+                        {plan.merged_into_name && <div className="small text-muted">統合先: {plan.merged_into_name}</div>}
+                        {!!plan.merged_plan_count && <div className="small text-muted">統合元: {plan.merged_plan_count}件</div>}
                     </td>
                     <td className="fw-semibold">{plan.product_code || '—'}</td>
                     <td className="text-end">
@@ -150,6 +154,11 @@ const ProductionPlanTable: React.FC<ProductionPlanTableProps> = ({
                     </td>
                     <td>{renderMaterialStatus(overviews[plan.id])}</td>
                     <td className="text-center text-nowrap sticky-action-col">
+                        {plan.status === 'MERGED' ? (
+                            <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => onDetail(plan)}>
+                                詳細
+                            </button>
+                        ) : (<>
                         <button type="button" className="btn btn-sm btn-outline-primary fw-bold" onClick={() => onMaterials(plan)}>
                             {t('① 部品構成')}
                         </button>
@@ -170,6 +179,12 @@ const ProductionPlanTable: React.FC<ProductionPlanTableProps> = ({
                         <button type="button" className="btn btn-sm btn-outline-secondary ms-1" onClick={() => onDetail(plan)}>
                             詳細
                         </button>
+                        {!!plan.merged_plan_count && plan.status === 'PENDING' && (
+                            <button type="button" className="btn btn-sm btn-outline-danger ms-1" onClick={() => onUnmerge(plan)}>
+                                統合解除
+                            </button>
+                        )}
+                        </>)}
                     </td>
                 </tr>
             );

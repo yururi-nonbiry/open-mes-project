@@ -47,6 +47,7 @@ from .services.intermediates import (
     trim_child_plans,
 )
 from .services.bulk_allocation import bulk_allocate_materials, get_allocation_overview
+from .services.merge import find_merge_groups, merge_plans, unmerge_plan
 from .services.materials import allocated_quantity_by_material, normal_allocations
 
 
@@ -127,6 +128,7 @@ class ProductionPlanViewSet(viewsets.ModelViewSet):
                     distinct=True,
                 ),
                 child_plan_count=Count("child_plans", distinct=True),
+                merged_plan_count=Count("merged_plans", distinct=True),
                 has_bom=Exists(BillOfMaterial.objects.filter(product_id=OuterRef("product_id"))),
             )
         )
@@ -261,12 +263,77 @@ class ProductionPlanViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["post"], url_path="bulk-allocate-materials")
     def bulk_allocate_materials(self, request):
-        """複数の生産計画の未引当分を、在庫の多い倉庫からまとめて引き当てます。計画ごとに結果を返します。"""
+        """
+        複数の生産計画の未引当分を、在庫の多い倉庫からまとめて引き当てます。計画ごとに結果を返します。
+        merge が true のときは、同一品番の計画を先に統合計画にまとめてから引き当てます。
+        """
         try:
             plans = self._plans_from_ids(request.data.get("plan_ids"))
+            merge = request.data.get("merge", False)
+            if not isinstance(merge, bool):
+                raise ValueError("merge は true / false で指定してください。")
+            results = bulk_allocate_materials(plans, merge=merge)
         except ValueError as e:
             return error_response(e)
-        return Response({"results": bulk_allocate_materials(plans)}, status=status.HTTP_200_OK)
+        return Response({"results": results}, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=["get"], url_path="merge-candidates")
+    def merge_candidates(self, request):
+        """指定した計画のうち、同一品番で1つの統合計画にまとめられるグループを返します。"""
+        ids = [i for i in request.query_params.get("ids", "").split(",") if i]
+        try:
+            plans = self._plans_from_ids(ids)
+        except ValueError as e:
+            return error_response(e)
+        groups = [
+            {
+                "product_code": g[0].product_id,
+                "product_name": g[0].product.name if g[0].product else "",
+                "total_quantity": sum(p.planned_quantity for p in g),
+                "earliest_end_datetime": min(p.planned_end_datetime for p in g),
+                "plans": [
+                    {
+                        "id": p.id,
+                        "plan_name": p.plan_name,
+                        "planned_quantity": p.planned_quantity,
+                        "planned_end_datetime": p.planned_end_datetime,
+                    }
+                    for p in g
+                ],
+            }
+            for g in find_merge_groups(plans)
+        ]
+        return Response(groups)
+
+    @action(detail=False, methods=["post"], url_path="merge-plans")
+    def merge_plans(self, request):
+        """同一品番の生産計画を1つの統合計画にまとめます。"""
+        try:
+            plans = self._plans_from_ids(request.data.get("plan_ids"))
+            merged = merge_plans(plans)
+        except ValueError as e:
+            return error_response(e)
+        return Response(
+            {"message": "生産計画を統合しました。", "data": ProductionPlanSerializer(merged).data},
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(detail=True, methods=["post"], url_path="unmerge")
+    def unmerge(self, request, pk=None):
+        """統合計画の統合を解除し、元の生産計画を未着手に戻します。"""
+        try:
+            unmerge_plan(self.get_object())
+        except ValueError as e:
+            return error_response(e)
+        return Response({"message": "統合を解除しました。"})
+
+    def destroy(self, request, *args, **kwargs):
+        plan = self.get_object()
+        if plan.status == ProductionPlan.Status.MERGED:
+            return error_response("統合済みの生産計画は削除できません。統合先の生産計画で統合を解除してください。")
+        # 統合計画を削除する場合は、元の計画を未着手に戻す
+        plan.merged_plans.update(status=ProductionPlan.Status.PENDING, merged_into=None)
+        return super().destroy(request, *args, **kwargs)
 
     @action(detail=True, methods=["post"], url_path="update-progress")
     def update_progress(self, request, pk=None):

@@ -258,6 +258,25 @@
 | PP-BULK-06 | 正常系 | `bulk-allocate-materials` | 引当済みの計画 | 2回続けて実行 | 2回目は対象外で、引当が重複しない | |
 | PP-BULK-07 | 異常系 | `bulk-allocate-materials` | 計画IDが空・不正 | 実行 | 400 | |
 
+### 5.15 同一品番の計画の統合（`GET plans/merge-candidates/`・`POST plans/merge-plans/`・`POST plans/{id}/unmerge/`・`bulk-allocate-materials` の `merge`、`production/tests/test_plan_merge.py`）
+
+| ケースID | 分類 | 対象 | 前提条件 | 手順・入力 | 期待結果 | 備考 |
+|---|---|---|---|---|---|---|
+| PP-MERGE-01 | 正常系 | `merge-plans` | 同一品番・未着手の計画A(30)・B(50) | 統合 | 統合計画は数量80・所要部品合算・納期は最も早い計画。A・Bは MERGED で統合先に紐づく | |
+| PP-MERGE-02 | 正常系 | `merge-candidates` | 品番の違う計画を含めて指定 | 取得 | 同一品番のグループだけ返る(納期順) | |
+| PP-MERGE-03 | 異常系 | `merge-plans` | 品番が違う計画 | 統合 | 400 | |
+| PP-MERGE-04 | 異常系 | `merge-plans` | 引当のある計画 | 統合 | 400 | |
+| PP-MERGE-05 | 正常系 | `bulk-allocate-materials` | merge=true | 同一品番2件を指定 | 統合計画に対する結果1件(merged_from)、統合計画に合計数量で引当 | |
+| PP-MERGE-06 | 正常系 | `bulk-allocate-materials` | merge 省略 | 同一品番2件を指定 | 従来どおり計画ごとに引当、統合されない | |
+| PP-MERGE-07 | 正常系 | `update-progress` | 統合計画(80) | 良品70で完了 | 元計画の完了数量を納期順に A=30・B=40 で割り振り、元計画は完了 | |
+| PP-MERGE-08 | 正常系 | `update-progress` | 統合計画(80) | 良品85で完了 | 余剰は最後の計画に加える(B=55) | |
+| PP-MERGE-09 | 正常系 | `update-progress` | 完了済みの統合計画 | 進行中に戻す | 元計画は統合済に戻り、完了数量0 | |
+| PP-MERGE-10 | 正常系 | `unmerge` | 引当前の統合計画 | 統合解除 | 元計画は未着手に戻り、統合計画は中止 | |
+| PP-MERGE-11 | 異常系 | `unmerge` | 引当のある統合計画 | 統合解除 | 400 | |
+| PP-MERGE-12 | 異常系 | `allocate-materials`・`update-progress` | 統合済みの元計画 | 引当・進捗更新 | 400 | |
+| PP-MERGE-13 | 正常系 | `update-progress` | 統合計画 | 中止 | 元計画は未着手に戻る | |
+| PP-MERGE-14 | 正常系 | 機能設定 | — | `merge_plans_on_allocation` | 既定OFF。ONに設定できる | 管理者画面から切替 |
+
 ## 6. シリアライザの read_only_fields 確認
 
 | ケースID | 分類 | 対象 | 内容 |

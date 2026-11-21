@@ -9,6 +9,7 @@ from inventory.services import InventoryServiceError, add_stock, consume_stock, 
 
 from ..models import MaterialAllocation, ProductionPlan, WorkProgress
 from .allocation import build_internal_so_order_number
+from .merge import apportion_completion, release_merged_plans, reverse_apportion
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,8 @@ def update_production_progress_service(plan, data, user):
         raise ValueError("New status is required.")
     if new_status not in ProductionPlan.Status.values:
         raise ValueError(f"Invalid status: {new_status}")
+    if new_status == ProductionPlan.Status.MERGED:
+        raise ValueError("統合済みには変更できません。生産計画を統合する操作で行ってください。")
 
     now = timezone.now()
     PROCESS_STEP_OVERALL = "Overall Plan Progress"
@@ -40,6 +43,8 @@ def update_production_progress_service(plan, data, user):
                 "status": WorkProgress.Status.NOT_STARTED,
             },
         )
+        if plan.status == ProductionPlan.Status.MERGED:
+            raise ValueError("統合済みの生産計画の進捗は更新できません。統合先の生産計画で更新してください。")
         previous_wp_completed_quantity = work_progress.quantity_completed
         old_plan_status = plan.status
         plan.status = new_status
@@ -69,6 +74,15 @@ def update_production_progress_service(plan, data, user):
 
         plan.save()
         work_progress.save()
+
+        # 統合計画の場合は、元の計画へ完了数量を按分する / 完了の取消・中止で元の計画を戻す
+        if plan.merged_plans.exists():
+            if new_status == ProductionPlan.Status.COMPLETED:
+                apportion_completion(plan, work_progress.quantity_completed)
+            elif old_plan_status == ProductionPlan.Status.COMPLETED:
+                reverse_apportion(plan)
+            if new_status == ProductionPlan.Status.CANCELLED:
+                release_merged_plans(plan)
 
         # COMPLETEDになった（または完了数量が更新された）場合の在庫調整
         if new_status == ProductionPlan.Status.COMPLETED:

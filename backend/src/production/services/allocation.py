@@ -41,6 +41,9 @@ def allocate_materials_service(production_plan, allocations_data):
     if not allocations_data:
         raise ValueError("Allocations list cannot be empty.")
 
+    if production_plan.status == ProductionPlan.Status.MERGED:
+        raise ValueError("統合済みの生産計画は引き当てできません。統合先の生産計画で引き当ててください。")
+
     processed_allocations_summary = []
     errors = []
 
@@ -292,6 +295,8 @@ def issue_additional_materials_service(production_plan, items, user, remarks=Non
     """
     if production_plan.status == ProductionPlan.Status.CANCELLED:
         raise ValueError(apply_terms("中止された生産計画には追加ピッキングできません。"))
+    if production_plan.status == ProductionPlan.Status.MERGED:
+        raise ValueError(apply_terms("統合済みの生産計画には追加ピッキングできません。統合先の生産計画で行ってください。"))
     if not isinstance(items, list) or not items:
         raise ValueError(apply_terms("追加ピッキングする部品を1件以上指定してください。"))
 
