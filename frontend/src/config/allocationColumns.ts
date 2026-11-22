@@ -17,6 +17,7 @@ export interface AllocationColumn {
 export const ALLOCATION_COLUMNS: AllocationColumn[] = [
     { name: 'part_code', label: '部品コード', help: '所要部品の品番です。' },
     { name: 'part_name', label: '部品名', help: '在庫不足のときは不足数のバッジも表示されます。' },
+    { name: 'purpose', label: '用途', help: '生産計画で指定した、使用する在庫の用途です(空欄は汎用)。' },
     { name: 'required_quantity', label: '所要数', help: '計画全体で必要な数量です。', align: 'end' },
     { name: 'already_allocated_quantity', label: '引当済', help: 'すでに引き当てた数量です。', align: 'end' },
     { name: 'additional_issued_quantity', label: '追加ピッキング済', help: '追加で出庫した数量です。', align: 'end' },

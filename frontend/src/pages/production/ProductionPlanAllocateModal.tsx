@@ -256,6 +256,7 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
                                                             {shortage && <span className="badge bg-danger ms-1" title={`未引当 ${needed} に対し、引当可能な在庫は計 ${stock}`}>在庫不足 {needed - stock}</span>}
                                                         </>
                                                     );
+                                                    case 'purpose': return plan.purpose || '汎用';
                                                     case 'required_quantity': return part.required_quantity;
                                                     case 'already_allocated_quantity': return part.already_allocated_quantity;
                                                     case 'additional_issued_quantity': return part.additional_issued_quantity;
