@@ -331,6 +331,12 @@ class ProductionPlanViewSet(viewsets.ModelViewSet):
         plan = self.get_object()
         if plan.status == ProductionPlan.Status.MERGED:
             return error_response("統合済みの生産計画は削除できません。統合先の生産計画で統合を解除してください。")
+        # 引当が残ったまま削除すると、在庫の引当数(reserved)が解放されず残り続けるため、先に引当を解除してもらう
+        if plan.material_allocations.filter(status=MaterialAllocation.Status.ALLOCATED).exists():
+            return error_response("引当済みの部品がある生産計画は削除できません。先に部品の引当を解除してください。")
+        # 完了した統合計画を削除すると、元の計画を未着手に戻して二重に生産・計上できてしまう
+        if plan.status == ProductionPlan.Status.COMPLETED and plan.merged_plans.exists():
+            return error_response("完了した統合計画は削除できません。")
         # 統合計画を削除する場合は、元の計画を未着手に戻す
         plan.merged_plans.update(status=ProductionPlan.Status.PENDING, merged_into=None)
         return super().destroy(request, *args, **kwargs)

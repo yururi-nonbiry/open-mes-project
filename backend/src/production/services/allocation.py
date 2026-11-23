@@ -44,6 +44,9 @@ def allocate_materials_service(production_plan, allocations_data):
     if production_plan.status == ProductionPlan.Status.MERGED:
         raise ValueError("統合済みの生産計画は引き当てできません。統合先の生産計画で引き当ててください。")
 
+    if production_plan.status in (ProductionPlan.Status.COMPLETED, ProductionPlan.Status.CANCELLED):
+        raise ValueError("完了・中止した生産計画は引き当てできません。")
+
     processed_allocations_summary = []
     errors = []
 

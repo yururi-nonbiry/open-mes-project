@@ -84,6 +84,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, isAuthenticated }
             </button>
           </div>
 
+          {import.meta.env.DEV && (
           <div className="mt-3 pt-3 border-top text-center">
             <p className="text-muted small mb-2">
               ID: <strong>admin</strong> / PW: <strong>admin</strong>
@@ -100,6 +101,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, isAuthenticated }
               管理者（admin）としてローカル確認
             </button>
           </div>
+          )}
         </form>
       </div>
     </div>

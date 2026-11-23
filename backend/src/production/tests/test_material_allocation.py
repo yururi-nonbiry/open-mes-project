@@ -154,3 +154,20 @@ class MaterialAllocationChangeStatusTests(ProductionAPITestBase):
         self.allocation.save()
         response = self.client.post(self.url, {"status": "ISSUED"}, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class ProductionPlanDeleteGuardTests(ProductionAPITestBase):
+    """PP-DELGUARD-* : 引当が残っている計画の削除を拒否し、在庫の引当数(reserved)のリークを防ぐ。"""
+
+    def test_pp_delguard_01_plan_with_allocated_material_cannot_be_deleted(self):
+        plan = self.create_plan()
+        self.create_inventory(quantity=10, reserved=5)
+        self.create_material_allocation(production_plan=plan, allocated_quantity=5)
+        response = self.client.delete(reverse("production_api:production-plan-detail", args=[plan.id]))
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertTrue(type(plan).objects.filter(id=plan.id).exists())
+
+    def test_pp_delguard_02_plan_without_allocation_can_be_deleted(self):
+        plan = self.create_plan()
+        response = self.client.delete(reverse("production_api:production-plan-detail", args=[plan.id]))
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)

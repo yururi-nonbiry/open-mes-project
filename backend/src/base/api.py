@@ -31,22 +31,9 @@ from .tasks import import_csv_task
 
 logger = logging.getLogger(__name__)
 
-DATA_TYPE_MODEL_MAPPING = {
-    "item": "master.Item",
-    "supplier": "master.Supplier",
-    "warehouse": "master.Warehouse",
-    "purchase_order": "inventory.PurchaseOrder",
-    "goods_receipt": "inventory.Receipt",
-    "sales_order": "inventory.SalesOrder",
-    "inventory": "inventory.Inventory",
-    "stock_movement": "inventory.StockMovement",
-    "production_plan": "production.ProductionPlan",
-    "parts_used": "production.PartsUsed",
-    "base_setting": "base.BaseSetting",
-    "csv_column_mapping": "base.CsvColumnMapping",
-    "model_display_setting": "base.ModelDisplaySetting",
-    "qr_code_action": "base.QrCodeAction",
-}
+# モデル項目表示設定・CSV列マッピング・項目一覧の対象。models.DATA_TYPE_MODEL_MAPPING(CSV取込の対象)に、
+# 取込対象外の入出庫履歴を加えたもの。二重定義すると顧客・ワークセンター・標準単価のような追加漏れが起きるため、共通の定義から作る。
+DATA_TYPE_MODEL_MAPPING = {**CSV_DATA_TYPE_MODELS, "stock_movement": "inventory.StockMovement"}
 
 
 class AppInfoView(APIView):
@@ -362,6 +349,14 @@ class CsvColumnMappingViewSet(AuditSettingsChangeMixin, IntegrityErrorAsBadReque
             return [permissions.IsAuthenticated()]
         return super().get_permissions()
 
+    # 管理者専用の設定データ。CSVの書き出し・取り込みは管理者のみ可能とする(一般ユーザーが設定を閲覧・改ざんできないように)
+    ADMIN_ONLY_CSV_DATA_TYPES = {"base_setting", "csv_column_mapping", "model_display_setting", "qr_code_action"}
+
+    def _forbid_admin_only_csv(self, request, data_type):
+        if data_type in self.ADMIN_ONLY_CSV_DATA_TYPES and not request.user.is_staff:
+            return error_response("このデータ種別のCSV操作は管理者のみ可能です。", status.HTTP_403_FORBIDDEN)
+        return None
+
     @action(detail=False, methods=["get"], url_path="csv-template")
     def csv_template(self, request, *args, **kwargs):
         """
@@ -398,6 +393,9 @@ class CsvColumnMappingViewSet(AuditSettingsChangeMixin, IntegrityErrorAsBadReque
         if not data_type:
             return error_response('Query parameter "data_type" is required.')
 
+        forbidden = self._forbid_admin_only_csv(request, data_type)
+        if forbidden:
+            return forbidden
         model_string = CSV_DATA_TYPE_MODELS.get(data_type)
         if not model_string:
             return error_response(f'"{data_type}" は書き出し対象外のデータ種別です。')
@@ -422,6 +420,10 @@ class CsvColumnMappingViewSet(AuditSettingsChangeMixin, IntegrityErrorAsBadReque
         data_type = request.query_params.get("data_type")
         if not data_type:
             return error_response('Query parameter "data_type" is required.')
+
+        forbidden = self._forbid_admin_only_csv(request, data_type)
+        if forbidden:
+            return forbidden
 
         csv_file = request.FILES.get("csv_file")
         if not csv_file:

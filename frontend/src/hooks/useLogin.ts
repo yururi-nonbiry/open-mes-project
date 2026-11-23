@@ -46,7 +46,7 @@ export const useLogin = (onLoginSuccess: () => Promise<void>) => {
             }
 
             // バックエンド未起動時（プロキシ500/502/504またはネットワーク失敗）のローカル確認用ログイン
-            if ((networkFailed || (response && response.status >= 500)) && customId === 'admin' && password === 'admin') {
+            if (import.meta.env.DEV && (networkFailed || (response && response.status >= 500)) && customId === 'admin' && password === 'admin') {
                 localStorage.setItem('access_token', 'local-dev-admin-token');
                 localStorage.setItem('refresh_token', 'local-dev-admin-refresh');
                 setCaptcha(null);

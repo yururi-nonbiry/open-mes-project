@@ -30,16 +30,32 @@ export const useCsvImport = () => {
             try {
                 const result = await importService.getTaskStatus(currentTaskId);
                 setTaskStatus(result.status_display ?? result.status);
-                setProgress(result.progress || 0);
+                // 進捗は処理済みの行数で返るため、全行数に対する割合(%)にする
+                setProgress(result.total > 0 ? Math.min(100, Math.round((result.progress || 0) / result.total * 100)) : 0);
 
                 if (result.status === 'SUCCESS') {
                     stopPolling();
-                    setCsvResult({ message: 'インポートが完了しました', isError: false, errors: [] });
+                    const done = result.result as { created?: number; updated?: number } | null;
+                    setCsvResult({
+                        message: done && typeof done.created === 'number'
+                            ? `インポートが完了しました(登録 ${done.created} 件、更新 ${done.updated ?? 0} 件)`
+                            : 'インポートが完了しました',
+                        isError: false,
+                        errors: [],
+                    });
                     setShowResultModal(true);
+                    setIsLoading(false);
+                } else if (result.status === 'REVOKED') {
+                    stopPolling();
                     setIsLoading(false);
                 } else if (result.status === 'FAILURE') {
                     stopPolling();
-                    setCsvResult({ message: 'インポート中にエラーが発生しました', isError: true, errors: [result.error_message || (typeof result.result === 'string' ? result.result : '') || '不明なエラー'] });
+                    // バックエンドは result に {errors: [行ごとのエラー]} または {error: 'メッセージ'} を入れて返す
+                    const detail = result.result as { errors?: string[]; error?: string } | string | null;
+                    const errors = typeof detail === 'string' ? [detail]
+                        : detail?.errors?.length ? detail.errors
+                            : detail?.error ? [detail.error] : [];
+                    setCsvResult({ message: 'インポート中にエラーが発生しました', isError: true, errors: errors.length > 0 ? errors : ['不明なエラー'] });
                     setShowResultModal(true);
                     setIsLoading(false);
                 }
@@ -69,9 +85,16 @@ export const useCsvImport = () => {
         }
     };
 
-    const cancelUpload = () => {
+    const cancelUpload = async () => {
+        const currentTaskId = taskId;
         stopPolling();
         setIsLoading(false);
+        // 画面側のポーリングを止めるだけでなく、バックエンドの取り込みも中止する
+        if (currentTaskId) {
+            try {
+                await importService.cancelImport(currentTaskId);
+            } catch { /* すでに完了している場合など。画面は取り込み前の状態に戻す */ }
+        }
     };
 
     // コンポーネントのアンマウント時にポーリングを止める（画面遷移後もAPIを叩き続けるのを防ぐ）

@@ -60,7 +60,7 @@ const CsvMappingSettings = () => {
                     // Mapping info (editable)
                     csv_header: existingMapping?.csv_header || '',
                     custom_display_name: displaySetting?.display_name || '', // モデル表示設定のカスタム名を取得
-                    order: existingMapping?.order || (index + 1) * 10,
+                    order: existingMapping?.order ?? (index + 1) * 10,
                     is_update_key: existingMapping ? existingMapping.is_update_key : false,
                     is_active: isActive,
                 };

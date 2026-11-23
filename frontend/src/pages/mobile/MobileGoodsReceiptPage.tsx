@@ -163,6 +163,7 @@ const MobileGoodsReceiptPageContent = ({ dateDefaults }: { dateDefaults: Schedul
 
       if (updateSearch) {
         setSearchTerm(updateSearch);
+        setCurrentPage(1);
       } else if (defaultSetter) {
         defaultSetter(decodedText);
       }

@@ -47,6 +47,11 @@ const importService = {
         const response = await authFetch(`/api/base/csv-import-status/${taskId}/`);
         await handleError(response, 'Failed to fetch task status');
         return await response.json();
+    },
+
+    cancelImport: async (taskId: string) => {
+        const response = await authFetch(`/api/base/csv-import-cancel/${taskId}/`, { method: 'POST' });
+        await handleError(response, 'Failed to cancel CSV import');
     }
 };
 

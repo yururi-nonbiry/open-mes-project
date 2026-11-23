@@ -40,10 +40,10 @@ export const useProductionPlans = () => {
             params.append('page_size', pageSize.toString());
             if (filters.plan_name) params.append('plan_name', filters.plan_name);
             if (filters.product_code) params.append('product_code', filters.product_code);
-            if (filters.status) params.append('status', filters.status);
+            if (filters.status) params.append('status__in', filters.status);
             if (filters.parent_plan_ref) params.append('production_plan_ref', filters.parent_plan_ref);
             if (filters.planned_start_from) params.append('planned_start_datetime_after', filters.planned_start_from);
-            if (filters.planned_start_to) params.append('planned_start_datetime_before', filters.planned_start_to);
+            if (filters.planned_start_to) params.append('planned_start_datetime_before', `${filters.planned_start_to}T23:59:59`);
             currentUrl = `/api/production/plans/?${params.toString()}`;
         }
 

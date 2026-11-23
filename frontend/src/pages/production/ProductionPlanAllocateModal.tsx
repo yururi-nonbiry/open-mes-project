@@ -164,8 +164,16 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
 
     if (!plan) return null;
 
+    /** 結果表示中に×・Esc・背景クリックで閉じても、結果の状態を残さず一覧を更新する(別の計画を開いたとき前回の結果が出るのを防ぐ) */
+    const handleClose = () => {
+        const succeeded = allocationResult?.type === 'success';
+        setAllocationResult(null);
+        if (succeeded) onSuccess();
+        onClose();
+    };
+
     return (
-        <Modal isOpen={isOpen} onClose={onClose} maxWidth="1200px">
+        <Modal isOpen={isOpen} onClose={handleClose} maxWidth="1200px">
             <div className="p-3">
                 <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
                     <h5 className="mb-0">{allocationResult?.type === 'success' ? t('部品引き当て完了') : t('部品引き当て')}</h5>
@@ -191,7 +199,7 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
                             </div>
                         )}
                         <div className="text-end mt-4">
-                            <button className="btn btn-primary" onClick={() => { setAllocationResult(null); onSuccess(); onClose(); }}>閉じる</button>
+                            <button className="btn btn-primary" onClick={handleClose}>閉じる</button>
                         </div>
                     </div>
                 ) : (
@@ -214,8 +222,8 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
                                                 <input
                                                     type="checkbox" className="form-check-input"
                                                     aria-label="すべて選択"
-                                                    disabled={requiredParts.length === 0}
-                                                    checked={requiredParts.length > 0 && requiredParts.every(p => p.checked)}
+                                                    disabled={!requiredParts.some(p => p.selected_warehouse)}
+                                                    checked={requiredParts.some(p => p.selected_warehouse) && requiredParts.filter(p => p.selected_warehouse).every(p => p.checked)}
                                                     onChange={(e) => handleCheckAll(e.target.checked)}
                                                 />
                                             </th>
@@ -339,7 +347,7 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
                         })()}
                         <div className="text-end mt-4">
                             <button className="btn btn-primary" onClick={handleSubmit} disabled={loading || !!error}>{t('チェックした部品を引き当て')}</button>
-                            <button className="btn btn-secondary ms-2" onClick={onClose}>キャンセル</button>
+                            <button className="btn btn-secondary ms-2" onClick={handleClose}>キャンセル</button>
                         </div>
                     </div>
                 )}

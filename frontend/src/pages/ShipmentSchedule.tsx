@@ -6,7 +6,6 @@ import { t, registerTermTarget } from '../utils/terms';
 
 const STATUS_TABS = [
   { value: 'pending', label: '未出庫' },
-  { value: 'partially_shipped', label: '一部出庫' },
   { value: 'shipped', label: '出庫済み' },
   { value: '', label: 'すべて表示' },
 ];
@@ -77,7 +76,7 @@ const ShipmentSchedule: React.FC = () => {
     if (error) {
       return (
         <tr>
-          <td colSpan={9} className="text-center text-danger py-4 fw-bold">
+          <td colSpan={10} className="text-center text-danger py-4 fw-bold">
             {error}
           </td>
         </tr>
@@ -86,7 +85,7 @@ const ShipmentSchedule: React.FC = () => {
     if (salesOrders.length === 0) {
       return (
         <tr>
-          <td colSpan={9} className="text-center py-5 text-muted">
+          <td colSpan={10} className="text-center py-5 text-muted">
             <div className="fw-bold mb-1">{t('該当する出庫予定はありません')}</div>
             <div className="small">上の状態タブや検索条件を切り替えてご確認ください。</div>
           </td>

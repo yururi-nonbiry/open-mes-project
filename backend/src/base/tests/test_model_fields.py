@@ -28,14 +28,12 @@ class ModelFieldsViewTests(APITestCase):
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
-    def test_base_modelfields_03_valid_business_choice_missing_from_local_mapping_returns_400(self):
-        """
-        既知の不具合: "customer"はmodels.DATA_TYPE_CHOICESの正式な選択肢だが、
-        api.py内のローカルDATA_TYPE_MODEL_MAPPINGには含まれておらず、400になる。
-        """
+    def test_base_modelfields_03_customer_work_center_unit_cost_are_valid_data_types(self):
+        """顧客・ワークセンター・標準単価もモデル項目表示設定・CSVマッピングの対象として項目一覧を取得できる。"""
         self.client.force_authenticate(user=self.admin_user)
-        response = self.client.get(self.url, {"data_type": "customer"})
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        for data_type in ("customer", "work_center", "unit_cost"):
+            response = self.client.get(self.url, {"data_type": data_type})
+            self.assertEqual(response.status_code, status.HTTP_200_OK, data_type)
 
     def test_base_modelfields_06_relations_excluded_by_default(self):
         self.client.force_authenticate(user=self.admin_user)

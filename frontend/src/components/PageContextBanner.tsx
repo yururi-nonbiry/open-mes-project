@@ -233,7 +233,7 @@ const PageContextBanner: React.FC = () => {
             <div className="guided-wizard-instruction-col">
               <div className="guided-step-heading">
                 <span className="guided-step-count-pill">
-                  STEP {currentGuidedStep.stepIndex} / {activeTrack.guidedSteps.length}
+                  STEP {activeTrack.guidedSteps.findIndex((s) => s.stepIndex === currentGuidedStep.stepIndex) + 1} / {activeTrack.guidedSteps.length}
                 </span>
                 <span className="guided-step-title-text">{currentGuidedStep.title}</span>
                 {currentGuidedStep.mobileHint && (

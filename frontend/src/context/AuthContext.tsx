@@ -36,7 +36,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return;
     }
 
-    if (token === 'local-dev-admin-token') {
+    if (import.meta.env.DEV && token === 'local-dev-admin-token') {
       setIsAuthenticated(true);
       setIsStaff(true);
       setIsSuperuser(true);

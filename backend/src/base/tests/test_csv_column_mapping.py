@@ -180,3 +180,28 @@ class CsvColumnMappingBulkSaveTests(BaseAPITestBase):
         self.client.force_authenticate(user=self.user)
         response = self.client.post(f"{self.url}?data_type=item", [], format="json")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class CsvAdminOnlyDataTypeTests(BaseAPITestBase):
+    """管理者専用の設定データ(基本設定・CSVマッピング等)のCSV書き出し・取り込みは一般ユーザーに許可しない。"""
+
+    ADMIN_ONLY = ("base_setting", "csv_column_mapping", "model_display_setting", "qr_code_action")
+
+    def test_csv_admin_only_01_normal_user_cannot_export_or_import(self):
+        self.client.force_authenticate(user=self.user)
+        export_url = reverse("base_api:csv-mapping-csv-export")
+        import_url = reverse("base_api:csv-mapping-import-csv")
+        for data_type in self.ADMIN_ONLY:
+            self.assertEqual(self.client.get(export_url, {"data_type": data_type}).status_code, 403, data_type)
+            self.assertEqual(self.client.post(import_url + f"?data_type={data_type}").status_code, 403, data_type)
+
+    def test_csv_admin_only_02_normal_user_can_still_export_master_data(self):
+        self.create_csv_column_mapping(data_type="item", csv_header="品目コード", model_field_name="code")
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(reverse("base_api:csv-mapping-csv-export"), {"data_type": "item"})
+        self.assertEqual(response.status_code, 200)
+
+    def test_csv_admin_only_03_admin_can_export_admin_only_data(self):
+        self.create_csv_column_mapping(data_type="base_setting", csv_header="項目名", model_field_name="name")
+        response = self.client.get(reverse("base_api:csv-mapping-csv-export"), {"data_type": "base_setting"})
+        self.assertEqual(response.status_code, 200)

@@ -5,8 +5,10 @@ export const useFilters = <T extends object>(initialFilters: T, initialSorting: 
     const [sorting, setSorting] = useState(initialSorting);
 
     const handleFilterChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        const { name, value } = e.target;
-        setFilters(prev => ({ ...prev, [name]: value }));
+        const target = e.target as HTMLInputElement;
+        // チェックボックスは value ではなく checked(真偽値)を保持する
+        const next = target.type === 'checkbox' ? target.checked : target.value;
+        setFilters(prev => ({ ...prev, [target.name]: next }));
     }, []);
 
     const handleSort = useCallback((field: string) => {

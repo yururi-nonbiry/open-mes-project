@@ -90,6 +90,16 @@ const MobileRedirector = () => {
   return null;
 };
 
+// コンポーネント内で定義すると描画のたびに別のコンポーネントになり、配下の画面が作り直されて入力が消えるため、外で定義する
+const StaffRoute = ({ children }: { children: ReactNode }) => {
+  const { isStaff } = useAuth();
+  if (!isStaff) {
+    // スタッフでない場合はトップページにリダイレクト
+    return <Navigate to="/" replace />;
+  }
+  return children;
+};
+
 function AppContent() {
   const { isAuthenticated, isStaff, loading, logout, checkAuth } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -112,14 +122,6 @@ function AppContent() {
   }, [isAuthenticated]);
 
   if (loading) return <div className="p-4">読み込み中...</div>;
-
-  const StaffRoute = ({ children }: { children: ReactNode }) => {
-    if (!isStaff) {
-      // スタッフでない場合はトップページにリダイレクト
-      return <Navigate to="/" replace />;
-    }
-    return children;
-  };
 
   return (
     <Fragment key={termsVersion}>
