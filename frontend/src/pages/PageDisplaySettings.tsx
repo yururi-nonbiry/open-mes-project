@@ -7,6 +7,7 @@ import authFetch, { describeError, toApiError } from '../utils/api';
 import type { PageDisplayRow, ModelDisplaySettingRecord, ModelFieldInfo, SaveStatus, BulkSaveResult, FieldChangeEvent } from './types/displaySettings';
 import { registerTermTarget } from '../utils/terms';
 import { ALLOCATION_COLUMNS, ALLOCATION_DATA_TYPE } from '../config/allocationColumns';
+import { PICKING_PC_COLUMNS, PICKING_PC_DATA_TYPE, PICKING_MOBILE_COLUMNS, PICKING_MOBILE_DATA_TYPE } from '../config/pickingColumns';
 import { PLAN_LIST_COLUMNS, PLAN_LIST_DATA_TYPE } from '../config/planListColumns';
 
 // This could be moved to a shared constants file
@@ -17,6 +18,8 @@ const DATA_TYPE_CHOICES = [
     { value: 'stock_movement', label: '入出庫履歴' },
     { value: PLAN_LIST_DATA_TYPE, label: '生産計画(一覧)' },
     { value: ALLOCATION_DATA_TYPE, label: '部品引当(生産計画)' },
+    { value: PICKING_PC_DATA_TYPE, label: '順立て・ピッキング(PC)' },
+    { value: PICKING_MOBILE_DATA_TYPE, label: '順立て・ピッキング(モバイル)' },
 ];
 registerTermTarget(DATA_TYPE_CHOICES);
 
@@ -65,6 +68,16 @@ const DATA_TYPE_MAP: Record<string, DataTypeConfig> = {
         fetch: [ALLOCATION_DATA_TYPE],
         save: [ALLOCATION_DATA_TYPE],
         virtualFields: ALLOCATION_COLUMNS.map(c => ({ name: c.name, verbose_name: c.label, help_text: c.help })),
+    },
+    [PICKING_PC_DATA_TYPE]: {
+        fetch: [PICKING_PC_DATA_TYPE],
+        save: [PICKING_PC_DATA_TYPE],
+        virtualFields: PICKING_PC_COLUMNS.map(c => ({ name: c.name, verbose_name: c.label, help_text: c.help })),
+    },
+    [PICKING_MOBILE_DATA_TYPE]: {
+        fetch: [PICKING_MOBILE_DATA_TYPE],
+        save: [PICKING_MOBILE_DATA_TYPE],
+        virtualFields: PICKING_MOBILE_COLUMNS.map(c => ({ name: c.name, verbose_name: c.label, help_text: c.help })),
     },
 };
 

@@ -5,6 +5,9 @@ import authFetch, { handleError } from '../utils/api';
 import { MaterialAllocation, PaginationData } from '../types/production';
 import { useWorkCenters } from '../hooks/useWorkCenters';
 import { t, registerTermTarget } from '../utils/terms';
+import inventoryService from '../services/inventoryService';
+import { PICKING_PC_COLUMNS, PICKING_PC_DATA_TYPE, applyColumnSettings } from '../config/pickingColumns';
+import type { PickingColumn } from '../config/pickingColumns';
 
 const ALLOC_STATUS_TABS = [
   { value: '', label: 'すべて表示' },
@@ -330,6 +333,20 @@ const MaterialAllocationPage: React.FC = () => {
     }
   };
 
+  // 列の表示/非表示・並び順・表示名は、ページ項目表示設定(picking_pc)で変更できる。
+  // 設定が無い(取得できない)場合は既定の列をすべて表示する。
+  const [columnSettings, setColumnSettings] = useState<(PickingColumn & { title: string })[]>(
+    PICKING_PC_COLUMNS.map(c => ({ ...c, title: c.label }))
+  );
+  useEffect(() => {
+    inventoryService.getDisplaySettings(PICKING_PC_DATA_TYPE)
+      .then(settings => setColumnSettings(applyColumnSettings(PICKING_PC_COLUMNS, settings)))
+      .catch(() => { /* 設定を取得できなくても既定の列で表示する */ });
+  }, []);
+  // 完成品(計画)の列は「すべて」を選んだときだけ表示する
+  const columns = columnSettings.filter(c => c.name !== 'product_plan' || selectedProductKey === 'all');
+  const colCount = columns.length + 1; // 操作列を加える
+
   const getStatusBadge = (status: string, display: string) => {
     switch (status) {
       case 'ALLOCATED':
@@ -566,28 +583,25 @@ const MaterialAllocationPage: React.FC = () => {
           <table className="table table-hover align-middle goods-receipt-table mb-0">
             <thead>
               <tr>
-                <th style={{ width: '22%' }}>{t('部品コード・部品名')}</th>
-                {selectedProductKey === 'all' && <th>完成品（計画）</th>}
-                <th style={{ width: '14%' }}>{t('出庫先ライン')}</th>
-                <th style={{ width: '12%' }}>保管倉庫</th>
-                <th className="text-end" style={{ width: '10%' }}>引当数量</th>
-                <th style={{ width: '13%' }}>引当日時</th>
-                <th style={{ width: '12%' }}>状態</th>
-                <th>備考</th>
+                {columns.map(col => (
+                  <th key={col.name} className={col.align === 'end' ? 'text-end' : undefined}>
+                    {col.name === 'material' || col.name === 'line' ? t(col.title) : col.title}
+                  </th>
+                ))}
                 <th className="text-center sticky-action-col" style={{ width: '140px' }}>{t('ピッキング操作')}</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={selectedProductKey === 'all' ? 9 : 8} className="text-center py-5">
+                  <td colSpan={colCount} className="text-center py-5">
                     <Spinner animation="border" variant="primary" size="sm" className="me-2" />
                     <span className="text-muted">{t('部品データを読み込んでいます...')}</span>
                   </td>
                 </tr>
               ) : displayedAllocations.length === 0 ? (
                 <tr>
-                  <td colSpan={selectedProductKey === 'all' ? 9 : 8} className="text-center py-5 text-muted">
+                  <td colSpan={colCount} className="text-center py-5 text-muted">
                     {currentGroup
                       ? t('この完成品に該当する部品データがありません。')
                       : t('条件に一致する部品データがありません。')}
@@ -601,75 +615,90 @@ const MaterialAllocationPage: React.FC = () => {
 
                   return (
                     <tr key={alloc.id} className={isAllocated ? 'table-warning-subtle' : ''}>
-                      <td>
-                        <div className="fw-bold text-dark font-monospace">{alloc.material_code}</div>
-                        <div className="small text-secondary text-truncate" title={matName}>
-                          {matName}
-                        </div>
-                      </td>
-
-                      {selectedProductKey === 'all' && (
-                        <td>
-                          <div className="fw-semibold text-dark">
-                            {alloc.product_code ? `[${alloc.product_code}] ` : ''}
-                            {alloc.production_plan_name || '—'}
-                          </div>
-                          <small className="text-muted font-monospace">{alloc.production_plan}</small>
-                        </td>
-                      )}
-
-                      <td>
-                        {isAllocated ? (
-                          <select
-                            className="form-select form-select-sm"
-                            value={alloc.line || ''}
-                            onChange={(e) => handleLineChange(alloc.id, e.target.value)}
-                          >
-                            <option value="">未指定</option>
-                            {workCenters.map((w) => (
-                              <option key={w.code} value={w.code}>
-                                {w.code}{w.name ? `（${w.name}）` : ''}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          alloc.line || <span className="text-muted">未指定</span>
-                        )}
-                      </td>
-
-                      <td>
-                        <span className="badge bg-light text-dark border">
-                          {alloc.warehouse || '標準倉庫'}
-                        </span>
-                      </td>
-
-                      <td className="text-end">
-                        <span className="receipt-remaining-qty has-remaining fw-bold">
-                          {alloc.allocated_quantity}
-                        </span>
-                      </td>
-
-                      <td className="small text-muted">
-                        {alloc.allocation_datetime
-                          ? new Date(alloc.allocation_datetime).toLocaleString('ja-JP', {
-                              month: '2-digit',
-                              day: '2-digit',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })
-                          : '—'}
-                      </td>
-
-                      <td>
-                        {getStatusBadge(alloc.status, alloc.status_display)}
-                        {alloc.allocation_type === 'ADDITIONAL' && (
-                          <span className="badge bg-danger-subtle text-danger-emphasis ms-1">
-                            {alloc.allocation_type_display || t('追加ピッキング')}
-                          </span>
-                        )}
-                      </td>
-
-                      <td className="small text-muted">{alloc.remarks || '—'}</td>
+                      {columns.map(col => {
+                        switch (col.name) {
+                          case 'material': return (
+                          <td key={col.name}>
+                            <div className="fw-bold text-dark font-monospace">{alloc.material_code}</div>
+                            <div className="small text-secondary text-truncate" title={matName}>
+                              {matName}
+                            </div>
+                          </td>
+                          );
+                          case 'product_plan': return (
+                          <td key={col.name}>
+                            <div className="fw-semibold text-dark">
+                              {alloc.product_code ? `[${alloc.product_code}] ` : ''}
+                              {alloc.production_plan_name || '—'}
+                            </div>
+                            <small className="text-muted font-monospace">{alloc.production_plan}</small>
+                          </td>
+                          );
+                          case 'line': return (
+                          <td key={col.name}>
+                            {isAllocated ? (
+                              <select
+                                className="form-select form-select-sm"
+                                value={alloc.line || ''}
+                                onChange={(e) => handleLineChange(alloc.id, e.target.value)}
+                              >
+                                <option value="">未指定</option>
+                                {workCenters.map((w) => (
+                                  <option key={w.code} value={w.code}>
+                                    {w.code}{w.name ? `（${w.name}）` : ''}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              alloc.line || <span className="text-muted">未指定</span>
+                            )}
+                          </td>
+                          );
+                          case 'warehouse': return (
+                          <td key={col.name}>
+                            <span className="badge bg-light text-dark border">
+                              {alloc.warehouse || '標準倉庫'}
+                            </span>
+                          </td>
+                          );
+                          case 'allocated_quantity': return (
+                          <td key={col.name} className="text-end">
+                            <span className="receipt-remaining-qty has-remaining fw-bold">
+                              {alloc.allocated_quantity}
+                            </span>
+                          </td>
+                          );
+                          case 'allocation_datetime': return (
+                          <td key={col.name} className="small text-muted">
+                            {alloc.allocation_datetime
+                              ? new Date(alloc.allocation_datetime).toLocaleString('ja-JP', {
+                                  month: '2-digit',
+                                  day: '2-digit',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })
+                              : '—'}
+                          </td>
+                          );
+                          case 'status': return (
+                          <td key={col.name}>
+                            {getStatusBadge(alloc.status, alloc.status_display)}
+                            {alloc.allocation_type === 'ADDITIONAL' && (
+                              <span className="badge bg-danger-subtle text-danger-emphasis ms-1">
+                                {alloc.allocation_type_display || t('追加ピッキング')}
+                              </span>
+                            )}
+                          </td>
+                          );
+                          case 'remarks': return (
+                          <td key={col.name} className="small text-muted">{alloc.remarks || '—'}</td>
+                          );
+                          case 'purpose': return (
+                          <td key={col.name}>{alloc.purpose || '汎用'}</td>
+                          );
+                          default: return null;
+                        }
+                      })}
 
                       <td className="text-center text-nowrap sticky-action-col">
                         {isAllocated && (

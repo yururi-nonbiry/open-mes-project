@@ -5,6 +5,9 @@ import { useWorkCenters } from '../../hooks/useWorkCenters';
 import type { MaterialAllocation, PaginationData } from '../../types/production';
 import pickingSearchFieldsService, { DEFAULT_PICKING_SEARCH_FIELDS } from '../../services/pickingSearchFieldsService';
 import type { PickingSearchField } from '../../services/pickingSearchFieldsService';
+import inventoryService from '../../services/inventoryService';
+import { PICKING_MOBILE_COLUMNS, PICKING_MOBILE_DATA_TYPE, applyColumnSettings } from '../../config/pickingColumns';
+import type { PickingColumn } from '../../config/pickingColumns';
 import { errorMessage } from './mobileTypes';
 import './MobileLocationTransferPage.css'; // スタイルを再利用
 
@@ -45,6 +48,35 @@ const MobilePickingPage = () => {
     // キーワード検索の対象項目(管理者画面で設定。取得できるまでは既定)
     const [searchFields, setSearchFields] = useState<PickingSearchField[]>(DEFAULT_PICKING_SEARCH_FIELDS);
     useEffect(() => { pickingSearchFieldsService.get().then(setSearchFields); }, []);
+
+    // 明細の項目の表示/非表示・並び順・表示名は、ページ項目表示設定(picking_mobile)で変更できる。
+    // 設定が無い(取得できない)場合は既定の項目をすべて表示する。
+    const [columns, setColumns] = useState<(PickingColumn & { title: string })[]>(
+        PICKING_MOBILE_COLUMNS.map(c => ({ ...c, title: c.label }))
+    );
+    useEffect(() => {
+        inventoryService.getDisplaySettings(PICKING_MOBILE_DATA_TYPE)
+            .then(settings => setColumns(applyColumnSettings(PICKING_MOBILE_COLUMNS, settings)))
+            .catch(() => { /* 設定を取得できなくても既定の項目で表示する */ });
+    }, []);
+    const isRightColumn = (name: string) => name === 'allocated_quantity' || name === 'status';
+
+    const renderField = (a: MaterialAllocation, col: PickingColumn & { title: string }) => {
+        switch (col.name) {
+            case 'material_code': return (
+                <div key={col.name}>
+                    <strong>{a.material_code}</strong>
+                    {a.allocation_type === 'ADDITIONAL' && <Badge bg="danger" className="ms-1">追加</Badge>}
+                </div>
+            );
+            case 'material_name': return <div key={col.name} className="small text-muted">{a.material_name || ''}</div>;
+            case 'purpose': return <div key={col.name} className="small">{col.title}: {a.purpose || '汎用'}</div>;
+            case 'warehouse': return <div key={col.name} className="small">{col.title}: {a.warehouse || 'N/A'}</div>;
+            case 'allocated_quantity': return <div key={col.name} className="fs-5 fw-bold">{a.allocated_quantity}</div>;
+            case 'status': return <div key={col.name}>{statusBadge(a)}</div>;
+            default: return null;
+        }
+    };
 
     const fetchAllocations = useCallback(async () => {
         setLoading(true);
@@ -206,16 +238,8 @@ const MobilePickingPage = () => {
                             {g.shown.map((a) => (
                                 <div key={a.id} className="border rounded p-2 mb-2">
                                     <div className="d-flex justify-content-between align-items-start">
-                                        <div>
-                                            <strong>{a.material_code}</strong>
-                                            {a.allocation_type === 'ADDITIONAL' && <Badge bg="danger" className="ms-1">追加</Badge>}
-                                            <div className="small text-muted">{a.material_name || ''}</div>
-                                            <div className="small">倉庫: {a.warehouse || 'N/A'}</div>
-                                        </div>
-                                        <div className="text-end">
-                                            <div className="fs-5 fw-bold">{a.allocated_quantity}</div>
-                                            {statusBadge(a)}
-                                        </div>
+                                        <div>{columns.filter(c => !isRightColumn(c.name)).map(c => renderField(a, c))}</div>
+                                        <div className="text-end">{columns.filter(c => isRightColumn(c.name)).map(c => renderField(a, c))}</div>
                                     </div>
                                     {a.status === 'ALLOCATED' && (
                                         <Button
