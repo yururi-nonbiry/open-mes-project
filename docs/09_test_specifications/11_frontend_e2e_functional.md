@@ -230,12 +230,14 @@ docker compose exec -T -e E2E_DATA_ACTION=cleanup backend python manage.py shell
 
 ### 部品引当画面の用途列（`frontend/e2e/allocation-purpose-column.spec.ts`、FE-PAL-*）
 
-用途 `E2E-CAR`・製品 `E2E-PM-PROD`・部品 `E2E-PM-MAT` は `script/e2e_goods_receipt_data.py` が投入する。テストは生産計画を作成し、一覧の「② 部品引当」で開いた引当画面の「用途」列を確認する。
+用途 `E2E-CAR`・製品 `E2E-PM-PROD`・部品 `E2E-PM-MAT` は `script/e2e_goods_receipt_data.py` が投入する。テストは生産計画を作成し(終了時に削除する)、一覧の「② 部品引当」で開いた引当画面の「用途」列を確認する。
 
 | ケースID | 分類 | 前提条件 | 手順 | 期待結果 |
 |---|---|---|---|---|
 | FE-PAL-01 | 正常系 | 用途 `E2E-CAR` の計画 | 引当画面を開く | 「用途」列があり、部品の行に `E2E-CAR` が表示される |
 | FE-PAL-02 | 境界値 | 用途なしの計画 | 引当画面を開く | 部品の行の用途が「汎用」と表示される |
+| FE-PAL-03 | 正常系 | ページ項目表示設定(部品引当)で、用途を先頭・表示名変更・単位を非表示に保存 | 引当画面を開く | 設定どおりの列・順序・表示名で表示される(設定は終了時に復元) |
+| FE-PAL-04 | 正常系 | 生産計画一覧(`/production/plan`)。設定なし → ページ項目表示設定(生産計画一覧)で用途を先頭・表示名変更・状態を非表示に保存 | 一覧を開く | 設定なしでは用途列を含む既定の列、設定後は設定どおりの列・順序・表示名で表示される(設定は終了時に復元) |
 
 ### ピッキング画面の検索対象設定（`frontend/e2e/picking-search-fields.spec.ts`、FE-PKS-*）
 

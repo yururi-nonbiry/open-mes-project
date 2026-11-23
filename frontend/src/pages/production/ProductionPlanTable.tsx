@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Spinner } from 'react-bootstrap';
 import { BulkAllocationResult, PlanAllocationOverview, ProductionPlan } from '../../types/production';
 import { t } from '../../utils/terms';
 import Modal from '../../components/Modal';
+import { PLAN_LIST_COLUMNS, PLAN_LIST_DATA_TYPE, type PlanListColumn } from '../../config/planListColumns';
+import inventoryService from '../../services/inventoryService';
 
 interface ProductionPlanTableProps {
     plans: ProductionPlan[];
@@ -74,6 +76,25 @@ const ProductionPlanTable: React.FC<ProductionPlanTableProps> = ({
     overviews, isSelectable, selectedIds, onToggleSelected, onToggleAll, onBulkAllocate,
     bulkLoading, bulkResults, bulkError, onCloseBulkResults
 }) => {
+    // 列の表示/非表示・並び順・表示名は、モデル項目表示設定(production_plan)で変更できる。
+    // 設定が無い(取得できない)場合は既定の列をすべて表示する。
+    const [columns, setColumns] = useState<(PlanListColumn & { title: string })[]>(
+        PLAN_LIST_COLUMNS.map(c => ({ ...c, title: c.label }))
+    );
+    useEffect(() => {
+        inventoryService.getDisplaySettings(PLAN_LIST_DATA_TYPE).then(settings => {
+            if (settings.length === 0) return;
+            const byName = new Map(settings.map(s => [s.model_field_name, s]));
+            setColumns(PLAN_LIST_COLUMNS
+                .map((c, index) => ({ c, setting: byName.get(c.name), index }))
+                // 設定に無い列(後から追加された列)は既定の位置に表示する
+                .filter(({ setting }) => !setting || setting.is_list_display)
+                .sort((a, b) => (a.setting?.display_order ?? (a.index + 1) * 10) - (b.setting?.display_order ?? (b.index + 1) * 10))
+                .map(({ c, setting }) => ({ ...c, title: setting?.display_name || c.label })));
+        }).catch(() => { /* 設定を取得できなくても既定の列で表示する */ });
+    }, []);
+    const colCount = columns.length + 2; // 選択チェック列と操作列を加える
+
     const selectablePlans = plans.filter(isSelectable);
     const allChecked = selectablePlans.length > 0 && selectablePlans.every(p => selectedIds.has(p.id));
 
@@ -94,7 +115,7 @@ const ProductionPlanTable: React.FC<ProductionPlanTableProps> = ({
         if (loading) {
             return (
                 <tr>
-                    <td colSpan={9} className="text-center py-5">
+                    <td colSpan={colCount} className="text-center py-5">
                         <Spinner animation="border" variant="primary" size="sm" className="me-2" />
                         <span className="text-muted">生産計画データを読み込んでいます...</span>
                     </td>
@@ -104,7 +125,7 @@ const ProductionPlanTable: React.FC<ProductionPlanTableProps> = ({
         if (error) {
             return (
                 <tr>
-                    <td colSpan={9} className="text-center text-danger py-4 fw-bold">
+                    <td colSpan={colCount} className="text-center text-danger py-4 fw-bold">
                         {error}
                     </td>
                 </tr>
@@ -113,13 +134,35 @@ const ProductionPlanTable: React.FC<ProductionPlanTableProps> = ({
         if (plans.length === 0) {
             return (
                 <tr>
-                    <td colSpan={9} className="text-center py-5 text-muted">
+                    <td colSpan={colCount} className="text-center py-5 text-muted">
                         <div className="fw-bold mb-1">該当する生産計画データがありません</div>
                         <div className="small">「＋ 生産計画を作成」から新規計画を登録するか、検索条件を切り替えてご確認ください。</div>
                     </td>
                 </tr>
             );
         }
+
+        const renderCell = (plan: ProductionPlan, name: string, meta: { label: string; className: string }): React.ReactNode => {
+            switch (name) {
+                case 'plan_name': return (
+                    <>
+                        <div className="fw-bold text-dark">{plan.plan_name || '—'}</div>
+                        {plan.parent_plan_name && <div className="small text-muted">親計画: {plan.parent_plan_name}</div>}
+                        {!!plan.child_plan_count && <div className="small text-muted">子計画: {plan.child_plan_count}件</div>}
+                        {plan.merged_into_name && <div className="small text-muted">統合先: {plan.merged_into_name}</div>}
+                        {!!plan.merged_plan_count && <div className="small text-muted">統合元: {plan.merged_plan_count}件</div>}
+                    </>
+                );
+                case 'product_code': return plan.product_code || '—';
+                case 'purpose': return plan.purpose || '汎用';
+                case 'planned_quantity': return <span className="receipt-remaining-qty has-remaining">{plan.planned_quantity}</span>;
+                case 'planned_start_datetime': return formatDate(plan.planned_start_datetime);
+                case 'planned_end_datetime': return formatDate(plan.planned_end_datetime);
+                case 'status': return <span className={meta.className}>{meta.label}</span>;
+                case 'material_status': return renderMaterialStatus(overviews[plan.id]);
+                default: return null;
+            }
+        };
 
         return plans.map(plan => {
             const meta = PLAN_STATUS_META[plan.status] || {
@@ -137,23 +180,11 @@ const ProductionPlanTable: React.FC<ProductionPlanTableProps> = ({
                             onChange={(e) => onToggleSelected(plan.id, e.target.checked)}
                         />
                     </td>
-                    <td>
-                        <div className="fw-bold text-dark">{plan.plan_name || '—'}</div>
-                        {plan.parent_plan_name && <div className="small text-muted">親計画: {plan.parent_plan_name}</div>}
-                        {!!plan.child_plan_count && <div className="small text-muted">子計画: {plan.child_plan_count}件</div>}
-                        {plan.merged_into_name && <div className="small text-muted">統合先: {plan.merged_into_name}</div>}
-                        {!!plan.merged_plan_count && <div className="small text-muted">統合元: {plan.merged_plan_count}件</div>}
-                    </td>
-                    <td className="fw-semibold">{plan.product_code || '—'}</td>
-                    <td className="text-end">
-                        <span className="receipt-remaining-qty has-remaining">{plan.planned_quantity}</span>
-                    </td>
-                    <td className="text-center">{formatDate(plan.planned_start_datetime)}</td>
-                    <td className="text-center">{formatDate(plan.planned_end_datetime)}</td>
-                    <td className="text-center">
-                        <span className={meta.className}>{meta.label}</span>
-                    </td>
-                    <td>{renderMaterialStatus(overviews[plan.id])}</td>
+                    {columns.map(col => (
+                        <td key={col.name} className={col.name === 'product_code' ? 'fw-semibold' : col.align === 'end' ? 'text-end' : col.align === 'center' ? 'text-center' : undefined}>
+                            {renderCell(plan, col.name, meta)}
+                        </td>
+                    ))}
                     <td className="text-center text-nowrap sticky-action-col">
                         {plan.status === 'MERGED' ? (
                             <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => onDetail(plan)}>
@@ -238,13 +269,11 @@ const ProductionPlanTable: React.FC<ProductionPlanTableProps> = ({
                                     onChange={(e) => onToggleAll(e.target.checked)}
                                 />
                             </th>
-                            <th>計画名</th>
-                            <th>製品コード（品番）</th>
-                            <th className="text-end">計画数量</th>
-                            <th className="text-center">開始予定日時</th>
-                            <th className="text-center">終了予定日時</th>
-                            <th className="text-center">状態</th>
-                            <th>{t('部品の状況')}</th>
+                            {columns.map(col => (
+                                <th key={col.name} className={col.align === 'end' ? 'text-end' : col.align === 'center' ? 'text-center' : undefined}>
+                                    {col.name === 'material_status' ? t(col.title) : col.title}
+                                </th>
+                            ))}
                             <th className="text-center sticky-action-col" style={{ width: '360px' }}>構成・引当・操作</th>
                         </tr>
                     </thead>

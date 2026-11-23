@@ -7,6 +7,7 @@ import authFetch, { describeError, toApiError } from '../utils/api';
 import type { PageDisplayRow, ModelDisplaySettingRecord, ModelFieldInfo, SaveStatus, BulkSaveResult, FieldChangeEvent } from './types/displaySettings';
 import { registerTermTarget } from '../utils/terms';
 import { ALLOCATION_COLUMNS, ALLOCATION_DATA_TYPE } from '../config/allocationColumns';
+import { PLAN_LIST_COLUMNS, PLAN_LIST_DATA_TYPE } from '../config/planListColumns';
 
 // This could be moved to a shared constants file
 const DATA_TYPE_CHOICES = [
@@ -14,6 +15,7 @@ const DATA_TYPE_CHOICES = [
     { value: 'sales_order', label: '出庫処理' },
     { value: 'inventory', label: '在庫照会' },
     { value: 'stock_movement', label: '入出庫履歴' },
+    { value: PLAN_LIST_DATA_TYPE, label: '生産計画(一覧)' },
     { value: ALLOCATION_DATA_TYPE, label: '部品引当(生産計画)' },
 ];
 registerTermTarget(DATA_TYPE_CHOICES);
@@ -53,6 +55,11 @@ const DATA_TYPE_MAP: Record<string, DataTypeConfig> = {
     stock_movement: {
         fetch: ['stock_movement'],
         save: ['stock_movement'],
+    },
+    [PLAN_LIST_DATA_TYPE]: {
+        fetch: [PLAN_LIST_DATA_TYPE],
+        save: [PLAN_LIST_DATA_TYPE],
+        virtualFields: PLAN_LIST_COLUMNS.map(c => ({ name: c.name, verbose_name: c.label, help_text: c.help })),
     },
     [ALLOCATION_DATA_TYPE]: {
         fetch: [ALLOCATION_DATA_TYPE],
