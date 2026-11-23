@@ -202,6 +202,7 @@ const ProductionPlan: React.FC = () => {
             <ProductionPlanMergeModal
                 isOpen={mergeGroups !== null}
                 groups={mergeGroups ?? []}
+                targets={plans.filter(p => mergeTargetIds.includes(p.id))}
                 loading={bulkLoading}
                 onMerge={() => handleMergeChoice(true)}
                 onSeparate={() => handleMergeChoice(false)}

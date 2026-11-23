@@ -101,8 +101,14 @@ test('FE-PM-02 統合確認ON: モーダルに同一品番のグループ(合計
   await page.getByRole('button', { name: /チェックした計画をまとめて引当/ }).click();
   const modal = page.locator('.modal-content');
   await expect(modal.getByText('同一品番の計画をまとめますか？')).toBeVisible();
-  await expect(modal.getByText(PRODUCT)).toBeVisible();
+  await expect(modal.getByText(PRODUCT).first()).toBeVisible();
   await expect(modal.getByText('合計 80 個')).toBeVisible();
+  // まとめ後の計画一覧: 2件が1件の統合計画(数量の合計)になって表示される
+  await expect(modal.getByText('まとめ後の計画一覧')).toBeVisible();
+  const afterRows = modal.getByTestId('after-merge-plans').locator('tbody tr');
+  await expect(afterRows).toHaveCount(1);
+  await expect(afterRows.first()).toContainText('(2件)');
+  await expect(afterRows.first()).toContainText('80');
   await expect(modal.getByText(`${prefix}-A: 30 個`)).toBeVisible();
   await expect(modal.getByText(`${prefix}-B: 50 個`)).toBeVisible();
   await modal.getByRole('button', { name: 'キャンセル' }).click();
