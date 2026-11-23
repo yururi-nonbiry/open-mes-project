@@ -83,8 +83,10 @@ test('FE-PM-01 統合確認OFF: まとめ引当で確認モーダルは出ず、
   const { prefix, a, b } = await createPlanPair();
   await openPlans(page, prefix);
   await selectBoth(page, prefix);
-  page.once('dialog', (dialog) => dialog.accept()); // 従来の window.confirm
   await page.getByRole('button', { name: /チェックした計画をまとめて引当/ }).click();
+  // 確認はブラウザ標準のダイアログではなくモーダルで表示される
+  await expect(page.getByText('まとめて引き当てますか？')).toBeVisible();
+  await page.getByRole('button', { name: '引き当てる', exact: true }).click();
   await expect(page.getByText('同一品番の計画をまとめますか？')).toHaveCount(0);
   await expect(page.getByText('まとめ引当の結果')).toBeVisible();
   expect((await getPlan(a.id)).status).toBe('PENDING');

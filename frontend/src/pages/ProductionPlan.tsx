@@ -11,6 +11,7 @@ import ProductionPlanAllocateModal from './production/ProductionPlanAllocateModa
 import ProductionPlanMaterialsModal from './production/ProductionPlanMaterialsModal';
 import ProductionPlanAdditionalIssueModal from './production/ProductionPlanAdditionalIssueModal';
 import ProductionPlanIntermediatesModal from './production/ProductionPlanIntermediatesModal';
+import ProductionPlanBulkConfirmModal from './production/ProductionPlanBulkConfirmModal';
 import ProductionPlanMergeModal from './production/ProductionPlanMergeModal';
 
 type PlanModalState = { isOpen: boolean; plan: ProductionPlanType | null };
@@ -42,6 +43,8 @@ const ProductionPlan: React.FC = () => {
     const [bulkResults, setBulkResults] = useState<BulkAllocationResult[] | null>(null);
     const [bulkError, setBulkError] = useState<string | null>(null);
     // 同一品番の計画をまとめるかの確認(管理者設定がONで、まとめられる計画があるときだけ出す)
+    // 統合しない場合のまとめ引当の確認(件数と、そのうち在庫不足の件数)
+    const [bulkConfirm, setBulkConfirm] = useState<{ planIds: string[]; shortageCount: number } | null>(null);
     const [mergeGroups, setMergeGroups] = useState<MergeCandidateGroup[] | null>(null);
     // モーダルを開いた時点の対象(一覧の再読込でチェックが外れても、確認した計画を引き当てる)
     const [mergeTargetIds, setMergeTargetIds] = useState<string[]>([]);
@@ -109,11 +112,14 @@ const ProductionPlan: React.FC = () => {
         }
 
         const shortageCount = targets.filter(p => overviews[p.id]?.state === 'SHORTAGE').length;
-        const message = `チェックした ${targets.length} 件の生産計画の未引当分を、在庫の多い倉庫から引き当てます。`
-            + (shortageCount > 0 ? `\n在庫不足の計画が ${shortageCount} 件あり、引き当てられる分のみ引き当てます。` : '')
-            + '\nよろしいですか？';
-        if (!window.confirm(message)) return;
-        await runBulkAllocate(targets.map(p => p.id), false);
+        setBulkConfirm({ planIds: targets.map(p => p.id), shortageCount });
+    };
+
+    const handleBulkConfirm = async () => {
+        if (!bulkConfirm) return;
+        const { planIds } = bulkConfirm;
+        setBulkConfirm(null);
+        await runBulkAllocate(planIds, false);
     };
 
     const handleMergeChoice = async (merge: boolean) => {
@@ -186,6 +192,13 @@ const ProductionPlan: React.FC = () => {
                 </button>
             </div>
 
+            <ProductionPlanBulkConfirmModal
+                isOpen={bulkConfirm !== null}
+                count={bulkConfirm?.planIds.length ?? 0}
+                shortageCount={bulkConfirm?.shortageCount ?? 0}
+                onConfirm={handleBulkConfirm}
+                onCancel={() => setBulkConfirm(null)}
+            />
             <ProductionPlanMergeModal
                 isOpen={mergeGroups !== null}
                 groups={mergeGroups ?? []}
