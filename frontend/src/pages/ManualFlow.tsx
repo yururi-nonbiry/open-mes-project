@@ -49,7 +49,7 @@ const LANES: FlowLane[] = [
       { label: 'BOM', hint: '必要な部品と数量', path: '/production/bom-master', sectionId: 'bom-master' },
       { label: '生産計画', hint: 'いつ何を作るか', path: '/production/plan', sectionId: 'production-plan' },
       { label: '部品引当', hint: '在庫の部品を確保', path: '/production/material-allocation', sectionId: 'material-allocation' },
-      { label: 'ピッキング', hint: 'スマホで部品を集める', path: '/mobile/picking', sectionId: 'mobile' },
+      { label: 'ピッキング', hint: 'スマホで部品を集める(PCは部品引当画面でも可)', path: '/production/material-allocation', sectionId: 'material-allocation' },
       { label: '作業進捗', hint: '作業の進み具合', path: '/production/work-progress', sectionId: 'work-progress' },
     ],
   },

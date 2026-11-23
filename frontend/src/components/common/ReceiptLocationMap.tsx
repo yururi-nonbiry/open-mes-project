@@ -30,11 +30,12 @@ const ReceiptLocationMap: React.FC<ReceiptLocationMapProps> = ({ warehouse, loca
         setWarehouseInfo(null);
         setLocations([]);
         setError(null);
+        // 入力直後から取得完了まで「読み込み中」にして、待機中に「倉庫が見つかりません」が一瞬出ないようにする
+        setLoading(!!warehouseKey);
         if (!warehouseKey) return;
 
         let cancelled = false;
         const timer = setTimeout(async () => {
-            setLoading(true);
             try {
                 const warehouses = await warehouseLocationService.getWarehouses();
                 const found = warehouses.find(w => w.warehouse_number === warehouseKey) || null;

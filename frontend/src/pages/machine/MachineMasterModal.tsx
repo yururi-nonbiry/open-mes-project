@@ -71,14 +71,14 @@ const MachineMasterModal: React.FC<MachineMasterModalProps> = ({ isOpen, onClose
                     <div className="mb-3">
                         <label className="form-label fw-bold small">設置場所</label>
                         <input 
-                            type="text" name="location" value={formData.location} 
+                            type="text" name="location" value={formData.location ?? ''} 
                             onChange={handleInputChange} className="form-control form-control-sm" 
                         />
                     </div>
                     <div className="mb-3">
                         <label className="form-label fw-bold small">説明</label>
                         <textarea 
-                            name="description" value={formData.description} 
+                            name="description" value={formData.description ?? ''} 
                             onChange={handleInputChange} className="form-control form-control-sm" rows={3}
                         />
                     </div>

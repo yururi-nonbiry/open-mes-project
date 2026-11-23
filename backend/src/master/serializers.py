@@ -1,3 +1,4 @@
+from django.db import models
 from base.feature_settings import lazy_terms
 from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator, UniqueValidator
@@ -65,6 +66,17 @@ class ItemCreateUpdateSerializer(serializers.ModelSerializer):
                 ],
             },
         }
+
+    def validate_item_type(self, value):
+        # 品目区分を変えると、BOM(親は製品・中間品、使用部品は部品・中間品)の組み合わせが成り立たなくなることがある
+        if self.instance is not None and value != self.instance.item_type:
+            if BillOfMaterial.objects.filter(
+                models.Q(product_id=self.instance.code) | models.Q(material_id=self.instance.code)
+            ).exists():
+                raise serializers.ValidationError(
+                    "使用部品構成(BOM)に登録されている品目の区分は変更できません。先にBOMから外してください。"
+                )
+        return value
 
     def get_fields(self):
         # code は inventory/production 等から to_field 経由でFK参照されているため、

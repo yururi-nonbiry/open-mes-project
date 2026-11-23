@@ -84,8 +84,10 @@ const UserManagement = () => {
 
     const formatDate = (dateString: string) => {
         if (!dateString) return '-';
-        // Format to 'YYYY-MM-DD HH:mm'
-        return new Date(dateString).toISOString().slice(0, 16).replace('T', ' ');
+        // 画面の利用者の時間帯(日本時間など)で 'YYYY/MM/DD HH:mm' に整形する(toISOString だとUTCで9時間ずれる)
+        return new Date(dateString).toLocaleString('ja-JP', {
+            year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+        });
     };
 
     return (

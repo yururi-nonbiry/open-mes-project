@@ -96,6 +96,7 @@ const WorkCalendarMaster: React.FC = () => {
             } else {
                 await workCalendarService.saveDay({ ...(ex ?? { date: selected }), date: selected, is_workday: mode === 'on', note: note.trim() });
             }
+            if (mode === 'clear') setNote(''); // 例外を解除したあと、前の備考が入力欄に残らないようにする
             setMessage(`${selected} を更新しました。`);
             await load();
         } catch (e) {

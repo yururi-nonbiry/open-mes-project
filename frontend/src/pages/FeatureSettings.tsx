@@ -50,7 +50,7 @@ const FeatureSettings: React.FC = () => {
   // 入庫時のデフォルト棚番登録の確認(サーバー側に保存。全端末・全ユーザーに適用)
   const [confirmDefaultLocation, setConfirmDefaultLocation] = useState<boolean | null>(null);
   const [mergePlans, setMergePlans] = useState<boolean | null>(null);
-  const [optionMessage, setOptionMessage] = useState<{ type: 'success' | 'danger'; text: string } | null>(null);
+  const [optionMessage, setOptionMessage] = useState<{ type: 'success' | 'danger'; text: string; target: 'location' | 'merge' } | null>(null);
 
   // 入庫・出庫の予定日フィルタの初期値(今日からの相対日数。空欄=指定なし。サーバー側に保存)
   const [dateFromOffset, setDateFromOffset] = useState('');
@@ -172,11 +172,13 @@ const FeatureSettings: React.FC = () => {
       const result = await inventoryService.updateFeatureOptions({ confirm_register_default_location: enabled });
       setConfirmDefaultLocation(result.confirm_register_default_location);
       setOptionMessage({
+        target: 'location',
         type: 'success',
         text: `入庫時のデフォルト棚番登録の確認を${enabled ? 'ON' : 'OFF'}にしました。`,
       });
     } catch (err) {
       setOptionMessage({
+        target: 'location',
         type: 'danger',
         text: err instanceof ApiError ? err.message : '設定の保存中に通信エラーが発生しました。',
       });
@@ -189,11 +191,13 @@ const FeatureSettings: React.FC = () => {
       const result = await inventoryService.updateFeatureOptions({ merge_plans_on_allocation: enabled });
       setMergePlans(result.merge_plans_on_allocation);
       setOptionMessage({
+        target: 'merge',
         type: 'success',
         text: `生産計画の引当時の統合確認を${enabled ? 'ON' : 'OFF'}にしました。`,
       });
     } catch (err) {
       setOptionMessage({
+        target: 'merge',
         type: 'danger',
         text: err instanceof ApiError ? err.message : '設定の保存中に通信エラーが発生しました。',
       });
@@ -274,7 +278,7 @@ const FeatureSettings: React.FC = () => {
                 {confirmDefaultLocation ? 'ON（確認する）' : 'OFF（確認しない）'}
               </label>
             </div>
-            {optionMessage && (
+            {optionMessage?.target === 'location' && (
               <div className={`alert alert-${optionMessage.type} mt-3 mb-0 py-2`} role="alert">
                 {optionMessage.text}
               </div>
@@ -305,6 +309,11 @@ const FeatureSettings: React.FC = () => {
                 {mergePlans ? 'ON（確認する）' : 'OFF（確認しない）'}
               </label>
             </div>
+            {optionMessage?.target === 'merge' && (
+              <div className={`alert alert-${optionMessage.type} mt-3 mb-0 py-2`} role="alert">
+                {optionMessage.text}
+              </div>
+            )}
           </div>
         </div>
 

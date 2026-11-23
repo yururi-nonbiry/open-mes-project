@@ -70,7 +70,7 @@ const MobileRedirector = () => {
     if (isMobile) {
       // モバイル端末かつデスクトップ用ログインならモバイルログインへ
       if (isLoginPath) {
-        navigate('/mobile/login', { replace: true });
+        navigate('/mobile/login', { replace: true, state: location.state }); // ログイン後に戻る元の画面(state.from)を引き継ぐ
         return;
       }
       // モバイル端末かつモバイル以外のページならモバイルトップへ
@@ -85,7 +85,7 @@ const MobileRedirector = () => {
       navigate('/', { replace: true });
       return;
     }
-  }, [location.pathname, navigate]);
+  }, [location.pathname, location.state, navigate]);
 
   return null;
 };

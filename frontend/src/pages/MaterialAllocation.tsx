@@ -28,7 +28,10 @@ interface ProductGroup {
   planName: string;
   productCode: string;
   productName: string;
+  /** 計画に含まれる出庫先ラインの表示(複数あれば「、」区切り) */
   line: string;
+  /** 計画に含まれる出庫先ライン(未指定は空文字)。ラインでの絞り込みに使う */
+  lines: string[];
   totalQuantity: number;
   items: MaterialAllocation[];
   allocatedCount: number;
@@ -137,6 +140,7 @@ const MaterialAllocationPage: React.FC = () => {
           productCode,
           productName,
           line,
+          lines: [],
           totalQuantity: 0,
           items: [],
           allocatedCount: 0,
@@ -148,6 +152,7 @@ const MaterialAllocationPage: React.FC = () => {
 
       const group = groupMap.get(key)!;
       group.items.push(alloc);
+      if (!group.lines.includes(line)) group.lines.push(line);
       group.totalQuantity += Number(alloc.allocated_quantity || 0);
 
       if (alloc.status === 'ALLOCATED') group.allocatedCount += 1;
@@ -162,7 +167,9 @@ const MaterialAllocationPage: React.FC = () => {
       } else if (g.issuedCount > 0 || g.returnedCount > 0) {
         status = 'IN_PROGRESS';
       }
-      return { ...g, status };
+      // 部品ごとに出庫先ラインが違う計画も、先頭の部品のラインだけで代表しない
+      const named = g.lines.filter(Boolean);
+      return { ...g, status, line: named.join('、') };
     });
 
     // 未ピッキングがあるグループを優先的に先頭に
@@ -195,10 +202,10 @@ const MaterialAllocationPage: React.FC = () => {
           g.line.toLowerCase().includes(kw);
         if (!matches) return false;
       }
-      if (lineFilter && lineFilter !== 'none' && g.line !== lineFilter) {
+      if (lineFilter && lineFilter !== 'none' && !g.lines.includes(lineFilter)) {
         return false;
       }
-      if (lineFilter === 'none' && g.line) {
+      if (lineFilter === 'none' && !g.lines.includes('')) {
         return false;
       }
       return true;
@@ -206,15 +213,17 @@ const MaterialAllocationPage: React.FC = () => {
   }, [productGroups, keywordFilter, lineFilter]);
 
   // 現在選択されているグループ
+  // 絞り込みで隠れた完成品の選択は残さない(見えない計画の部品を一括ピッキングしないように)
   const currentGroup = useMemo(() => {
     if (selectedProductKey === 'all') return null;
-    return productGroups.find((g) => g.key === selectedProductKey) || null;
-  }, [productGroups, selectedProductKey]);
+    return filteredGroups.find((g) => g.key === selectedProductKey) || null;
+  }, [filteredGroups, selectedProductKey]);
 
   // 表示対象の部品レコード
   const displayedAllocations = useMemo(() => {
+    // 「すべて表示」でも、キーワード・ラインの絞り込みに合う完成品の部品だけを対象にする
     const list: MaterialAllocation[] =
-      selectedProductKey === 'all' || !currentGroup ? allocations : currentGroup.items;
+      selectedProductKey === 'all' || !currentGroup ? filteredGroups.flatMap((g) => g.items) : currentGroup.items;
 
     return list.filter((alloc) => {
       if (statusFilter && alloc.status !== statusFilter) return false;
@@ -226,7 +235,7 @@ const MaterialAllocationPage: React.FC = () => {
       }
       return true;
     });
-  }, [selectedProductKey, currentGroup, allocations, statusFilter, materialFilter, itemsMap]);
+  }, [selectedProductKey, currentGroup, filteredGroups, statusFilter, materialFilter, itemsMap]);
 
   // ステータス更新（個別）
   const handleUpdateStatus = async (id: string, newStatus: string) => {
@@ -265,6 +274,7 @@ const MaterialAllocationPage: React.FC = () => {
 
     setBatchLoading(true);
     let successCount = 0;
+    const failures: string[] = [];
     try {
       for (const item of targetItems) {
         const response = await authFetch(`/api/production/material-allocations/${item.id}/change-status/`, {
@@ -273,10 +283,16 @@ const MaterialAllocationPage: React.FC = () => {
         });
         if (response.ok) {
           successCount++;
+        } else {
+          let reason = `HTTP ${response.status}`;
+          try { reason = (await response.json()).error || reason; } catch { /* 本文なし */ }
+          failures.push(`${item.material_code}: ${reason}`);
         }
       }
       await fetchAllocations();
-      alert(t(`${successCount} 件の部品をピッキング済みに更新しました！`));
+      alert(failures.length === 0
+        ? t(`${successCount} 件の部品をピッキング済みに更新しました！`)
+        : t(`${successCount} 件をピッキング済みに更新しました。${failures.length} 件は失敗しました。\n${failures.join('\n')}`));
     } catch (e) {
       alert(`一括ピッキング中にエラーが発生しました: ${(e as ApiErrorLike).message}`);
     } finally {
@@ -416,9 +432,13 @@ const MaterialAllocationPage: React.FC = () => {
                       <span className="badge bg-warning text-dark ms-auto">
                         未済 {grp.allocatedCount}点
                       </span>
-                    ) : (
+                    ) : grp.issuedCount > 0 ? (
                       <span className="badge bg-success ms-auto">
                         ✓ 完了
+                      </span>
+                    ) : (
+                      <span className="badge bg-secondary ms-auto">
+                        全て返却済
                       </span>
                     )}
                   </div>

@@ -69,6 +69,7 @@ const InspectionHistory = () => {
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [itemDetailsDef, setItemDetailsDef] = useState<Record<string, Record<string, MeasurementDetailDef>>>({});
   const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
 
   // Load results and inspection items
   const loadData = useCallback(async () => {
@@ -124,6 +125,7 @@ const InspectionHistory = () => {
     if (itemDetailsDef[itemId]) return;
 
     setDetailLoading(true);
+    setDetailError(null);
     try {
       const response = await authFetch(`/api/quality/inspection-items/${itemId}/`);
       await handleError(response, '検査項目詳細の取得に失敗しました。');
@@ -143,6 +145,8 @@ const InspectionHistory = () => {
       }));
     } catch (err) {
       console.error('Failed to load inspection detail spec:', err);
+      // 取得に失敗したときに、定量項目が「定性 / -」と誤って表示されたままにならないよう、理由を表示する
+      setDetailError(err instanceof Error ? err.message : '検査項目詳細の取得に失敗しました。');
     } finally {
       setDetailLoading(false);
     }
@@ -340,6 +344,11 @@ const InspectionHistory = () => {
                                   <i className="bi bi-list-check me-2 text-primary"></i>測定値・判定結果内訳
                                 </h6>
                                 
+                                {detailError && !detailLoading && !itemDetailsDef[result.inspection_item] && (
+                                  <div className="alert alert-warning py-2 small">
+                                    測定項目の定義を取得できなかったため、測定タイプ・規格は表示できません。（{detailError}）
+                                  </div>
+                                )}
                                 {detailLoading ? (
                                   <div className="text-center py-3">
                                     <div className="spinner-border spinner-border-sm text-primary" role="status" />

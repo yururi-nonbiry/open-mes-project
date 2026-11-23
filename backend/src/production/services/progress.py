@@ -4,6 +4,7 @@ from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
+from base.feature_settings import apply_terms
 from inventory.models import SalesOrder, StockMovement
 from inventory.services import InventoryServiceError, add_stock, consume_stock, lock_inventory_rows
 
@@ -45,6 +46,14 @@ def update_production_progress_service(plan, data, user):
         )
         if plan.status == ProductionPlan.Status.MERGED:
             raise ValueError("統合済みの生産計画の進捗は更新できません。統合先の生産計画で更新してください。")
+        # 部品を引き当てたままの統合計画を中止すると、元の計画だけ未着手に戻り、引当(在庫の確保)が中止した計画に残り続ける
+        if (
+            new_status == ProductionPlan.Status.CANCELLED
+            and plan.status != ProductionPlan.Status.CANCELLED
+            and plan.merged_plans.exists()
+            and plan.material_allocations.filter(status=MaterialAllocation.Status.ALLOCATED).exists()
+        ):
+            raise ValueError(apply_terms("部品の引当がある統合計画は中止できません。先に引当を解除してください。"))
         previous_wp_completed_quantity = work_progress.quantity_completed
         old_plan_status = plan.status
         plan.status = new_status

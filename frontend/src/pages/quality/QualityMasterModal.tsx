@@ -23,25 +23,36 @@ const MEASUREMENT_TYPE_CHOICES = [
     ['quantitative', '定量測定'], ['qualitative', '定性判定'],
 ];
 
+/** 画面内だけで使う行の識別子(並び替え・削除で行が入れ替わっても入力欄の状態を取り違えないため)。送信時に除く */
+type DetailRow = MeasurementDetail & { _key?: string };
+let rowKeySeq = 0;
+const withKey = (detail: MeasurementDetail): DetailRow => ({ ...detail, _key: `row-${++rowKeySeq}` });
+
 const QualityMasterModal: React.FC<QualityMasterModalProps> = ({ isOpen, onClose, onSuccess, editingItem }) => {
     const [currentItem, setCurrentItem] = useState<InspectionItem | null>(null);
-    const [measurementDetails, setMeasurementDetails] = useState<MeasurementDetail[]>([]);
+    const [measurementDetails, setMeasurementDetails] = useState<DetailRow[]>([]);
     const [formErrors, setFormErrors] = useState<Record<string, string | string[]>>({});
     const [globalMessage, setGlobalMessage] = useState({ text: '', type: '' });
     const [submitting, setSubmitting] = useState(false);
 
     const formsetTableBodyRef = useRef<HTMLTableSectionElement>(null);
     const sortable = useRef<Sortable | null>(null);
+    const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    // 保存後に自動で閉じるタイマーを、画面が閉じられたあとに実行しない
+    useEffect(() => () => { if (closeTimer.current) clearTimeout(closeTimer.current); }, []);
 
     useEffect(() => {
         if (isOpen) {
             if (editingItem) {
+                // 前回開いたデータが一瞬表示されないよう、取得が終わるまで空にする
+                setCurrentItem(null);
+                setMeasurementDetails([]);
                 // Fetch full data for editing
                 const fetchFullItem = async () => {
                     try {
                         const data = await qualityService.getInspectionItem(editingItem.id!);
                         setCurrentItem(data);
-                        setMeasurementDetails(data.measurement_details || []);
+                        setMeasurementDetails((data.measurement_details || []).map(withKey));
                     } catch (e) {
                         setGlobalMessage({ text: `データ読み込みエラー: ${(e as ApiErrorLike).message}`, type: 'danger' });
                     }
@@ -68,6 +79,9 @@ const QualityMasterModal: React.FC<QualityMasterModalProps> = ({ isOpen, onClose
                 animation: 150,
                 onEnd: (evt: Sortable.SortableEvent) => {
                     const { oldIndex, newIndex } = evt;
+                    // SortableがDOMを動かした分を元に戻し、並び順の更新はReactの状態だけで行う(DOMとの二重更新を避ける)
+                    evt.from.removeChild(evt.item);
+                    evt.from.insertBefore(evt.item, evt.from.children[oldIndex ?? 0] || null);
                     if (oldIndex !== undefined && newIndex !== undefined) {
                         setMeasurementDetails(currentDetails => {
                             const newDetails = [...currentDetails];
@@ -93,12 +107,22 @@ const QualityMasterModal: React.FC<QualityMasterModalProps> = ({ isOpen, onClose
 
     const handleDetailChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>, index: number) => {
         const { name, value, type } = e.target;
-        setMeasurementDetails(prev => prev.map((detail, i) =>
-            i === index ? { 
-                ...detail, 
-                [name]: type === 'number' ? (value === '' ? null : Number(value)) : value 
-            } : detail
-        ));
+        setMeasurementDetails(prev => prev.map((detail, i) => {
+            if (i !== index) return detail;
+            const next: DetailRow = { ...detail, [name]: type === 'number' ? (value === '' ? null : Number(value)) : value };
+            // 定量⇔定性を切り替えたとき、使わなくなった側の値を残さない(非表示のまま保存されるのを防ぐ)
+            if (name === 'measurement_type') {
+                if (value === 'quantitative') {
+                    next.expected_qualitative_result = '';
+                } else {
+                    next.specification_nominal = null;
+                    next.specification_upper_limit = null;
+                    next.specification_lower_limit = null;
+                    next.specification_unit = '';
+                }
+            }
+            return next;
+        }));
     };
 
     const addDetailRow = () => {
@@ -107,7 +131,7 @@ const QualityMasterModal: React.FC<QualityMasterModalProps> = ({ isOpen, onClose
             specification_nominal: null, specification_upper_limit: null, specification_lower_limit: null,
             specification_unit: '', expected_qualitative_result: '',
         };
-        setMeasurementDetails(prev => [...prev, newRow]);
+        setMeasurementDetails(prev => [...prev, withKey(newRow)]);
     };
 
     const removeDetailRow = (index: number) => {
@@ -122,7 +146,7 @@ const QualityMasterModal: React.FC<QualityMasterModalProps> = ({ isOpen, onClose
         setFormErrors({});
         setGlobalMessage({ text: '', type: '' });
 
-        const orderedDetails = measurementDetails.map((detail, index) => ({
+        const orderedDetails = measurementDetails.map(({ _key: _ignored, ...detail }, index) => ({
             ...detail,
             order: index + 1,
         }));
@@ -136,7 +160,7 @@ const QualityMasterModal: React.FC<QualityMasterModalProps> = ({ isOpen, onClose
                 await qualityService.createInspectionItem(payload);
             }
             setGlobalMessage({ text: '保存しました。', type: 'success' });
-            setTimeout(() => {
+            closeTimer.current = setTimeout(() => {
                 onSuccess();
                 onClose();
                 setSubmitting(false);
@@ -164,7 +188,18 @@ const QualityMasterModal: React.FC<QualityMasterModalProps> = ({ isOpen, onClose
         }
     };
 
-    if (!currentItem) return null;
+    if (!currentItem) {
+        // 取得に失敗したときは、何も出さずに固まったように見せず、エラーを表示して閉じられるようにする
+        if (!isOpen || !globalMessage.text) return null;
+        return (
+            <Modal isOpen={isOpen} onClose={onClose} maxWidth="600px">
+                <div className="p-3">
+                    <div className="alert alert-danger">{globalMessage.text}</div>
+                    <div className="text-end"><button type="button" className="btn btn-secondary" onClick={onClose}>閉じる</button></div>
+                </div>
+            </Modal>
+        );
+    }
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} maxWidth="1140px">
@@ -261,7 +296,7 @@ const QualityMasterModal: React.FC<QualityMasterModalProps> = ({ isOpen, onClose
                                         const prefix = `measurement_details-${index}`;
                                         const isQuantitative = detail.measurement_type === 'quantitative';
                                         return (
-                                            <tr key={index} className="formset-row">
+                                            <tr key={detail._key ?? index} className="formset-row">
                                                 <td className="drag-handle" style={{ cursor: 'move', textAlign: 'center' }}>☰</td>
                                                 <td>
                                                     <input 

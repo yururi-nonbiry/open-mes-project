@@ -1,4 +1,4 @@
-from django.db import IntegrityError, models
+from django.db import IntegrityError, models, transaction
 from django.db.models import (
     F,
     ProtectedError,
@@ -87,12 +87,16 @@ class InventoryViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         inventory = self.get_object()
-        if inventory.quantity > 0 or inventory.reserved > 0:
-            # 在庫数や引当が残ったまま削除すると入出庫履歴なしに在庫が消えるため、先に在庫調整で0にさせる
-            return error_response(
-                "在庫数または引当済数量が0でない在庫は削除できません。在庫調整で0にしてから削除してください。"
-            )
-        return super().destroy(request, *args, **kwargs)
+        # 0かどうかの確認から削除までの間に入庫・引当が入らないよう、行をロックして確認する
+        with transaction.atomic():
+            inventory = Inventory.objects.select_for_update().get(pk=inventory.pk)
+            if inventory.quantity > 0 or inventory.reserved > 0:
+                # 在庫数や引当が残ったまま削除すると入出庫履歴なしに在庫が消えるため、先に在庫調整で0にさせる
+                return error_response(
+                    "在庫数または引当済数量が0でない在庫は削除できません。在庫調整で0にしてから削除してください。"
+                )
+            self.perform_destroy(inventory)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=False, methods=["get"], url_path="by-location")
     def by_location(self, request):
@@ -514,10 +518,18 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
         if warehouse is None:
             return error_response(apply_terms(f"受注 {order.order_number} に出庫倉庫が設定されていません。"))
 
+        # 無効な在庫と、この受注の用途で使えない在庫(他の用途の在庫)は、出庫できる棚として数えない
+        usable_purposes = models.Q(purpose_rel__isnull=True)
+        if order.purpose_rel_id:
+            usable_purposes |= models.Q(purpose_rel=order.purpose_rel)
         qty_by_location = {
             row["location"]: row["total_qty"]
             for row in Inventory.objects.filter(
-                warehouse_rel=warehouse, part_number_rel=order.item_rel, quantity__gt=0
+                usable_purposes,
+                warehouse_rel=warehouse,
+                part_number_rel=order.item_rel,
+                is_active=True,
+                quantity__gt=0,
             )
             .values("location")
             .annotate(total_qty=Sum(F("quantity") - F("reserved")))

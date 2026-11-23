@@ -289,6 +289,10 @@ const PageDisplaySettings = () => {
         if (!result.destination) {
             return;
         }
+        // 一覧と検索の表をまたぐドラッグは、並び順が壊れるため無視する
+        if (result.destination.droppableId !== result.source.droppableId) {
+            return;
+        }
         // droppableIdは 'list-droppable' または 'search-droppable'
         const type = result.source.droppableId === 'list-droppable' ? 'list' : 'search';
         handleDragEnd(result, type);

@@ -1,5 +1,5 @@
 import type { ApiErrorLike } from '../apiErrorTypes';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Modal, Button, Alert } from 'react-bootstrap';
 import bomService, { BillOfMaterial, MasterItem, isConsumableItem, isProducibleItem, itemTypeLabel } from '../../services/bomService';
 import { NavIcon } from '../../components/NavIcon';
@@ -26,6 +26,9 @@ const BomMasterModal: React.FC<BomMasterModalProps> = ({ isOpen, onClose, onSucc
     const [formErrors, setFormErrors] = useState<Record<string, string | string[]>>({});
     const [globalMessage, setGlobalMessage] = useState({ text: '', type: '' });
     const [submitting, setSubmitting] = useState(false);
+    const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    // 保存後に自動で閉じるタイマーを、画面が閉じられたあとに実行しない
+    useEffect(() => () => { if (closeTimer.current) clearTimeout(closeTimer.current); }, []);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -69,7 +72,7 @@ const BomMasterModal: React.FC<BomMasterModalProps> = ({ isOpen, onClose, onSucc
                 await bomService.createBillOfMaterial(payload);
             }
             setGlobalMessage({ text: t('使用部品構成を保存しました。'), type: 'success' });
-            setTimeout(() => {
+            closeTimer.current = setTimeout(() => {
                 onSuccess();
                 onClose();
                 setSubmitting(false);
@@ -198,6 +201,7 @@ const BomMasterModal: React.FC<BomMasterModalProps> = ({ isOpen, onClose, onSucc
                                     className={`form-control mes-modal-input ${formErrors.remarks ? 'is-invalid' : ''}`}
                                     placeholder="補足事項があれば入力"
                                 />
+                                {formErrors.remarks && <div className="invalid-feedback d-block">{formErrors.remarks}</div>}
                             </div>
                         </div>
                     </div>

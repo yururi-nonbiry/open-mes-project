@@ -70,3 +70,27 @@ class ItemCrudTests(MasterAPITestBase):
         self.client.force_authenticate(user=None)
         response = self.client.get(self.list_url)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class ItemTypeChangeWithBomTests(MasterAPITestBase):
+    """BOMに登録されている品目の区分は変更できない(BOMの親子区分の整合性を保つ)。"""
+
+    def test_mst_item_type_bom_01_type_change_rejected_when_in_bom(self):
+        from ..models import BillOfMaterial
+
+        product = self.create_item(code="PRD-T", item_type="product")
+        material = self.create_item(code="MAT-T", item_type="material")
+        BillOfMaterial.objects.create(product=product, material=material, quantity=1)
+        response = self.client.patch(
+            reverse("master_api:item-detail", args=[material.id]), {"item_type": "product"}, format="json"
+        )
+        self.assertEqual(response.status_code, 400)
+        material.refresh_from_db()
+        self.assertEqual(material.item_type, "material")
+
+    def test_mst_item_type_bom_02_type_change_allowed_when_not_in_bom(self):
+        item = self.create_item(code="MAT-FREE", item_type="material")
+        response = self.client.patch(
+            reverse("master_api:item-detail", args=[item.id]), {"item_type": "intermediate"}, format="json"
+        )
+        self.assertEqual(response.status_code, 200)
