@@ -51,7 +51,6 @@ const ProductionPlanDetailModal: React.FC<ProductionPlanDetailModalProps> = ({
             <div className="p-3">
                 <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
                     <h5 className="mb-0">生産計画詳細</h5>
-                    <button type="button" className="btn-close" aria-label="Close" onClick={onClose}></button>
                 </div>
                 <dl className="row mb-3">
                     <dt className="col-sm-4">計画名:</dt><dd className="col-sm-8">{plan.plan_name || 'N/A'}</dd>

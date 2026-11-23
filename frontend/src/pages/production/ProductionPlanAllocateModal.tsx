@@ -169,7 +169,6 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
             <div className="p-3">
                 <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
                     <h5 className="mb-0">{allocationResult?.type === 'success' ? t('部品引き当て完了') : t('部品引き当て')}</h5>
-                    <button type="button" className="btn-close" aria-label="Close" onClick={onClose}></button>
                 </div>
 
                 {allocationResult ? (

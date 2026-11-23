@@ -98,7 +98,6 @@ const ProductionPlanIntermediatesModal: React.FC<ProductionPlanIntermediatesModa
             <div className="p-3">
                 <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
                     <h5 className="mb-0">中間品の手配（{plan.plan_name}）</h5>
-                    <button type="button" className="btn-close" aria-label="Close" onClick={onClose}></button>
                 </div>
                 <p className="text-muted small">
                     「開始時点の見込み」は、未引当の在庫に計画開始までに終わる他の生産予定を足し、先に始まる計画の未引当の所要数を引いた数です（他の計画の子計画はその計画専用とみなし、その計画の所要数を子計画で賄う分は差し引きません）。

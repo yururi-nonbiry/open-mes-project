@@ -113,7 +113,6 @@ const ProductionPlanMaterialsModal: React.FC<ProductionPlanMaterialsModalProps> 
             <div className="p-3">
                 <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
                     <h5 className="mb-0">{t('部品構成')}（{plan.plan_name}）</h5>
-                    <button type="button" className="btn-close" aria-label="Close" onClick={onClose}></button>
                 </div>
                 <dl className="row mb-2">
                     <dt className="col-sm-3">製品コード:</dt><dd className="col-sm-9">{plan.product_code || 'N/A'}</dd>

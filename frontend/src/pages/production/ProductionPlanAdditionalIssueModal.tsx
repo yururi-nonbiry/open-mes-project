@@ -94,7 +94,6 @@ const ProductionPlanAdditionalIssueModal: React.FC<ProductionPlanAdditionalIssue
             <div className="p-3">
                 <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
                     <h5 className="mb-0">{t('追加ピッキング')}（{plan.plan_name}）</h5>
-                    <button type="button" className="btn-close" aria-label="Close" onClick={onClose}></button>
                 </div>
                 <p className="text-muted small">
                     {t('歩留まり・ロス等で所要量を超えて必要になった部品を、引当を経ずにすぐピッキングします。所要量の引当とは別に記録され、')}

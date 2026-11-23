@@ -2,6 +2,7 @@ import React from 'react';
 import { Spinner } from 'react-bootstrap';
 import { BulkAllocationResult, PlanAllocationOverview, ProductionPlan } from '../../types/production';
 import { t } from '../../utils/terms';
+import Modal from '../../components/Modal';
 
 interface ProductionPlanTableProps {
     plans: ProductionPlan[];
@@ -203,28 +204,27 @@ const ProductionPlanTable: React.FC<ProductionPlanTableProps> = ({
                 </button>
                 <span className="small text-muted">{t('在庫の多い倉庫から未引当分を引き当てます。倉庫・数量・ラインを指定する場合は各計画の「② 部品引当」から行ってください。')}</span>
             </div>
-            {bulkError && (
-                <div className="alert alert-danger m-2 d-flex justify-content-between">
-                    <span>{bulkError}</span>
-                    <button type="button" className="btn-close" aria-label="閉じる" onClick={onCloseBulkResults}></button>
-                </div>
-            )}
-            {bulkResults && (
-                <div className="alert alert-light border m-2">
-                    <div className="d-flex justify-content-between align-items-center mb-1">
-                        <strong>まとめ引当の結果</strong>
-                        <button type="button" className="btn-close" aria-label="閉じる" onClick={onCloseBulkResults}></button>
+            <Modal isOpen={!!bulkError || !!bulkResults} onClose={onCloseBulkResults} maxWidth="640px">
+                <div className="p-3">
+                    <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+                        <h5 className="mb-0">まとめ引当の結果</h5>
                     </div>
-                    <ul className="list-unstyled mb-0 small">
-                        {bulkResults.map(r => (
-                            <li key={r.plan_id}>
-                                <span className={`badge me-2 ${BULK_RESULT_META[r.status].className}`}>{BULK_RESULT_META[r.status].label}</span>
-                                {r.plan_name}: {r.message}
-                            </li>
-                        ))}
-                    </ul>
+                    {bulkError && <div className="alert alert-danger mb-0">{bulkError}</div>}
+                    {bulkResults && (
+                        <ul className="list-unstyled mb-0">
+                            {bulkResults.map(r => (
+                                <li key={r.plan_id} className="mb-1">
+                                    <span className={`badge me-2 ${BULK_RESULT_META[r.status].className}`}>{BULK_RESULT_META[r.status].label}</span>
+                                    {r.plan_name}: {r.message}
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                    <div className="text-end mt-4">
+                        <button type="button" className="btn btn-secondary" onClick={onCloseBulkResults}>閉じる</button>
+                    </div>
                 </div>
-            )}
+            </Modal>
             <div className="table-responsive mb-0">
                 <table className="table table-hover align-middle goods-receipt-table mb-0">
                     <thead>

@@ -116,7 +116,7 @@ test('FE-PM-03 統合確認ON: 「まとめずに引き当てる」を選ぶと�
   await page.getByRole('button', { name: /チェックした計画をまとめて引当/ }).click();
   await page.locator('.modal-content').getByRole('button', { name: 'まとめずに引き当てる' }).click();
   await expect(page.getByText('まとめ引当の結果')).toBeVisible();
-  const resultItems = page.locator('.alert-light li');
+  const resultItems = page.locator('.modal-content li');
   await expect(resultItems).toHaveCount(2);
   expect((await getPlan(a.id)).status).toBe('PENDING');
   expect((await getPlan(b.id)).merged_into).toBeNull();
@@ -130,8 +130,8 @@ test('FE-PM-04 統合確認ON: 「まとめて引き当てる」を選ぶと統�
   await page.getByRole('button', { name: /チェックした計画をまとめて引当/ }).click();
   await page.locator('.modal-content').getByRole('button', { name: 'まとめて引き当てる' }).click();
   await expect(page.getByText('まとめ引当の結果')).toBeVisible();
-  await expect(page.locator('.alert-light li')).toHaveCount(1);
-  await expect(page.locator('.alert-light li')).toContainText('2件の計画を統合しました。');
+  await expect(page.locator('.modal-content li')).toHaveCount(1);
+  await expect(page.locator('.modal-content li')).toContainText('2件の計画を統合しました。');
 
   const planA = await getPlan(a.id);
   expect(planA.status).toBe('MERGED');
@@ -145,6 +145,7 @@ test('FE-PM-04 統合確認ON: 「まとめて引き当てる」を選ぶと統�
   const list = allocations.results ?? allocations;
   expect(list.reduce((sum: number, x: { allocated_quantity: number }) => sum + x.allocated_quantity, 0)).toBe(80);
 
+  await page.locator('.modal-content').getByRole('button', { name: '閉じる', exact: true }).click(); // 結果モーダル
   await page.getByRole('button', { name: '統合済' }).click(); // 状態タブ
   const row = page.locator('.goods-receipt-table tbody tr', { hasText: `${prefix}-A` });
   await expect(row).toContainText('統合先');
