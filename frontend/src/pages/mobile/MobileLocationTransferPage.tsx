@@ -132,8 +132,14 @@ const MobileLocationTransferPage = () => {
       showMessage('移動数量と移動先棚番を入力してください。', 'error', true);
       return;
     }
-    if (parseInt(transferQuantity, 10) > selectedItem.quantity) {
-      showMessage('移動数量が現在数量を超えています。', 'error', true);
+    const transferQty = parseInt(transferQuantity, 10);
+    if (isNaN(transferQty) || transferQty <= 0) {
+      showMessage('移動数量は1以上の整数を入力してください。', 'error', true);
+      return;
+    }
+    // 引当済みの数量は移動できない(バックエンドも利用可能数までしか受け付けない)
+    if (transferQty > selectedItem.quantity - selectedItem.reserved) {
+      showMessage(`移動数量は引当済みを除く ${selectedItem.quantity - selectedItem.reserved} 以下にしてください。`, 'error', true);
       return;
     }
 
@@ -287,7 +293,7 @@ const MobileLocationTransferPage = () => {
                 <div className="mb-3"><label className="form-label fw-bold">現在数量</label><p className="form-control-plaintext form-control-lg ps-2">{selectedItem.quantity} (有効: {selectedItem.available_quantity})</p></div>
                 <div className="mb-3">
                   <label htmlFor="transferQuantity" className="form-label fw-bold">移動数量</label>
-                  <input type="number" id="transferQuantity" name="transferQuantity" className="form-control form-control-lg text-end" value={transferQuantity} onChange={handleModalFormChange} min="1" max={selectedItem.quantity} required />
+                  <input type="number" id="transferQuantity" name="transferQuantity" className="form-control form-control-lg text-end" value={transferQuantity} onChange={handleModalFormChange} min="1" max={Math.max(0, selectedItem.quantity - selectedItem.reserved)} required />
                 </div>
                 <div className="mb-3">
                   <label htmlFor="targetLocation" className="form-label fw-bold">移動先棚番</label>

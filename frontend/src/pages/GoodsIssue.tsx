@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Modal, Button, Spinner, Alert } from 'react-bootstrap';
 import inventoryService, { SalesOrder, validateIssueQuantity } from '../services/inventoryService';
 import { NavIcon } from '../components/NavIcon';
@@ -169,6 +169,8 @@ const GoodsIssueContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefault
     setMapOrderId(null);
   };
 
+  const issueSubmittingRef = useRef(false);
+
   const handleIssueSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setModalMessage({ text: '', type: '' });
@@ -180,18 +182,24 @@ const GoodsIssueContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefault
       return;
     }
 
+    // 連打や完了表示中の再送信で二重に出庫しないよう、処理が終わるまで送信を受け付けない
+    if (issueSubmittingRef.current) return;
+    issueSubmittingRef.current = true;
     try {
       const result = await inventoryService.issueSalesOrder(selectedOrder.id, parseInt(issueQuantity, 10));
       if (result.ok) {
         setModalMessage({ text: result.message || t('出庫処理が完了しました。'), type: 'success' });
         setTimeout(() => {
+          issueSubmittingRef.current = false;
           closeModal();
           fetchSalesOrders();
         }, 1200);
       } else {
+        issueSubmittingRef.current = false;
         setModalMessage({ text: result.message || t('出庫処理に失敗しました。'), type: 'danger' });
       }
     } catch (err) {
+      issueSubmittingRef.current = false;
       console.error('Error:', err);
       setModalMessage({ text: '通信エラーが発生しました。', type: 'danger' });
     }

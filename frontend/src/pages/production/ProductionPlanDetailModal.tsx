@@ -24,8 +24,12 @@ const ProductionPlanDetailModal: React.FC<ProductionPlanDetailModalProps> = ({
 
     useEffect(() => {
         setLine(plan?.line || '');
+    }, [plan?.line]);
+    // 保存後に親が計画を差し替えても成功メッセージを消さないよう、別の計画に切り替わったときだけ消す
+    const planId = plan?.id;
+    useEffect(() => {
         setMessage(null);
-    }, [plan]);
+    }, [planId]);
 
     if (!plan) return null;
 

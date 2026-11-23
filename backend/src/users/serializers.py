@@ -186,6 +186,8 @@ class ApiTokenPolicySerializer(serializers.ModelSerializer):
         return value
 
     def validate_scopes(self, value):
+        if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+            raise serializers.ValidationError("スコープは文字列のリストで指定してください。")
         valid_keys = {key for key, _label in API_SCOPE_CHOICES}
         invalid = sorted(set(value) - valid_keys)
         if invalid:

@@ -69,7 +69,9 @@ const PartsSupplySimulationPage = () => {
         setLoading(true);
         setError(null);
         try {
-            const planIds = Array.from(selectedPlanIds);
+            // 選択が無いときは「表示中の計画すべて」が対象(画面の説明どおり)。ステータスを全解除していても、
+            // 一覧に表示している計画だけを渡して、バックエンドの既定(未着手・進行中のみ)に切り替わらないようにする
+            const planIds = selectedPlanIds.size > 0 ? Array.from(selectedPlanIds) : plans.map(p => p.id);
             const data = await productionService.getPartsSupplySimulation({
                 planIds,
                 statuses: Array.from(selectedStatuses),
@@ -81,7 +83,7 @@ const PartsSupplySimulationPage = () => {
         } finally {
             setLoading(false);
         }
-    }, [selectedPlanIds, selectedStatuses]);
+    }, [selectedPlanIds, selectedStatuses, plans]);
 
     const formatDate = (dateStr: string | null) => {
         if (!dateStr) return '-';

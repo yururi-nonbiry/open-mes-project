@@ -49,6 +49,9 @@ const InventoryMoveModal: React.FC<InventoryMoveModalProps> = ({
         }));
     };
 
+    // 引当済みの数量は移動できない(バックエンドも利用可能数までしか受け付けない)
+    const movable = item ? Math.max(0, item.quantity - (item.reserved || 0)) : 0;
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!item) return;
@@ -58,6 +61,10 @@ const InventoryMoveModal: React.FC<InventoryMoveModalProps> = ({
 
         if (formData.quantity_to_move <= 0) {
             setError('移動数量は1以上の整数を入力してください。');
+            return;
+        }
+        if (formData.quantity_to_move > movable) {
+            setError(`移動数量は引当済みを除く ${movable} 以下にしてください。`);
             return;
         }
         if (!formData.target_warehouse) {
@@ -146,17 +153,17 @@ const InventoryMoveModal: React.FC<InventoryMoveModalProps> = ({
                                         className="form-control mes-modal-input text-end fw-bold"
                                         required
                                         min="1"
-                                        max={item.quantity}
+                                        max={movable}
                                     />
                                     <button
                                         type="button"
                                         className="btn btn-outline-primary btn-sm text-nowrap fw-bold"
-                                        onClick={() => setFormData(prev => ({ ...prev, quantity_to_move: item.quantity }))}
+                                        onClick={() => setFormData(prev => ({ ...prev, quantity_to_move: movable }))}
                                     >
-                                        全量（{item.quantity}）をセット
+                                        全量（{movable}）をセット
                                     </button>
                                 </div>
-                                <span className="mes-modal-field-help">1〜{item.quantity} の範囲で移動数を指定します</span>
+                                <span className="mes-modal-field-help">1〜{movable} の範囲で移動数を指定します(引当済みの数量は移動できません)</span>
                             </div>
                         </div>
 

@@ -377,9 +377,9 @@ const InspectionHistory = () => {
                                               {def?.measurement_type === 'quantitative' ? (
                                                 <>
                                                   基準規格: 
-                                                  {def.specification_nominal !== undefined && ` 中心 ${def.specification_nominal}`}
-                                                  {def.specification_lower_limit !== undefined && ` [下限 ${def.specification_lower_limit}`}
-                                                  {def.specification_upper_limit !== undefined && ` 〜 上限 ${def.specification_upper_limit}]`}
+                                                  {def.specification_nominal != null && ` 中心 ${def.specification_nominal}`}
+                                                  {def.specification_lower_limit != null && ` 下限 ${def.specification_lower_limit}`}
+                                                  {def.specification_upper_limit != null && ` 上限 ${def.specification_upper_limit}`}
                                                 </>
                                               ) : (
                                                 <>期待値: {def?.expected_qualitative_result || '特になし'}</>

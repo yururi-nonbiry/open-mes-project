@@ -144,7 +144,7 @@ class PurchaseOrderSerializer(serializers.ModelSerializer):
             and instance.status != PurchaseOrder.Status.CANCELED
             and instance.received_quantity > 0
         ):
-            if instance.received_quantity >= instance.quantity:
+            if instance.quantity is not None and instance.received_quantity >= instance.quantity:
                 new_status = PurchaseOrder.Status.FULLY_RECEIVED
             else:
                 new_status = PurchaseOrder.Status.PARTIALLY_RECEIVED
@@ -189,6 +189,15 @@ class InventorySerializer(serializers.ModelSerializer):
 
     def validate_location(self, value):
         return value or ""
+
+    def validate(self, data):
+        # 引当(reserved)が残る在庫の品番・倉庫・用途・棚を直接変えると、引当を解放できなくなるため変更させない
+        instance = self.instance
+        if instance and instance.reserved > 0:
+            for field in ("part_number_rel", "warehouse_rel", "purpose_rel", "location"):
+                if field in data and data[field] != getattr(instance, field):
+                    raise serializers.ValidationError("引当済みの在庫は、品番・倉庫・用途・棚番を変更できません。")
+        return data
 
     class Meta:
         model = Inventory
@@ -331,6 +340,11 @@ class SalesOrderSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         instance = self.instance
+        if instance and instance.status in (SalesOrder.Status.SHIPPED, SalesOrder.Status.CANCELED):
+            # 出庫済み・キャンセル済みの受注の品目・数量を変えると、残数量があるのに出庫済みといった矛盾が生じる
+            for field in ("item_rel", "quantity", "warehouse_rel"):
+                if field in data and data[field] != getattr(instance, field):
+                    raise serializers.ValidationError("出庫済みまたはキャンセル済みの受注の品目・数量・倉庫は変更できません。")
         if instance and instance.reserved_quantity > 0:
             # 引当済みの在庫は品番+倉庫に紐づくため、引当を持ったまま品目・倉庫を変更させない
             if "item_rel" in data and data["item_rel"] != instance.item_rel:

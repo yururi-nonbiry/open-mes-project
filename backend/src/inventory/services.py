@@ -680,7 +680,8 @@ def allocate_sales_order(sales_order_ref, allocations_data, purpose=_UNSET):
             part_number, warehouse, quantity_to_reserve = _parse_allocation_item(alloc_item_data)
 
             # 既存の受注はその用途で引き当てる(用途を指定した場合は一致が必要)。新規受注は指定した用途で作成する。
-            existing_order = SalesOrder.objects.filter(order_number=sales_order_ref).first()
+            # 受注 → 在庫 の順にロックする(出庫・削除と同じ順にして、同時実行でのデッドロックを防ぐ)
+            existing_order = SalesOrder.objects.select_for_update().filter(order_number=sales_order_ref).first()
             if existing_order is not None:
                 if purpose is not _UNSET and purpose != existing_order.purpose:
                     raise InventoryServiceError(

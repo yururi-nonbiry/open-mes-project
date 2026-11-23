@@ -50,13 +50,22 @@ def allocate_materials_service(production_plan, allocations_data):
     processed_allocations_summary = []
     errors = []
 
-    # 計画の所要部品(バリデーション用)。所要量を超える分(ロス等)は追加出庫で扱う。
-    required_parts = {m.material_id: m.required_quantity for m in production_plan.materials.all()}
-
-    # 既に引き当て済みの数量(返却済みと追加出庫は所要量の消化に数えない)
-    allocated_map = allocated_quantity_by_material(production_plan)
-
     with transaction.atomic():
+        # 同じ計画への同時引当で所要量を超えて引き当てないよう、計画の行をロックしてから所要量・引当済数を読む
+        production_plan = ProductionPlan.objects.select_for_update().get(pk=production_plan.pk)
+        if production_plan.status in (
+            ProductionPlan.Status.COMPLETED,
+            ProductionPlan.Status.CANCELLED,
+            ProductionPlan.Status.MERGED,
+        ):
+            raise ValueError("統合済・完了・中止した生産計画は引き当てできません。")
+
+        # 計画の所要部品(バリデーション用)。所要量を超える分(ロス等)は追加出庫で扱う。
+        required_parts = {m.material_id: m.required_quantity for m in production_plan.materials.all()}
+
+        # 既に引き当て済みの数量(返却済みと追加出庫は所要量の消化に数えない)
+        allocated_map = allocated_quantity_by_material(production_plan)
+
         for alloc_item_data in allocations_data:
             part_number = alloc_item_data.get("part_number")
             warehouse = alloc_item_data.get("warehouse")
@@ -172,19 +181,29 @@ def allocate_materials_service(production_plan, allocations_data):
     return processed_allocations_summary
 
 
+def _lock_allocation(allocation):
+    """引当の行をロックして最新の状態を返す(同時に削除された場合は ValueError)。transaction.atomic() の中で呼ぶ。"""
+    try:
+        return MaterialAllocation.objects.select_for_update().get(pk=allocation.pk)
+    except MaterialAllocation.DoesNotExist:
+        raise ValueError("この引当はすでに解除されています。") from None
+
+
 def release_material_allocation_service(allocation):
     """
     未出庫（ALLOCATED）の材料引当を解除（削除）します。
     在庫の reserved を解放し、関連する内部SalesOrderをキャンセルします。
     出庫済み(ISSUED)・返却済み(RETURNED)の引当は実在庫の増減を伴う履歴のため削除できません。
     """
-    if allocation.status != MaterialAllocation.Status.ALLOCATED:
-        raise ValueError(
-            f"Cannot delete allocation with status '{allocation.status}'. "
-            "Only 'ALLOCATED' allocations can be released."
-        )
-
     with transaction.atomic():
+        # 二重の解除・出庫との同時実行で在庫の引当数を二重に解放しないよう、行をロックして最新の状態で確認する
+        allocation = _lock_allocation(allocation)
+        if allocation.status != MaterialAllocation.Status.ALLOCATED:
+            raise ValueError(
+                f"Cannot delete allocation with status '{allocation.status}'. "
+                "Only 'ALLOCATED' allocations can be released."
+            )
+
         if allocation.warehouse:
             rows = lock_inventory_rows(allocation.material_code, allocation.warehouse, allocation.purpose)
             if rows:
@@ -213,18 +232,20 @@ def update_material_allocation_status_service(allocation, new_status, user, now=
         MaterialAllocation.Status.ALLOCATED: MaterialAllocation.Status.ISSUED,
         MaterialAllocation.Status.ISSUED: MaterialAllocation.Status.RETURNED,
     }
-    if allowed_transitions.get(allocation.status) != new_status:
-        raise ValueError(
-            f"Invalid status transition for allocation {allocation.id}: {allocation.status} -> {new_status}."
-        )
-    if not allocation.warehouse:
-        raise ValueError(f"Allocation {allocation.id} has no warehouse; cannot update inventory.")
-
     so_order_number = build_internal_so_order_number(allocation.id)
 
     operator = user if user and user.is_authenticated else None
 
     with transaction.atomic():
+        # 二重送信・同時実行で二重に出庫・返却しないよう、行をロックして最新の状態で遷移を確認する
+        allocation = _lock_allocation(allocation)
+        if allowed_transitions.get(allocation.status) != new_status:
+            raise ValueError(
+                f"Invalid status transition for allocation {allocation.id}: {allocation.status} -> {new_status}."
+            )
+        if not allocation.warehouse:
+            raise ValueError(f"Allocation {allocation.id} has no warehouse; cannot update inventory.")
+
         if new_status == MaterialAllocation.Status.ISSUED:
             rows = [
                 row

@@ -96,7 +96,7 @@ def merge_plans(plans):
         ProductionPlanMaterial.objects.create(
             production_plan=merged,
             material_id=material_id,
-            quantity_per_unit=round(required / total, 3),
+            quantity_per_unit=round(required / total, 3) if total else 0,
             required_quantity=required,
             supply_method=_common(m.supply_method for m in rows) or ProductionPlanMaterial.SupplyMethod.UNDECIDED,
         )

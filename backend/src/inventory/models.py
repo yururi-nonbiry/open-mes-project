@@ -269,7 +269,8 @@ class PurchaseOrder(models.Model):
     @property
     def remaining_quantity(self):
         """残りの未入庫数量を計算して返す"""
-        return self.quantity - self.received_quantity
+        # 発注数量が未設定(None)の入庫予定は、残数量を 0 として扱う
+        return max((self.quantity or 0) - self.received_quantity, 0)
 
 
 # 入庫実績

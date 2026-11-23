@@ -38,3 +38,18 @@ class SerializerReadOnlyFieldsTests(InventoryAPITestBase):
         so.refresh_from_db()
         self.assertEqual(so.status, "pending")
         self.assertEqual(so.shipped_quantity, 2)
+
+    def test_ser_05_reserved_inventory_key_fields_cannot_change(self):
+        """引当済みの在庫は、品番・倉庫・用途・棚番を直接変更できない(引当を解放できなくなるため)。"""
+        inventory = self.create_inventory(quantity=10, reserved=3)
+        url = reverse("inventory_api:inventory-detail", kwargs={"pk": inventory.id})
+        response = self.client.patch(url, {"location": "NEW-LOC"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        inventory.refresh_from_db()
+        self.assertNotEqual(inventory.location, "NEW-LOC")
+
+    def test_ser_06_shipped_sales_order_quantity_cannot_change(self):
+        order = self.create_sales_order(quantity=5, shipped_quantity=5, status="shipped")
+        url = reverse("inventory_api:salesorder-detail", kwargs={"pk": order.id})
+        response = self.client.patch(url, {"quantity": 50}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

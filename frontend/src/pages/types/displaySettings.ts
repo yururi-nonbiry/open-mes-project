@@ -51,6 +51,8 @@ export interface ModelDisplayRow {
     display_name: string;
     help_text: string;
     display_order: number;
+    /** 検索項目の並び順(ページ項目表示設定で設定する値。この画面で保存しても消さないよう保持する) */
+    search_order?: number;
     is_list_display: boolean;
     is_search_field: boolean;
     is_list_filter: boolean;

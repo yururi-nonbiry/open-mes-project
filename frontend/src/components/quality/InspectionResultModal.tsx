@@ -69,6 +69,8 @@ const InspectionResultModal: React.FC<InspectionResultModalProps> = ({ item, onC
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        // 連打や登録完了の表示中(自動で閉じるまで)の再送信で、検査結果を二重に登録しない
+        if (submitting || alert.type === 'success') return;
         setSubmitting(true);
         setAlert({ show: false, type: '', message: '' });
 
@@ -82,7 +84,7 @@ const InspectionResultModal: React.FC<InspectionResultModalProps> = ({ item, onC
                     measurement_detail_id: detailId,
                     value: formData[key]
                 });
-            } else if (formData[key] !== null) {
+            } else if (formData[key] !== null && formData[key] !== undefined) {
                 submissionData.append(key, formData[key] as string | Blob);
             }
         }

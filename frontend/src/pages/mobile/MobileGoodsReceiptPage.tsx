@@ -183,6 +183,8 @@ const MobileGoodsReceiptPageContent = ({ dateDefaults }: { dateDefaults: Schedul
     setReceiptFormData(prev => applyShelfInput(prev, name, value, 'location', 'warehouse'));
   };
 
+  const receiptSubmittingRef = useRef(false);
+
   const handleReceiptSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setFormError('');
@@ -199,6 +201,9 @@ const MobileGoodsReceiptPageContent = ({ dateDefaults }: { dateDefaults: Schedul
     }
 
     if (!selectedOrder) return;
+    // 連打や完了表示中の再送信で二重に入庫しないよう、処理が終わるまで送信を受け付けない
+    if (receiptSubmittingRef.current) return;
+    receiptSubmittingRef.current = true;
     const location = receiptFormData.location.trim();
     const registerDefaultLocation =
       (await inventoryService.shouldConfirmRegisterDefaultLocation(selectedOrder, location)) &&
@@ -215,10 +220,12 @@ const MobileGoodsReceiptPageContent = ({ dateDefaults }: { dateDefaults: Schedul
       });
       setFormSuccess(`発注 ${result.order_number} の入庫処理が正常に完了しました。${result.default_location_registered ? `デフォルト入庫棚番に「${location}」を登録しました。` : ''}`);
       setTimeout(() => {
+        receiptSubmittingRef.current = false;
         closeReceiptForm();
         fetchPurchaseOrders(); // Refresh data
       }, 1500);
     } catch (err) {
+      receiptSubmittingRef.current = false;
       console.error('Error submitting purchase receipt:', err);
       setFormError(err instanceof ApiError ? err.message : '入庫処理中に通信エラーが発生しました。');
     }

@@ -14,15 +14,15 @@ export const useWarehouseLayout = () => {
         try {
             const data = await warehouseLocationService.getWarehouses();
             setWarehouses(data);
-            if (data.length > 0 && !selectedWarehouseNumber) {
-                setSelectedWarehouseNumber(data[0].warehouse_number);
+            // 再取得のたびに先頭の倉庫へ戻らないよう、未選択のときだけ先頭を選ぶ(選択中の値は最新の状態から読む)
+            if (data.length > 0) {
+                setSelectedWarehouseNumber(prev => prev || data[0].warehouse_number);
             }
         } catch (e) {
             setError((e as Error).message);
         } finally {
             setLoading(false);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const fetchLocations = useCallback(async (warehouseNumber: string) => {
@@ -54,8 +54,12 @@ export const useWarehouseLayout = () => {
 
     const saveLayoutSize = async (cols: number, rows: number) => {
         if (!selectedWarehouse) return;
-        await warehouseLocationService.saveWarehouseLayout({ ...selectedWarehouse, layout_cols: cols, layout_rows: rows });
-        await fetchWarehouses();
+        try {
+            await warehouseLocationService.saveWarehouseLayout({ ...selectedWarehouse, layout_cols: cols, layout_rows: rows });
+            await fetchWarehouses();
+        } catch (e) {
+            setError((e as Error).message);
+        }
     };
 
     const saveLocation = async (location: WarehouseLocation) => {

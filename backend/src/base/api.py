@@ -65,17 +65,21 @@ class FeatureOptionsView(APIView):
         return Response(self._current())
 
     def put(self, request, *args, **kwargs):
+        # 途中の項目が不正でも先の項目だけ保存されないよう、すべて検証してから保存する
+        updates = {}
         for name in feature_settings.FEATURE_DEFAULTS:
             if name in request.data:
                 value = request.data[name]
                 if not isinstance(value, bool):
                     return error_response(f"{name} は true / false で指定してください。")
-                feature_settings.set_feature_flag(name, value)
-                log_event(
-                    AccessLog.EventType.SETTINGS_CHANGED,
-                    request,
-                    detail={"setting": "feature_option", "operation": "update", "name": name, "value": value},
-                )
+                updates[name] = value
+        for name, value in updates.items():
+            feature_settings.set_feature_flag(name, value)
+            log_event(
+                AccessLog.EventType.SETTINGS_CHANGED,
+                request,
+                detail={"setting": "feature_option", "operation": "update", "name": name, "value": value},
+            )
         return Response(self._current())
 
 
@@ -276,7 +280,7 @@ class ModelFieldsView(APIView):
                         "field_type": "CharField",
                         "is_required": False,
                         "default_value": None,
-                        "help_text": "用途マスタの用途コード(空欄は汎用)",
+                        "help_text": "用途マスタの用途コード(空欄は汎用)" if fk_name == "purpose_rel" else "ワークセンターマスタのコード(出庫先ライン。空欄は未指定)",
                     }
                 )
         return Response(fields_data)
@@ -366,6 +370,9 @@ class CsvColumnMappingViewSet(AuditSettingsChangeMixin, IntegrityErrorAsBadReque
         data_type = request.query_params.get("data_type")
         if not data_type:
             return error_response('Query parameter "data_type" is required.')
+
+        if not re.fullmatch(r"[A-Za-z0-9_]+", data_type):
+            return error_response("data_type が不正です。")
 
         mappings = CsvColumnMapping.objects.filter(data_type=data_type, is_active=True).order_by("order")
 
@@ -498,7 +505,10 @@ class CsvColumnMappingViewSet(AuditSettingsChangeMixin, IntegrityErrorAsBadReque
         validation_errors = {}
 
         for index, data in enumerate(mappings_data):
-            if not data.get("is_active") or not data.get("csv_header", "").strip():
+            if not isinstance(data, dict):
+                validation_errors[f"index {index}"] = ["設定はオブジェクトで指定してください。"]
+                continue
+            if not data.get("is_active") or not (data.get("csv_header") or "").strip():
                 continue
 
             data["data_type"] = data_type
@@ -511,11 +521,14 @@ class CsvColumnMappingViewSet(AuditSettingsChangeMixin, IntegrityErrorAsBadReque
         if validation_errors:
             return error_response(VALIDATION_ERROR_MESSAGE, errors=validation_errors)
 
-        with transaction.atomic():
-            # 既存のマッピングを削除
-            CsvColumnMapping.objects.filter(data_type=data_type).delete()
-            # 新しいマッピングを一括作成
-            CsvColumnMapping.objects.bulk_create(objects_to_create)
+        try:
+            with transaction.atomic():
+                # 既存のマッピングを削除
+                CsvColumnMapping.objects.filter(data_type=data_type).delete()
+                # 新しいマッピングを一括作成
+                CsvColumnMapping.objects.bulk_create(objects_to_create)
+        except IntegrityError:
+            return error_response("同じ項目が重複して指定されています。")
         log_event(
             AccessLog.EventType.SETTINGS_CHANGED,
             request,
@@ -639,6 +652,9 @@ class ModelDisplaySettingViewSet(AuditSettingsChangeMixin, IntegrityErrorAsBadRe
         validation_errors = {}
 
         for index, data in enumerate(settings_data):
+            if not isinstance(data, dict):
+                validation_errors[f"index {index}"] = ["設定はオブジェクトで指定してください。"]
+                continue
             data["data_type"] = data_type
             serializer = self.get_serializer(data=data)
             if serializer.is_valid():
@@ -649,9 +665,12 @@ class ModelDisplaySettingViewSet(AuditSettingsChangeMixin, IntegrityErrorAsBadRe
         if validation_errors:
             return error_response(VALIDATION_ERROR_MESSAGE, errors=validation_errors)
 
-        with transaction.atomic():
-            ModelDisplaySetting.objects.filter(data_type=data_type).delete()
-            ModelDisplaySetting.objects.bulk_create(objects_to_create)
+        try:
+            with transaction.atomic():
+                ModelDisplaySetting.objects.filter(data_type=data_type).delete()
+                ModelDisplaySetting.objects.bulk_create(objects_to_create)
+        except IntegrityError:
+            return error_response("同じ項目が重複して指定されています。")
         log_event(
             AccessLog.EventType.SETTINGS_CHANGED,
             request,

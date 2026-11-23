@@ -49,6 +49,7 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
     const workCenters = useWorkCenters();
     const [requiredParts, setRequiredParts] = useState<AllocationRow[]>([]);
     const [loading, setLoading] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [allocationResult, setAllocationResult] = useState<{ type: 'success' | 'error', message?: string, data?: AllocationResultData } | null>(null);
 
@@ -149,6 +150,8 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
             return;
         }
 
+        if (submitting) return; // 連打での二重引当を防ぐ
+        setSubmitting(true);
         try {
             const data = await productionService.allocateMaterials(plan.id, allocationsData);
             setAllocationResult({ type: 'success', data });
@@ -159,6 +162,8 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
             } catch (e) { console.error('Error broadcasting allocation result:', e); }
         } catch (e) {
             setAllocationResult({ type: 'error', message: (e as ApiErrorLike).message });
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -346,7 +351,7 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
                             );
                         })()}
                         <div className="text-end mt-4">
-                            <button className="btn btn-primary" onClick={handleSubmit} disabled={loading || !!error}>{t('チェックした部品を引き当て')}</button>
+                            <button className="btn btn-primary" onClick={handleSubmit} disabled={loading || submitting || !!error}>{t('チェックした部品を引き当て')}</button>
                             <button className="btn btn-secondary ms-2" onClick={handleClose}>キャンセル</button>
                         </div>
                     </div>

@@ -12,7 +12,7 @@ interface Message {
 }
 
 const UserSettings = () => {
-  const { logout } = useAuth();
+  const { logout, isPasswordExpired } = useAuth();
   // State for forms, data, and UI
   const [profileForm, setProfileForm] = useState({
     username: '',
@@ -167,13 +167,18 @@ const UserSettings = () => {
     return messages.map(msg => (
       <div key={msg.id} className={`alert alert-${msg.type} alert-dismissible fade show shadow-sm`} role="alert">
         {msg.text}
-        <button type="button" className="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <button type="button" className="btn-close" aria-label="Close" onClick={() => setMessages(prev => prev.filter(m => m.id !== msg.id))}></button>
       </div>
     ));
   };
 
   return (
     <div className="goods-receipt-page" style={{ maxWidth: '820px' }}>
+      {isPasswordExpired && (
+        <div className="alert alert-warning" role="alert">
+          パスワードの有効期限が切れています。「パスワード変更」で新しいパスワードを設定するまで、他の画面は利用できません。
+        </div>
+      )}
       {renderMessages()}
 
       {/* Profile Edit Form */}
@@ -267,7 +272,6 @@ const UserSettings = () => {
         <form onSubmit={handlePasswordSubmit} noValidate>
           <div className="modal-header">
             <h5 className="modal-title">パスワード変更</h5>
-            <button type="button" className="btn-close" onClick={closePasswordModal}></button>
           </div>
           <div className="modal-body">
             {passwordErrors.non_field_errors && <div className="alert alert-danger">{passwordErrors.non_field_errors.join(' ')}</div>}

@@ -11,7 +11,9 @@ test('ログイン画面: 表示されている全ボタンが可視かつ操作
 
   // frontend/src/App.tsx の MobileRedirector により、スマホ(User-Agent判定)では
   // /mobile/login へ、それ以外(HD/FullHD)では /login のままとなる。
-  await expect(page).toHaveURL(/\/(mobile\/)?login$/);
+  // リダイレクトの途中(PC向けのログイン画面が一瞬表示される状態)でボタンを数えないよう、最終的なURLになるまで待つ。
+  const isSmartphone = test.info().project.name.includes('smartphone');
+  await expect(page).toHaveURL(isSmartphone ? /\/mobile\/login$/ : /\/login$/);
 
   await expectAllVisibleButtonsOperable(page);
 });

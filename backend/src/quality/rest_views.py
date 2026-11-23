@@ -1,4 +1,5 @@
 import json
+import uuid
 
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
@@ -68,8 +69,15 @@ class InspectionItemViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
         # フロントエンドはFormDataで送信し、詳細はJSON文字列で渡される
         try:
             measurement_payload = json.loads(request.data.get("measurement_details_payload", "[]"))
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, TypeError):
             return error_response("測定詳細のデータ形式が不正です。")
+        if not isinstance(measurement_payload, list) or not all(isinstance(d, dict) for d in measurement_payload):
+            return error_response("測定詳細のデータ形式が不正です。")
+        for d in measurement_payload:
+            try:
+                uuid.UUID(str(d.get("measurement_detail_id")))
+            except ValueError:
+                return error_response(f"無効な測定詳細IDです: {d.get('measurement_detail_id')}")
 
         # 各詳細の測定タイプを特定するために、MeasurementDetailオブジェクトを取得
         detail_ids = [d.get("measurement_detail_id") for d in measurement_payload]

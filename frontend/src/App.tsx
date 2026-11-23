@@ -101,7 +101,8 @@ const StaffRoute = ({ children }: { children: ReactNode }) => {
 };
 
 function AppContent() {
-  const { isAuthenticated, isStaff, loading, logout, checkAuth } = useAuth();
+  const { isAuthenticated, isStaff, isPasswordExpired, loading, logout, checkAuth } = useAuth();
+  const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const [versionModalOpen, setVersionModalOpen] = useState(false);
 
@@ -122,6 +123,11 @@ function AppContent() {
   }, [isAuthenticated]);
 
   if (loading) return <div className="p-4">読み込み中...</div>;
+
+  // パスワードの有効期限が切れている間は、パスワード変更のある設定画面以外を開かせない
+  if (isAuthenticated && isPasswordExpired && location.pathname !== '/user/settings') {
+    return <Navigate to="/user/settings" replace />;
+  }
 
   return (
     <Fragment key={termsVersion}>

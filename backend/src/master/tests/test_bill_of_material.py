@@ -149,3 +149,20 @@ class MultiLevelBillOfMaterialTests(MasterAPITestBase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         response = self.client.get(self.explode_url, {"product": self.product.code, "quantity": "0"})
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class BomAndCalendarInputValidationTests(MasterAPITestBase):
+    """不正な入力は 500 ではなく 400 を返す。"""
+
+    def test_bom_val_01_explode_nan_quantity_returns_400(self):
+        item = self.create_item(code="BOMNAN-1", item_type="product")
+        for q in ("NaN", "Infinity"):
+            response = self.client.get(
+                reverse("master_api:bill-of-material-explode"), {"product": item.code, "quantity": q}
+            )
+            self.assertEqual(response.status_code, 400, q)
+
+    def test_cal_val_01_invalid_calendar_params_return_400(self):
+        url = reverse("master_api:work-calendar-day-list")
+        for params in ({"year": "abc"}, {"month": "x"}, {"from": "2026-13-99"}):
+            self.assertEqual(self.client.get(url, params).status_code, 400, params)

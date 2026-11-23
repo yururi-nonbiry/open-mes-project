@@ -108,6 +108,28 @@ class ProductionPlanSerializer(serializers.ModelSerializer):
                     {"product_code": apply_terms("部品の引当がある生産計画の製品は変更できません。先に引当を解除してください。")}
                 )
 
+        if self.instance:
+            # 完了・中止・統合済みの計画の数量や製品を後から変えると、実績や統合元との整合が崩れる
+            terminal = (
+                ProductionPlan.Status.COMPLETED,
+                ProductionPlan.Status.CANCELLED,
+                ProductionPlan.Status.MERGED,
+            )
+            if self.instance.status in terminal:
+                quantity_changed = (
+                    "planned_quantity" in data and data["planned_quantity"] != self.instance.planned_quantity
+                )
+                product_changed = new_product is not None and new_product.code != self.instance.product_id
+                if quantity_changed or product_changed:
+                    raise serializers.ValidationError("完了・中止・統合済みの生産計画の数量・製品は変更できません。")
+            # 引当済みの数量を下回るように計画数量を減らすと、所要量を超えて引き当てた状態になる
+            new_quantity = data.get("planned_quantity")
+            if new_quantity is not None and new_quantity < self.instance.planned_quantity:
+                if normal_allocations(self.instance.material_allocations.all()).exists():
+                    raise serializers.ValidationError(
+                        {"planned_quantity": apply_terms("部品の引当がある生産計画の数量は減らせません。先に引当を解除してください。")}
+                    )
+
         # 用途を変えると使う在庫が変わるため、引当が残っている計画では変更させない
         if self.instance and "purpose_rel" in data and data["purpose_rel"] != self.instance.purpose_rel:
             if normal_allocations(self.instance.material_allocations.all()).exists():

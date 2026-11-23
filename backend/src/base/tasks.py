@@ -229,6 +229,8 @@ def import_csv_task(self, data_type, file_path):
                         for alias, fk_name in fk_aliases.items():
                             if alias in defaults_data:
                                 defaults_data[f"{fk_name}_id"] = defaults_data.pop(alias)
+                            if alias in update_kwargs:
+                                update_kwargs[f"{fk_name}_id"] = update_kwargs.pop(alias)
                         # 行全体を1つのトランザクションで囲まないことで、進捗(task.progress)が
                         # 取込中にも他の接続(進捗確認API)から見えるようにしている。
                         # update_or_create は内部で行単位のトランザクションを張る。

@@ -175,7 +175,8 @@ def simulate_parts_supply(plans):
             already_allocated = allocated_map.get((plan.id, part_code), 0)
             remaining_required = max(material.required_quantity - already_allocated, 0)
             cumulative_required[key] += remaining_required
-            cumulative_shortage[key] += consume(part_code, warehouse, remaining_required, plan.purpose)
+            plan_shortage = consume(part_code, warehouse, remaining_required, plan.purpose)
+            cumulative_shortage[key] += plan_shortage
 
             available = resolve_available(part_code, warehouse)
             item = items_map.get(part_code)
@@ -214,14 +215,16 @@ def simulate_parts_supply(plans):
                     order_by_date = work_calendar.subtract_workdays(plan.planned_start_datetime, lead_time_days)
                     summary["order_by_date"] = order_by_date
                     summary["order_overdue"] = order_by_date <= now
-                limiting_parts.append(
-                    {
-                        "part_code": part_code,
-                        "part_name": summary["part_name"],
-                        "warehouse": warehouse,
-                        "shortage_quantity": shortage_quantity,
-                    }
-                )
+                # 生産可否は、この計画自身が不足させている部品だけで判定する(先行計画の不足を引きずらない)
+                if plan_shortage > 0:
+                    limiting_parts.append(
+                        {
+                            "part_code": part_code,
+                            "part_name": summary["part_name"],
+                            "warehouse": warehouse,
+                            "shortage_quantity": shortage_quantity,
+                        }
+                    )
 
         feasible_by_plan[plan.id] = len(limiting_parts) == 0
         plan_results.append(

@@ -40,7 +40,6 @@ const UserManagement = () => {
 
     const fetchUsers = useCallback(async () => {
         setLoading(true);
-        setMessage({ text: '', type: '' });
         try {
             // NOTE: This assumes a JSON-based API endpoint at /api/users/
             // This needs to be created in the Django backend.

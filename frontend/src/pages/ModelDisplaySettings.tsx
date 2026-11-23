@@ -29,10 +29,11 @@ const ModelDisplaySettings = () => {
     const [isSaving, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState<SaveStatus>({ message: '', variant: '', show: false });
 
-    const fetchAllData = useCallback(async (dataType: string) => {
+    // keepStatus: 保存直後の再読み込みでは、保存結果のメッセージを消さない
+    const fetchAllData = useCallback(async (dataType: string, keepStatus = false) => {
         setLoading(true);
         setError(null);
-        setSaveStatus(prev => ({ ...prev, show: false }));
+        if (!keepStatus) setSaveStatus(prev => ({ ...prev, show: false }));
         try {
             const [settingsRes, fieldsRes] = await Promise.all([
                 authFetch(`/api/base/model-display-settings/?data_type=${dataType}`),
@@ -57,6 +58,7 @@ const ModelDisplaySettings = () => {
                     display_name: existingSetting?.display_name || '',
                     help_text: field.help_text,
                     display_order: existingSetting?.display_order ?? (index + 1) * 10, // Use ?? to allow order 0
+                    search_order: existingSetting?.search_order ?? (index + 1) * 10,
                     is_list_display: existingSetting?.is_list_display ?? true,
                     is_search_field: existingSetting?.is_search_field ?? false,
                     is_list_filter: existingSetting?.is_list_filter ?? false,
@@ -98,6 +100,7 @@ const ModelDisplaySettings = () => {
             model_field_name: item.model_field_name,
             display_name: item.display_name,
             display_order: Number(item.display_order) || 0,
+            search_order: Number(item.search_order) || 0,
             is_list_display: item.is_list_display,
             is_search_field: item.is_search_field,
             is_list_filter: item.is_list_filter,
@@ -109,7 +112,7 @@ const ModelDisplaySettings = () => {
                 body: JSON.stringify(payload),
             }, '保存に失敗しました。');
             setSaveStatus({ message: result.message, variant: 'success', show: true });
-            fetchAllData(selectedDataType);
+            fetchAllData(selectedDataType, true);
         } catch (err) {
             setSaveStatus({ message: describeError(err), variant: 'danger', show: true });
         } finally {

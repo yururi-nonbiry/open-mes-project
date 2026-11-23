@@ -76,10 +76,11 @@ const PageDisplaySettings = () => {
     const [isSaving, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState<SaveStatus>({ message: '', variant: '', show: false });
 
-    const fetchAllData = useCallback(async (selectedType: string) => {
+    // keepStatus: 保存直後の再読み込みでは、保存結果のメッセージを消さない
+    const fetchAllData = useCallback(async (selectedType: string, keepStatus = false) => {
         setLoading(true);
         setError(null);
-        setSaveStatus(prev => ({ ...prev, show: false }));
+        if (!keepStatus) setSaveStatus(prev => ({ ...prev, show: false }));
         try {
             const config = DATA_TYPE_MAP[selectedType];
             if (!config) {
@@ -245,7 +246,7 @@ const PageDisplaySettings = () => {
 
             const successMessages = await Promise.all(responses.map(res => res.json().then((r: BulkSaveResult) => r.message)));
             setSaveStatus({ message: successMessages.filter(Boolean).join(' ') || '設定を保存しました。', variant: 'success', show: true });
-            fetchAllData(selectedDataType);
+            fetchAllData(selectedDataType, true);
         } catch (err) {
             setSaveStatus({ message: describeError(err), variant: 'danger', show: true });
         } finally {

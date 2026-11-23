@@ -24,10 +24,11 @@ const CsvMappingSettings = () => {
     const [error, setError] = useState<string | null>(null);
     const [saveStatus, setSaveStatus] = useState<SaveStatus>({ message: '', variant: '', show: false });
 
-    const fetchAllData = useCallback(async (dataType: string) => {
+    // keepStatus: 保存直後の再読み込みでは、保存結果のメッセージを消さない
+    const fetchAllData = useCallback(async (dataType: string, keepStatus = false) => {
         setLoading(true);
         setError(null);
-        setSaveStatus(prev => ({ ...prev, show: false }));
+        if (!keepStatus) setSaveStatus(prev => ({ ...prev, show: false }));
         try {
             const [mappingsRes, fieldsRes, displaySettingsRes] = await Promise.all([
                 authFetch(`/api/base/csv-mappings/?data_type=${dataType}`),
@@ -113,7 +114,7 @@ const CsvMappingSettings = () => {
             }, '保存に失敗しました。');
             setSaveStatus({ message: result.message, variant: 'success', show: true });
             // 再取得して画面を最新化
-            fetchAllData(selectedDataType);
+            fetchAllData(selectedDataType, true);
         } catch (err) {
             setSaveStatus({ message: describeError(err), variant: 'danger', show: true });
         } finally {

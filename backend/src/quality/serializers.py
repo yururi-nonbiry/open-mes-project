@@ -70,6 +70,7 @@ class InspectionItemDetailSerializer(serializers.ModelSerializer):
         details_data = validated_data.pop("measurement_details")
         inspection_item = InspectionItem.objects.create(**validated_data)
         for detail_data in details_data:
+            detail_data.pop("id", None)  # 新規作成では id を引き継がない(id: null を送られても重複エラーにしない)
             MeasurementDetail.objects.create(inspection_item=inspection_item, **detail_data)
         return inspection_item
 

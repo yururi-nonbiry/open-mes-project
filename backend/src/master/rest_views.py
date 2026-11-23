@@ -1,8 +1,10 @@
+import datetime
 from decimal import Decimal, InvalidOperation
 
 from django.db.models import ProtectedError
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -164,7 +166,7 @@ class BillOfMaterialViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
             quantity = Decimal(request.query_params.get("quantity") or "1")
         except InvalidOperation:
             return error_response("quantity は数値で指定してください。")
-        if quantity <= 0:
+        if not quantity.is_finite() or quantity <= 0:
             return error_response("quantity は0より大きい値を指定してください。")
         try:
             result = explode_bom(product.code, quantity)
@@ -185,14 +187,17 @@ class WorkCalendarDayViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = self.queryset
         params = self.request.query_params
-        if params.get("year"):
-            queryset = queryset.filter(date__year=params["year"])
-        if params.get("month"):
-            queryset = queryset.filter(date__month=params["month"])
-        if params.get("from"):
-            queryset = queryset.filter(date__gte=params["from"])
-        if params.get("to"):
-            queryset = queryset.filter(date__lte=params["to"])
+        try:
+            if params.get("year"):
+                queryset = queryset.filter(date__year=int(params["year"]))
+            if params.get("month"):
+                queryset = queryset.filter(date__month=int(params["month"]))
+            if params.get("from"):
+                queryset = queryset.filter(date__gte=datetime.date.fromisoformat(params["from"]))
+            if params.get("to"):
+                queryset = queryset.filter(date__lte=datetime.date.fromisoformat(params["to"]))
+        except ValueError:
+            raise ValidationError("year・month は整数、from・to は YYYY-MM-DD 形式で指定してください。") from None
         return queryset
 
 

@@ -12,17 +12,17 @@ User = get_user_model()
 
 
 class PasswordExpirationMiddlewareTests(APITestCase):
-    """USR-PWEXP-* : PasswordExpirationMiddleware (セッション認証経路)。
+    """USR-PWEXP-* : PasswordExpirationMiddleware (セッション認証・JWT認証)。
 
-    process_view はDjangoの通常のミドルウェアフックであり、DRFの認証(perform_authentication)
-    より先に実行される。そのため request.user はこの時点ではDjangoのセッション認証結果のみを
-    反映しており、JWT/Tokenでの認証結果はまだ反映されていない。ここではミドルウェア自体が
-    セッション認証経路では機能することを確認する。
+    process_view はDRFの認証より先に実行されるため、JWTで認証したユーザーはミドルウェア内で
+    Authorizationヘッダーから解決している。
     """
 
     def setUp(self):
         self.user = User.objects.create_user(custom_id="expuser", password=DEFAULT_PASSWORD, username="expuser")
-        self.settings_url = reverse("users_api:api_user_settings")
+        # 有効期限切れでも開ける(パスワード変更画面用の)設定APIとは別の、除外されていないAPIで確認する
+        self.settings_url = reverse("users_api:user-list")
+        self.own_settings_url = reverse("users_api:api_user_settings")
         self.logout_url = reverse("users_api:api_logout")
 
     def _expire_password(self):
@@ -54,15 +54,27 @@ class PasswordExpirationMiddlewareTests(APITestCase):
         response = self.client.post(self.logout_url)
         self.assertFalse(self._blocked_by_password_expiration(response))
 
-    def test_usr_pwexp_04_jwt_authenticated_expired_password_is_not_blocked(self):
-        """既知の懸念事項: process_viewの実行タイミング上、JWT認証時は本チェックが effectively 無効。"""
-        self._expire_password()
-        token_url = reverse("users_api:token_obtain_pair")
+    def _bearer(self):
         obtain_response = self.client.post(
-            token_url, {"custom_id": "expuser", "password": DEFAULT_PASSWORD}, format="json"
+            reverse("users_api:token_obtain_pair"), {"custom_id": "expuser", "password": DEFAULT_PASSWORD}, format="json"
         )
-        access = obtain_response.data["access"]
-        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access}")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {obtain_response.data['access']}")
 
+    def test_usr_pwexp_04_jwt_authenticated_expired_password_is_blocked(self):
+        """JWTで認証したユーザーもミドルウェアでブロックされる(JWTをミドルウェア内で解決する)。"""
+        self._expire_password()
+        self._bearer()
         response = self.client.get(self.settings_url)
+        self.assertTrue(self._blocked_by_password_expiration(response))
+
+    def test_usr_pwexp_05_jwt_expired_password_can_open_own_settings(self):
+        """期限切れのユーザーも、パスワードを変更できるよう自分の設定は開ける。"""
+        self._expire_password()
+        self._bearer()
+        response = self.client.get(self.own_settings_url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_usr_pwexp_06_jwt_not_expired_is_not_blocked(self):
+        self._bearer()
+        response = self.client.get(self.settings_url)
+        self.assertFalse(self._blocked_by_password_expiration(response))

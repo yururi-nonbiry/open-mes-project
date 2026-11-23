@@ -290,6 +290,8 @@ const GoodsReceiptContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefau
     setReceiptFormData(prev => applyShelfInput(prev, name, value, 'location', 'warehouse'));
   };
 
+  const receiptSubmittingRef = useRef(false);
+
   const handleReceiptSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setReceiptModal(prev => ({ ...prev, error: '', success: '' }));
@@ -302,6 +304,9 @@ const GoodsReceiptContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefau
 
     const targetOrder = receiptModal.order;
     if (!targetOrder) return;
+    // 連打や完了表示中の再送信で二重に入庫しないよう、処理が終わるまで送信を受け付けない
+    if (receiptSubmittingRef.current) return;
+    receiptSubmittingRef.current = true;
     const location = receiptFormData.location.trim();
     const registerDefaultLocation =
       (await inventoryService.shouldConfirmRegisterDefaultLocation(targetOrder, location)) &&
@@ -321,10 +326,12 @@ const GoodsReceiptContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefau
         success: `発注番号「${result.order_number || targetOrder.order_number}」の入庫処理が完了し、在庫へ反映されました。${result.default_location_registered ? `デフォルト入庫棚番に「${location}」を登録しました。` : ''}`,
       }));
       setTimeout(() => {
+        receiptSubmittingRef.current = false;
         closeReceiptModal();
         fetchPurchaseOrders();
       }, 1200);
     } catch (err) {
+      receiptSubmittingRef.current = false;
       console.error('Error submitting purchase receipt:', err);
       setReceiptModal(prev => ({
         ...prev,
