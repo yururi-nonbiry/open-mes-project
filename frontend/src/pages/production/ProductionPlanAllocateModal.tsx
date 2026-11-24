@@ -213,7 +213,7 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
                             <dt className="col-sm-3">計画名:</dt><dd className="col-sm-9">{plan.plan_name || 'N/A'}</dd>
                             <dt className="col-sm-3">製品コード:</dt><dd className="col-sm-9">{plan.product_code || 'N/A'}</dd>
                             <dt className="col-sm-3">{t('出庫先ライン:')}</dt><dd className="col-sm-9">{plan.line || '未指定'}（引当ごとに変更できます）</dd>
-                            <dt className="col-sm-3">計画数量:</dt><dd className="col-sm-9 text-end">{plan.planned_quantity}</dd>
+                            <dt className="col-sm-3">計画数量:</dt><dd className="col-sm-9">{plan.planned_quantity}</dd>
                         </dl>
                         <h6 className="mt-3">{t('必要部品一覧')}</h6>
                         <div className="border p-2 mt-1 mb-3" style={{ maxHeight: '350px', overflowY: 'auto' }}>
