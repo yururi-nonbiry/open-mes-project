@@ -11,7 +11,7 @@ from ..models import ProductionPlan, ProductionPlanMaterial
 from .test_helpers import ProductionAPITestBase
 
 
-class IntermediatePlanTests(ProductionAPITestBase):
+class IntermediatePlanBase(ProductionAPITestBase):
     """
     PP-INT-* : 中間品の子計画の自動作成と手配方法の選択。
 
@@ -49,6 +49,9 @@ class IntermediatePlanTests(ProductionAPITestBase):
     def _plan_material(self, plan):
         return ProductionPlanMaterial.objects.get(production_plan=plan, material=self.intermediate)
 
+
+
+class IntermediatePlanTests(IntermediatePlanBase):
     def test_pp_int_01_child_plan_created_for_shortage(self):
         """在庫がなければ、中間品の所要数(10×2)を作る子計画が親の開始までに終わるよう作られる。"""
         plan = self._plan(planned_quantity=10)
@@ -272,3 +275,56 @@ class IntermediatePlanTests(ProductionAPITestBase):
         later = self._plan(plan_name="Later", planned_quantity=10, planned_start_datetime=self.start + timedelta(days=1))
         self.assertEqual(self._requirements(later)[self.intermediate.code]["projected_available_quantity"], 5)
         self.assertEqual(ProductionPlan.objects.get(parent_plan=later).planned_quantity, 15)
+
+
+class IntermediatePlanMergeTests(IntermediatePlanBase):
+    """PP-INT-MERGE-* : 子計画のある計画の統合(子計画は中止し、統合計画で合算した数量から作り直す)。"""
+
+    def _two_plans(self):
+        a = self._plan(plan_name="A", planned_quantity=10)
+        b = self._plan(plan_name="B", planned_quantity=5)
+        return a, b
+
+    def _merge(self, *plans):
+        return self.client.post(
+            reverse("production_api:production-plan-merge-plans"),
+            {"plan_ids": [str(p.id) for p in plans]},
+            format="json",
+        )
+
+    def _merged(self, a, b):
+        response = self._merge(a, b)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.content)
+        return ProductionPlan.objects.get(pk=response.json()["data"]["id"])
+
+    def test_pp_int_merge_01_children_rebuilt_for_merged_plan(self):
+        a, b = self._two_plans()
+        merged = self._merged(a, b)
+        # 元の計画の子計画は中止され、統合計画の子計画は (10+5)×2 = 30
+        for plan in (a, b):
+            self.assertEqual(ProductionPlan.objects.get(parent_plan=plan).status, "CANCELLED")
+        child = ProductionPlan.objects.get(parent_plan=merged, status="PENDING")
+        self.assertEqual(child.planned_quantity, 30)
+        self.assertEqual(self._plan_material(merged).supply_method, "CHILD_PLAN")
+
+    def test_pp_int_merge_02_started_child_blocks_merge(self):
+        a, b = self._two_plans()
+        ProductionPlan.objects.filter(parent_plan=a).update(status="IN_PROGRESS")
+        self.assertEqual(self._merge(a, b).status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_pp_int_merge_03_allocated_child_blocks_merge(self):
+        a, b = self._two_plans()
+        child = ProductionPlan.objects.get(parent_plan=a)
+        self.create_material_allocation(production_plan=child)
+        self.assertEqual(self._merge(a, b).status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_pp_int_merge_04_unmerge_rebuilds_original_children(self):
+        a, b = self._two_plans()
+        merged = self._merged(a, b)
+        response = self.client.post(reverse("production_api:production-plan-unmerge", args=[merged.id]))
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.content)
+        for plan, quantity in ((a, 20), (b, 10)):
+            plan.refresh_from_db()
+            self.assertEqual(plan.status, "PENDING")
+            self.assertEqual(ProductionPlan.objects.get(parent_plan=plan, status="PENDING").planned_quantity, quantity)
+        self.assertFalse(ProductionPlan.objects.filter(parent_plan=merged, status="PENDING").exists())

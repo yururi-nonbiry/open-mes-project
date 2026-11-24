@@ -11,7 +11,14 @@ from django.db import transaction
 from base.feature_settings import apply_terms
 
 from ..models import MaterialAllocation, ProductionPlan, ProductionPlanMaterial, WorkProgress
-from .intermediates import auto_arrange_intermediates, material_required_quantities, trim_child_plans
+from .intermediates import (
+    OPEN_STATUSES,
+    SupplyMethod,
+    auto_arrange_intermediates,
+    cancel_child_plans,
+    material_required_quantities,
+    trim_child_plans,
+)
 
 OVERALL_PROCESS_STEP = "Overall Plan Progress"  # progress.py の全体進捗と同じ工程名
 
@@ -20,14 +27,38 @@ def _order_key(plan):
     return (plan.planned_end_datetime, plan.planned_start_datetime, plan.created_at)
 
 
+def _child_plan_blocker(plan):
+    """
+    子計画(中間品の計画)が統合の妨げになる理由を返す(妨げにならなければ None)。
+    未着手で引当のない子計画は、統合時に中止して統合計画で作り直せる。着手済み・保留・引当済みの子計画がある場合は統合できない。
+    完了・中止した子計画は影響しない(完了した分は在庫として使われる)。
+    """
+    for child in plan.child_plans.all():
+        if child.status in (ProductionPlan.Status.COMPLETED, ProductionPlan.Status.CANCELLED):
+            continue
+        if child.status != ProductionPlan.Status.PENDING:
+            return f"子計画「{child.plan_name}」が着手済み・保留のため統合できません。"
+        if MaterialAllocation.objects.filter(production_plan=child).exclude(
+            status=MaterialAllocation.Status.RETURNED
+        ).exists():
+            return apply_terms(f"子計画「{child.plan_name}」に部品の引当があるため統合できません。先に引当を解除してください。")
+        reason = _child_plan_blocker(child)
+        if reason:
+            return reason
+    return None
+
+
 def merge_blocker(plan):
     """統合の対象にできない理由を返す(対象にできるなら None)。"""
     if plan.status != ProductionPlan.Status.PENDING:
         return "未着手の計画だけ統合できます。"
     if plan.merged_into_id or plan.merged_plans.exists():
         return "すでに統合されています。"
-    if plan.parent_plan_id or plan.child_plans.exists():
-        return "中間品の親子関係がある計画は統合できません。"
+    if plan.parent_plan_id:
+        return "中間品の子計画は統合できません。"
+    reason = _child_plan_blocker(plan)
+    if reason:
+        return reason
     if MaterialAllocation.objects.filter(production_plan=plan).exists():
         return apply_terms("部品の引当がある計画は統合できません。先に引当を解除してください。")
     return None
@@ -69,6 +100,10 @@ def merge_plans(plans):
     if len({_group_key(p) for p in plans}) != 1:
         raise ValueError("品番と用途が同じ計画だけを統合できます。")
 
+    # 子計画(中間品の計画)は、元の計画ごとのものを中止し、統合計画で合算した数量から作り直す
+    for plan in plans:
+        cancel_child_plans(plan)
+
     first = plans[0]
     total = sum(p.planned_quantity for p in plans)
     merged = ProductionPlan.objects.create(
@@ -98,19 +133,36 @@ def merge_plans(plans):
             material_id=material_id,
             quantity_per_unit=round(required / total, 3) if total else 0,
             required_quantity=required,
-            supply_method=_common(m.supply_method for m in rows) or ProductionPlanMaterial.SupplyMethod.UNDECIDED,
+            # 子計画で賄う設定は、統合計画で子計画を作り直すときに設定される
+            supply_method=(
+                lambda method: ProductionPlanMaterial.SupplyMethod.UNDECIDED
+                if method in (None, SupplyMethod.CHILD_PLAN)
+                else method
+            )(_common(m.supply_method for m in rows)),
         )
 
     trim_child_plans(merged, previous_required)
     auto_arrange_intermediates(merged)
+    # 統合計画の作成時に自動で作られた子計画がある中間品は、子計画で賄う設定にする
+    for code in merged.child_plans.filter(status__in=OPEN_STATUSES).values_list("product_id", flat=True):
+        merged.materials.filter(material_id=code).update(supply_method=SupplyMethod.CHILD_PLAN)
 
     ProductionPlan.objects.filter(pk__in=ids).update(status=ProductionPlan.Status.MERGED, merged_into=merged)
     return merged
 
 
 def release_merged_plans(merged):
-    """統合計画から元の計画を切り離し、未着手に戻す。"""
+    """統合計画から元の計画を切り離し、未着手に戻す。統合のとき中止した子計画は、元の計画で作り直す。"""
+    originals = list(merged.merged_plans.all())
     merged.merged_plans.update(status=ProductionPlan.Status.PENDING, merged_into=None)
+    for plan in originals:
+        plan.refresh_from_db()
+        # 子計画で賄う設定のまま子計画がなくなっている中間品は、手配し直す
+        for material in plan.materials.filter(supply_method=SupplyMethod.CHILD_PLAN):
+            if not plan.child_plans.filter(product_id=material.material_id, status__in=OPEN_STATUSES).exists():
+                material.supply_method = SupplyMethod.UNDECIDED
+                material.save(update_fields=["supply_method"])
+        auto_arrange_intermediates(plan)
 
 
 @transaction.atomic
@@ -125,9 +177,10 @@ def unmerge_plan(merged):
         status=MaterialAllocation.Status.RETURNED
     ).exists():
         raise ValueError(apply_terms("部品の引当がある統合計画は解除できません。先に引当を解除してください。"))
-    release_merged_plans(merged)
+    # 統合計画を中止してから(統合計画の子計画も中止される)、元の計画の子計画を作り直す
     merged.status = ProductionPlan.Status.CANCELLED
     merged.save(update_fields=["status", "updated_at"])
+    release_merged_plans(merged)
     return merged
 
 
