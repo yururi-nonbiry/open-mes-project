@@ -47,7 +47,7 @@ from .services.intermediates import (
     trim_child_plans,
 )
 from .services.bulk_allocation import bulk_allocate_materials, get_allocation_overview
-from .services.merge import find_merge_groups, merge_plans, unmerge_plan
+from .services.merge import find_merge_groups, merge_blocker, merge_plans, unmerge_plan
 from .services.materials import allocated_quantity_by_material, normal_allocations
 
 
@@ -304,6 +304,25 @@ class ProductionPlanViewSet(viewsets.ModelViewSet):
             for g in find_merge_groups(plans)
         ]
         return Response(groups)
+
+    @action(detail=False, methods=["get"], url_path="merge-blockers")
+    def merge_blockers(self, request):
+        """指定した計画ごとに、統合できない理由を返す(統合の確認が出ない理由を画面に示すため)。"""
+        ids = [i for i in request.query_params.get("ids", "").split(",") if i]
+        try:
+            plans = self._plans_from_ids(ids)
+        except ValueError as e:
+            return error_response(e)
+        grouped = {p.id for g in find_merge_groups(plans) for p in g}
+        rows = []
+        for p in plans:
+            if p.id in grouped:
+                continue
+            reason = merge_blocker(p) or (
+                "製品が未設定です。" if not p.product_id else "同じ品番・用途で統合できる計画が、チェックした中に他にありません。"
+            )
+            rows.append({"plan_id": p.id, "plan_name": p.plan_name, "reason": reason})
+        return Response(rows)
 
     @action(detail=False, methods=["post"], url_path="merge-plans")
     def merge_plans(self, request):

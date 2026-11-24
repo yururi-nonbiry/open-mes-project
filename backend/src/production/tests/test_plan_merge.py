@@ -61,6 +61,14 @@ class PlanMergeTests(ProductionAPITestBase):
         self.assertEqual(groups[0]["total_quantity"], 80)
         self.assertEqual([p["plan_name"] for p in groups[0]["plans"]], ["A", "B"])
 
+    def test_pp_merge_02b_blockers_explain_why(self):
+        self.create_material_allocation(production_plan=self.plan_a)
+        ids = ",".join(str(p.id) for p in (self.plan_a, self.plan_b))
+        response = self.client.get(reverse("production_api:production-plan-merge-blockers"), {"ids": ids})
+        rows = {r["plan_name"]: r["reason"] for r in response.json()}
+        self.assertIn("引当", rows["A"])
+        self.assertIn("他にありません", rows["B"])
+
     def test_pp_merge_03_different_product_rejected(self):
         other = Item.objects.create(code="PROD-002", name="Product 2", item_type="product")
         plan_c = self.create_plan(plan_name="C", product_code=other.code)

@@ -126,6 +126,13 @@ const productionService = {
         return await response.json() as MergeCandidateGroup[];
     },
 
+    /** 指定した計画が統合できない理由(統合の確認が出ない理由を示すため) */
+    getMergeBlockers: async (ids: string[]) => {
+        const response = await authFetch(`/api/production/plans/merge-blockers/?ids=${ids.map(encodeURIComponent).join(',')}`);
+        await handleError(response, '統合できない理由の取得に失敗しました。');
+        return await response.json() as { plan_id: string; plan_name: string; reason: string }[];
+    },
+
     /** 統合計画の統合を解除し、元の計画を未着手に戻す */
     unmergePlan: async (id: string) => {
         const response = await authFetch(`/api/production/plans/${id}/unmerge/`, { method: 'POST' });

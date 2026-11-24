@@ -44,7 +44,7 @@ const ProductionPlan: React.FC = () => {
     const [bulkError, setBulkError] = useState<string | null>(null);
     // 同一品番の計画をまとめるかの確認(管理者設定がONで、まとめられる計画があるときだけ出す)
     // 統合しない場合のまとめ引当の確認(件数と、そのうち在庫不足の件数)
-    const [bulkConfirm, setBulkConfirm] = useState<{ planIds: string[]; shortageCount: number } | null>(null);
+    const [bulkConfirm, setBulkConfirm] = useState<{ planIds: string[]; shortageCount: number; notMergeable?: { plan_id: string; plan_name: string; reason: string }[] } | null>(null);
     const [mergeGroups, setMergeGroups] = useState<MergeCandidateGroup[] | null>(null);
     // モーダルを開いた時点の対象(一覧の再読込でチェックが外れても、確認した計画を引き当てる)
     const [mergeTargetIds, setMergeTargetIds] = useState<string[]>([]);
@@ -96,6 +96,7 @@ const ProductionPlan: React.FC = () => {
         if (targets.length === 0) return;
 
         // 管理者設定がONなら、同一品番の計画をまとめるかをモーダルで確認する
+        let notMergeable: { plan_id: string; plan_name: string; reason: string }[] = [];
         try {
             const options = await inventoryService.getFeatureOptions();
             if (options.merge_plans_on_allocation) {
@@ -105,6 +106,8 @@ const ProductionPlan: React.FC = () => {
                     setMergeGroups(groups);
                     return;
                 }
+                // 統合の確認が出ない理由を確認画面に示す(取得できなくても引当は続けられる)
+                notMergeable = await productionService.getMergeBlockers(targets.map(p => p.id)).catch(() => []);
             }
         } catch (e) {
             setBulkError((e as ApiErrorLike).message);
@@ -112,7 +115,7 @@ const ProductionPlan: React.FC = () => {
         }
 
         const shortageCount = targets.filter(p => overviews[p.id]?.state === 'SHORTAGE').length;
-        setBulkConfirm({ planIds: targets.map(p => p.id), shortageCount });
+        setBulkConfirm({ planIds: targets.map(p => p.id), shortageCount, notMergeable });
     };
 
     const handleBulkConfirm = async () => {
@@ -196,6 +199,7 @@ const ProductionPlan: React.FC = () => {
                 isOpen={bulkConfirm !== null}
                 count={bulkConfirm?.planIds.length ?? 0}
                 shortageCount={bulkConfirm?.shortageCount ?? 0}
+                notMergeable={bulkConfirm?.notMergeable}
                 onConfirm={handleBulkConfirm}
                 onCancel={() => setBulkConfirm(null)}
             />
