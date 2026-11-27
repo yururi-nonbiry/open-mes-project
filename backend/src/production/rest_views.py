@@ -1,6 +1,7 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
-from django.db.models import Count, Exists, OuterRef, Q
+from django.db.models import Count, Exists, IntegerField, OuterRef, Subquery, Value
+from django.db.models.functions import Coalesce
 from master.models import BillOfMaterial
 from django_filters import rest_framework as filters  # django-filterをインポート
 from rest_framework import (
@@ -48,6 +49,7 @@ from .services.intermediates import (
     trim_child_plans,
 )
 from .services.bulk_allocation import bulk_allocate_materials, get_allocation_overview
+from .services.queries import get_required_parts_for_plans
 from .services.merge import find_merge_groups, merge_blocker, merge_plans, release_merged_plans, unmerge_plan
 from .services.materials import allocated_quantity_by_material, normal_allocations
 
@@ -57,6 +59,12 @@ class ProductionPlanApiPagination(PageNumberPagination):
     page_size = 100  # Default number of items per page
     page_size_query_param = "page_size"  # Allow client to override page_size via query param
     max_page_size = 200  # Maximum page size allowed
+
+
+def _count_of(queryset):
+    """OuterRef で外側の行に絞った queryset の件数を返すサブクエリ(該当なしは 0)。"""
+    counted = queryset.order_by().annotate(_group=Value(1)).values("_group").annotate(total=Count("pk")).values("total")
+    return Coalesce(Subquery(counted[:1], output_field=IntegerField()), 0)
 
 
 class CharInFilter(filters.BaseInFilter, filters.CharFilter):
@@ -118,18 +126,18 @@ class ProductionPlanViewSet(viewsets.ModelViewSet):
         # django-filterが自動で処理するため、手動のフィルタリングを削除
         return (
             ProductionPlan.objects.all()
-            .select_related("product", "parent_plan")
+            .select_related("product", "parent_plan", "merged_into", "purpose_rel", "line_rel")
+            # 件数はサブクエリで数える(1対多の結合を3つ重ねて Count(distinct) すると、行数の積に膨らんで遅くなる)
             .annotate(
-                pending_intermediate_count=Count(
-                    "materials",
-                    filter=Q(
-                        materials__material__item_type="intermediate",
-                        materials__supply_method=ProductionPlanMaterial.SupplyMethod.UNDECIDED,
-                    ),
-                    distinct=True,
+                pending_intermediate_count=_count_of(
+                    ProductionPlanMaterial.objects.filter(
+                        production_plan=OuterRef("pk"),
+                        material__item_type="intermediate",
+                        supply_method=ProductionPlanMaterial.SupplyMethod.UNDECIDED,
+                    )
                 ),
-                child_plan_count=Count("child_plans", distinct=True),
-                merged_plan_count=Count("merged_plans", distinct=True),
+                child_plan_count=_count_of(ProductionPlan.objects.filter(parent_plan=OuterRef("pk"))),
+                merged_plan_count=_count_of(ProductionPlan.objects.filter(merged_into=OuterRef("pk"))),
                 has_bom=Exists(BillOfMaterial.objects.filter(product_id=OuterRef("product_id"))),
             )
         )
@@ -263,7 +271,8 @@ class ProductionPlanViewSet(viewsets.ModelViewSet):
             plans = self._plans_from_ids(ids)
         except ValueError as e:
             return error_response(e)
-        return Response([get_allocation_overview(p, has_bom=p.has_bom) for p in plans])
+        parts_by_plan = get_required_parts_for_plans(plans)
+        return Response([get_allocation_overview(p, has_bom=p.has_bom, parts=parts_by_plan[p.pk]) for p in plans])
 
     @action(detail=False, methods=["post"], url_path="bulk-allocate-materials")
     def bulk_allocate_materials(self, request):
@@ -508,7 +517,13 @@ class MaterialAllocationViewSet(viewsets.ModelViewSet):
     API endpoint that allows Material Allocations to be viewed or created.
     """
 
-    queryset = MaterialAllocation.objects.all().select_related("production_plan", "production_plan__product", "material").order_by("-allocation_datetime")
+    queryset = (
+        MaterialAllocation.objects.all()
+        .select_related(
+            "production_plan", "production_plan__product", "material", "warehouse_rel", "purpose_rel", "line_rel"
+        )
+        .order_by("-allocation_datetime")
+    )
     serializer_class = MaterialAllocationSerializer
     pagination_class = StandardResultsSetPagination
     permission_classes = [IsAuthenticated]

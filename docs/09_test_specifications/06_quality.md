@@ -75,6 +75,13 @@
 | QUA-RESULT-06 | 正常系 | `DELETE inspection-results/{id}/` | 紐づく`InspectionResultDetail`が存在 | 削除 | 200、detailも連鎖削除される | `on_delete=CASCADE` |
 | QUA-RESULT-07 | 異常系 | `GET inspection-results/` | 未認証 | 呼び出し | 401 | |
 
+#### 一覧（`quality/tests/test_inspection_result.py` / `InspectionResultListTests`）
+
+| ケースID | 分類 | 対象 | 前提条件 | 手順・入力 | 期待結果 | 備考 |
+|---|---|---|---|---|---|---|
+| QUA-RESULT-LIST-01 | 正常系 | `GET inspection-results/` | 実績30件(合格20・不合格10) | 一覧取得、`page=2` | 1ページ25件・`count=30`・`total_pages=2`、`summary` は全体の件数、2ページ目は5件 | 2026-11-27 追加。修正前はページ分けせず全件を返していた |
+| QUA-RESULT-LIST-02 | 正常系 | `GET inspection-results/?judgment=fail&lot_number=LOT-0` | 同上 | 絞り込み | `summary` は絞り込み後の件数、行は条件に一致するものだけ | 2026-11-27 追加 |
+
 #### 権限（`quality/tests/test_permissions.py`）
 
 | ケースID | 分類 | 対象 | 前提条件 | 手順・入力 | 期待結果 | 備考 |

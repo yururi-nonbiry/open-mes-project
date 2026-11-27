@@ -147,3 +147,29 @@ class InspectionResultCrudTests(QualityAPITestBase):
         self.client.force_authenticate(user=None)
         response = self.client.get(self.list_url)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class InspectionResultListTests(QualityAPITestBase):
+    """QUA-RESULT-LIST-* : 検査実績の一覧はページ単位で返し、絞り込みと合否の件数はサーバー側で行う。"""
+
+    def setUp(self):
+        super().setUp()
+        self.item = self.create_inspection_item()
+        for i in range(30):
+            self.create_inspection_result(
+                inspection_item=self.item, lot_number=f"LOT-{i:02d}", judgment="pass" if i % 3 else "fail"
+            )
+        self.url = reverse("quality_api:inspection-result-list")
+
+    def test_qua_result_list_01_paginated_with_summary(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data["data"]), 25)
+        self.assertEqual((response.data["count"], response.data["total_pages"]), (30, 2))
+        self.assertEqual(response.data["summary"], {"total": 30, "passed": 20, "failed": 10})
+        self.assertEqual(len(self.client.get(self.url, {"page": 2}).data["data"]), 5)
+
+    def test_qua_result_list_02_filters_applied_on_server(self):
+        response = self.client.get(self.url, {"judgment": "fail", "lot_number": "LOT-0"})
+        self.assertEqual(response.data["summary"], {"total": 4, "passed": 0, "failed": 4})
+        self.assertTrue(all(r["lot_number"].startswith("LOT-0") for r in response.data["data"]))

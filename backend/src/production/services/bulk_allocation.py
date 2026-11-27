@@ -33,11 +33,15 @@ def _total_available(part):
     return sum(w["available_quantity"] for w in part["warehouses"])
 
 
-def get_allocation_overview(plan, has_bom=None):
-    """計画1件の引当状況(マスターの有無・引当の進み具合・在庫が足りているか)を返す。"""
+def get_allocation_overview(plan, has_bom=None, parts=None):
+    """
+    計画1件の引当状況(マスターの有無・引当の進み具合・在庫が足りているか)を返す。
+    parts は get_required_parts_for_plans でまとめて求めた所要部品(一覧で計画ごとに問い合わせないため)。
+    """
     if has_bom is None:
         has_bom = BillOfMaterial.objects.filter(product_id=plan.product_id).exists()
-    parts = get_production_plan_required_parts(plan)
+    if parts is None:
+        parts = get_production_plan_required_parts(plan)
 
     if not parts:
         state = AllocationState.NO_PARTS if has_bom else AllocationState.NO_MASTER

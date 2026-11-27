@@ -59,6 +59,10 @@ const InspectionHistory = () => {
   const [itemsLookup, setItemsLookup] = useState<Record<string, InspectionItemSummary>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // 一覧はサーバー側で絞り込み・ページ分けし、合否の件数は絞り込み全体で数えた値を表示する
+  const [page, setPage] = useState(1);
+  const [pageInfo, setPageInfo] = useState({ totalPages: 1, count: 0 });
+  const [summary, setSummary] = useState({ total: 0, passed: 0, failed: 0 });
 
   // Filters
   const [lotFilter, setLotFilter] = useState('');
@@ -71,13 +75,33 @@ const InspectionHistory = () => {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
 
+  // 入力中の文字で毎回検索しないよう、少し待ってから絞り込みを確定する
+  const [committedFilters, setCommittedFilters] = useState({ lot: '', part: '', judgment: '' });
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setCommittedFilters(prev => {
+        const next = { lot: lotFilter.trim(), part: partFilter.trim(), judgment: judgmentFilter };
+        if (prev.lot !== next.lot || prev.part !== next.part || prev.judgment !== next.judgment) {
+          setPage(1);
+          return next;
+        }
+        return prev;
+      });
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [lotFilter, partFilter, judgmentFilter]);
+
   // Load results and inspection items
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
+      const params = new URLSearchParams({ page: String(page) });
+      if (committedFilters.lot) params.set('lot_number', committedFilters.lot);
+      if (committedFilters.part) params.set('part_number', committedFilters.part);
+      if (committedFilters.judgment) params.set('judgment', committedFilters.judgment);
       const [resultsRes, itemsRes] = await Promise.all([
-        authFetch('/api/quality/inspection-results/'),
+        authFetch(`/api/quality/inspection-results/?${params.toString()}`),
         authFetch('/api/quality/inspection-items/')
       ]);
 
@@ -87,7 +111,9 @@ const InspectionHistory = () => {
       const resultsData = await resultsRes.json();
       const itemsData = await itemsRes.json();
 
-      setResults(resultsData.data || resultsData || []);
+      setResults(resultsData.data || []);
+      setPageInfo({ totalPages: resultsData.total_pages ?? 1, count: resultsData.count ?? 0 });
+      if (resultsData.summary) setSummary(resultsData.summary);
 
       // Build items lookup map
       const lookup: Record<string, InspectionItemSummary> = {};
@@ -106,7 +132,7 @@ const InspectionHistory = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, committedFilters]);
 
   useEffect(() => {
     loadData();
@@ -166,18 +192,13 @@ const InspectionHistory = () => {
     }
   };
 
-  // Local client-side filters
-  const filteredResults = results.filter((r) => {
-    if (lotFilter && !r.lot_number?.toLowerCase().includes(lotFilter.toLowerCase())) return false;
-    if (partFilter && !r.part_number?.toLowerCase().includes(partFilter.toLowerCase())) return false;
-    if (judgmentFilter && r.judgment !== judgmentFilter) return false;
-    return true;
-  });
+  // 絞り込みはサーバー側で済んでいる(表示中のページの行)
+  const filteredResults = results;
 
-  // Analytics counts
-  const totalCount = filteredResults.length;
-  const passCount = filteredResults.filter(r => r.judgment === 'pass').length;
-  const failCount = filteredResults.filter(r => r.judgment === 'fail').length;
+  // 合否の件数は、絞り込み全体(全ページ)で数えた値
+  const totalCount = summary.total;
+  const passCount = summary.passed;
+  const failCount = summary.failed;
 
   return (
     <div className="goods-receipt-page">
@@ -419,6 +440,13 @@ const InspectionHistory = () => {
           )}
         </div>
       </div>
+      {pageInfo.totalPages > 1 && (
+        <div className="d-flex justify-content-center align-items-center gap-3 mt-3">
+          <button type="button" className="btn btn-outline-primary btn-sm" disabled={page <= 1 || loading} onClick={() => setPage(p => p - 1)}>← 前へ</button>
+          <span className="small text-secondary">{page} / {pageInfo.totalPages} ページ（全 {pageInfo.count} 件）</span>
+          <button type="button" className="btn btn-outline-primary btn-sm" disabled={page >= pageInfo.totalPages || loading} onClick={() => setPage(p => p + 1)}>次へ →</button>
+        </div>
+      )}
     </div>
   );
 };

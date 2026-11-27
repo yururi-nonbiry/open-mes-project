@@ -75,6 +75,8 @@ class Inventory(models.Model):
         )
 
     class Meta:
+        verbose_name = "在庫"
+        verbose_name_plural = "在庫"
         constraints = [
             # 同じ品番・倉庫・棚でも用途が違えば別の在庫行として持てる。
             models.UniqueConstraint(
@@ -172,6 +174,12 @@ class StockMovement(models.Model):
 
 
 # 入庫予定
+
+    class Meta:
+        verbose_name = "入出庫履歴"
+        verbose_name_plural = "入出庫履歴"
+
+
 class PurchaseOrder(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False, verbose_name="ID")
     order_number = models.CharField(
@@ -275,6 +283,12 @@ class PurchaseOrder(models.Model):
 
 
 # 入庫実績
+
+    class Meta:
+        verbose_name = "入庫予定"
+        verbose_name_plural = "入庫予定"
+
+
 class Receipt(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False, verbose_name="ID")
     purchase_order = models.ForeignKey(
@@ -405,3 +419,9 @@ class SalesOrder(models.Model):
     @property
     def is_internal(self):
         return bool(self.order_number) and self.order_number.startswith(self.INTERNAL_ORDER_PREFIX)
+
+    class Meta:
+        verbose_name = "出庫予定"
+        verbose_name_plural = "出庫予定"
+
+

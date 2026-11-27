@@ -1,10 +1,12 @@
 import json
 import uuid
 
+from django.db.models import Count, Q
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from base.pagination import StandardResultsSetPagination
 from base.permissions import IsAuthenticatedCreateAdminChange, IsAuthenticatedDeleteAdmin
 from base.responses import error_response
 from base.viewsets import CustomSuccessMessageMixin
@@ -144,3 +146,41 @@ class InspectionResultViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
         Pass request context to the serializer.
         """
         return {"request": self.request}
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        params = self.request.query_params
+        if params.get("lot_number"):
+            queryset = queryset.filter(lot_number__icontains=params["lot_number"])
+        if params.get("part_number"):
+            queryset = queryset.filter(part_number__icontains=params["part_number"])
+        if params.get("judgment"):
+            queryset = queryset.filter(judgment=params["judgment"])
+        return queryset
+
+    def list(self, request, *args, **kwargs):
+        """
+        検査実績の一覧。件数が増えても全件(と全測定値)を一度に読み込まないよう、ページ単位で返す。
+        絞り込み(ロット番号・品番・判定)はサーバー側で行い、合否の件数(summary)は絞り込み全体で数える。
+        応答は従来どおり data に行を入れ、ページ情報(count・next・previous・total_pages・current_page)を加える。
+        """
+        queryset = self.filter_queryset(self.get_queryset())
+        summary = queryset.aggregate(
+            total=Count("pk"),
+            passed=Count("pk", filter=Q(judgment="pass")),
+            failed=Count("pk", filter=Q(judgment="fail")),
+        )
+        paginator = StandardResultsSetPagination()
+        page = paginator.paginate_queryset(queryset, request, view=self)
+        data = self.get_serializer(page, many=True).data
+        return Response(
+            {
+                "data": data,
+                "count": paginator.page.paginator.count,
+                "total_pages": paginator.page.paginator.num_pages,
+                "current_page": paginator.page.number,
+                "next": paginator.get_next_link(),
+                "previous": paginator.get_previous_link(),
+                "summary": summary,
+            }
+        )

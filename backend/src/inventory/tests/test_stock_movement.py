@@ -67,3 +67,20 @@ class StockMovementTests(InventoryAPITestBase):
         response = self.client.get(url, {"search_location": "a-01"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["count"], 1)
+
+
+class InvalidDateParamTests(InventoryAPITestBase):
+    """INV-DATE-* : 一覧の日付の絞り込みに不正な値を渡しても500にせず400で返す。"""
+
+    def test_inv_date_01_invalid_date_returns_400(self):
+        from django.urls import reverse
+
+        for name, param in (
+            ("inventory_api:stockmovement-list", "search_movement_date_from"),
+            ("inventory_api:purchaseorder-list", "search_expected_arrival_from"),
+            ("inventory_api:salesorder-list", "search_expected_shipment_to"),
+        ):
+            response = self.client.get(reverse(name), {param: "abc"})
+            self.assertEqual(response.status_code, 400, (name, response.content))
+            response = self.client.get(reverse(name), {param: "2026-01-31"})
+            self.assertEqual(response.status_code, 200, name)

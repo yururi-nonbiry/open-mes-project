@@ -1,3 +1,5 @@
+import datetime
+
 from django.db import IntegrityError, models, transaction
 from django.db.models import (
     F,
@@ -7,6 +9,7 @@ from django.db.models import (
 )
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 
@@ -31,6 +34,21 @@ from .serializers import (
     SalesOrderSerializer,
     StockMovementSerializer,
 )
+
+
+def date_query_param(request, name):
+    """
+    日付のクエリパラメータ(YYYY-MM-DD)を date で返す(未指定は None)。
+    形式が不正な値をそのまま絞り込みに渡すと500になるため、400(入力エラー)として返す。
+    """
+    value = request.query_params.get(name)
+    if not value:
+        return None
+    try:
+        return datetime.date.fromisoformat(value)
+    except ValueError:
+        raise ValidationError({name: "日付は YYYY-MM-DD の形式で指定してください。"}) from None
+
 
 # --- ViewSets ---
 
@@ -84,7 +102,8 @@ class InventoryViewSet(IntegrityErrorAsBadRequestMixin, viewsets.ModelViewSet):
         elif purpose_query:
             filters &= Q(purpose_rel__code__icontains=purpose_query)
 
-        queryset = Inventory.objects.filter(filters).select_related("part_number_rel", "warehouse_rel")
+        # 一覧の各行で参照する外部キー(用途を含む)はまとめて取得する(行ごとの追加クエリを出さない)
+        queryset = Inventory.objects.filter(filters).select_related("part_number_rel", "warehouse_rel", "purpose_rel")
 
         if hide_zero_stock_query:
             queryset = queryset.filter(is_active=True, is_allocatable=True, quantity__gt=F("reserved"))
@@ -298,11 +317,13 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
             "search_expected_arrival_to": "expected_arrival__date__lte",
         }
         for param, field_lookup in date_filters_map.items():
-            value = self.request.query_params.get(param)
+            value = date_query_param(self.request, param)
             if value:
                 filters &= Q(**{field_lookup: value})
 
-        return PurchaseOrder.objects.filter(filters).select_related("part_number_rel").order_by(
+        return PurchaseOrder.objects.filter(filters).select_related(
+            "part_number_rel", "supplier_rel", "warehouse_rel", "purpose_rel"
+        ).order_by(
             F("expected_arrival").asc(nulls_last=True), "order_number"
         )
 
@@ -453,7 +474,7 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
             "search_expected_shipment_from": "expected_shipment__date__gte",
             "search_expected_shipment_to": "expected_shipment__date__lte",
         }.items():
-            value = self.request.query_params.get(param)
+            value = date_query_param(self.request, param)
             if value:
                 filters &= Q(**{field_lookup: value})
 
@@ -472,7 +493,7 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
         if self.request.query_params.get("exclude_internal", "false").lower() == "true":
             queryset = queryset.exclude(order_number__startswith=SalesOrder.INTERNAL_ORDER_PREFIX)
 
-        queryset = queryset.select_related("item_rel", "warehouse_rel")
+        queryset = queryset.select_related("item_rel", "warehouse_rel", "purpose_rel", "line_rel")
         # ラインごとにまとめて表示する場合は、出庫先ライン順(ライン未指定は最後)に並べる
         if self.request.query_params.get("group_by_line", "false").lower() == "true":
             return queryset.order_by(F("line_rel__code").asc(nulls_last=True), "expected_shipment", "order_number")
@@ -673,8 +694,8 @@ class StockMovementViewSet(viewsets.ReadOnlyModelViewSet):
             except ValueError:
                 pass
 
-        date_from = self.request.query_params.get("search_movement_date_from")
-        date_to = self.request.query_params.get("search_movement_date_to")
+        date_from = date_query_param(self.request, "search_movement_date_from")
+        date_to = date_query_param(self.request, "search_movement_date_to")
         if date_from:
             filters &= Q(movement_date__date__gte=date_from)
         if date_to:
@@ -682,6 +703,6 @@ class StockMovementViewSet(viewsets.ReadOnlyModelViewSet):
 
         return (
             StockMovement.objects.filter(filters)
-            .select_related("part_number_rel", "warehouse_rel")
+            .select_related("part_number_rel", "warehouse_rel", "purpose_rel", "line_rel", "operator")
             .order_by("-movement_date", "part_number_rel__code")
         )

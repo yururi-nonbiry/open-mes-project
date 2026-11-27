@@ -47,6 +47,12 @@ class Item(models.Model):
 
 
 # サプライヤーマスター
+
+    class Meta:
+        verbose_name = "品番"
+        verbose_name_plural = "品番"
+
+
 class Supplier(models.Model):
     supplier_number = models.CharField(max_length=50, unique=True, verbose_name="サプライヤー番号")  # 新規追加
     name = models.CharField(
@@ -63,6 +69,12 @@ class Supplier(models.Model):
 
 
 # 倉庫マスター
+
+    class Meta:
+        verbose_name = "サプライヤー"
+        verbose_name_plural = "サプライヤー"
+
+
 class Warehouse(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False)  # UUIDv7 を使用
     warehouse_number = models.CharField(max_length=50, unique=True)  # 倉庫番号（ユニーク）
@@ -76,6 +88,12 @@ class Warehouse(models.Model):
 
 
 # 倉庫ロケーション（レイアウト上の棚配置）マスター
+
+    class Meta:
+        verbose_name = "倉庫"
+        verbose_name_plural = "倉庫"
+
+
 class WarehouseLocation(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False)  # UUIDv7 を使用
     warehouse = models.ForeignKey(
@@ -93,6 +111,8 @@ class WarehouseLocation(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        verbose_name = "棚番"
+        verbose_name_plural = "棚番"
         constraints = [
             models.UniqueConstraint(fields=["warehouse", "code"], name="unique_warehouse_location_code"),
         ]
@@ -113,6 +133,12 @@ class StockPurpose(models.Model):
 
 
 # 顧客マスター
+
+    class Meta:
+        verbose_name = "用途"
+        verbose_name_plural = "用途"
+
+
 class Customer(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False)  # UUIDv7 を使用
     code = models.CharField(max_length=50, unique=True, verbose_name="顧客コード")
@@ -124,6 +150,12 @@ class Customer(models.Model):
 
 
 # ワークセンターマスター
+
+    class Meta:
+        verbose_name = "顧客"
+        verbose_name_plural = "顧客"
+
+
 class WorkCenter(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False)  # UUIDv7 を使用
     code = models.CharField(max_length=50, unique=True, verbose_name="ワークセンターコード")
@@ -135,6 +167,12 @@ class WorkCenter(models.Model):
 
 
 # 標準単価マスター
+
+    class Meta:
+        verbose_name = "ワークセンター"
+        verbose_name_plural = "ワークセンター"
+
+
 class UnitCost(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False)  # UUIDv7 を使用
     item = models.ForeignKey(
@@ -150,6 +188,8 @@ class UnitCost(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        verbose_name = "標準単価"
+        verbose_name_plural = "標準単価"
         constraints = [
             models.UniqueConstraint(fields=["item"], name="unique_unitcost_item"),
         ]
