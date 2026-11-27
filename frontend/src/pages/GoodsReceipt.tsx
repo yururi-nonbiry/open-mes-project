@@ -6,6 +6,7 @@ import type { ScheduleDateDefaults } from '../services/scheduleDateDefaultsServi
 import ReceiptLocationMap from '../components/common/ReceiptLocationMap';
 import authFetch, { ApiError } from '../utils/api';
 import { executeQrAction } from '../utils/qrAction';
+import { GOODS_RECEIPT_DEFAULT_COLUMNS } from '../config/listDefaultColumns';
 import inventoryService from '../services/inventoryService';
 import { NavIcon } from '../components/NavIcon';
 import './InventoryInquiry.css';
@@ -14,20 +15,8 @@ import { t } from '../utils/terms';
 
 const NUMERIC_FIELDS = ['quantity', 'received_quantity', 'remaining_quantity', 'delivered_quantity'];
 
-// 表示設定が未登録、または取得できない(管理者以外など)場合に使用する既定の列
-const DEFAULT_COLUMNS = [
-  { model_field_name: 'order_number', verbose_name: '発注番号' },
-  { model_field_name: 'supplier', verbose_name: '仕入先' },
-  { model_field_name: 'item', verbose_name: '品番・品目' },
-  { model_field_name: 'product_name', verbose_name: '品名' },
-  { model_field_name: 'warehouse', verbose_name: '入庫倉庫' },
-  { model_field_name: 'location', verbose_name: '棚番' },
-  { model_field_name: 'quantity', verbose_name: '発注数' },
-  { model_field_name: 'received_quantity', verbose_name: '入庫済' },
-  { model_field_name: 'remaining_quantity', verbose_name: '未入庫残' },
-  { model_field_name: 'expected_arrival', verbose_name: '入荷予定日' },
-  { model_field_name: 'status', verbose_name: '状態' },
-];
+// 表示設定が未登録、または取得できない場合に使用する既定の列
+const DEFAULT_COLUMNS = GOODS_RECEIPT_DEFAULT_COLUMNS;
 
 const DEFAULT_SEARCH_FIELDS = [
   { model_field_name: 'order_number', verbose_name: '発注番号', display_name: '発注番号' },

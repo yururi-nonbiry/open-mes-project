@@ -201,7 +201,7 @@ Excelでの保存を、CP932・CRLF・末尾の空カンマ行・日時/数値�
 | BASE-MDS-01 | 正常系 | `GET model-display-settings/` | 管理者 | 一覧取得 | 200、プレーンな配列 | |
 | BASE-MDS-02 | 正常系 | `POST model-display-settings/` | 管理者 | `data_type="item"`, `model_field_name="name"` | 201、`verbose_name`が実モデルのフィールドから解決される | `get_verbose_name()` |
 | BASE-MDS-03 | 異常系 | `POST model-display-settings/` | `(data_type, model_field_name)`重複、管理者 | 作成 | 400 | 【修正済み】以前は未処理の`IntegrityError`（500）だった |
-| BASE-MDS-04 | 境界値 | `POST model-display-settings/` | 管理者 | `data_type="goods_receipt"`, `model_field_name="remaining_quantity"` | 201、`verbose_name`が「残数量」（ハードコードされたフォールバック） | 実モデルフィールドに存在しないプロパティ用の特殊分岐 |
+| BASE-MDS-04 | 境界値 | `POST model-display-settings/` | 管理者 | `data_type="goods_receipt"`, `model_field_name="remaining_quantity"` | 201、`verbose_name`が「未入庫残」（入庫処理画面の既定の列名と同じ） | 計算項目の名前(`COMPUTED_FIELD_LABELS`)。受注の `remaining_quantity` は「未出庫残」（BASE-MDS-05b） |
 | BASE-MDS-05 | 境界値 | `POST model-display-settings/` | 管理者 | `data_type="inventory"`, `model_field_name="available_quantity"` | 201、`verbose_name`が「利用可能数」 | 同上 |
 | BASE-MDS-06 | 正常系 | `DELETE model-display-settings/{id}/` | 管理者 | 削除 | 204 | |
 | BASE-MDS-07 | 異常系 | `GET model-display-settings/` | 未認証 | 呼び出し | 401 | |

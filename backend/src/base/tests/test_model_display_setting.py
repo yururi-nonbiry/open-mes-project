@@ -36,7 +36,13 @@ class ModelDisplaySettingCrudTests(BaseAPITestBase):
         payload = {"data_type": "goods_receipt", "model_field_name": "remaining_quantity"}
         response = self.client.post(self.list_url, payload, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data["verbose_name"], "残数量")
+        self.assertEqual(response.data["verbose_name"], "未入庫残")  # 入庫処理画面の既定の列名と揃える
+
+    def test_base_mds_05b_verbose_name_fallback_sales_order_remaining_quantity(self):
+        payload = {"data_type": "sales_order", "model_field_name": "remaining_quantity"}
+        response = self.client.post(self.list_url, payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["verbose_name"], "未出庫残")
 
     def test_base_mds_05_verbose_name_fallback_inventory_available_quantity(self):
         payload = {"data_type": "inventory", "model_field_name": "available_quantity"}

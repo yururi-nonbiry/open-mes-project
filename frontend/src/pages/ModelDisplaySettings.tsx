@@ -8,12 +8,12 @@ import type { ModelDisplayRow, ModelDisplaySettingRecord, ModelFieldInfo, SaveSt
 import { registerTermTarget } from '../utils/terms';
 
 // This could be moved to a shared constants file
+// 入庫予定・出庫予定は入庫処理・出庫処理の画面の列として「ページ項目表示設定」で設定する
+// (両方の画面で同じ設定を保存すると、互いの項目を消し合ってしまうため、ここでは扱わない)
 const DATA_TYPE_CHOICES = [
     { value: 'item', label: '品番マスター' },
     { value: 'supplier', label: 'サプライヤーマスター' },
     { value: 'warehouse', label: '倉庫マスター' },
-    { value: 'purchase_order', label: '入庫予定' },
-    { value: 'sales_order', label: '出庫予定' },
     { value: 'production_plan', label: '生産計画' },
     { value: 'customer', label: '顧客マスター' },
     { value: 'work_center', label: 'ワークセンターマスター' },
@@ -65,6 +65,22 @@ const ModelDisplaySettings = () => {
                     is_list_filter: existingSetting?.is_list_filter ?? false,
                 };
             });
+
+            // 項目一覧に無い既存の設定(計算項目など)も行として残す。残さないと保存時に削除されてしまう
+            const knownFields = new Set(data.map(row => row.model_field_name));
+            settings
+                .filter(setting => !knownFields.has(setting.model_field_name))
+                .forEach(setting => data.push({
+                    model_field_name: setting.model_field_name,
+                    verbose_name: setting.verbose_name || setting.model_field_name,
+                    display_name: setting.display_name || '',
+                    help_text: '',
+                    display_order: setting.display_order ?? 0,
+                    search_order: setting.search_order ?? 0,
+                    is_list_display: !!setting.is_list_display,
+                    is_search_field: !!setting.is_search_field,
+                    is_list_filter: !!setting.is_list_filter,
+                }));
 
             data.sort((a, b) => a.display_order - b.display_order);
             setFieldsData(data);

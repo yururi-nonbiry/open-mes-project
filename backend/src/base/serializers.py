@@ -61,6 +61,15 @@ class QrCodeActionSerializer(serializers.ModelSerializer):
 DISPLAY_SETTING_MODEL_MAPPING = {**DATA_TYPE_MODEL_MAPPING, "stock_movement": "inventory.StockMovement"}
 
 
+# 一覧画面に出せる計算項目(モデルのフィールドではない項目)の名前 {(データ種別, 項目名): 名前}
+COMPUTED_FIELD_LABELS = {
+    ("goods_receipt", "remaining_quantity"): "未入庫残",
+    ("sales_order", "remaining_quantity"): "未出庫残",
+    ("inventory", "available_quantity"): "利用可能数",
+    ("inventory", "part_name"): "品名",
+}
+
+
 class ModelDisplaySettingSerializer(serializers.ModelSerializer):
     """
     ModelDisplaySettingモデル用のシリアライザー。
@@ -115,11 +124,10 @@ class ModelDisplaySettingSerializer(serializers.ModelSerializer):
                     # このモデルにはフィールドがなかったので、次の候補・次のモデルを試す
                     continue
 
-        # モデルフィールドに見つからなかった場合、プロパティをチェック
-        if obj.data_type == "goods_receipt" and obj.model_field_name == "remaining_quantity":
-            return "残数量"
-        if obj.data_type == "inventory" and obj.model_field_name == "available_quantity":
-            return "利用可能数"
+        # モデルフィールドに見つからなかった場合、一覧画面の計算項目(プロパティ等)の名前を返す
+        computed = COMPUTED_FIELD_LABELS.get((obj.data_type, obj.model_field_name))
+        if computed:
+            return computed
 
         # それでも見つからなければフィールド名をそのまま返す
         return obj.model_field_name

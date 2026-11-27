@@ -3,6 +3,7 @@ import { Spinner } from 'react-bootstrap';
 import authFetch from '../utils/api';
 import type { DisplaySetting, ModelFieldInfo, SearchParamValue, StockMovementRow } from './types/listPage';
 import { registerTermTarget } from '../utils/terms';
+import { STOCK_MOVEMENT_DEFAULT_COLUMNS } from '../config/listDefaultColumns';
 
 const AVAILABLE_MOVEMENT_TYPES = [
     { key: 'incoming', label: '入庫', badgeClass: 'status-partial', default_selected: true },
@@ -14,16 +15,7 @@ const AVAILABLE_MOVEMENT_TYPES = [
 ];
 registerTermTarget(AVAILABLE_MOVEMENT_TYPES);
 
-const DEFAULT_COLUMNS = [
-    { model_field_name: 'movement_date', verbose_name: '移動日時' },
-    { model_field_name: 'part_number', verbose_name: '品番' },
-    { model_field_name: 'warehouse', verbose_name: '倉庫' },
-    { model_field_name: 'movement_type', verbose_name: '移動種別' },
-    { model_field_name: 'quantity', verbose_name: '数量' },
-    { model_field_name: 'operator', verbose_name: '記録者' },
-    { model_field_name: 'description', verbose_name: '内容・備考' },
-    { model_field_name: 'reference_document', verbose_name: '参照伝票・計画' },
-];
+const DEFAULT_COLUMNS = STOCK_MOVEMENT_DEFAULT_COLUMNS;
 
 const DEFAULT_SEARCH_FIELDS = [
     { model_field_name: 'part_number', verbose_name: '品番', display_name: '品番' },

@@ -10,22 +10,13 @@ import authFetch from '../utils/api';
 import { executeQrAction } from '../utils/qrAction';
 import type { DisplaySetting, ModelFieldInfo } from './types/listPage';
 import { t, registerTermTarget } from '../utils/terms';
+import { GOODS_ISSUE_DEFAULT_COLUMNS } from '../config/listDefaultColumns';
 
 const NUMERIC_FIELDS = ['quantity', 'shipped_quantity', 'reserved_quantity', 'remaining_quantity'];
 const DATE_FIELDS = ['expected_shipment', 'order_date'];
 
 // 表示設定(モデル項目表示設定の「出庫予定」)が未登録、または取得できない場合に使用する既定の列
-const DEFAULT_COLUMNS = [
-  { model_field_name: 'order_number', verbose_name: '受注番号' },
-  { model_field_name: 'item', verbose_name: '品目（品番）' },
-  { model_field_name: 'warehouse', verbose_name: '出庫倉庫' },
-  { model_field_name: 'purpose', verbose_name: '用途' },
-  { model_field_name: 'line', verbose_name: '出庫先ライン' },
-  { model_field_name: 'quantity', verbose_name: '予定数量' },
-  { model_field_name: 'shipped_quantity', verbose_name: '出庫済' },
-  { model_field_name: 'remaining_quantity', verbose_name: '未出庫残' },
-  { model_field_name: 'expected_shipment', verbose_name: '出庫予定日' },
-];
+const DEFAULT_COLUMNS = GOODS_ISSUE_DEFAULT_COLUMNS;
 registerTermTarget(DEFAULT_COLUMNS);
 
 const getDefaultLabels = () => new Map<string, string>(DEFAULT_COLUMNS.map(c => [c.model_field_name, c.verbose_name]));

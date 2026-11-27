@@ -9,6 +9,10 @@ import { registerTermTarget } from '../utils/terms';
 import { ALLOCATION_COLUMNS, ALLOCATION_DATA_TYPE } from '../config/allocationColumns';
 import { PICKING_PC_COLUMNS, PICKING_PC_DATA_TYPE, PICKING_MOBILE_COLUMNS, PICKING_MOBILE_DATA_TYPE } from '../config/pickingColumns';
 import { PLAN_LIST_COLUMNS, PLAN_LIST_DATA_TYPE } from '../config/planListColumns';
+import {
+    GOODS_ISSUE_DEFAULT_COLUMNS, GOODS_RECEIPT_DEFAULT_COLUMNS, INVENTORY_DEFAULT_COLUMNS, STOCK_MOVEMENT_DEFAULT_COLUMNS,
+    type DefaultColumn,
+} from '../config/listDefaultColumns';
 
 // This could be moved to a shared constants file
 const DATA_TYPE_CHOICES = [
@@ -29,6 +33,10 @@ interface DataTypeConfig {
     model_source_labels?: Record<string, string>;
     /** モデルを持たない画面の固定の項目。model-fields APIは使わずこの一覧を項目として扱う */
     virtualFields?: ModelFieldInfo[];
+    /** モデルのフィールドではない一覧画面の計算項目(未出庫残・利用可能数など)。source は保存先のデータ種別 */
+    computedFields?: (ModelFieldInfo & { source: string })[];
+    /** 一覧画面の既定の列。設定が1件も無い画面で、初めて設定するときに表示ONにする列 */
+    defaultColumns?: DefaultColumn[];
 }
 
 interface CombinedField extends ModelFieldInfo {
@@ -45,19 +53,33 @@ const DATA_TYPE_MAP: Record<string, DataTypeConfig> = {
         model_source_labels: {
             purchase_order: '入庫予定',
             goods_receipt: '入庫実績',
-        }
+        },
+        computedFields: [
+            { name: 'remaining_quantity', verbose_name: '未入庫残', help_text: '発注数 - 入庫済', source: 'goods_receipt' },
+        ],
+        defaultColumns: GOODS_RECEIPT_DEFAULT_COLUMNS,
     },
     sales_order: {
         fetch: ['sales_order'],
         save: ['sales_order'],
+        computedFields: [
+            { name: 'remaining_quantity', verbose_name: '未出庫残', help_text: '予定数量 - 出庫済', source: 'sales_order' },
+        ],
+        defaultColumns: GOODS_ISSUE_DEFAULT_COLUMNS,
     },
     inventory: {
         fetch: ['inventory'],
         save: ['inventory'],
+        computedFields: [
+            { name: 'available_quantity', verbose_name: '利用可能数', help_text: '現在庫数 - 引当済', source: 'inventory' },
+            { name: 'part_name', verbose_name: '品名', help_text: '品番マスターから自動的に取得される品名です。', source: 'inventory' },
+        ],
+        defaultColumns: INVENTORY_DEFAULT_COLUMNS,
     },
     stock_movement: {
         fetch: ['stock_movement'],
         save: ['stock_movement'],
+        defaultColumns: STOCK_MOVEMENT_DEFAULT_COLUMNS,
     },
     [PLAN_LIST_DATA_TYPE]: {
         fetch: [PLAN_LIST_DATA_TYPE],
@@ -153,16 +175,23 @@ const PageDisplaySettings = () => {
                 }
             });
 
-            // 在庫照会ページの場合、手動で 'part_name' (品名) を設定項目として追加
-            if (selectedType === 'inventory' && !combinedFieldsMap.has('part_name')) {
-                combinedFieldsMap.set('part_name', {
-                    name: 'part_name',
-                    verbose_name: '品名',
-                    help_text: '品番マスターから自動的に取得される品名です。',
-                    source_data_type: 'inventory', // 'inventory' スコープとして扱う
-                    model_source_label: '品番マスター',
-                });
-            }
+            // モデルのフィールドではない計算項目(未出庫残・利用可能数・品名など)も選べるようにする。
+            // 選択肢に無いと、一度保存しただけで一覧画面からその列が消えてしまうため
+            (config.computedFields || []).forEach(({ source, ...field }) => {
+                if (!combinedFieldsMap.has(field.name)) {
+                    combinedFieldsMap.set(field.name, { ...field, source_data_type: source, model_source_label: null });
+                }
+            });
+
+            // 設定が1件も無い画面は、一覧画面の既定の列だけを表示ONで始める(それ以外の項目は表示OFF)
+            // (並び順も既定の列の順にし、それ以外の項目は後ろに並べる)
+            const defaultColumnNames = allSettings.length === 0 && config.defaultColumns
+                ? new Set(config.defaultColumns.map(c => c.model_field_name))
+                : null;
+            const defaultOrder = (name: string, index: number) => {
+                const position = config.defaultColumns?.findIndex(c => c.model_field_name === name) ?? -1;
+                return defaultColumnNames && position >= 0 ? (position + 1) * 10 : (index + 1) * 10 + (defaultColumnNames ? 1000 : 0);
+            };
 
             const modelFields = Array.from(combinedFieldsMap.values());
             
@@ -175,10 +204,14 @@ const PageDisplaySettings = () => {
                     verbose_name: field.model_source_label ? `${field.verbose_name} (${field.model_source_label})` : field.verbose_name,
                     help_text: field.help_text,
                     source_data_type: field.source_data_type,
-                    display_name: existingSetting?.display_name || '',
-                    display_order: existingSetting?.display_order ?? (index + 1) * 10,
+                    // 以前の保存で項目名そのものが表示名として書き込まれた設定は、未入力として扱う(次の保存で空欄に戻す)
+                    display_name: existingSetting?.display_name && existingSetting.display_name !== field.verbose_name
+                        ? existingSetting.display_name
+                        : '',
+                    display_order: existingSetting?.display_order ?? defaultOrder(field.name, index),
                     search_order: existingSetting?.search_order ?? (index + 1) * 10,
-                    is_list_display: existingSetting?.is_list_display ?? true,
+                    is_list_display: existingSetting?.is_list_display
+                        ?? (defaultColumnNames ? defaultColumnNames.has(field.name) : !config.defaultColumns),
                     is_search_field: existingSetting?.is_search_field ?? false,
                     is_list_filter: existingSetting?.is_list_filter ?? false,
                 };
@@ -226,11 +259,11 @@ const PageDisplaySettings = () => {
                 const payload = fieldsData
                     .filter(item => item.source_data_type === type)
                     .map(item => {
-                        const baseName = item.verbose_name.replace(/ \(.+\)$/, '');
-                        const displayName = item.display_name || baseName || item.verbose_name;
+                        // 表示名は入力したときだけ保存する(空欄は項目名を使う)。項目名を書き込むと、
+                        // 後から用語設定で呼び方を変えてもこの画面の列名だけ古いまま残ってしまう
                         return {
                             model_field_name: item.model_field_name,
-                            display_name: displayName,
+                            display_name: (item.display_name || '').trim(),
                             display_order: Number(item.display_order) || 0,
                             search_order: Number(item.search_order) || 0,
                             is_list_display: item.is_list_display,

@@ -110,3 +110,22 @@ test('FE-GI-03 出庫処置: 表示列を絞っても出庫処理のモーダル
   await expect(page.getByText('出庫処理の登録')).toBeVisible();
   await expect(page.locator('#quantity_to_ship')).toHaveValue('10');
 });
+
+test('FE-GI-04 ページ項目表示設定(出庫処理)を初めて保存しても、既定の列(未出庫残を含む)のまま表示され、表示名は書き込まれないこと', async ({ page }) => {
+  await saveDisplaySettings(api, 'sales_order', []);
+  await authenticate(page, adminTokens);
+  await page.goto('/system/page-display-settings');
+  await page.getByRole('button', { name: '出庫処理', exact: true }).click();
+  await expect(page.getByText('未出庫残', { exact: true }).first()).toBeVisible();
+  await page.getByRole('button', { name: 'この設定で保存' }).click();
+  await expect(page.getByText('保存しました', { exact: false }).first()).toBeVisible();
+
+  const saved = await getDisplaySettings(api, 'sales_order');
+  const shown = saved.filter(s => s.is_list_display).map(s => s.model_field_name).sort();
+  expect(shown).toEqual(['expected_shipment', 'item', 'line', 'order_number', 'purpose', 'quantity', 'remaining_quantity', 'shipped_quantity', 'warehouse']);
+  expect(saved.every(s => !s.display_name)).toBeTruthy();
+
+  await openIssue(page, adminTokens);
+  await expect(headers(page)).toHaveText(DEFAULT_HEADERS);
+});
+
