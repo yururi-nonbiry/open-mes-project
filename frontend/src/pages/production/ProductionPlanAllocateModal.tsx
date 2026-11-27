@@ -52,6 +52,8 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [allocationResult, setAllocationResult] = useState<{ type: 'success' | 'error', message?: string, data?: AllocationResultData } | null>(null);
+    // 引当の失敗は入力欄の上に表示し、入力内容を残したまま直して再送信できるようにする
+    const [submitError, setSubmitError] = useState<string | null>(null);
 
     // 列の表示/非表示・並び順・表示名は、モデル項目表示設定(production_allocation)で変更できる。
     // 設定が無い(取得できない)場合は既定の列をすべて表示する。
@@ -117,7 +119,8 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
     };
 
     /** チェック済みで引当数量がある行 */
-    const allocQty = (part: AllocationRow) => (part.checked ? parseFloat(part.quantity_to_allocate as string) || 0 : 0);
+    // 在庫は整数で管理するため、引当数量も整数で扱う
+    const allocQty = (part: AllocationRow) => (part.checked ? parseInt(String(part.quantity_to_allocate), 10) || 0 : 0);
 
     const handleLineChange = (partCode: string, line: string) => {
         setRequiredParts(prev => prev.map(part =>
@@ -136,12 +139,17 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
     const handleSubmit = async () => {
         if (!plan) return;
 
+        const fractional = requiredParts.find(part => part.checked && !Number.isInteger(Number(part.quantity_to_allocate)));
+        if (fractional) {
+            setSubmitError(`${fractional.part_code} の引当数量は整数で入力してください。`);
+            return;
+        }
         const allocationsData = requiredParts
-            .filter(part => part.checked && (parseFloat(part.quantity_to_allocate as string) || 0) > 0 && part.selected_warehouse)
+            .filter(part => part.checked && allocQty(part) > 0 && part.selected_warehouse)
             .map(part => ({
                 part_number: part.part_code,
                 warehouse: part.selected_warehouse,
-                quantity_to_allocate: parseFloat(part.quantity_to_allocate as string),
+                quantity_to_allocate: allocQty(part),
                 ...(part.selected_line ? { line: part.selected_line } : {})
             }));
 
@@ -151,6 +159,7 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
         }
 
         if (submitting) return; // 連打での二重引当を防ぐ
+        setSubmitError(null);
         setSubmitting(true);
         try {
             const data = await productionService.allocateMaterials(plan.id, allocationsData);
@@ -161,7 +170,7 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
                 bc.close();
             } catch (e) { console.error('Error broadcasting allocation result:', e); }
         } catch (e) {
-            setAllocationResult({ type: 'error', message: (e as ApiErrorLike).message });
+            setSubmitError((e as ApiErrorLike).message || '部品の引き当てに失敗しました。');
         } finally {
             setSubmitting(false);
         }
@@ -173,6 +182,7 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
     const handleClose = () => {
         const succeeded = allocationResult?.type === 'success';
         setAllocationResult(null);
+        setSubmitError(null);
         if (succeeded) onSuccess();
         onClose();
     };
@@ -209,6 +219,9 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
                     </div>
                 ) : (
                     <div>
+                        {submitError && (
+                            <div className="alert alert-danger" role="alert">{submitError}</div>
+                        )}
                         <dl className="row mb-2">
                             <dt className="col-sm-3">計画名:</dt><dd className="col-sm-9">{plan.plan_name || 'N/A'}</dd>
                             <dt className="col-sm-3">製品コード:</dt><dd className="col-sm-9">{plan.product_code || 'N/A'}</dd>
@@ -301,7 +314,7 @@ const ProductionPlanAllocateModal: React.FC<ProductionPlanAllocateModalProps> = 
                                                     );
                                                     case 'quantity_to_allocate': return (
                                                         <input
-                                                            type="number" className="form-control form-control-sm text-end"
+                                                            type="number" step="1" className="form-control form-control-sm text-end"
                                                             value={part.quantity_to_allocate}
                                                             onChange={(e) => handleQuantityChange(part.part_code, e.target.value)}
                                                             min="0" max={availableIn(part, part.selected_warehouse)}

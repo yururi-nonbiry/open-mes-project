@@ -67,9 +67,10 @@ const ProductionPlanMergeModal: React.FC<ProductionPlanMergeModalProps> = ({
             統合は、引当・生産の前であれば「統合解除」で元に戻せます。
         </p>
         {groups.map(g => (
-            <div key={g.product_code} className="border rounded p-2 mb-2">
+            <div key={`${g.product_code}-${g.purpose ?? ''}`} className="border rounded p-2 mb-2">
                 <div className="fw-bold">
                     {g.product_code}{g.product_name ? `（${g.product_name}）` : ''}
+                    {g.purpose && <span className="ms-2 badge bg-secondary">用途 {g.purpose}</span>}
                     <span className="ms-2 badge bg-primary">合計 {g.total_quantity} 個 / 納期 {formatDate(g.earliest_end_datetime)}</span>
                 </div>
                 <ul className="small mb-0 mt-1">

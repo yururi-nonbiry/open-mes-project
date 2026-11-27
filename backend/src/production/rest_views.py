@@ -302,6 +302,8 @@ class ProductionPlanViewSet(viewsets.ModelViewSet):
             {
                 "product_code": g[0].product_id,
                 "product_name": g[0].product.name if g[0].product else "",
+                # 同じ品番でも用途が違えば別のグループになる(画面でグループを区別するのに使う)
+                "purpose": g[0].purpose,
                 "total_quantity": sum(p.planned_quantity for p in g),
                 "earliest_end_datetime": min(p.planned_end_datetime for p in g),
                 "plans": [

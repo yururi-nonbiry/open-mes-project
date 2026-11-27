@@ -244,6 +244,7 @@ const ProductionPlan: React.FC = () => {
                 isOpen={additionalIssueModal.isOpen}
                 onClose={() => setAdditionalIssueModal(closedModal)}
                 plan={additionalIssueModal.plan}
+                onIssued={handleSearch}
             />
 
             <ProductionPlanIntermediatesModal

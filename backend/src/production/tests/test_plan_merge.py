@@ -204,6 +204,17 @@ class PlanMergeTests(ProductionAPITestBase):
         self.assertEqual(material.required_quantity, 1)
         self.assertGreater(material.quantity_per_unit, 0)
 
+    def test_pp_merge_23_candidates_include_purpose(self):
+        """同じ品番でも用途が違えば別グループになり、グループに用途を返す(画面でグループを区別するため)。"""
+        from master.models import StockPurpose
+
+        StockPurpose.objects.create(code="PRD-X", name="X")
+        c = self.create_plan(plan_name="C", purpose="PRD-X")
+        d = self.create_plan(plan_name="D", purpose="PRD-X")
+        ids = ",".join(str(p.id) for p in (self.plan_a, self.plan_b, c, d))
+        groups = self.client.get(reverse("production_api:production-plan-merge-candidates"), {"ids": ids}).json()
+        self.assertEqual(sorted((g["product_code"], g["purpose"] or "") for g in groups), [("PROD-001", ""), ("PROD-001", "PRD-X")])
+
     def test_pp_merge_15_bom_snapshot_replaced_by_edited_materials(self):
         """BOMマスターがあると計画作成時に所要部品がコピーされる。統合計画では元計画の編集後の所要量を合算する。"""
         BillOfMaterial.objects.create(product=self.product_item, material=self.material_item1, quantity=1)

@@ -215,3 +215,32 @@ test('FE-PM-07 管理者設定: 有効機能設定のスイッチで統合確認
   await expect(page.getByText('生産計画の引当時の統合確認をOFFにしました。')).toBeVisible();
   expect((await (await api.get('/api/base/feature-options/')).json()).merge_plans_on_allocation).toBe(false);
 });
+
+test('FE-PM-08 部品引当で失敗しても入力内容が残り、エラーを表示して直して再送信できること', async ({ page }) => {
+  const { prefix } = await createPlanPair();
+  // 所要部品と引当の応答を差し替える(引当は在庫不足のエラーを返す)
+  await page.route('**/required-parts/', async (route) => {
+    await route.fulfill({
+      json: [{
+        part_code: 'E2E-PM-PART', part_name: 'E2E部品', unit: '個', quantity_per_unit: 1, required_quantity: 5,
+        already_allocated_quantity: 0, additional_issued_quantity: 0, inventory_quantity: 3,
+        warehouses: [{ warehouse: 'E2E-WH', available_quantity: 3 }],
+      }],
+    });
+  });
+  let calls = 0;
+  await page.route('**/allocate-materials/', async (route) => {
+    calls += 1;
+    await route.fulfill({ status: 400, json: { error: '在庫が不足しています。' } });
+  });
+  await openPlans(page, prefix);
+  const row = page.locator('.goods-receipt-table tbody tr').filter({ hasText: `${prefix}-A` });
+  await row.getByRole('button', { name: /部品引当/ }).click();
+  const quantity = page.locator('input[type="number"][step="1"]').first();
+  await quantity.fill('2');
+  await page.getByRole('button', { name: 'チェックした部品を引き当て' }).click();
+  await expect(page.getByRole('alert')).toContainText('在庫が不足しています。');
+  // 入力欄は残り、値もそのまま
+  await expect(quantity).toHaveValue('2');
+  expect(calls).toBe(1);
+});

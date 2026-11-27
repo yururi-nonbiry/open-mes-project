@@ -10,6 +10,8 @@ interface ProductionPlanAdditionalIssueModalProps {
     isOpen: boolean;
     onClose: () => void;
     plan: ProductionPlan | null;
+    /** 追加ピッキングした後に呼ぶ(計画一覧の引当状況を更新するため) */
+    onIssued?: () => void;
 }
 
 interface IssueRow extends RequiredPart {
@@ -21,7 +23,7 @@ interface IssueRow extends RequiredPart {
  * 歩留まり・ロス等で所要量を超えて必要になった部品の追加ピッキング。
  * 所要量には含めず、引当を経ずに即時ピッキングする(順立て（ピッキング）の一覧には「追加ピッキング」として記録される)。
  */
-const ProductionPlanAdditionalIssueModal: React.FC<ProductionPlanAdditionalIssueModalProps> = ({ isOpen, onClose, plan }) => {
+const ProductionPlanAdditionalIssueModal: React.FC<ProductionPlanAdditionalIssueModalProps> = ({ isOpen, onClose, plan, onIssued }) => {
     const [rows, setRows] = useState<IssueRow[]>([]);
     const [remarks, setRemarks] = useState('');
     const [message, setMessage] = useState({ text: '', type: '' });
@@ -78,6 +80,7 @@ const ProductionPlanAdditionalIssueModal: React.FC<ProductionPlanAdditionalIssue
             const result = await productionService.issueAdditionalMaterials(plan.id, items, remarks);
             setMessage({ text: result.message, type: 'success' });
             setRemarks('');
+            onIssued?.();
             await load(plan.id);
         } catch (err) {
             setMessage({ text: describeError(err), type: 'danger' });

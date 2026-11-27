@@ -354,7 +354,7 @@ const QualityMasterModal: React.FC<QualityMasterModalProps> = ({ isOpen, onClose
                                                         type="button" className="btn btn-sm btn-danger" 
                                                         onClick={() => removeDetailRow(index)} title="行を削除"
                                                     >
-                                                        <i className="fas fa-trash-alt"></i>
+                                                        削除
                                                     </button>
                                                 </td>
                                             </tr>
@@ -364,7 +364,7 @@ const QualityMasterModal: React.FC<QualityMasterModalProps> = ({ isOpen, onClose
                             </table>
                         </div>
                         <button type="button" onClick={addDetailRow} className="btn btn-sm btn-success mb-2">
-                            <i className="fas fa-plus"></i> 詳細追加
+                            ＋ 詳細追加
                         </button>
                     </div>
 

@@ -181,14 +181,14 @@ const InspectionHistory = () => {
   const getJudgmentBadge = (judgment: string, display: string) => {
     switch (judgment) {
       case 'pass':
-        return <span className="badge bg-success"><i className="bi bi-check-circle-fill me-1"></i>{display}</span>;
+        return <span className="badge bg-success"><span className="me-1" aria-hidden="true">✓</span>{display}</span>;
       case 'fail':
-        return <span className="badge bg-danger"><i className="bi bi-x-circle-fill me-1"></i>{display}</span>;
+        return <span className="badge bg-danger"><span className="me-1" aria-hidden="true">✕</span>{display}</span>;
       case 'conditional_pass':
-        return <span className="badge bg-warning text-dark"><i className="bi bi-exclamation-triangle-fill me-1"></i>{display}</span>;
+        return <span className="badge bg-warning text-dark"><span className="me-1" aria-hidden="true">!</span>{display}</span>;
       case 'pending':
       default:
-        return <span className="badge bg-secondary"><i className="bi bi-hourglass-split me-1"></i>{display}</span>;
+        return <span className="badge bg-secondary"><span className="me-1" aria-hidden="true">…</span>{display}</span>;
     }
   };
 
@@ -207,7 +207,7 @@ const InspectionHistory = () => {
         <div className="col-md-4">
           <div className="card border-0 shadow-sm rounded-3 bg-white p-3 d-flex flex-row align-items-center">
             <div className="rounded-circle bg-primary-subtle p-3 text-primary me-3">
-              <i className="bi bi-list-task fs-4"></i>
+              <span className="fs-4 fw-bold" aria-hidden="true">≡</span>
             </div>
             <div>
               <small className="text-muted d-block">合計測定件数</small>
@@ -218,7 +218,7 @@ const InspectionHistory = () => {
         <div className="col-md-4">
           <div className="card border-0 shadow-sm rounded-3 bg-white p-3 d-flex flex-row align-items-center">
             <div className="rounded-circle bg-success-subtle p-3 text-success me-3">
-              <i className="bi bi-shield-check fs-4"></i>
+              <span className="fs-4 fw-bold" aria-hidden="true">✓</span>
             </div>
             <div>
               <small className="text-muted d-block">合格数</small>
@@ -229,7 +229,7 @@ const InspectionHistory = () => {
         <div className="col-md-4">
           <div className="card border-0 shadow-sm rounded-3 bg-white p-3 d-flex flex-row align-items-center">
             <div className="rounded-circle bg-danger-subtle p-3 text-danger me-3">
-              <i className="bi bi-shield-slash fs-4"></i>
+              <span className="fs-4 fw-bold" aria-hidden="true">✕</span>
             </div>
             <div>
               <small className="text-muted d-block">不合格数</small>
@@ -350,8 +350,8 @@ const InspectionHistory = () => {
                           <td>{getJudgmentBadge(result.judgment, result.judgment_display)}</td>
                           <td>{result.inspected_by_username || '-'}</td>
                           <td className="pe-4 text-end">
-                            <button className="btn btn-link text-primary p-0">
-                              <i className={`bi bi-chevron-${isExpanded ? 'up' : 'down'} fs-5`}></i>
+                            <button type="button" className="btn btn-sm btn-outline-primary fw-bold" aria-expanded={isExpanded}>
+                              {isExpanded ? '閉じる ▲' : '詳細 ▼'}
                             </button>
                           </td>
                         </tr>
@@ -362,7 +362,7 @@ const InspectionHistory = () => {
                             <td colSpan={7} className="bg-light-subtle px-4 py-3">
                               <div className="card border-0 shadow-sm p-3 bg-white">
                                 <h6 className="fw-bold mb-3 border-bottom pb-2">
-                                  <i className="bi bi-list-check me-2 text-primary"></i>測定値・判定結果内訳
+                                  測定値・判定結果内訳
                                 </h6>
                                 
                                 {detailError && !detailLoading && !itemDetailsDef[result.inspection_item] && (

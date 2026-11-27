@@ -318,6 +318,8 @@ export interface BulkAllocationResult {
 export interface MergeCandidateGroup {
     product_code: string;
     product_name: string;
+    /** 用途コード(空は汎用)。同じ品番でも用途が違えば別のグループになる */
+    purpose?: string | null;
     total_quantity: number;
     earliest_end_datetime: string;
     plans: { id: string; plan_name: string; planned_quantity: number; planned_end_datetime: string }[];

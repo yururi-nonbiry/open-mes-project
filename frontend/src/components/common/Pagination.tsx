@@ -15,7 +15,7 @@ const Pagination: React.FC<PaginationProps> = ({ next, previous, pageInfo, onPag
                 onClick={() => onPageChange(previous)} 
                 disabled={!previous}
             >
-                <i className="bi bi-chevron-left"></i> 前へ
+                ← 前へ
             </button>
             
             <span className="mx-3 align-middle text-muted">
@@ -27,7 +27,7 @@ const Pagination: React.FC<PaginationProps> = ({ next, previous, pageInfo, onPag
                 onClick={() => onPageChange(next)} 
                 disabled={!next}
             >
-                次へ <i className="bi bi-chevron-right"></i>
+                次へ →
             </button>
         </div>
     );
