@@ -27,7 +27,7 @@ from .models import DATA_TYPE_MODEL_MAPPING as CSV_DATA_TYPE_MODELS
 from .models import AsyncTask, CsvColumnMapping, ModelDisplaySetting, QrCodeAction
 from .responses import VALIDATION_ERROR_MESSAGE, error_response
 from .serializers import CsvColumnMappingSerializer, ModelDisplaySettingSerializer, QrCodeActionSerializer
-from .tasks import IMPORT_DISABLED_DATA_TYPES, import_csv_task
+from .tasks import IMPORT_DISABLED_DATA_TYPES, PROTECTED_IMPORT_FIELDS, import_csv_task
 from .viewsets import IntegrityErrorAsBadRequestMixin
 
 logger = logging.getLogger(__name__)
@@ -220,6 +220,21 @@ class CsvColumnMappingFilter(django_filters.FilterSet):
         fields = ["data_type"]
 
 
+def _csv_fk_field_name(data_type, field):
+    """
+    CSVマッピングで選べる外部キーの項目名。参照先のコード(<フィールド名>_id)で取り込む。
+    用途・ラインは別名(CSV_IMPORT_FK_ALIASES)で、業務処理と連動する外部キー(統合先・親計画など)は対象外。
+    マッピング画面の項目一覧に無い外部キーは保存時に消えてしまうため、取り込める外部キーはすべて返す。
+    """
+    if not field.many_to_one:
+        return None
+    if field.name in CSV_IMPORT_FK_ALIASES.get(data_type, {}).values():
+        return None
+    if field.name in PROTECTED_IMPORT_FIELDS.get(data_type, set()):
+        return None
+    return field.attname
+
+
 class ModelFieldsView(APIView):
     """
     指定されたデータ種別に対応するモデルのフィールド定義を返すAPIビュー。
@@ -240,8 +255,8 @@ class ModelFieldsView(APIView):
         except (LookupError, ValueError):
             return error_response(f"Model {model_string} not found.", status.HTTP_404_NOT_FOUND)
 
-        # 外部キーは既定では返さない(CSVマッピング等は実フィールド名を前提とするため)。
-        # include_relations=true の場合のみ、別名を持つ外部キー(仕入先・品番・倉庫等)を
+        # 外部キーは既定では参照先のコードを表す <フィールド名>_id で返す(CSVマッピング用)。
+        # include_relations=true の場合は、別名を持つ外部キー(仕入先・品番・倉庫等)を
         # APIの項目名と同じ別名で返す(一覧画面の表示設定用)。
         include_relations = request.query_params.get("include_relations") == "true"
 
@@ -252,7 +267,10 @@ class ModelFieldsView(APIView):
 
             name = field.name
             if field.is_relation:
-                name = fk_alias_name(model, field) if include_relations else None
+                if include_relations:
+                    name = fk_alias_name(model, field)
+                else:
+                    name = _csv_fk_field_name(data_type, field)
                 if name is None:
                     continue
 

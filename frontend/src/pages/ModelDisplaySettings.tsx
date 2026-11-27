@@ -37,7 +37,8 @@ const ModelDisplaySettings = () => {
         try {
             const [settingsRes, fieldsRes] = await Promise.all([
                 authFetch(`/api/base/model-display-settings/?data_type=${dataType}`),
-                authFetch(`/api/base/model-fields/?data_type=${dataType}`)
+                // 一覧画面と同じ項目名(外部キーは品番・倉庫などの別名)で設定するため、外部キーも別名で取得する
+                authFetch(`/api/base/model-fields/?data_type=${dataType}&include_relations=true`)
             ]);
 
             if (!settingsRes.ok) throw new Error(`表示設定の取得に失敗しました: ${settingsRes.statusText}`);

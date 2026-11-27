@@ -113,9 +113,10 @@
 | BASE-MODELFIELDS-03 | 異常系 | `GET base/model-fields/?data_type=customer` | 管理者 | 取得 | 400（`Invalid data_type`） | 既知の不具合：`customer`は`models.DATA_TYPE_CHOICES`上は正式な選択肢だが、`api.py`内のローカルマッピングに含まれていない |
 | BASE-MODELFIELDS-04 | 異常系 | `GET base/model-fields/` | 未認証 | 呼び出し | 401 | |
 | BASE-MODELFIELDS-05 | 異常系 | `GET base/model-fields/` | 一般ユーザー | 呼び出し | 403 | `IsAdminUser` |
-| BASE-MODELFIELDS-06 | 正常系 | `GET base/model-fields/?data_type=purchase_order` | 管理者 | 取得 | 200、外部キー（仕入先・品番・入庫倉庫）は含まれない | CSVマッピング設定は実フィールド名を前提とするため、既定では外部キーを返さない |
+| BASE-MODELFIELDS-06 | 正常系 | `GET base/model-fields/?data_type=purchase_order` | 管理者 | 取得 | 200、外部キーは参照先コードの `<フィールド名>_id`（例: `part_number_rel_id`）で返り、別名・実フィールド名では返らない | CSVマッピング用。2026-11-27 変更（修正前は外部キーを返さず、保存で外部キーのマッピングが消えていた） |
 | BASE-MODELFIELDS-07 | 正常系 | `GET base/model-fields/?data_type=purchase_order&include_relations=true` | 管理者 | 取得 | 200、別名を持つ外部キーが別名（`supplier`/`part_number`/`warehouse`）で返り、実フィールド名（`supplier_rel`）は含まれない。別名を持たない外部キー（入庫実績の`operator`/`purchase_order`）は含まれない | 一覧画面の表示設定用 |
-| BASE-MODELFIELDS-08 | 正常系 | `GET base/model-fields/?data_type=purchase_order`（受注・生産計画も同様） | 管理者 | 取得（`include_relations`なし） | 200、CSVマッピング用に用途コード（別名`purpose`）が含まれる。実フィールド名`purpose_rel`・品番等の外部キーは含まれない。他のデータ種別（品目等）には含まれない | `base/tests/test_model_fields.py` |
+| BASE-MODELFIELDS-08 | 正常系 | `GET base/model-fields/?data_type=purchase_order`（受注・生産計画も同様） | 管理者 | 取得（`include_relations`なし） | 200、CSVマッピング用に用途コード（別名`purpose`）が含まれる。実フィールド名`purpose_rel`・`purpose_rel_id`は含まれない。他のデータ種別（品目等）には含まれない | `base/tests/test_model_fields.py` |
+| BASE-MODELFIELDS-09 | 正常系 | `GET base/model-fields/?data_type=unit_cost`（生産計画も同様） | 管理者 | 取得 | `item_id`・`product_id` が含まれ、`merged_into_id`・`parent_plan_id`・`purpose_rel_id` は含まれない（用途は別名 `purpose`） | 2026-11-27 追加。修正前は外部キーが返らず、マッピング画面で保存すると初期投入の `item_id`・`product_id` が消えていた |
 
 ### 5.3 CSV列マッピング CRUD（`CsvColumnMappingViewSet`、`base/tests/test_csv_column_mapping.py`）
 

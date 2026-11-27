@@ -35,7 +35,8 @@ class ModelFieldsViewTests(APITestCase):
             response = self.client.get(self.url, {"data_type": data_type})
             self.assertEqual(response.status_code, status.HTTP_200_OK, data_type)
 
-    def test_base_modelfields_06_relations_excluded_by_default(self):
+    def test_base_modelfields_06_relations_offered_by_code_column_by_default(self):
+        """既定(CSVマッピング用)では外部キーを参照先コードの <フィールド名>_id で返す。別名・実フィールド名では返さない。"""
         self.client.force_authenticate(user=self.admin_user)
         response = self.client.get(self.url, {"data_type": "purchase_order"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -43,6 +44,19 @@ class ModelFieldsViewTests(APITestCase):
         self.assertIn("order_number", field_names)
         for name in ("supplier", "supplier_rel", "part_number", "warehouse"):
             self.assertNotIn(name, field_names)
+        self.assertIn("part_number_rel_id", field_names)
+
+    def test_base_modelfields_09_seeded_fk_mappings_are_offered(self):
+        """初期投入のマッピング(標準単価の item_id・生産計画の product_id)が項目一覧にあり、保存で消えない。"""
+        self.client.force_authenticate(user=self.admin_user)
+        names = [f["name"] for f in self.client.get(self.url, {"data_type": "unit_cost"}).data]
+        self.assertIn("item_id", names)
+        names = [f["name"] for f in self.client.get(self.url, {"data_type": "production_plan"}).data]
+        self.assertIn("product_id", names)
+        # 業務処理と連動する外部キー(統合先・親計画)と、別名で出す用途は <名前>_id では出さない
+        for name in ("merged_into_id", "parent_plan_id", "purpose_rel_id"):
+            self.assertNotIn(name, names)
+        self.assertIn("purpose", names)
 
     def test_base_modelfields_07_include_relations_returns_foreign_keys_by_alias(self):
         self.client.force_authenticate(user=self.admin_user)

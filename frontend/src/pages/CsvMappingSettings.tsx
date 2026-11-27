@@ -67,6 +67,23 @@ const CsvMappingSettings = () => {
                 };
             });
 
+            // 項目一覧に無い既存のマッピング(旧い項目名など)も行として残す。残さないと保存時に削除されてしまう
+            const knownFields = new Set(data.map(row => row.model_field_name));
+            mappings
+                .filter(m => !knownFields.has(m.model_field_name))
+                .forEach(m => data.push({
+                    model_field_name: m.model_field_name,
+                    verbose_name: m.model_field_name,
+                    is_model_required: false,
+                    default_value: null,
+                    help_text: '',
+                    csv_header: m.csv_header || '',
+                    custom_display_name: displaySettings.find(ds => ds.model_field_name === m.model_field_name)?.display_name || '',
+                    order: m.order ?? 0,
+                    is_update_key: m.is_update_key,
+                    is_active: true,
+                }));
+
             data.sort((a, b) => a.order - b.order);
             setCombinedData(data);
 
