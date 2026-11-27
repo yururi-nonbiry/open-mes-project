@@ -102,6 +102,8 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    # 用語・機能設定などを1リクエストの間だけ使い回す(base/request_cache.py)
+    "base.request_cache.RequestCacheMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "users.middleware.PasswordExpirationMiddleware",  # パスワード有効期限
     "django.middleware.clickjacking.XFrameOptionsMiddleware",

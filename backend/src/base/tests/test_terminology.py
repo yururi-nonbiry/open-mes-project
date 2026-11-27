@@ -89,3 +89,34 @@ class WorkflowVisibilityTests(APITestCase):
             (data["receipt-flow"], data["production-plan-flow"], data["production-issue-flow"]),
             ("hidden", "grayed", "visible"),
         )
+
+
+class RequestCacheTests(APITestCase):
+    """BASE-RCACHE-* : 用語・機能設定は1リクエストの間だけ使い回し、変更したら同じリクエストでも新しい値を使う。"""
+
+    def test_base_rcache_01_settings_read_once_per_request(self):
+        from django.db import connection
+        from django.http import HttpResponse
+        from django.test import RequestFactory
+        from django.test.utils import CaptureQueriesContext
+
+        from base.request_cache import RequestCacheMiddleware
+
+        seen = {}
+
+        def view(request):
+            with CaptureQueriesContext(connection) as ctx:
+                for _ in range(5):
+                    feature_settings.apply_terms("部品を出庫")
+                    feature_settings.get_feature_flag(feature_settings.MERGE_PLANS_ON_ALLOCATION)
+            seen["queries"] = len(ctx.captured_queries)
+            feature_settings.set_term("part", "材料")
+            seen["after_change"] = feature_settings.apply_terms("部品")
+            return HttpResponse("ok")
+
+        RequestCacheMiddleware(view)(RequestFactory().get("/"))
+        self.assertEqual(seen["queries"], 1)
+        self.assertEqual(seen["after_change"], "材料")
+        # リクエストの外ではキャッシュしない(他のリクエスト・プロセスの変更がすぐ反映される)
+        feature_settings.set_term("part", "部材")
+        self.assertEqual(feature_settings.apply_terms("部品"), "部材")
