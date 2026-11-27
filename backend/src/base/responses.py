@@ -18,6 +18,8 @@ from rest_framework.response import Response
 from rest_framework.settings import api_settings
 from rest_framework.views import exception_handler, set_rollback
 
+from .exceptions import DomainServiceError
+
 logger = logging.getLogger(__name__)
 
 VALIDATION_ERROR_MESSAGE = "入力内容に誤りがあります。"
@@ -69,6 +71,10 @@ def api_exception_handler(exc, context):
     DRF の EXCEPTION_HANDLER。例外から生成される応答をすべて統一形式に変換する。
     DRF が扱わない想定外の例外も、内部情報を応答に含めずログへ出力したうえで 500 の統一形式で返す。
     """
+    if isinstance(exc, DomainServiceError):
+        # サービス層の業務エラーは、ビューで変換し損ねても 500 ではなく業務エラーとして返す
+        return error_response(exc.message, exc.status_code, code=exc.code)
+
     response = exception_handler(exc, context)
 
     if response is None:

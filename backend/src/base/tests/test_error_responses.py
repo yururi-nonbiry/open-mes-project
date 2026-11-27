@@ -1,5 +1,6 @@
 from unittest import mock
 
+from django.test import SimpleTestCase
 from django.urls import reverse
 from rest_framework import status
 
@@ -74,3 +75,16 @@ class ErrorResponseFormatTests(BaseAPITestBase):
         )
         self.assertErrorBody(response, status.HTTP_400_BAD_REQUEST)
         self.assertIn("code", response.data["errors"])
+
+
+class DomainServiceErrorHandlerTests(SimpleTestCase):
+    """BASE-DOMAINERR-* : サービス層の業務エラーは、ビューで変換し損ねても統一形式の業務エラーとして返す。"""
+
+    def test_base_domainerr_01_converted_to_error_response(self):
+        from base.responses import api_exception_handler
+        from inventory.services import InventoryServiceError, MixedPurposeWarning
+
+        response = api_exception_handler(InventoryServiceError("在庫が足りません。", status_code=409), {})
+        self.assertEqual((response.status_code, response.data), (409, {"error": "在庫が足りません。"}))
+        response = api_exception_handler(MixedPurposeWarning("用途が混在します。"), {})
+        self.assertEqual(response.data.get("code"), "mixed_purpose")

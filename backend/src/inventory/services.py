@@ -13,8 +13,8 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import F, Q
 from django.utils import timezone
-from rest_framework import serializers
 
+from base.exceptions import DomainServiceError
 from base.feature_settings import apply_terms
 from base.responses import INTERNAL_ERROR_MESSAGE, validation_error_body
 from master.models import Item, StockPurpose, Warehouse
@@ -25,13 +25,8 @@ from .serializers import PurchaseOrderSerializer
 logger = logging.getLogger(__name__)
 
 
-class InventoryServiceError(Exception):
-    """業務エラー。ビューで status_code のHTTPレスポンスに変換する。"""
-
-    def __init__(self, message, status_code=400):
-        super().__init__(message)
-        self.message = message
-        self.status_code = status_code
+class InventoryServiceError(DomainServiceError):
+    """在庫の業務エラー。ビューで status_code のHTTPレスポンスに変換する(捕まえ損ねても例外ハンドラが変換する)。"""
 
 
 class MixedPurposeWarning(InventoryServiceError):

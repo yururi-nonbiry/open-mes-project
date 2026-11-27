@@ -17,7 +17,7 @@ from inventory.services import (
 from master.models import Warehouse
 
 from ..models import MaterialAllocation, ProductionPlan, WorkProgress
-from .allocation import build_internal_so_order_number
+from .allocation import build_internal_so_order_number, issue_allocated_stock
 from .merge import apportion_completion, release_merged_plans, reverse_apportion
 
 logger = logging.getLogger(__name__)
@@ -359,48 +359,20 @@ def _consume_materials_for_plan(plan, now, user):
     for alloc in allocations:
         if not alloc.warehouse:
             continue
-
-        rows = [
-            row for row in lock_inventory_rows(alloc.material_code, alloc.warehouse, alloc.purpose) if row.is_active
-        ]
-        if not rows:
-            # 材料を消費せずに完了にすると、引当(reserved)が残り在庫も減らないため、完了させない
-            raise ValueError(
-                f"Cannot consume materials for plan {plan.id}: active inventory for "
-                f"'{alloc.material_code}' in '{alloc.warehouse}' was not found."
-            )
-
-        quantity_to_consume = alloc.allocated_quantity
+        # 材料を消費せずに完了にすると、引当(reserved)が残り在庫も減らないため、在庫が無い・足りなければ完了させない
         try:
-            consumed, _ = consume_stock(rows, quantity_to_consume, own_reserved=quantity_to_consume)
-        except InventoryServiceError as e:
-            raise ValueError(
-                f"Cannot consume materials for plan {plan.id}: insufficient stock for "
-                f"'{alloc.material_code}' in '{alloc.warehouse}'. {e.message}"
-            ) from None
-
-        alloc.status = MaterialAllocation.Status.ISSUED
-        alloc.save()
-
-        for row, take in consumed:
-            StockMovement.objects.create(
-                part_number=alloc.material_code,
-                quantity=take,
-                warehouse=alloc.warehouse,
-                location=row.location,
-                purpose=row.purpose,
-                line=alloc.line,
-                movement_type=StockMovement.MovementType.USED,
-                movement_date=now,
+            issue_allocated_stock(
+                alloc,
+                now,
+                user,
                 reference_document=f"ProductionPlan-{plan.id}",
                 description=f"Consumed for plan {plan.id} completion.",
-                operator=_operator_or_none(user),
             )
-
-        # 関連する内部受注を完了（shipped）にする
-        SalesOrder.objects.filter(order_number=build_internal_so_order_number(alloc.id)).update(
-            status=SalesOrder.Status.SHIPPED, shipped_quantity=quantity_to_consume
-        )
+        except InventoryServiceError as e:
+            raise ValueError(
+                f"Cannot consume materials for plan {plan.id} ('{alloc.material_code}' in '{alloc.warehouse}'): "
+                f"{e.message}"
+            ) from None
 
 
 def _restore_materials_for_plan(plan, now, user):

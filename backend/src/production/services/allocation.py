@@ -221,6 +221,44 @@ def release_material_allocation_service(allocation):
         allocation.delete()
 
 
+def issue_allocated_stock(allocation, now, user, reference_document, description):
+    """
+    引当(ALLOCATED)の部品を在庫から出庫する共通処理(ピッキングと生産完了時の消費で使う)。
+    引当倉庫の有効な棚から入庫が古い順に引当数量を減らし(自身の引当分の reserved も解放)、棚ごとに出庫(USED)の
+    入出庫履歴を残し、引当を ISSUED に、連動する内部受注を出庫済みにする。呼び出し側で引当の行をロックしておくこと。
+    在庫が見つからない・足りない場合は InventoryServiceError を送出する(どの棚も変更しない)。
+    """
+    rows = [
+        row for row in lock_inventory_rows(allocation.material_code, allocation.warehouse, allocation.purpose) if row.is_active
+    ]
+    if not rows:
+        raise InventoryServiceError(
+            f"Inventory not found for '{allocation.material_code}' in '{allocation.warehouse}'."
+        )
+    consumed, _ = consume_stock(rows, allocation.allocated_quantity, own_reserved=allocation.allocated_quantity)
+    operator = user if user and user.is_authenticated else None
+    for row, take in consumed:
+        StockMovement.objects.create(
+            part_number=allocation.material_code,
+            quantity=take,
+            warehouse=allocation.warehouse,
+            location=row.location,
+            purpose=row.purpose,
+            line=allocation.line,
+            movement_type=StockMovement.MovementType.USED,
+            movement_date=now,
+            reference_document=reference_document,
+            description=description,
+            operator=operator,
+        )
+    allocation.status = MaterialAllocation.Status.ISSUED
+    allocation.save()
+    SalesOrder.objects.filter(order_number=build_internal_so_order_number(allocation.id)).update(
+        status=SalesOrder.Status.SHIPPED, shipped_quantity=allocation.allocated_quantity
+    )
+    return consumed
+
+
 def release_open_allocations(plan):
     """
     計画の未出庫(ALLOCATED)の引当をすべて解除し、在庫の引当数(reserved)を戻す。解除した件数を返す。
@@ -258,42 +296,20 @@ def update_material_allocation_status_service(allocation, new_status, user, now=
             raise ValueError(f"Allocation {allocation.id} has no warehouse; cannot update inventory.")
 
         if new_status == MaterialAllocation.Status.ISSUED:
-            rows = [
-                row
-                for row in lock_inventory_rows(allocation.material_code, allocation.warehouse, allocation.purpose)
-                if row.is_active
-            ]
-            if not rows:
-                raise ValueError(
-                    f"Inventory not found for '{allocation.material_code}' in '{allocation.warehouse}'."
-                )
             try:
-                consumed, _ = consume_stock(
-                    rows, allocation.allocated_quantity, own_reserved=allocation.allocated_quantity
+                issue_allocated_stock(
+                    allocation,
+                    now,
+                    user,
+                    reference_document=f"MaterialAllocation-{allocation.id}",
+                    description=f"Issued for allocation {allocation.id}.",
                 )
             except InventoryServiceError as e:
                 raise ValueError(
                     f"Insufficient stock to issue '{allocation.material_code}' in '{allocation.warehouse}'. "
                     f"{e.message}"
                 ) from None
-
-            for row, take in consumed:
-                StockMovement.objects.create(
-                    part_number=allocation.material_code,
-                    quantity=take,
-                    warehouse=allocation.warehouse,
-                    location=row.location,
-                    purpose=row.purpose,
-                    line=allocation.line,
-                    movement_type=StockMovement.MovementType.USED,
-                    movement_date=now,
-                    reference_document=f"MaterialAllocation-{allocation.id}",
-                    description=f"Issued for allocation {allocation.id}.",
-                    operator=operator,
-                )
-            SalesOrder.objects.filter(order_number=so_order_number).update(
-                status=SalesOrder.Status.SHIPPED, shipped_quantity=allocation.allocated_quantity
-            )
+            return allocation
 
         elif new_status == MaterialAllocation.Status.RETURNED:
             row = add_stock(
