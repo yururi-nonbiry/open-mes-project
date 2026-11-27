@@ -197,13 +197,24 @@ class InventorySerializer(serializers.ModelSerializer):
     def validate_location(self, value):
         return value or ""
 
+    # 在庫行を識別する項目。作成後に直接変えると入出庫履歴(StockMovement)が残らず、用途の混在チェックも働かず、
+    # 引当が残る在庫では引当を解放できなくなるため、棚の移動・用途の変更・在庫調整の専用アクションで変更させる。
+    IDENTITY_FIELDS = ("part_number_rel", "warehouse_rel", "purpose_rel", "location")
+
     def validate(self, data):
-        # 引当(reserved)が残る在庫の品番・倉庫・用途・棚を直接変えると、引当を解放できなくなるため変更させない
         instance = self.instance
-        if instance and instance.reserved > 0:
-            for field in ("part_number_rel", "warehouse_rel", "purpose_rel", "location"):
-                if field in data and data[field] != getattr(instance, field):
-                    raise serializers.ValidationError("引当済みの在庫は、品番・倉庫・用途・棚番を変更できません。")
+        if instance:
+            for field in self.IDENTITY_FIELDS:
+                if field in data and (data[field] or None) != (getattr(instance, field) or None):
+                    raise serializers.ValidationError(
+                        "在庫の品番・倉庫・用途・棚番は直接変更できません。"
+                        "棚の移動・用途の変更・在庫調整から行ってください。"
+                    )
+        else:
+            missing = [name for name, field in (("part_number", "part_number_rel"), ("warehouse", "warehouse_rel"))
+                       if not data.get(field)]
+            if missing:
+                raise serializers.ValidationError({name: "この項目は必須です。" for name in missing})
         return data
 
     class Meta:

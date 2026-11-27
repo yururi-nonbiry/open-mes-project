@@ -28,6 +28,7 @@ from .models import AsyncTask, CsvColumnMapping, ModelDisplaySetting, QrCodeActi
 from .responses import VALIDATION_ERROR_MESSAGE, error_response
 from .serializers import CsvColumnMappingSerializer, ModelDisplaySettingSerializer, QrCodeActionSerializer
 from .tasks import import_csv_task
+from .viewsets import IntegrityErrorAsBadRequestMixin
 
 logger = logging.getLogger(__name__)
 
@@ -284,25 +285,6 @@ class ModelFieldsView(APIView):
                     }
                 )
         return Response(fields_data)
-
-
-class IntegrityErrorAsBadRequestMixin:
-    """
-    シリアライザのMeta.validators=[]によりUniqueTogetherValidatorが無効化されているモデル向けに、
-    DBのユニーク制約違反(IntegrityError)を未処理の500ではなく400のバリデーションエラーとして返す。
-    """
-
-    def create(self, request, *args, **kwargs):
-        try:
-            return super().create(request, *args, **kwargs)
-        except IntegrityError:
-            return error_response("指定されたデータは既に登録されています。")
-
-    def update(self, request, *args, **kwargs):
-        try:
-            return super().update(request, *args, **kwargs)
-        except IntegrityError:
-            return error_response("指定されたデータは既に登録されています。")
 
 
 class AuditSettingsChangeMixin:

@@ -136,7 +136,7 @@
 | MA-DEL-02 | 異常系 | `DELETE material-allocations/{id}/` | status=ISSUED | 削除 | 400、レコードは削除されない | |
 | MA-DEL-03 | 異常系 | `DELETE material-allocations/{id}/` | status=RETURNED | 削除 | 400 | |
 | MA-STATUS-01 | 正常系 | `change-status` | status=ALLOCATED、在庫十分 | `status=ISSUED` | 200、`Inventory.quantity`/`reserved`減算、`StockMovement`(used)作成、内部SO=shipped | |
-| MA-STATUS-02 | 異常系 | `change-status` | status=ALLOCATED、`Inventory.quantity`が引当数量未満 | `status=ISSUED` | 400 | 手動で`Inventory.quantity`のみ減らして人為的に不整合を作る |
+| MA-STATUS-02 | 異常系 | `change-status` | status=ALLOCATED、`Inventory.quantity`が引当数量未満 | `status=ISSUED` | 400 | 在庫数量 < 引当済数量 はDB制約で作れないため、`Inventory.quantity`・`reserved` をともに引当数量未満(2)にして不整合を作る |
 | MA-STATUS-03 | 正常系 | `change-status` | status=ISSUED | `status=RETURNED` | 200、`Inventory.quantity`加算(`reserved`は変化しない)、`StockMovement`(incoming)作成、内部SO=canceled | 引当解除済みのためreservedは戻さない仕様 |
 | MA-STATUS-04 | 異常系 | `change-status` | status=ALLOCATED | `status=RETURNED`（許可されない遷移） | 400 | |
 | MA-STATUS-05 | 異常系 | `change-status` | - | `status`未指定 | 400 | |

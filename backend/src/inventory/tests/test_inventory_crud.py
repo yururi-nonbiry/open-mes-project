@@ -90,6 +90,42 @@ class InventoryCrudTests(InventoryAPITestBase):
         self.assertEqual(self.inventory1.available_quantity, 0)
 
 
+    def test_inv_crud_12_identity_fields_cannot_change_even_without_reservation(self):
+        """引当がなくても、在庫のある行の品番・倉庫・棚番・用途は直接変更できない(履歴が残らないため)。"""
+        url = reverse("inventory_api:inventory-detail", kwargs={"pk": self.inventory1.id})
+        for payload in (
+            {"location": "Z-99"},
+            {"warehouse": self.warehouse_b.warehouse_number},
+            {"part_number": self.item2.code},
+        ):
+            response = self.client.patch(url, payload, format="json")
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, payload)
+        self.inventory1.refresh_from_db()
+        self.assertEqual(
+            (self.inventory1.part_number, self.inventory1.warehouse, self.inventory1.location),
+            (self.item1.code, self.warehouse_a.warehouse_number, "A-01"),
+        )
+        # 同じ値の送信や、フラグの変更はできる
+        response = self.client.patch(url, {"location": "A-01", "is_allocatable": False}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.content)
+
+    def test_inv_crud_13_duplicate_create_returns_400(self):
+        url = reverse("inventory_api:inventory-list")
+        payload = {"part_number": self.item1.code, "warehouse": self.warehouse_a.warehouse_number, "location": "A-01"}
+        response = self.client.post(url, payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_inv_crud_14_create_requires_part_number_and_warehouse(self):
+        url = reverse("inventory_api:inventory-list")
+        response = self.client.post(url, {"location": "X-01"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_inv_crud_15_reserved_cannot_exceed_quantity(self):
+        """在庫数量 >= 引当済数量 >= 0 をDBの制約で保証する。"""
+        self.inventory2.reserved = 51
+        with self.assertRaises(IntegrityError):
+            self.inventory2.save()
+
 class InventoryDeleteTests(InventoryAPITestBase):
     """INV-CRUD-10〜: 在庫レコードの削除。"""
 

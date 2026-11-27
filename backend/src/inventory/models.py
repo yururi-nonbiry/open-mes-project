@@ -16,8 +16,6 @@ class Inventory(models.Model):
         to_field="code",
         db_column="part_number",
         on_delete=models.PROTECT,
-        null=True,
-        blank=True,
         verbose_name="品番"
     )
     warehouse_rel = models.ForeignKey(
@@ -25,8 +23,6 @@ class Inventory(models.Model):
         to_field="warehouse_number",
         db_column="warehouse",
         on_delete=models.PROTECT,
-        null=True,
-        blank=True,
         verbose_name="倉庫"
     )
 
@@ -90,6 +86,11 @@ class Inventory(models.Model):
                 fields=["part_number_rel", "warehouse_rel", "location"],
                 condition=models.Q(purpose_rel__isnull=True),
                 name="unique_inventory_part_warehouse_location_generic",
+            ),
+            # 引当済数量は 0 以上かつ在庫数量以下(引当は実在する在庫に対してだけ行う)
+            models.CheckConstraint(
+                condition=models.Q(reserved__gte=0) & models.Q(quantity__gte=models.F("reserved")),
+                name="inventory_quantity_gte_reserved_gte_zero",
             ),
         ]
 

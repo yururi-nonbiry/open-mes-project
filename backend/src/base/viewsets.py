@@ -1,3 +1,4 @@
+from django.db import IntegrityError
 from django.db.models import ProtectedError
 from rest_framework import status
 from rest_framework.response import Response
@@ -62,3 +63,22 @@ class CustomSuccessMessageMixin:
         except ProtectedError:
             return self._protected_error_response()
         return Response({"message": f"{self._model_name()}「{instance_repr}」を削除しました。"})
+
+
+class IntegrityErrorAsBadRequestMixin:
+    """
+    シリアライザのMeta.validators=[]によりUniqueTogetherValidatorが無効化されているモデル向けに、
+    DBのユニーク制約違反(IntegrityError)を未処理の500ではなく400のバリデーションエラーとして返す。
+    """
+
+    def create(self, request, *args, **kwargs):
+        try:
+            return super().create(request, *args, **kwargs)
+        except IntegrityError:
+            return error_response("指定されたデータは既に登録されています。")
+
+    def update(self, request, *args, **kwargs):
+        try:
+            return super().update(request, *args, **kwargs)
+        except IntegrityError:
+            return error_response("指定されたデータは既に登録されています。")

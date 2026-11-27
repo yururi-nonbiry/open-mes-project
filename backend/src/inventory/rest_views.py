@@ -13,6 +13,7 @@ from rest_framework.response import Response
 from base.feature_settings import apply_terms
 from base.pagination import StandardResultsSetPagination
 from base.responses import error_response
+from base.viewsets import IntegrityErrorAsBadRequestMixin
 from master.models import WarehouseLocation
 
 from . import services
@@ -49,9 +50,10 @@ class ReceiptViewSet(
     permission_classes = [IsAuthenticated]
 
 
-class InventoryViewSet(viewsets.ModelViewSet):
+class InventoryViewSet(IntegrityErrorAsBadRequestMixin, viewsets.ModelViewSet):
     """
     API endpoint that allows inventory to be viewed or edited.
+    同じ品番・倉庫・棚番・用途の在庫行が既にある場合の作成は、一意制約違反を 400 で返す。
     """
 
     serializer_class = InventorySerializer

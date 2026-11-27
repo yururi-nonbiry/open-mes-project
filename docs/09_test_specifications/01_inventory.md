@@ -58,6 +58,10 @@
 | INV-CRUD-07 | 異常系 | `POST inventories/` | 同一 `(part_number, warehouse, location)` の在庫が既存 | 同組み合わせで新規作成 | 400（一意制約違反） | `models.py:70-76` |
 | INV-CRUD-08 | 異常系 | `PATCH inventories/{id}/` | 在庫1件登録済み | `quantity`/`reserved` を直接変更するリクエスト | 200だが `quantity`/`reserved` は変更前の値のまま | read_only_fields のため無視されることを確認（`serializers.py`） |
 | INV-CRUD-09 | 境界値 | `available_quantity` プロパティ | `is_active=False` または `is_allocatable=False` かつ `quantity>reserved` | 詳細取得 | `available_quantity=0` | `models.py:53-58` |
+| INV-CRUD-12 | 異常系 | `PATCH inventories/{id}/` | 引当なし・在庫あり | 棚番・倉庫・品番を変更 | 400、変更されない（同じ値の送信・フラグ変更は 200） | 2026-11-27 追加。修正前は引当がなければ履歴なしで変更でき、用途混在チェックも働かなかった |
+| INV-CRUD-13 | 異常系 | `POST inventories/` | 同じ品番・倉庫・棚番の汎用在庫が既存 | 作成 | 400（500にならない） | 2026-11-27 追加 |
+| INV-CRUD-14 | 異常系 | `POST inventories/` | — | 品番・倉庫なしで作成 | 400 | 2026-11-27 追加。品番・倉庫は必須(DBも NOT NULL) |
+| INV-CRUD-15 | 異常系 | DB制約 | 在庫数量50 | 引当済数量を51にして保存 | `IntegrityError`（在庫数量 >= 引当済数量 >= 0 の CheckConstraint） | 2026-11-27 追加 |
 
 ### 5.2 在庫移動 `move`（`POST inventories/{id}/move/`）
 

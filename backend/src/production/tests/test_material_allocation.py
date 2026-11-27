@@ -123,7 +123,9 @@ class MaterialAllocationChangeStatusTests(ProductionAPITestBase):
         self.assertEqual(so.status, "shipped")
 
     def test_ma_status_02_insufficient_stock_rejected(self):
+        # 在庫数量 < 引当済数量 はDBの制約で作れないため、在庫・引当済数量をともに引当数量未満にして不整合を作る
         self.inventory.quantity = 2
+        self.inventory.reserved = 2
         self.inventory.save()
         response = self.client.post(self.url, {"status": "ISSUED"}, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
