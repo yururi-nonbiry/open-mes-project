@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Button, Form, Spinner } from 'react-bootstrap';
 import stockPurposeService, { StockPurpose } from '../services/stockPurposeService';
-import type { ApiErrorLike } from './apiError';
+import type { ApiErrorLike } from '../utils/api';
 import { t } from '../utils/terms';
 
 const EMPTY: StockPurpose = { code: '', name: '', is_active: true };

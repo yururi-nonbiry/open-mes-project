@@ -1,4 +1,4 @@
-import { apiRequest } from '../utils/api';
+import { apiRequest, type DataEnvelope, type MessageResponse } from '../utils/api';
 import { t } from '../utils/terms';
 
 export interface BillOfMaterial {
@@ -53,7 +53,7 @@ export interface BomExplosion {
 
 const bomService = {
     getBillOfMaterials: async () => {
-        const data = await apiRequest('/api/master/bill-of-materials/', {}, '使用部品マスターの取得に失敗しました');
+        const data = await apiRequest<DataEnvelope>('/api/master/bill-of-materials/', {}, '使用部品マスターの取得に失敗しました');
         return data.data as BillOfMaterial[];
     },
 
@@ -64,19 +64,19 @@ const bomService = {
         apiRequest(`/api/master/bill-of-materials/${id}/`, { method: 'PATCH', body: JSON.stringify(item) }, '更新に失敗しました'),
 
     getItems: async () => {
-        const data = await apiRequest('/api/master/items/', {}, '品目一覧の取得に失敗しました');
+        const data = await apiRequest<DataEnvelope>('/api/master/items/', {}, '品目一覧の取得に失敗しました');
         return (data.data || []) as MasterItem[];
     },
 
     /** 多階層BOMを全階層展開する */
     explodeBom: async (product: string, quantity: number | string = 1) => {
         const params = new URLSearchParams({ product, quantity: String(quantity) });
-        const data = await apiRequest(`/api/master/bill-of-materials/explode/?${params.toString()}`, {}, 'BOMの展開に失敗しました');
+        const data = await apiRequest<DataEnvelope>(`/api/master/bill-of-materials/explode/?${params.toString()}`, {}, 'BOMの展開に失敗しました');
         return data.data as BomExplosion;
     },
 
     deleteBillOfMaterial: (id: string) =>
-        apiRequest(`/api/master/bill-of-materials/${id}/`, { method: 'DELETE' }, '削除に失敗しました'),
+        apiRequest<MessageResponse>(`/api/master/bill-of-materials/${id}/`, { method: 'DELETE' }, '削除に失敗しました'),
 };
 
 export default bomService;

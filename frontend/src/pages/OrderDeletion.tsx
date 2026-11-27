@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Button, Form, Nav, Spinner } from 'react-bootstrap';
 import inventoryService, { AdminPurchaseOrder, SalesOrder } from '../services/inventoryService';
-import type { ApiErrorLike } from './apiError';
+import type { ApiErrorLike } from '../utils/api';
 import { t, registerTermTarget } from '../utils/terms';
 
 type Kind = 'purchase' | 'sales';

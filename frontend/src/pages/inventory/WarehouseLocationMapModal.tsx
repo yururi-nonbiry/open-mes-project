@@ -3,7 +3,7 @@ import Modal from '../../components/Modal';
 import inventoryService from '../../services/inventoryService';
 import { WarehouseLocationMap } from '../../services/warehouseLocationService';
 import WarehouseLayoutGrid from '../master/WarehouseLayoutGrid';
-import type { ApiErrorLike } from '../apiError';
+import type { ApiErrorLike } from '../../utils/api';
 import { t } from '../../utils/terms';
 
 interface WarehouseLocationMapModalProps {

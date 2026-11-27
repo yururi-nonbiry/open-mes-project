@@ -99,7 +99,7 @@ const UserSettings = () => {
     e.preventDefault();
     setProfileErrors({});
     try {
-      const data = await apiRequest('/api/users/settings/', {
+      const data = await apiRequest<{ message?: string; api_token?: string }>('/api/users/settings/', {
         method: 'PATCH',
         body: JSON.stringify({
           username: profileForm.username,
@@ -119,7 +119,7 @@ const UserSettings = () => {
     e.preventDefault();
     setPasswordErrors({});
     try {
-      const data = await apiRequest('/api/users/settings/password/', {
+      const data = await apiRequest<{ message?: string; api_token?: string }>('/api/users/settings/password/', {
         method: 'POST',
         body: JSON.stringify(passwordForm),
       }, 'パスワードの変更に失敗しました。');
@@ -139,8 +139,8 @@ const UserSettings = () => {
       return;
     }
     try {
-      const data = await apiRequest('/api/users/settings/token/', { method: 'POST' }, 'トークンの再生成に失敗しました。');
-      setApiToken(data.api_token);
+      const data = await apiRequest<{ message?: string; api_token?: string }>('/api/users/settings/token/', { method: 'POST' }, 'トークンの再生成に失敗しました。');
+      setApiToken(data.api_token ?? null);
       addMessage(data.message || 'APIトークンが再生成されました。', 'success');
       setIsTokenVisible(true); // Show the new token immediately
     } catch (err) {

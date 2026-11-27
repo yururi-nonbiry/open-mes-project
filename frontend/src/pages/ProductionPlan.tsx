@@ -1,4 +1,4 @@
-import type { ApiErrorLike } from './apiErrorTypes';
+import type { ApiErrorLike } from '../utils/api';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useProductionPlans } from '../hooks/useProductionPlans';
 import productionService, { ProductionPlan as ProductionPlanType } from '../services/productionService';

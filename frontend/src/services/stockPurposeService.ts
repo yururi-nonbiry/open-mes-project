@@ -1,4 +1,4 @@
-import { apiRequest } from '../utils/api';
+import { apiRequest, type DataEnvelope } from '../utils/api';
 
 export interface StockPurpose {
     id?: string;
@@ -10,7 +10,7 @@ export interface StockPurpose {
 const stockPurposeService = {
     /** 用途一覧。activeOnly=true で有効な用途のみ(入庫画面の選択肢用)。 */
     getPurposes: async (activeOnly = false) => {
-        const data = await apiRequest('/api/master/stock-purposes/', {}, '用途一覧の取得に失敗しました。');
+        const data = await apiRequest<DataEnvelope>('/api/master/stock-purposes/', {}, '用途一覧の取得に失敗しました。');
         const list = (data.data || []) as StockPurpose[];
         return activeOnly ? list.filter(p => p.is_active) : list;
     },

@@ -1,4 +1,4 @@
-import type { ApiErrorLike } from '../apiErrorTypes';
+import type { ApiErrorLike } from '../../utils/api';
 import React, { useState, useEffect, useRef } from 'react';
 import { Modal, Button, Alert } from 'react-bootstrap';
 import bomService, { BillOfMaterial, MasterItem, isConsumableItem, isProducibleItem, itemTypeLabel } from '../../services/bomService';

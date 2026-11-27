@@ -103,9 +103,27 @@ export const handleError = async (response: Response, defaultMessage: string) =>
 /**
  * authFetch でリクエストし、成功時はJSON本文(204の場合は undefined)を返す。失敗時は ApiError を送出する。
  */
-// 呼び出し側の多くが本文の型を定義していないため、既定では any として扱う
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const apiRequest = async <T = any>(
+/**
+ * 画面で catch したエラーの扱い方(message と、項目ごとのエラー errors)。
+ * サービス層が投げる ApiError もこの形を満たす。
+ */
+export interface ApiErrorLike extends Error {
+    errors?: Record<string, string | string[] | Array<Record<string, string[]> | null>>;
+}
+
+/** マスター系APIの応答(一覧・詳細は data に入る) */
+export interface DataEnvelope<T = unknown> {
+    data: T;
+    message?: string;
+}
+
+/** 登録・更新などの結果のメッセージだけを使う応答 */
+export interface MessageResponse {
+    message: string;
+}
+
+// 本文の型は呼び出し側で指定する(既定の unknown のままでは中身を参照できないため、型の指定漏れに気付ける)
+export const apiRequest = async <T = unknown>(
     url: string,
     options: RequestInit = {},
     defaultMessage = 'サーバーとの通信に失敗しました。'

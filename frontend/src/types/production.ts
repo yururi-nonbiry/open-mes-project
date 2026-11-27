@@ -178,9 +178,10 @@ export interface UpdateProgressResponse {
     new_status: string;
 }
 
+/** 引当結果の明細行 */
 export interface AllocationSummaryItem {
     part_number: string;
-    allocated_quantity: number;
+    allocated_quantity: number | string;
     status: string;
 }
 

@@ -3,7 +3,7 @@ import { Modal, Button, Alert } from 'react-bootstrap';
 import inventoryService, { InventoryItem } from '../../services/inventoryService';
 import { useStockPurposes } from '../../hooks/useStockPurposes';
 import { NavIcon } from '../../components/NavIcon';
-import type { ApiErrorLike } from '../apiError';
+import type { ApiErrorLike } from '../../utils/api';
 import { useDelayedClose } from '../../hooks/useDelayedClose';
 
 interface InventoryChangePurposeModalProps {

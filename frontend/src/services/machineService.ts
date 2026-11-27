@@ -1,4 +1,4 @@
-import { apiRequest } from '../utils/api';
+import { apiRequest, type DataEnvelope } from '../utils/api';
 
 export interface Machine {
     id?: string;
@@ -11,7 +11,7 @@ export interface Machine {
 
 const machineService = {
     getMachines: async () => {
-        const data = await apiRequest('/api/machine/machines/', {}, 'Failed to fetch machines');
+        const data = await apiRequest<DataEnvelope>('/api/machine/machines/', {}, 'Failed to fetch machines');
         return data.data as Machine[];
     },
 

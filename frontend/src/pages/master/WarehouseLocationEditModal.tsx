@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../../components/Modal';
 import { WarehouseLocation } from '../../services/warehouseLocationService';
-import type { ApiErrorLike } from '../apiError';
+import type { ApiErrorLike } from '../../utils/api';
 
 interface WarehouseLocationEditModalProps {
     isOpen: boolean;

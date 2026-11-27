@@ -1,5 +1,5 @@
 
-import type { RequiredPart, RequiredPartWarehouse } from '../../types/production';
+import type { AllocationSummaryItem, RequiredPart, RequiredPartWarehouse } from '../../types/production';
 
 /** 進捗ステータスの選択肢(AVAILABLE_STATUSES の要素) */
 export interface StatusOption {
@@ -10,12 +10,6 @@ export interface StatusOption {
     default_selected: boolean;
 }
 
-/** 引当結果の明細行 */
-export interface AllocationSummaryItem {
-    part_number: string;
-    allocated_quantity: number | string;
-    status: string;
-}
 
 /** 引当APIの応答(表示に使う項目のみ) */
 export interface AllocationResultData {

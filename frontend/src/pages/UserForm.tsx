@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import authFetch, { formatFieldErrors, toApiError } from '../utils/api';
 import { useAuth } from '../hooks/useAuth';
-import type { ApiErrorLike } from './apiError';
+import type { ApiErrorLike } from '../utils/api';
 
 interface UserFormState {
     custom_id: string;

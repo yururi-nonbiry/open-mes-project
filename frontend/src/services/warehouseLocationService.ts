@@ -1,4 +1,4 @@
-import { apiRequest } from '../utils/api';
+import { apiRequest, type DataEnvelope } from '../utils/api';
 
 export interface Warehouse {
     id?: string;
@@ -43,7 +43,7 @@ export interface WarehouseLocationMap {
 
 const warehouseLocationService = {
     getWarehouses: async () => {
-        const data = await apiRequest('/api/master/warehouses/', {}, '倉庫一覧の取得に失敗しました。');
+        const data = await apiRequest<DataEnvelope>('/api/master/warehouses/', {}, '倉庫一覧の取得に失敗しました。');
         return (data.data || []) as Warehouse[];
     },
 
@@ -55,7 +55,7 @@ const warehouseLocationService = {
         ),
 
     getLocations: async (warehouseNumber: string) => {
-        const data = await apiRequest(
+        const data = await apiRequest<DataEnvelope>(
             `/api/master/warehouse-locations/?warehouse=${encodeURIComponent(warehouseNumber)}`,
             {},
             'ロケーション一覧の取得に失敗しました。'

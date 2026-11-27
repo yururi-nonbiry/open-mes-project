@@ -1,4 +1,4 @@
-import type { ApiErrorLike } from './apiErrorTypes';
+import type { ApiErrorLike } from '../utils/api';
 import { useState, useEffect } from 'react';
 import machineService, { Machine } from '../services/machineService';
 import qualityService, { InspectionItem } from '../services/qualityService';

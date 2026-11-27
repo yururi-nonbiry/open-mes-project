@@ -14,13 +14,6 @@ export interface DisplaySetting {
   search_order?: number;
 }
 
-/** モデル項目(/api/base/model-fields/)の1行 */
-export interface ModelFieldInfo {
-  name: string;
-  verbose_name: string;
-  field_type?: string;
-}
-
 /** 一覧セルに表示できる値(React がそのまま描画できる範囲) */
 export type CellValue = string | number | boolean | null | undefined;
 

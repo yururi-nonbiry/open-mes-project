@@ -1,4 +1,4 @@
-import authFetch, { apiRequest, handleError, toApiError, ApiError } from '../utils/api';
+import authFetch, { type DataEnvelope, type MessageResponse, apiRequest, handleError, toApiError, ApiError } from '../utils/api';
 import { WarehouseLocationMap } from './warehouseLocationService';
 import { t } from '../utils/terms';
 import { applyShelfInput } from '../utils/shelfQr';
@@ -86,11 +86,6 @@ export interface DisplaySetting {
     search_order: number;
 }
 
-export interface ModelField {
-    name: string;
-    verbose_name: string;
-}
-
 export interface ItemName {
     code: string;
     name: string;
@@ -157,7 +152,7 @@ const inventoryService = {
     updateInventory: (id: string | number, payload: InventoryPayload) => withMixedPurposeConfirm(extra => {
         // quantity/location の変更は在庫移動履歴(StockMovement)の記録を伴うため、
         // 専用の /adjust/ アクション経由で行う（直接のPATCHはquantity/reservedを受け付けない）。
-        return apiRequest(
+        return apiRequest<MessageResponse>(
             `/api/inventory/inventories/${id}/adjust/`,
             { method: 'POST', body: JSON.stringify({ ...payload, ...extra }) },
             'Failed to update inventory'
@@ -173,7 +168,7 @@ const inventoryService = {
         )),
 
     moveInventory: (id: string | number, payload: InventoryPayload) =>
-        withMixedPurposeConfirm(extra => apiRequest(
+        withMixedPurposeConfirm(extra => apiRequest<MessageResponse>(
             `/api/inventory/inventories/${id}/move/`,
             { method: 'POST', body: JSON.stringify({ ...payload, ...extra }) },
             'Failed to move inventory'
@@ -340,7 +335,7 @@ const inventoryService = {
     },
 
     getSalesOrderLocationMap: async (orderId: string | number) => {
-        const data = await apiRequest(
+        const data = await apiRequest<DataEnvelope>(
             `/api/inventory/sales-orders/${orderId}/location-map/`,
             {},
             'ロケーションマップの取得に失敗しました。'

@@ -1,4 +1,4 @@
-import type { ApiErrorLike } from '../apiErrorTypes';
+import type { ApiErrorLike } from '../../utils/api';
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Alert } from 'react-bootstrap';
 import productionService from '../../services/productionService';

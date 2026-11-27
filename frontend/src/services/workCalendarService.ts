@@ -1,4 +1,4 @@
-import { apiRequest } from '../utils/api';
+import { apiRequest, type DataEnvelope } from '../utils/api';
 
 export interface WorkCalendarSetting {
     monday: boolean;
@@ -19,7 +19,7 @@ export interface WorkCalendarDay {
 
 const workCalendarService = {
     getSetting: async () => {
-        const data = await apiRequest('/api/master/work-calendar-settings/', {}, '稼働曜日の取得に失敗しました。');
+        const data = await apiRequest<DataEnvelope>('/api/master/work-calendar-settings/', {}, '稼働曜日の取得に失敗しました。');
         return data.data as WorkCalendarSetting;
     },
 
@@ -31,7 +31,7 @@ const workCalendarService = {
         ),
 
     getDays: async (from: string, to: string) => {
-        const data = await apiRequest(
+        const data = await apiRequest<DataEnvelope>(
             `/api/master/work-calendar-days/?from=${from}&to=${to}`,
             {},
             '例外日の取得に失敗しました。',

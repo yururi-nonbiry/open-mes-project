@@ -1,4 +1,4 @@
-import type { ApiErrorLike } from './apiErrorTypes';
+import type { ApiErrorLike } from '../utils/api';
 import React, { useState, useEffect, useCallback } from 'react';
 import authFetch, { handleError } from '../utils/api';
 

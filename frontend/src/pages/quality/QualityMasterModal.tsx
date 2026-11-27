@@ -1,4 +1,4 @@
-import type { ApiErrorLike } from '../apiErrorTypes';
+import type { ApiErrorLike } from '../../utils/api';
 import React, { useState, useEffect, useRef } from 'react';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import Modal from '../../components/Modal';

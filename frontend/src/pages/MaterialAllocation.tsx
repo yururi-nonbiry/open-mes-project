@@ -1,4 +1,4 @@
-import type { ApiErrorLike } from './apiErrorTypes';
+import type { ApiErrorLike } from '../utils/api';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Spinner } from 'react-bootstrap';
 import authFetch, { fetchAllPages, handleError } from '../utils/api';

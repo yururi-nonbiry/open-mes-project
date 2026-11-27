@@ -1,4 +1,4 @@
-import { apiRequest } from '../utils/api';
+import { apiRequest, type DataEnvelope, type MessageResponse } from '../utils/api';
 
 export interface MeasurementDetail {
     id?: string | null;
@@ -25,14 +25,20 @@ export interface InspectionItem {
     measurement_details?: MeasurementDetail[];
 }
 
+/** 検査結果の入力フォームの定義(form-data) */
+export interface InspectionFormData {
+    result_form_fields: { name: string; label: string; type: string; required?: boolean; options?: { value: string; label: string }[] }[];
+    measurement_details: MeasurementDetail[];
+}
+
 const qualityService = {
     getInspectionItems: async () => {
-        const data = await apiRequest('/api/quality/inspection-items/', {}, 'Failed to fetch inspection items');
+        const data = await apiRequest<DataEnvelope>('/api/quality/inspection-items/', {}, 'Failed to fetch inspection items');
         return data.data as InspectionItem[];
     },
 
     getInspectionItem: async (id: string) => {
-        const data = await apiRequest(`/api/quality/inspection-items/${id}/`, {}, 'Failed to fetch inspection item');
+        const data = await apiRequest<DataEnvelope>(`/api/quality/inspection-items/${id}/`, {}, 'Failed to fetch inspection item');
         return data.data as InspectionItem;
     },
 
@@ -43,13 +49,13 @@ const qualityService = {
         apiRequest(`/api/quality/inspection-items/${id}/`, { method: 'PUT', body: JSON.stringify(item) }, 'Failed to update item'),
 
     deleteInspectionItem: (id: string) =>
-        apiRequest(`/api/quality/inspection-items/${id}/`, { method: 'DELETE' }, 'Failed to delete item'),
+        apiRequest<MessageResponse>(`/api/quality/inspection-items/${id}/`, { method: 'DELETE' }, 'Failed to delete item'),
 
     getInspectionFormData: (id: string | number) =>
-        apiRequest(`/api/quality/inspection-items/${id}/form-data/`, {}, 'Failed to fetch inspection form data'),
+        apiRequest<InspectionFormData>(`/api/quality/inspection-items/${id}/form-data/`, {}, 'Failed to fetch inspection form data'),
 
     recordInspectionResult: (id: string | number, formData: FormData) =>
-        apiRequest(
+        apiRequest<MessageResponse>(
             `/api/quality/inspection-items/${id}/record-result/`,
             { method: 'POST', body: formData },
             'Failed to record inspection result'

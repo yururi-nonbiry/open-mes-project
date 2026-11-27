@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Button, Form, Spinner } from 'react-bootstrap';
 import workCalendarService, { WorkCalendarDay, WorkCalendarSetting } from '../services/workCalendarService';
-import type { ApiErrorLike } from './apiError';
+import type { ApiErrorLike } from '../utils/api';
 
 const WEEKDAYS: { key: keyof WorkCalendarSetting; label: string }[] = [
     { key: 'monday', label: '月' },

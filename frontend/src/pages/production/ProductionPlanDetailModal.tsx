@@ -1,4 +1,4 @@
-import type { ApiErrorLike } from '../apiErrorTypes';
+import type { ApiErrorLike } from '../../utils/api';
 import React, { useEffect, useState } from 'react';
 import Modal from '../../components/Modal';
 import productionService from '../../services/productionService';
