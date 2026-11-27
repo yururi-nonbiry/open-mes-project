@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Spinner } from 'react-bootstrap';
 import authFetch from '../utils/api';
-import type { DisplaySetting, ModelFieldInfo, SearchParamValue, StockMovementRow } from './types/listPage';
+import type { DisplaySetting, SearchParamValue, StockMovementRow } from './types/listPage';
 import { registerTermTarget } from '../utils/terms';
 import { STOCK_MOVEMENT_DEFAULT_COLUMNS } from '../config/listDefaultColumns';
 
@@ -67,6 +67,35 @@ const StockMovementHistory: React.FC = () => {
 
     const pageSize = 25;
 
+    // 列・検索項目の表示設定は画面を開いたときに1回だけ取得する(検索・ページ送りのたびに取得しない)。
+    // 列名は表示設定APIが返す項目名を使い、管理者専用の model-fields は呼ばない
+    // (一般ユーザーが呼ぶと403になり、権限エラーとして監査ログに記録されてしまうため)
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const response = await authFetch('/api/base/model-display-settings/?data_type=stock_movement');
+                const settings = response.ok ? (await response.json()) as DisplaySetting[] : [];
+                if (cancelled) return;
+                const combinedSettings = settings.map((s): DisplaySetting => ({
+                    ...s,
+                    verbose_name: s.verbose_name || s.model_field_name,
+                }));
+                setDisplaySettings(combinedSettings
+                    .filter((s) => s.is_list_display)
+                    .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0)));
+                setSearchFields(combinedSettings
+                    .filter((s) => s.is_search_field && s.model_field_name !== 'movement_type')
+                    .sort((a, b) => (a.search_order ?? 0) - (b.search_order ?? 0)));
+            } catch (_err) {
+                if (cancelled) return;
+                setDisplaySettings([]);
+                setSearchFields([]);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
+
     const fetchHistory = useCallback(async (page: number, params: Record<string, SearchParamValue>) => {
         setLoading(true);
         setError(null);
@@ -87,41 +116,8 @@ const StockMovementHistory: React.FC = () => {
             }
         });
 
-        const settingsUrl = '/api/base/model-display-settings/?data_type=stock_movement';
-        const fieldsUrl = '/api/base/model-fields/?data_type=stock_movement&include_relations=true';
-
         try {
-            const [settingsResponse, dataResponse, fieldsResponse] = await Promise.all([
-                authFetch(settingsUrl),
-                authFetch(dataUrl.pathname + dataUrl.search),
-                authFetch(fieldsUrl),
-            ]);
-
-            const settings = settingsResponse.ok ? await settingsResponse.json() : [];
-            const fields = fieldsResponse.ok ? await fieldsResponse.json() : [];
-
-            const verboseNameMap = new Map((fields as ModelFieldInfo[]).map((f) => [f.name, f.verbose_name]));
-
-            if (settingsResponse.ok) {
-                const combinedSettings = (settings as DisplaySetting[]).map((s): DisplaySetting => ({
-                    ...s,
-                    verbose_name: verboseNameMap.get(s.model_field_name) || s.verbose_name || s.model_field_name,
-                }));
-
-                setDisplaySettings(
-                    combinedSettings
-                        .filter((s) => s.is_list_display)
-                        .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
-                );
-                setSearchFields(
-                    combinedSettings
-                        .filter((s) => s.is_search_field && s.model_field_name !== 'movement_type')
-                        .sort((a, b) => (a.search_order ?? 0) - (b.search_order ?? 0))
-                );
-            } else {
-                setDisplaySettings([]);
-                setSearchFields([]);
-            }
+            const dataResponse = await authFetch(dataUrl.pathname + dataUrl.search);
 
             if (!dataResponse.ok) {
                 throw new Error(`HTTP error! status: ${dataResponse.status}`);

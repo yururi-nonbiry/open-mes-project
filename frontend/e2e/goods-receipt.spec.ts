@@ -196,13 +196,14 @@ test('FE-GR-03 一覧表示対象の設定が無く検索項目のみ設定さ�
 test('FE-GR-04 一般ユーザー(スタッフ権限なし)にも表示設定が反映されること', async ({ page }) => {
   await setSettings(CUSTOM_SETTINGS);
   const settingsResponse = page.waitForResponse((r) => r.url().includes('/api/base/model-display-settings/'));
-  const fieldsResponse = page.waitForResponse((r) => r.url().includes('/api/base/model-fields/'));
+  const fieldsRequests: string[] = [];
+  page.on('request', (r) => { if (r.url().includes('/api/base/model-fields/')) fieldsRequests.push(r.url()); });
   await openPage(page, generalTokens);
 
   expect((await settingsResponse).status()).toBe(200);
-  // 項目定義APIは管理者限定のままだが、見出しは表示設定側の名称で表示される
-  expect((await fieldsResponse).status()).toBe(403);
+  // 見出しは表示設定APIが返す名称で表示し、管理者専用の項目定義APIは呼ばない(403・監査ログを出さない)
   await expect(headers(page)).toHaveText(CUSTOM_HEADERS);
+  expect(fieldsRequests).toEqual([]);
   await expect(rows(page).first().locator('td')).toHaveText([
     orders[0].order_number,
     'E2E入庫テスト品 01',
@@ -213,6 +214,22 @@ test('FE-GR-04 一般ユーザー(スタッフ権限なし)にも表示設定が
     '—',
     '入庫処理納品記録',
   ]);
+});
+
+test('FE-GR-21 検索・ページ送りのたびに表示設定を取り直さず、一般ユーザーでも項目定義APIを呼ばないこと', async ({ page }) => {
+  await setSettings(CUSTOM_SETTINGS);
+  const settingsRequests: string[] = [];
+  const fieldsRequests: string[] = [];
+  page.on('request', (r) => {
+    if (r.url().includes('/api/base/model-display-settings/')) settingsRequests.push(r.url());
+    if (r.url().includes('/api/base/model-fields/')) fieldsRequests.push(r.url());
+  });
+  await openPage(page, generalTokens);
+  const afterOpen = settingsRequests.length;
+  await searchOrder(page, orders[0].order_number);
+  await searchOrder(page, orders[1].order_number);
+  expect(settingsRequests.length).toBe(afterOpen);
+  expect(fieldsRequests).toEqual([]);
 });
 
 test('FE-GR-14 仕入先・品番・入庫倉庫を列と検索項目に設定でき、スタッフ・一般ユーザーの両方で表示されること', async ({ page, browser }) => {

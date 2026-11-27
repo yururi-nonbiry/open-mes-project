@@ -8,7 +8,7 @@ import type { ScheduleDateDefaults } from '../services/scheduleDateDefaultsServi
 import WarehouseLocationMapModal from './inventory/WarehouseLocationMapModal';
 import authFetch from '../utils/api';
 import { executeQrAction } from '../utils/qrAction';
-import type { DisplaySetting, ModelFieldInfo } from './types/listPage';
+import type { DisplaySetting } from './types/listPage';
 import { t, registerTermTarget } from '../utils/terms';
 import { GOODS_ISSUE_DEFAULT_COLUMNS } from '../config/listDefaultColumns';
 
@@ -79,22 +79,17 @@ const GoodsIssueContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefault
   useEffect(() => {
     (async () => {
       try {
-        const [settingsRes, fieldsRes] = await Promise.all([
-          authFetch('/api/base/model-display-settings/?data_type=sales_order'),
-          authFetch('/api/base/model-fields/?data_type=sales_order&include_relations=true'),
-        ]);
+        // 列名は表示設定APIが返す項目名を使い、管理者専用の model-fields は呼ばない
+        // (一般ユーザーが呼ぶと403になり、権限エラーとして監査ログに記録されてしまうため)
+        const settingsRes = await authFetch('/api/base/model-display-settings/?data_type=sales_order');
         const settings = settingsRes.ok ? await settingsRes.json() : [];
-        const fields = fieldsRes.ok ? await fieldsRes.json() : [];
-        const verboseNames = new Map<string, string>();
-        (fields as ModelFieldInfo[]).forEach((f) => verboseNames.set(f.name, f.verbose_name));
         const visible = (settings as DisplaySetting[])
           .filter((s) => s.is_list_display)
           .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
           .map((s) => ({
             ...s,
-            // 列名は、既定の列の名前 > モデル項目の名前 > 設定が持つ名前の順に使う
-            // (model-fields は管理者専用で、一般ユーザーは取得できない。未出庫残のような計算項目はモデルに無い)
-            verbose_name: getDefaultLabels().get(s.model_field_name) || verboseNames.get(s.model_field_name) || s.verbose_name || s.model_field_name,
+            // 列名は、既定の列の名前 > 設定が持つ項目名の順に使う
+            verbose_name: getDefaultLabels().get(s.model_field_name) || s.verbose_name || s.model_field_name,
           }));
         setDisplaySettings(visible);
       } catch (e) {

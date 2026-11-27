@@ -18,16 +18,12 @@ export const useInventory = () => {
 
     const fetchSettings = useCallback(async () => {
         try {
-            const [settings, fields] = await Promise.all([
-                inventoryService.getDisplaySettings('inventory'),
-                // model-fields は管理者限定のため、一般ユーザーでは取得できない(その場合は設定側のverbose_nameを使う)
-                inventoryService.getModelFields('inventory').catch(() => [])
-            ]);
-
-            const verboseNameMap = new Map(fields.map((f) => [f.name, f.verbose_name]));
+            // 列名は表示設定APIが返す項目名を使い、管理者専用の model-fields は呼ばない
+            // (一般ユーザーが呼ぶと403になり、権限エラーとして監査ログに記録されてしまうため)
+            const settings = await inventoryService.getDisplaySettings('inventory');
             const combinedSettings = settings.map((setting) => ({
                 ...setting,
-                verbose_name: verboseNameMap.get(setting.model_field_name) || setting.verbose_name || setting.model_field_name,
+                verbose_name: setting.verbose_name || setting.model_field_name,
             }));
 
             setDisplaySettings(combinedSettings

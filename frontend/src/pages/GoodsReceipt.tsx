@@ -10,7 +10,7 @@ import { GOODS_RECEIPT_DEFAULT_COLUMNS } from '../config/listDefaultColumns';
 import inventoryService from '../services/inventoryService';
 import { NavIcon } from '../components/NavIcon';
 import './InventoryInquiry.css';
-import type { DisplaySetting, ModelFieldInfo, PurchaseOrderRow } from './types/listPage';
+import type { DisplaySetting, PurchaseOrderRow } from './types/listPage';
 import { t } from '../utils/terms';
 
 const NUMERIC_FIELDS = ['quantity', 'received_quantity', 'remaining_quantity', 'delivered_quantity'];
@@ -109,6 +109,41 @@ const GoodsReceiptContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefau
     delivered_quantity: '',
   });
 
+  // 列・検索項目の表示設定は画面を開いたときに1回だけ取得する(検索・ページ送りのたびに取得しない)。
+  // 列名は表示設定APIが返す項目名(verbose_name)を使い、管理者専用の model-fields は呼ばない
+  // (一般ユーザーが呼ぶと403になり、権限エラーとして監査ログに記録されてしまうため)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [poSettings, grSettings] = await Promise.all([
+          inventoryService.getDisplaySettings('purchase_order'),
+          inventoryService.getDisplaySettings('goods_receipt'),
+        ]);
+        if (cancelled) return;
+        const settingsMap = new Map<string, DisplaySetting>();
+        [...poSettings, ...grSettings].forEach((setting) => {
+          settingsMap.set(setting.model_field_name, {
+            ...setting,
+            verbose_name: setting.verbose_name || setting.model_field_name,
+          } as DisplaySetting);
+        });
+        const combinedSettings = Array.from(settingsMap.values());
+        setDisplaySettings(combinedSettings
+          .filter((s) => s.is_list_display)
+          .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0)));
+        setSearchFields(combinedSettings
+          .filter((s) => s.is_search_field)
+          .sort((a, b) => (a.search_order ?? 0) - (b.search_order ?? 0)));
+      } catch (_err) {
+        if (cancelled) return;
+        setDisplaySettings([]);
+        setSearchFields([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   const fetchPurchaseOrders = useCallback(async (pageUrl: string | null = null) => {
     setIsLoading(true);
     setError(null);
@@ -131,69 +166,8 @@ const GoodsReceiptContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefau
       dataApiUrl = `/api/inventory/purchase-orders/?${params.toString()}`;
     }
 
-    const poSettingsUrl = '/api/base/model-display-settings/?data_type=purchase_order';
-    const grSettingsUrl = '/api/base/model-display-settings/?data_type=goods_receipt';
-    const poFieldsUrl = '/api/base/model-fields/?data_type=purchase_order&include_relations=true';
-    const grFieldsUrl = '/api/base/model-fields/?data_type=goods_receipt&include_relations=true';
-
     try {
-      const [poSettingsResponse, grSettingsResponse, dataResponse, poFieldsResponse, grFieldsResponse] = await Promise.all([
-        authFetch(poSettingsUrl),
-        authFetch(grSettingsUrl),
-        authFetch(dataApiUrl),
-        authFetch(poFieldsUrl),
-        authFetch(grFieldsUrl),
-      ]);
-
-      const poSettings = poSettingsResponse.ok ? await poSettingsResponse.json() : [];
-      const grSettings = grSettingsResponse.ok ? await grSettingsResponse.json() : [];
-      const poFields = poFieldsResponse.ok ? await poFieldsResponse.json() : [];
-      const grFields = grFieldsResponse.ok ? await grFieldsResponse.json() : [];
-
-      const verboseNameMap = new Map<string, string>();
-      const fieldTypeMap = new Map<string, string | undefined>();
-
-      (poFields as ModelFieldInfo[]).forEach((field) => {
-        verboseNameMap.set(field.name, field.verbose_name);
-        fieldTypeMap.set(field.name, field.field_type);
-      });
-      (grFields as ModelFieldInfo[]).forEach((field) => {
-        if (!verboseNameMap.has(field.name)) {
-          verboseNameMap.set(field.name, field.verbose_name);
-          fieldTypeMap.set(field.name, field.field_type);
-        }
-      });
-
-      if (poSettingsResponse.ok && grSettingsResponse.ok) {
-        const settingsMap = new Map<string, DisplaySetting>();
-        (poSettings as DisplaySetting[]).forEach((setting) => {
-          settingsMap.set(setting.model_field_name, setting);
-        });
-        (grSettings as DisplaySetting[]).forEach((setting) => {
-          settingsMap.set(setting.model_field_name, setting);
-        });
-
-        const mergedSettings = Array.from(settingsMap.values());
-        const combinedSettings = mergedSettings.map((setting): DisplaySetting => ({
-          ...setting,
-          verbose_name: verboseNameMap.get(setting.model_field_name) || setting.verbose_name || setting.model_field_name,
-          field_type: fieldTypeMap.get(setting.model_field_name) || 'Unknown',
-        }));
-
-        const visibleColumns = combinedSettings
-          .filter((s) => s.is_list_display)
-          .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
-        setDisplaySettings(visibleColumns);
-
-        const searchableFields = combinedSettings
-          .filter((s) => s.is_search_field)
-          .sort((a, b) => (a.search_order ?? 0) - (b.search_order ?? 0));
-        setSearchFields(searchableFields);
-      } else {
-        setDisplaySettings([]);
-        setSearchFields([]);
-      }
-
+      const dataResponse = await authFetch(dataApiUrl);
       if (!dataResponse.ok) {
         throw new Error(`Network response was not ok: ${dataResponse.statusText}`);
       }
