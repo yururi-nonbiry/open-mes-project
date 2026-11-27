@@ -216,3 +216,32 @@ const authFetch = async (url: string, options: RequestInit = {}): Promise<Respon
 };
 
 export default authFetch;
+/**
+ * API が返す next/previous の絶対URLを、同一オリジンの相対パス(パス+クエリ)に直す。
+ * リバースプロキシ配下ではサーバーが内部のホスト名で絶対URLを組み立てることがあり、そのまま fetch すると失敗するため。
+ */
+export const toRelativeApiPath = (url: string): string => {
+    try {
+        const parsed = new URL(url, window.location.origin);
+        return parsed.pathname + parsed.search;
+    } catch (_err) {
+        return url;
+    }
+};
+
+/**
+ * ページングされた一覧APIを最後のページまで取得し、全件を返す(next をたどる)。
+ * 1ページ目だけを読むと、件数が多いときに後ろのデータが表示されなくなるため。
+ */
+export const fetchAllPages = async <T>(url: string, defaultMessage: string, maxPages = 100): Promise<T[]> => {
+    const results: T[] = [];
+    let next: string | null = url;
+    for (let page = 0; next && page < maxPages; page += 1) {
+        const response = await authFetch(toRelativeApiPath(next));
+        await handleError(response, defaultMessage);
+        const data = await response.json() as { results?: T[]; next?: string | null };
+        results.push(...(data.results || []));
+        next = data.next || null;
+    }
+    return results;
+};

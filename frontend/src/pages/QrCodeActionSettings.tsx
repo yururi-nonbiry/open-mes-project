@@ -12,7 +12,7 @@ interface ActionTemplate {
 }
 
 interface QrCodeAction extends ActionTemplate {
-    id?: number;
+    id?: string;  // UUID
     name: string;
 }
 
@@ -50,6 +50,8 @@ const QrCodeActionSettings = () => {
     const [currentAction, setCurrentAction] = useState<QrCodeAction | null>(null); // null for new, object for edit
     const [formErrors, setFormErrors] = useState<FormErrors>({});
     const [isSaving, setIsSaving] = useState(false);
+    // 新規作成時に選んでいるテンプレート(実行内容・説明・パターンの初期値)
+    const [templateName, setTemplateName] = useState(Object.keys(ACTION_TEMPLATES)[0]);
 
     const API_URL = '/api/base/qr-code-actions/';
 
@@ -80,9 +82,11 @@ const QrCodeActionSettings = () => {
             setCurrentAction({ ...action });
         } else {
             // Creating a new action
+            // 名前はアクションごとに一意のため、テンプレート名で埋めず自由に入力してもらう(テンプレートは内容の初期値に使う)
             const firstTemplateName = Object.keys(ACTION_TEMPLATES)[0];
+            setTemplateName(firstTemplateName);
             setCurrentAction({
-                name: firstTemplateName,
+                name: '',
                 ...ACTION_TEMPLATES[firstTemplateName],
             });
         }
@@ -99,11 +103,12 @@ const QrCodeActionSettings = () => {
         const { name, value, type } = e.target;
         const checked = (e.target as HTMLInputElement).checked;
 
-        // 新規作成時は、アクションの選択に合わせて他の項目をテンプレートで埋める
-        if (name === 'name' && !currentAction?.id) {
+        // 新規作成時は、テンプレートの選択に合わせて名前以外の項目を埋める
+        if (name === 'template' && !currentAction?.id) {
+            setTemplateName(value);
             const template = ACTION_TEMPLATES[value];
             if (template) {
-                setCurrentAction(prev => prev && ({ ...prev, name: value, ...template }));
+                setCurrentAction(prev => prev && ({ ...prev, ...template }));
             }
         } else {
             setCurrentAction(prev => prev && ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
@@ -134,7 +139,7 @@ const QrCodeActionSettings = () => {
         }
     };
 
-    const handleDelete = async (id: number | undefined) => {
+    const handleDelete = async (id: string | undefined) => {
         if (window.confirm('このアクションを本当に削除しますか？')) {
             try {
                 const response = await authFetch(`${API_URL}${id}/`, {
@@ -248,17 +253,31 @@ const QrCodeActionSettings = () => {
                         <Modal.Body className="mes-modal-body">
                             {formErrors.non_field_errors && <Alert variant="danger">{formErrors.non_field_errors}</Alert>}
 
+                            {!currentAction.id && (
+                                <Form.Group as={Row} className="mb-3" controlId="formTemplate">
+                                    <Form.Label column sm={3} className="fw-bold">テンプレート</Form.Label>
+                                    <Col sm={9}>
+                                        <Form.Select name="template" value={templateName} onChange={handleFormChange}>
+                                            {Object.keys(ACTION_TEMPLATES).map(name => (
+                                                <option key={name} value={name}>{name}</option>
+                                            ))}
+                                        </Form.Select>
+                                        <Form.Text className="text-muted">選んだテンプレートで、実行内容・説明・パターンの初期値を入力します。</Form.Text>
+                                    </Col>
+                                </Form.Group>
+                            )}
+
                             <Form.Group as={Row} className="mb-3" controlId="formAction">
-                                <Form.Label column sm={3} className="fw-bold">{currentAction.id ? 'アクション名' : 'アクション'}</Form.Label>
+                                <Form.Label column sm={3} className="fw-bold">アクション名</Form.Label>
                                 <Col sm={9}>
                                     {currentAction.id ? (
                                         <div className="fw-bold text-dark py-1">{currentAction.name}</div>
                                     ) : (
-                                        <Form.Select name="name" value={currentAction.name} onChange={handleFormChange} isInvalid={!!formErrors.name} required>
-                                            {Object.keys(ACTION_TEMPLATES).map(templateName => (
-                                                <option key={templateName} value={templateName}>{templateName}</option>
-                                            ))}
-                                        </Form.Select>
+                                        <Form.Control
+                                            type="text" name="name" value={currentAction.name} onChange={handleFormChange}
+                                            isInvalid={!!formErrors.name} required maxLength={100}
+                                            placeholder={`例: ${templateName}（ライン1）`}
+                                        />
                                     )}
                                     <Form.Control.Feedback type="invalid">{formErrors.name}</Form.Control.Feedback>
                                 </Col>

@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Container, Form, Button, Card, Badge, Spinner, Alert, InputGroup } from 'react-bootstrap';
-import authFetch, { handleError } from '../../utils/api';
+import authFetch, { fetchAllPages, handleError } from '../../utils/api';
 import { useWorkCenters } from '../../hooks/useWorkCenters';
-import type { MaterialAllocation, PaginationData } from '../../types/production';
+import type { MaterialAllocation } from '../../types/production';
 import pickingSearchFieldsService, { DEFAULT_PICKING_SEARCH_FIELDS } from '../../services/pickingSearchFieldsService';
 import type { PickingSearchField } from '../../services/pickingSearchFieldsService';
 import inventoryService from '../../services/inventoryService';
@@ -16,7 +16,8 @@ interface PlanGroup {
     planName: string;
     productCode: string;
     productName: string;
-    line: string;
+    /** 計画内の部品の出庫先ライン(重複なし。'' はライン未指定)。部品ごとにラインが違う場合がある */
+    lines: string[];
     items: MaterialAllocation[];
     allocatedCount: number;
 }
@@ -82,10 +83,10 @@ const MobilePickingPage = () => {
         setLoading(true);
         setError(null);
         try {
-            const response = await authFetch('/api/production/material-allocations/?page_size=300');
-            await handleError(response, t('順立て（ピッキング）データの取得に失敗しました。'));
-            const data = (await response.json()) as PaginationData<MaterialAllocation>;
-            setAllocations(data.results || []);
+            // 全ページを取得する(1ページ目だけでは、件数が多いと未ピッキングの部品が表示されないため)
+            setAllocations(await fetchAllPages<MaterialAllocation>(
+                '/api/production/material-allocations/?page_size=500', t('順立て（ピッキング）データの取得に失敗しました。'),
+            ));
         } catch (e) {
             setError(errorMessage(e));
         } finally {
@@ -108,13 +109,14 @@ const MobilePickingPage = () => {
                     planName: a.production_plan_name || planId,
                     productCode,
                     productName: a.product_name || '',
-                    line: a.line || '',
+                    lines: [],
                     items: [],
                     allocatedCount: 0,
                 };
                 map.set(key, g);
             }
             g.items.push(a);
+            if (!g.lines.includes(a.line || '')) g.lines.push(a.line || '');
             if (a.status === 'ALLOCATED') g.allocatedCount += 1;
         });
         const list = Array.from(map.values());
@@ -126,14 +128,14 @@ const MobilePickingPage = () => {
         const kw = keyword.trim().toLowerCase();
         return groups
             .filter((g) => {
-                if (lineFilter === 'none' ? g.line : lineFilter && g.line !== lineFilter) return false;
+                if (lineFilter === 'none' ? !g.lines.includes('') : lineFilter && !g.lines.includes(lineFilter)) return false;
                 if (!kw) return true;
                 const matches = (v?: string | null) => (v || '').toLowerCase().includes(kw);
                 const on = (f: PickingSearchField) => searchFields.includes(f);
                 return (on('product_code') && matches(g.productCode))
                     || (on('product_name') && matches(g.productName))
                     || (on('plan_name') && matches(g.planName))
-                    || (on('line') && matches(g.line))
+                    || (on('line') && g.lines.some((line) => matches(line)))
                     || g.items.some((i) =>
                         (on('purpose') && matches(i.purpose))
                         || (on('material_code') && matches(i.material_code))
@@ -231,7 +233,7 @@ const MobilePickingPage = () => {
                                 <Badge bg="info" text="dark">未 {g.allocatedCount}</Badge>
                             </div>
                             <small className="text-muted">
-                                {g.planName}{g.line ? ` / ライン: ${g.line}` : ''}
+                                {g.planName}{g.lines.some(Boolean) ? ` / ライン: ${g.lines.filter(Boolean).join('、')}` : ''}
                             </small>
                         </Card.Header>
                         <Card.Body className="p-2">

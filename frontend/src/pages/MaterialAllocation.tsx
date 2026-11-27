@@ -1,8 +1,8 @@
 import type { ApiErrorLike } from './apiErrorTypes';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Spinner } from 'react-bootstrap';
-import authFetch, { handleError } from '../utils/api';
-import { MaterialAllocation, PaginationData } from '../types/production';
+import authFetch, { fetchAllPages, handleError } from '../utils/api';
+import { MaterialAllocation } from '../types/production';
 import { useWorkCenters } from '../hooks/useWorkCenters';
 import { t, registerTermTarget } from '../utils/terms';
 import inventoryService from '../services/inventoryService';
@@ -67,9 +67,10 @@ const MaterialAllocationPage: React.FC = () => {
       try {
         const itemRes = await authFetch('/api/master/items/?page_size=200');
         if (itemRes.ok) {
+          // 品番マスターの一覧は {"data": [...]} 形式(ページングしない)
           const itemData = await itemRes.json();
           const map: Record<string, string> = {};
-          (itemData.results || []).forEach((it: { code: string; name: string }) => {
+          (itemData.data || itemData.results || []).forEach((it: { code: string; name: string }) => {
             map[it.code] = it.name;
           });
           setItemsMap(map);
@@ -104,11 +105,11 @@ const MaterialAllocationPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      // 順立て（ピッキング）では完成品ごとに紐づく全部品を表示するため、多めの件数を取得
-      const response = await authFetch('/api/production/material-allocations/?page_size=300');
-      await handleError(response, t('順立て（ピッキング）データの取得に失敗しました。'));
-      const data = (await response.json()) as PaginationData<MaterialAllocation>;
-      const results = data.results || [];
+      // 順立て（ピッキング）では完成品ごとに紐づく全部品を表示するため、全ページを取得する
+      // (1ページ目だけでは、件数が多いと未ピッキングの部品が表示されないため)
+      const results = await fetchAllPages<MaterialAllocation>(
+        '/api/production/material-allocations/?page_size=500', t('順立て（ピッキング）データの取得に失敗しました。'),
+      );
       setAllocations(results);
     } catch (e) {
       setError((e as ApiErrorLike).message);

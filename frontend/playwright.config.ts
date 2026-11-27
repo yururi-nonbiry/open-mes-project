@@ -23,12 +23,12 @@ const functionalUse = { locale: 'ja-JP', timezoneId: 'Asia/Tokyo' };
 const functionalProjects = [
   {
     name: 'functional-hd',
-    testMatch: ['**/goods-receipt.spec.ts', '**/goods-issue.spec.ts', '**/inventory-lists.spec.ts', '**/terminology.spec.ts', '**/manual-search.spec.ts', '**/production-plan-merge.spec.ts', '**/picking-search-fields.spec.ts', '**/allocation-purpose-column.spec.ts', '**/picking-columns.spec.ts', '**/work-progress-completion.spec.ts'],
+    testMatch: ['**/goods-receipt.spec.ts', '**/qr-code-action-settings.spec.ts', '**/goods-issue.spec.ts', '**/inventory-lists.spec.ts', '**/terminology.spec.ts', '**/manual-search.spec.ts', '**/production-plan-merge.spec.ts', '**/picking-search-fields.spec.ts', '**/allocation-purpose-column.spec.ts', '**/picking-columns.spec.ts', '**/work-progress-completion.spec.ts'],
     use: { ...hdViewport, ...functionalUse },
   },
   {
     name: 'functional-smartphone',
-    testMatch: ['**/goods-receipt-mobile.spec.ts', '**/picking-search-fields.spec.ts', '**/picking-columns.spec.ts', '**/mobile-password-expired.spec.ts'],
+    testMatch: ['**/goods-receipt-mobile.spec.ts', '**/picking-search-fields.spec.ts', '**/picking-columns.spec.ts', '**/mobile-password-expired.spec.ts', '**/mobile-picking-pages.spec.ts'],
     use: { ...smartphoneViewport, ...functionalUse },
   },
 ];
