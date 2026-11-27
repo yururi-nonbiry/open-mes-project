@@ -35,6 +35,10 @@ def register_failure(user, request=None):
     durations = settings.LOGIN_LOCK_DURATIONS_MINUTES
     with transaction.atomic():
         lock, _ = AccountLock.objects.select_for_update().get_or_create(user=user)
+        # 同時に送られた誤ログインが、先にロックした後で数えられて段階が一気に上がらないよう、
+        # 行ロックを取った後にロック中かを確かめ直す(ロック中の試行は失敗回数に数えない)
+        if lock.is_locked(now):
+            return lock
         lock.failure_count += 1
         lock.last_failure_at = now
         locked = lock.failure_count >= settings.LOGIN_LOCK_THRESHOLD

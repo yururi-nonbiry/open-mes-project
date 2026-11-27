@@ -76,6 +76,9 @@
 | INV-MOVE-06 | 異常系 | - | `quantity_to_move=0` または負数 | 400 | |
 | INV-MOVE-07 | 正常系 | - | `target_location` 省略 | 空文字として扱われ処理継続 | 挙動確認のみ、エラーにならないこと |
 | INV-MOVE-08 | 境界値 | 同時に2リクエストが同一在庫に対して move を実行 | 並行実行 | `select_for_update` によりロックされ、逐次的に整合性が保たれる（在庫数がマイナスにならない） | ロック検証（`transaction.atomic`） |
+| INV-RACE-01 | 境界値 | 在庫行が作成直前に別の処理で作られた | `get_or_create_locked_inventory` | 一意制約違反(500)にせず既存の行を使う | 2026-11-27 追加（`inventory/tests/test_concurrency.py`） |
+| INV-RACE-02 | 異常系 | 在庫行の一意制約以外の `IntegrityError` | `get_or_create_locked_inventory` | 握りつぶさずに送出する | 2026-11-27 追加 |
+| INV-RACE-03 | 境界値 | 移動元と移動先の在庫 | 棚の移動・用途の変更で2行をロック | 1つのクエリで主キー順にロックする（逆向きの同時移動でデッドロックしない） | 2026-11-27 追加 |
 
 ### 5.3 在庫調整 `adjust`（`POST inventories/{id}/adjust/`）
 

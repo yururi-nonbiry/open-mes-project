@@ -89,6 +89,9 @@ def lock_inventory_rows(part_number, warehouse, purpose=None):
     )
 
 
+_PURPOSE_OF_SOURCE = object()
+
+
 def get_or_create_locked_inventory(part_number, warehouse, location="", purpose=None):
     """
     品番+倉庫+棚番+用途の在庫を行ロックして取得する。無ければ数量0で作成する。
@@ -96,14 +99,68 @@ def get_or_create_locked_inventory(part_number, warehouse, location="", purpose=
     """
     location = location or ""
     purpose = purpose or None
+    lookup = {
+        "part_number_rel_id": part_number,
+        "warehouse_rel_id": warehouse,
+        "location": location,
+        "purpose_rel_id": purpose,
+    }
     try:
-        return Inventory.objects.select_for_update().get(
-            part_number_rel_id=part_number, warehouse_rel_id=warehouse, location=location, purpose_rel_id=purpose
-        )
+        return Inventory.objects.select_for_update().get(**lookup)
     except Inventory.DoesNotExist:
-        return Inventory.objects.create(
-            part_number=part_number, warehouse=warehouse, location=location, purpose=purpose, quantity=0
-        )
+        pass
+    try:
+        # 同じ在庫行を同時に作成した場合は一意制約違反になる。セーブポイントで包み、外側の処理を巻き込まずに
+        # 先に作られた行を取り直す(在庫行の一意制約以外の違反は取り直せないため、そのまま送出する)
+        with transaction.atomic():
+            return Inventory.objects.create(
+                part_number=part_number, warehouse=warehouse, location=location, purpose=purpose, quantity=0
+            )
+    except IntegrityError:
+        row = Inventory.objects.select_for_update().filter(**lookup).first()
+        if row is None:
+            raise
+        return row
+
+
+def lock_source_and_target(source_pk, warehouse, location, purpose=_PURPOSE_OF_SOURCE):
+    """
+    移動元の在庫と、同じ品番の移動先(倉庫・棚番・用途)の在庫を行ロックして (移動元, 移動先) を返す。
+    移動先が無ければ作成する。2行は主キーの順にまとめてロックし、逆向きの移動を同時に行っても
+    ロックの順序が食い違ってデッドロックしないようにする。transaction.atomic() の中で呼ぶ。
+    """
+    source = Inventory.objects.get(pk=source_pk)
+    target_purpose = source.purpose if purpose is _PURPOSE_OF_SOURCE else purpose
+    # 行ロックは取らずに移動先の行を用意し(無ければ作成)、その後に2行を主キー順にロックする
+    target_pk = get_or_create_inventory_row(source.part_number, warehouse, location, target_purpose).pk
+    locked = Inventory.objects.select_for_update().filter(pk__in=[source_pk, target_pk]).order_by("pk")
+    rows = {row.pk: row for row in locked}
+    return rows[source_pk], rows[target_pk]
+
+
+def get_or_create_inventory_row(part_number, warehouse, location="", purpose=None):
+    """品番+倉庫+棚番+用途の在庫を(行ロックせずに)取得し、無ければ数量0で作成する。同時作成にも対応する。"""
+    location = location or ""
+    purpose = purpose or None
+    lookup = {
+        "part_number_rel_id": part_number,
+        "warehouse_rel_id": warehouse,
+        "location": location,
+        "purpose_rel_id": purpose,
+    }
+    row = Inventory.objects.filter(**lookup).first()
+    if row is not None:
+        return row
+    try:
+        with transaction.atomic():
+            return Inventory.objects.create(
+                part_number=part_number, warehouse=warehouse, location=location, purpose=purpose, quantity=0
+            )
+    except IntegrityError:
+        row = Inventory.objects.filter(**lookup).first()
+        if row is None:
+            raise
+        return row
 
 
 def reserve_fifo(rows, quantity):
@@ -253,10 +310,11 @@ def move_inventory(source_pk, quantity, target_warehouse, target_location, user,
         raise InventoryServiceError("移動数量は1以上である必要があります。")
 
     with transaction.atomic():
-        # 行ロックを取得した上で最新の状態を再取得する（同時実行によるロストアップデート防止）
-        source = Inventory.objects.select_for_update().get(pk=source_pk)
+        # 移動元・移動先の行ロックを取得した上で最新の状態を再取得する(同時実行によるロストアップデート・デッドロック防止)
+        source = Inventory.objects.get(pk=source_pk)
         if source.warehouse == target_warehouse and (source.location or "") == target_location:
             raise InventoryServiceError("移動元と移動先が同じです。")
+        source, target = lock_source_and_target(source_pk, target_warehouse, target_location)
 
         available_to_move = source.quantity - source.reserved
         if quantity > available_to_move:
@@ -270,10 +328,6 @@ def move_inventory(source_pk, quantity, target_warehouse, target_location, user,
 
         source.quantity -= quantity
         source.save()
-
-        target = get_or_create_locked_inventory(
-            source.part_number, target_warehouse, target_location, purpose=source.purpose
-        )
         target.quantity += quantity
         target.save()
 
@@ -314,10 +368,11 @@ def change_inventory_purpose(source_pk, quantity, new_purpose, reason, user, con
         raise InventoryServiceError(f"用途 '{new_purpose}' が存在しないか、無効です。")
 
     with transaction.atomic():
-        # 行ロックを取得した上で最新の状態を再取得する（同時実行によるロストアップデート防止）
-        source = Inventory.objects.select_for_update().get(pk=source_pk)
+        # 変更元・変更先の行ロックを取得した上で最新の状態を再取得する(同時実行によるロストアップデート・デッドロック防止)
+        source = Inventory.objects.get(pk=source_pk)
         if source.purpose == new_purpose:
             raise InventoryServiceError("変更前と変更後の用途が同じです。")
+        source, target = lock_source_and_target(source_pk, source.warehouse, source.location, new_purpose)
 
         available = source.quantity - source.reserved
         if quantity > available:
@@ -334,9 +389,6 @@ def change_inventory_purpose(source_pk, quantity, new_purpose, reason, user, con
             deduct=(source.pk, quantity),
         )
 
-        target = get_or_create_locked_inventory(
-            source.part_number, source.warehouse, source.location, purpose=new_purpose
-        )
         if target.quantity == 0 and target.reserved == 0:
             # 新規(または空)の行は、元の在庫の入庫日時・有効/引当可能フラグを引き継ぐ(FIFO順を崩さないため)
             target.first_received_at = source.first_received_at or target.first_received_at

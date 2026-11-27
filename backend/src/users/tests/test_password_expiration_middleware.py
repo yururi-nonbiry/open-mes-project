@@ -78,3 +78,27 @@ class PasswordExpirationMiddlewareTests(APITestCase):
         self._bearer()
         response = self.client.get(self.settings_url)
         self.assertFalse(self._blocked_by_password_expiration(response))
+
+    def test_usr_pwexp_07_fixed_token_expired_password_is_blocked(self):
+        """固定トークンで認証したユーザーも、パスワードの有効期限切れを検出する。"""
+        from rest_framework.authtoken.models import Token
+
+        self._expire_password()
+        token = Token.objects.create(user=self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
+        response = self.client.get(self.settings_url)
+        self.assertTrue(self._blocked_by_password_expiration(response))
+
+    def test_usr_pwexp_08_system_account_not_blocked(self):
+        """システム連携用アカウント(QRリーダー等)はパスワードの有効期限で止めない。"""
+        from rest_framework.authtoken.models import Token
+
+        self.user.account_type = User.AccountType.SYSTEM
+        self.user.save(update_fields=["account_type"])
+        self._expire_password()
+        token = Token.objects.create(user=self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
+        response = self.client.get(self.own_settings_url)
+        self.assertFalse(self._blocked_by_password_expiration(response))
+        response = self.client.get(self.settings_url)
+        self.assertFalse(self._blocked_by_password_expiration(response))

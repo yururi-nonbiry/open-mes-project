@@ -82,6 +82,21 @@ class AccountLockTests(SecurityAPITestBase):
         self.assertNotIn("token", response.data)
 
 
+    def test_sec_lock_07_failure_counted_after_lock_does_not_raise_level(self):
+        """
+        ロック前の確認を通った同時リクエストの失敗が、先にロックされた後で数えられても、
+        ロック段階を上げない(行ロックを取った後にロック中かを確かめ直す)。
+        """
+        from ..lockout import register_failure
+
+        AccountLock.objects.create(
+            user=self.user, lock_level=1, failure_count=0, locked_until=timezone.now() + timedelta(minutes=5)
+        )
+        for _ in range(10):
+            register_failure(self.user)
+        lock = AccountLock.objects.get(user=self.user)
+        self.assertEqual((lock.lock_level, lock.failure_count, lock.requires_admin_unlock), (1, 0, False))
+
 @override_settings(LOGIN_CAPTCHA_THRESHOLD=100, LOGIN_IP_BLOCK_THRESHOLD=6, LOGIN_LOCK_THRESHOLD=100)
 class IpBlockTests(SecurityAPITestBase):
     """SEC-IP-* : IP単位のブロック。"""

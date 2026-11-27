@@ -126,6 +126,8 @@
 | USR-PWEXP-02 | 正常系 | `PasswordExpirationMiddleware` | セッションログイン済み、パスワード期限内 | 通常エンドポイント呼び出し | `password_expired`ではブロックされない | DRFの`IsAuthenticated`自体は別途401になりうるが、本ケースはミドルウェアの挙動のみを検証 |
 | USR-PWEXP-03 | 正常系 | `PasswordExpirationMiddleware` | セッションログイン済み、パスワード期限切れ | 除外対象の`logout/`を呼び出し | `password_expired`ではブロックされない | |
 | USR-PWEXP-04 | 境界値 | `PasswordExpirationMiddleware` | JWTで認証、パスワード期限切れ | 通常エンドポイント呼び出し | 200（ブロックされない） | **既知の懸念事項**: JWT認証経路では本チェックが実質無効（[7. 既知の懸念事項](#7-既知の懸念事項) 項目3） |
+| USR-PWEXP-07 | 異常系 | `PasswordExpirationMiddleware` | 固定トークン(`Authorization: Token`)、パスワード期限切れ | 通常エンドポイント呼び出し | 403、`code: "password_expired"` | 2026-11-27 追加。修正前は固定トークンのユーザーを解決できず素通りしていた |
+| USR-PWEXP-08 | 正常系 | `PasswordExpirationMiddleware` | システム連携用アカウント(`account_type=system`)、パスワード期限切れ、固定トークン | 呼び出し | `password_expired` ではブロックされない | 2026-11-27 追加 |
 
 ### 5.8 管理者向けユーザーCRUD（`UserViewSet`、`users/tests/test_user_viewset.py`）
 
