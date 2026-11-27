@@ -37,6 +37,11 @@ interface DataTypeConfig {
     computedFields?: (ModelFieldInfo & { source: string })[];
     /** 一覧画面の既定の列。設定が1件も無い画面で、初めて設定するときに表示ONにする列 */
     defaultColumns?: DefaultColumn[];
+    /**
+     * 一覧画面が検索欄として使い、サーバーが絞り込みに対応している項目。未指定の画面は検索欄の設定を出さない
+     * (検索できない項目を検索ONにしても、画面に入力欄が出るだけで絞り込まれないため)
+     */
+    searchableFields?: string[];
 }
 
 interface CombinedField extends ModelFieldInfo {
@@ -58,6 +63,13 @@ const DATA_TYPE_MAP: Record<string, DataTypeConfig> = {
             { name: 'remaining_quantity', verbose_name: '未入庫残', help_text: '発注数 - 入庫済', source: 'goods_receipt' },
         ],
         defaultColumns: GOODS_RECEIPT_DEFAULT_COLUMNS,
+        // backend: PurchaseOrderViewSet の search_<項目> (文字列は部分一致、数量は完全一致)
+        searchableFields: [
+            'order_number', 'shipment_number', 'supplier', 'part_number', 'warehouse', 'purpose', 'item', 'product_name',
+            'parent_part_number', 'instruction_document', 'model_type', 'color_info', 'delivery_destination',
+            'delivery_source', 'location', 'remarks1', 'remarks2', 'remarks3', 'remarks4', 'remarks5',
+            'quantity', 'received_quantity', 'delivered_quantity',
+        ],
     },
     sales_order: {
         fetch: ['sales_order'],
@@ -75,11 +87,15 @@ const DATA_TYPE_MAP: Record<string, DataTypeConfig> = {
             { name: 'part_name', verbose_name: '品名', help_text: '品番マスターから自動的に取得される品名です。', source: 'inventory' },
         ],
         defaultColumns: INVENTORY_DEFAULT_COLUMNS,
+        // backend: InventoryViewSet の <項目>_query
+        searchableFields: ['part_number', 'warehouse', 'location', 'purpose', 'part_name'],
     },
     stock_movement: {
         fetch: ['stock_movement'],
         save: ['stock_movement'],
         defaultColumns: STOCK_MOVEMENT_DEFAULT_COLUMNS,
+        // backend: StockMovementViewSet の search_<項目>(移動日時は画面の期間の入力欄で検索する)
+        searchableFields: ['part_number', 'warehouse', 'reference_document', 'description', 'operator', 'location', 'purpose', 'quantity'],
     },
     [PLAN_LIST_DATA_TYPE]: {
         fetch: [PLAN_LIST_DATA_TYPE],
@@ -243,6 +259,10 @@ const PageDisplaySettings = () => {
         setFieldsData(newFieldsData);
     };
 
+    // この画面で検索に使える項目(未対応の画面は null で、検索の設定を出さない)
+    const searchableList = DATA_TYPE_MAP[selectedDataType]?.searchableFields;
+    const searchable = searchableList ? new Set(searchableList) : null;
+
     const handleSave = async () => {
         setIsSaving(true);
         setSaveStatus({ message: '', variant: '', show: false });
@@ -267,7 +287,8 @@ const PageDisplaySettings = () => {
                             display_order: Number(item.display_order) || 0,
                             search_order: Number(item.search_order) || 0,
                             is_list_display: item.is_list_display,
-                            is_search_field: item.is_search_field,
+                            // 検索に対応していない項目・画面では検索ONを保存しない
+                            is_search_field: !!searchable?.has(item.model_field_name) && item.is_search_field,
                             is_list_filter: item.is_list_filter,
                         };
                     });
@@ -378,12 +399,17 @@ const PageDisplaySettings = () => {
                 <td className="text-center align-middle">
                     <Form.Check type="switch" id={`is_list_display-${type}-${originalIndex}`} name="is_list_display" checked={item.is_list_display} onChange={(e) => handleInputChange(originalIndex, e)} />
                 </td>
-                <td className="text-center align-middle">
-                    <Form.Check type="switch" id={`is_search_field-${type}-${originalIndex}`} name="is_search_field" checked={item.is_search_field} onChange={(e) => handleInputChange(originalIndex, e)} />
-                </td>
-                <td className="text-center align-middle">
-                    <Form.Check type="switch" id={`is_list_filter-${type}-${originalIndex}`} name="is_list_filter" checked={item.is_list_filter} onChange={(e) => handleInputChange(originalIndex, e)} />
-                </td>
+                {searchable && (
+                    <td className="text-center align-middle">
+                        <Form.Check
+                            type="switch" id={`is_search_field-${type}-${originalIndex}`} name="is_search_field"
+                            checked={item.is_search_field && searchable.has(item.model_field_name)}
+                            disabled={!searchable.has(item.model_field_name)}
+                            title={searchable.has(item.model_field_name) ? undefined : 'この項目では検索できません'}
+                            onChange={(e) => handleInputChange(originalIndex, e)}
+                        />
+                    </td>
+                )}
             </tr>
         );
     };
@@ -410,8 +436,7 @@ const PageDisplaySettings = () => {
                             <th style={{ minWidth: '120px' }}>モデル項目</th>
                             <th style={{ minWidth: '120px' }}>表示名</th>
                             <th className="text-center" style={{ width: '80px' }}>一覧</th>
-                            <th className="text-center" style={{ width: '80px' }}>検索</th>
-                            <th className="text-center" style={{ width: '80px' }}>フィルタ</th>
+                            {searchable && <th className="text-center" style={{ width: '80px' }}>検索</th>}
                         </tr>
                     </thead>
                     <Droppable droppableId={droppableId}>
@@ -476,7 +501,7 @@ const PageDisplaySettings = () => {
             {!loading && !error && (
                 <DragDropContext onDragEnd={onDragEnd}>
                     {renderTable('list')}
-                    {renderTable('search')}
+                    {searchable && renderTable('search')}
                 </DragDropContext>
             )}
         </div>

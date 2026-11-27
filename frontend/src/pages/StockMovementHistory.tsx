@@ -97,6 +97,15 @@ const StockMovementHistory: React.FC = () => {
     }, []);
 
     const fetchHistory = useCallback(async (page: number, params: Record<string, SearchParamValue>) => {
+        // 移動種別を1つも選んでいない場合は該当なし(条件なしとして全件を表示しない)
+        const types = params.movement_type;
+        if (types instanceof Set && types.size === 0) {
+            setHistory([]);
+            setPagination({ count: 0, num_pages: 1, current_page: 1, next: null, previous: null });
+            setCurrentPage(1);
+            setLoading(false);
+            return;
+        }
         setLoading(true);
         setError(null);
 
@@ -196,7 +205,9 @@ const StockMovementHistory: React.FC = () => {
     };
 
     const columns = displaySettings.length > 0 ? displaySettings : DEFAULT_COLUMNS;
-    const activeSearchFields = searchFields.length > 0 ? searchFields : DEFAULT_SEARCH_FIELDS;
+    // 移動日時は期間(開始日・終了日)の入力欄で検索するため、検索項目の入力欄からは除く
+    const activeSearchFields = (searchFields.length > 0 ? searchFields : DEFAULT_SEARCH_FIELDS)
+        .filter((field) => !field.model_field_name.startsWith('movement_date'));
     const colSpan = columns.length;
 
     const renderTableHeaders = () => (
@@ -337,6 +348,28 @@ const StockMovementHistory: React.FC = () => {
                             </div>
                         );
                     })}
+                    <div className="receipt-search-field">
+                        <label htmlFor="search-movement_date_from" className="receipt-search-label">期間（開始日）</label>
+                        <input
+                            type="date"
+                            id="search-movement_date_from"
+                            name="movement_date_from"
+                            className="form-control form-control-sm"
+                            value={searchCriteria.movement_date_from || ''}
+                            onChange={handleSearchChange}
+                        />
+                    </div>
+                    <div className="receipt-search-field">
+                        <label htmlFor="search-movement_date_to" className="receipt-search-label">期間（終了日）</label>
+                        <input
+                            type="date"
+                            id="search-movement_date_to"
+                            name="movement_date_to"
+                            className="form-control form-control-sm"
+                            value={searchCriteria.movement_date_to || ''}
+                            onChange={handleSearchChange}
+                        />
+                    </div>
                     <div className="receipt-search-actions">
                         <button id="advanced-search-button" type="button" className="btn btn-primary btn-sm fw-bold px-3" onClick={handleSearch}>
                             検索

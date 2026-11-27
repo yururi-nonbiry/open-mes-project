@@ -73,6 +73,10 @@ class InventoryViewSet(IntegrityErrorAsBadRequestMixin, viewsets.ModelViewSet):
             filters &= Q(warehouse_rel__warehouse_number__icontains=warehouse_query)
         if location_query:
             filters &= Q(location__icontains=location_query)
+        # 品名(品番マスターの名称)。ページ項目表示設定で「品名」を検索項目にした場合に画面から送られる
+        part_name_query = self.request.query_params.get("part_name_query")
+        if part_name_query:
+            filters &= Q(part_number_rel__name__icontains=part_name_query)
         # 用途で絞り込む。"none" は汎用(用途なし)のみ。
         purpose_query = self.request.query_params.get("purpose_query")
         if purpose_query == "none":

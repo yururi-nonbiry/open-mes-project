@@ -135,3 +135,27 @@ test('FE-SMH-02 入出庫履歴: 一般ユーザーにも表示設定(品番・�
     await expect(row.locator('td').nth(1)).not.toBeEmpty();
   }
 });
+
+test('FE-SMH-03 入出庫履歴: 期間(開始日・終了日)で絞り込め、移動種別をすべて外すと0件になること', async ({ page }) => {
+  await saveDisplaySettings(api, 'stock_movement', []);
+  const requests: URL[] = [];
+  page.on('request', (r) => { if (r.url().includes('/api/inventory/stock-movements/')) requests.push(new URL(r.url())); });
+  await openHistory(page, adminTokens);
+
+  // 未来の期間では該当なし
+  await page.locator('#search-movement_date_from').fill('2099-01-01');
+  await page.locator('#search-movement_date_to').fill('2099-12-31');
+  await page.getByRole('button', { name: '検索', exact: true }).click();
+  await expect(page.locator('.receipt-result-count')).toContainText('0');
+  const last = requests[requests.length - 1];
+  expect(last.searchParams.get('search_movement_date_from')).toBe('2099-01-01');
+  expect(last.searchParams.get('search_movement_date_to')).toBe('2099-12-31');
+
+  // 期間を外し、移動種別をすべて外すと0件(条件なしで全件を出さない)
+  await page.getByRole('button', { name: '条件リセット' }).click();
+  await expect(historyRows(page).first()).not.toHaveText('読み込み中...');
+  const activeTabs = page.locator('#movement-type-filters-container button.active');
+  while (await activeTabs.count() > 0) await activeTabs.first().click();
+  await page.getByRole('button', { name: '検索', exact: true }).click();
+  await expect(page.locator('.receipt-result-count')).toContainText('0');
+});

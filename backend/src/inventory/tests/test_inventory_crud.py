@@ -138,6 +138,13 @@ class InventoryCrudTests(InventoryAPITestBase):
         url = reverse("inventory_api:inventory-detail", kwargs={"pk": self.inventory2.id})
         self.assertEqual(self.client.patch(url, {"is_active": False}, format="json").status_code, 200)
 
+    def test_inv_crud_17_filter_by_part_name(self):
+        """品名(品番マスターの名称)で絞り込める(ページ項目表示設定で「品名」を検索項目にした場合)。"""
+        url = reverse("inventory_api:inventory-list")
+        response = self.client.get(url, {"part_name_query": self.item2.name})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual([r["part_number"] for r in response.data["results"]], [self.item2.code])
+
 class InventoryDeleteTests(InventoryAPITestBase):
     """INV-CRUD-10〜: 在庫レコードの削除。"""
 
