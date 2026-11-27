@@ -140,6 +140,7 @@
 | USR-VS-CRUD-01 | 正常系 | `GET /api/users/` | staff認証、複数ユーザー存在 | 一覧取得 | 200、プレーンな配列（ページネーション未設定） | |
 | USR-VS-CRUD-02 | 異常系 | `POST /api/users/` | staff認証 | `password`を省略して作成 | 400 | `AdminUserSerializer.create`が明示的に検証 |
 | USR-VS-CRUD-03 | 正常系 | `POST /api/users/` | staff認証 | 有効なデータで作成 | 201、パスワードはハッシュ化されて保存 | |
+| USR-VS-CRUD-03b | 異常系 | `POST /api/users/`・`PATCH /api/users/{id}/` | staff認証 | 弱いパスワード(`pw12345`・`12345678`) | 400（パスワードポリシーで検証）、ユーザーは作られない | 2026-11-27 追加。修正前は管理者の作成・変更ではポリシーを通していなかった |
 | USR-VS-CRUD-04 | 正常系 | `GET /api/users/{id}/` | staff認証 | 詳細取得 | 200 | |
 | USR-VS-CRUD-05 | 正常系 | `PATCH /api/users/{id}/` | staff認証 | `is_staff`を更新 | 200、DBに反映 | `AdminUserSerializer`では`is_staff`はread_only指定なし |
 | USR-VS-CRUD-06 | 正常系 | `PATCH /api/users/{id}/` | staff認証 | `password`を更新 | 200、ハッシュ化されて保存（平文と一致しない） | |

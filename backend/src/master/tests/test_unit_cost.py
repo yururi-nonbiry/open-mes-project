@@ -49,3 +49,18 @@ class UnitCostCrudTests(MasterAPITestBase):
         response = self.client.delete(self._detail_url(self.unit_cost.id))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertFalse(UnitCost.objects.filter(id=self.unit_cost.id).exists())
+
+
+class UnitCostValidationTests(MasterAPITestBase):
+    """MST-UC-VAL-* : 標準単価は0以上、倉庫のレイアウトは1マス以上。"""
+
+    def test_mst_uc_val_01_negative_cost_and_zero_layout_rejected(self):
+        item = self.create_item(code="UC-NEG")
+        response = self.client.post(reverse("master_api:unit-cost-list"), {"item": item.code, "cost": "-1"}, format="json")
+        self.assertEqual(response.status_code, 400)
+        response = self.client.post(
+            reverse("master_api:warehouse-list"),
+            {"warehouse_number": "WH-ZERO", "name": "zero", "layout_cols": 0, "layout_rows": 5},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)

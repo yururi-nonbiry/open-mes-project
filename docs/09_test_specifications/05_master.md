@@ -66,6 +66,7 @@
 | MST-ITEM-07 | 正常系 | `DELETE items/{id}/` | 参照されていないItem | 削除 | 200、DBから削除 | |
 | MST-ITEM-08 | 異常系 | `DELETE items/{id}/` | `UnitCost`から参照されている | 削除 | 400、`{"error": ...}`、DBに残存 | `ProtectedError`を`CustomSuccessMessageMixin.destroy`が捕捉 |
 | MST-ITEM-09 | 異常系 | `GET items/` | 未認証 | 呼び出し | 401 | |
+| MST-ITEM-TYPE-PLAN-01 | 異常系 | `PATCH items/{id}/` | 生産計画の製品・所要部品に使われている品目 | 製品→材料、材料→製品 | 400（材料→中間品のように使い方が変わらない変更は200） | 2026-11-27 追加。修正前はBOMの有無だけを確認していた |
 
 #### 権限（`base.permissions.IsAuthenticatedCreateAdminChange`、`master/tests/test_permissions.py`）
 
@@ -137,6 +138,7 @@
 | MST-UC-03 | 異常系 | `POST unit-costs/` | - | 存在しない`item`コードを指定 | 400 | |
 | MST-UC-04 | 正常系 | `PATCH unit-costs/{id}/` | 既存UnitCostが存在 | `cost`を更新 | 200、DBに反映 | |
 | MST-UC-05 | 正常系 | `GET unit-costs/` | UnitCostが存在 | 一覧取得 | 200、`item`は品目コード文字列で表示 | |
+| MST-UC-VAL-01 | 異常系 | `POST unit-costs/`・`POST warehouses/` | — | 標準単価 -1、倉庫のレイアウト列数 0 | 400 | 2026-11-27 追加（棚の幅・高さも1以上） |
 | MST-UC-06 | 正常系 | `DELETE unit-costs/{id}/` | 既存UnitCostが存在 | 削除 | 200、DBから削除 | |
 
 ### 5.8 使用部品構成／BOM CRUD（`BillOfMaterialViewSet`、`master/tests/test_bill_of_material.py`）

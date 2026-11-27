@@ -57,11 +57,20 @@ class UserViewSetCrudTests(UsersAPITestBase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_usr_vs_crud_03_create_success(self):
-        payload = {"custom_id": "newuser", "username": "newuser", "password": "pw12345"}
+        payload = {"custom_id": "newuser", "username": "newuser", "password": "Strong-Pass-2026!"}
         response = self.client.post(self.list_url, payload, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         created = User.objects.get(custom_id="newuser")
-        self.assertTrue(created.check_password("pw12345"))
+        self.assertTrue(created.check_password("Strong-Pass-2026!"))
+
+    def test_usr_vs_crud_03b_weak_password_rejected(self):
+        """管理者が設定するパスワードも、パスワードポリシー(AUTH_PASSWORD_VALIDATORS)で検証する。"""
+        payload = {"custom_id": "weakuser", "username": "weakuser", "password": "pw12345"}
+        response = self.client.post(self.list_url, payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(User.objects.filter(custom_id="weakuser").exists())
+        response = self.client.patch(self._detail_url(self.user.id), {"password": "12345678"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_usr_vs_crud_04_retrieve(self):
         response = self.client.get(self._detail_url(self.user.id))

@@ -76,6 +76,22 @@ class ItemCreateUpdateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     "使用部品構成(BOM)に登録されている品目の区分は変更できません。先にBOMから外してください。"
                 )
+            # 生産計画の製品・所要部品・引当で使われている品目は、その使い方ができない区分に変えさせない
+            # (製品・中間品だけが生産計画で作れ、部品・中間品だけが部品として使える)
+            from production.models import MaterialAllocation, ProductionPlan, ProductionPlanMaterial
+
+            if value not in Item.PRODUCIBLE_TYPES and ProductionPlan.objects.filter(product_id=self.instance.code).exists():
+                raise serializers.ValidationError(
+                    "生産計画で作る品目に使われているため、製品・中間品以外の区分には変更できません。"
+                )
+            usable_as_material = ("material", "intermediate")
+            if value not in usable_as_material and (
+                ProductionPlanMaterial.objects.filter(material_id=self.instance.code).exists()
+                or MaterialAllocation.objects.filter(material_id=self.instance.code).exists()
+            ):
+                raise serializers.ValidationError(
+                    "生産計画の部品として使われているため、部品・中間品以外の区分には変更できません。"
+                )
         return value
 
     def get_fields(self):
@@ -150,6 +166,9 @@ class WarehouseCreateUpdateSerializer(serializers.ModelSerializer):
         model = Warehouse
         fields = ["id", "warehouse_number", "name", "location", "layout_cols", "layout_rows"]
         extra_kwargs = {
+            # 倉庫のレイアウト(棚の配置図)は1マス以上(0にすると配置図を描けない)
+            "layout_cols": {"min_value": 1},
+            "layout_rows": {"min_value": 1},
             "warehouse_number": {
                 "validators": [
                     UniqueValidator(queryset=Warehouse.objects.all(), message="この倉庫番号は既に使用されています。")
@@ -180,6 +199,7 @@ class WarehouseLocationCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = WarehouseLocation
         fields = ["id", "warehouse", "code", "name", "pos_x", "pos_y", "width", "height"]
+        extra_kwargs = {"width": {"min_value": 1}, "height": {"min_value": 1}}
         validators = [
             UniqueTogetherValidator(
                 queryset=WarehouseLocation.objects.all(),
@@ -259,6 +279,8 @@ class UnitCostCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = UnitCost
         fields = ["id", "item", "cost"]
+        # 標準単価は0以上(負の単価は原価の計算を壊す)
+        extra_kwargs = {"cost": {"min_value": 0}}
 
 
 class BillOfMaterialSerializer(serializers.ModelSerializer):

@@ -94,3 +94,23 @@ class ItemTypeChangeWithBomTests(MasterAPITestBase):
             reverse("master_api:item-detail", args=[item.id]), {"item_type": "intermediate"}, format="json"
         )
         self.assertEqual(response.status_code, 200)
+
+    def test_mst_item_type_plan_01_type_change_rejected_when_used_in_plans(self):
+        """生産計画の製品・所要部品に使われている品目は、その使い方ができない区分に変更できない。"""
+        from django.utils import timezone
+
+        from production.models import ProductionPlan, ProductionPlanMaterial
+
+        product = self.create_item(code="PRD-USED", item_type="product")
+        material = self.create_item(code="MAT-USED", item_type="material")
+        now = timezone.now()
+        plan = ProductionPlan.objects.create(
+            plan_name="P", product_id=product.code, planned_quantity=1,
+            planned_start_datetime=now, planned_end_datetime=now + timezone.timedelta(hours=1),
+        )
+        ProductionPlanMaterial.objects.create(production_plan=plan, material_id=material.code, quantity_per_unit=1, required_quantity=1)
+        url = lambda item: reverse("master_api:item-detail", args=[item.id])  # noqa: E731
+        self.assertEqual(self.client.patch(url(product), {"item_type": "material"}, format="json").status_code, 400)
+        self.assertEqual(self.client.patch(url(material), {"item_type": "product"}, format="json").status_code, 400)
+        # 使い方が変わらない区分(中間品)への変更はできる
+        self.assertEqual(self.client.patch(url(material), {"item_type": "intermediate"}, format="json").status_code, 200)

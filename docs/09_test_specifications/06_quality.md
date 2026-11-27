@@ -75,6 +75,14 @@
 | QUA-RESULT-06 | 正常系 | `DELETE inspection-results/{id}/` | 紐づく`InspectionResultDetail`が存在 | 削除 | 200、detailも連鎖削除される | `on_delete=CASCADE` |
 | QUA-RESULT-07 | 異常系 | `GET inspection-results/` | 未認証 | 呼び出し | 401 | |
 
+#### 非有限値・規格値（`quality/tests/test_inspection_result.py` / `NonFiniteValueTests`）
+
+| ケースID | 分類 | 対象 | 前提条件 | 手順・入力 | 期待結果 | 備考 |
+|---|---|---|---|---|---|---|
+| QUA-NONFINITE-01 | 異常系 | `POST inspection-results/` | 定量の測定詳細 | 測定値に `NaN`・`Infinity`・`-Infinity` | 400、実績は作られず、一覧も200 | 2026-11-27 追加（監査で合格扱い・一覧500と指摘された点。DRF の FloatField が非有限値を拒否するため再現せず、回帰確認として追加） |
+| QUA-NONFINITE-02 | 異常系 | `record-result` | 同上 | 測定値に `NaN` | 400 | 同上 |
+| QUA-NONFINITE-03 | 異常系 | `PATCH inspection-items/{id}/` | 同上 | 規格値に `NaN`・`Infinity`、下限30・上限20 | 400 | 2026-11-27 追加。下限 > 上限は修正前は登録できた |
+
 #### 一覧（`quality/tests/test_inspection_result.py` / `InspectionResultListTests`）
 
 | ケースID | 分類 | 対象 | 前提条件 | 手順・入力 | 期待結果 | 備考 |

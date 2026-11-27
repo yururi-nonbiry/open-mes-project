@@ -173,3 +173,48 @@ class InspectionResultListTests(QualityAPITestBase):
         response = self.client.get(self.url, {"judgment": "fail", "lot_number": "LOT-0"})
         self.assertEqual(response.data["summary"], {"total": 4, "passed": 0, "failed": 4})
         self.assertTrue(all(r["lot_number"].startswith("LOT-0") for r in response.data["data"]))
+
+
+class NonFiniteValueTests(QualityAPITestBase):
+    """QUA-NONFINITE-* : 測定値・規格値の NaN・Infinity を受け付けない(合格扱い・一覧の500を防ぐ)。"""
+
+    def setUp(self):
+        super().setUp()
+        self.item = self.create_inspection_item()
+        self.detail = self.create_measurement_detail(
+            inspection_item=self.item, measurement_type="quantitative",
+            specification_lower_limit=10.0, specification_upper_limit=20.0,
+        )
+
+    def test_qua_nonfinite_01_nan_or_infinity_measured_value_rejected(self):
+        url = reverse("quality_api:inspection-result-list")
+        for value in ("NaN", "Infinity", "-Infinity"):
+            payload = {
+                "inspection_item": str(self.item.id),
+                "details": [{"measurement_detail": str(self.detail.id), "measured_value_numeric": value}],
+            }
+            response = self.client.post(url, payload, format="json")
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, value)
+        self.assertFalse(InspectionResult.objects.exists())
+        # 一覧も取得できる
+        self.assertEqual(self.client.get(url).status_code, status.HTTP_200_OK)
+
+    def test_qua_nonfinite_02_record_result_rejects_nan(self):
+        import json
+
+        url = reverse("quality_api:inspection-item-record-result", args=[self.item.id])
+        payload = {"measurement_details_payload": json.dumps([{"measurement_detail_id": str(self.detail.id), "value": "NaN"}])}
+        response = self.client.post(url, payload)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(InspectionResult.objects.exists())
+
+    def test_qua_nonfinite_03_specification_limits_validated(self):
+        url = reverse("quality_api:inspection-item-detail", args=[self.item.id])
+        base = {"id": str(self.detail.id), "name": "len", "measurement_type": "quantitative"}
+        for spec in (
+            {"specification_lower_limit": "NaN"},
+            {"specification_upper_limit": "Infinity"},
+            {"specification_lower_limit": 30, "specification_upper_limit": 20},
+        ):
+            response = self.client.patch(url, {"measurement_details": [{**base, **spec}]}, format="json")
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, spec)

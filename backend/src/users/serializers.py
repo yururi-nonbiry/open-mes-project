@@ -115,6 +115,15 @@ class AdminUserSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("スーパーユーザー権限を変更できるのはスーパーユーザーのみです。")
         return value
 
+    def validate_password(self, value):
+        # 管理者が設定するパスワードも、利用者自身の変更と同じパスワードポリシー(AUTH_PASSWORD_VALIDATORS)で検証する
+        if value:
+            try:
+                password_validation.validate_password(value, user=self.instance)
+            except DjangoValidationError as e:
+                raise serializers.ValidationError(list(e.messages)) from None
+        return value
+
     def create(self, validated_data):
         """暗号化されたパスワードで新しいユーザーを作成して返す"""
         password = validated_data.pop("password", None)

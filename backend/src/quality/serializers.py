@@ -21,6 +21,14 @@ class MeasurementDetailSerializer(serializers.ModelSerializer):
             "order",
         ]
 
+    def validate(self, attrs):
+        # 下限が上限を超える規格では、どの測定値も不合格になってしまうため登録させない
+        lower = attrs.get("specification_lower_limit")
+        upper = attrs.get("specification_upper_limit")
+        if lower is not None and upper is not None and lower > upper:
+            raise serializers.ValidationError({"specification_lower_limit": "規格下限値は規格上限値以下にしてください。"})
+        return attrs
+
 
 class InspectionItemListSerializer(serializers.ModelSerializer):
     """Serializer for listing InspectionItems."""
