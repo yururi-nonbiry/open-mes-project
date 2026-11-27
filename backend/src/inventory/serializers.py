@@ -312,9 +312,17 @@ class SalesOrderSerializer(serializers.ModelSerializer):
     出庫予定モデルのためのシリアライザ。
     """
 
-    status_display = serializers.CharField(source="get_status_display", read_only=True)
+    # 表示名は用語設定(出庫の呼び方)に合わせて返す
+    status_display = serializers.SerializerMethodField()
     remaining_quantity = serializers.IntegerField(read_only=True)  # プロパティを読み取り専用フィールドとして追加
     is_internal = serializers.BooleanField(read_only=True)
+
+    def get_status_display(self, obj):
+        # 用語の取得は設定を読むため、一覧の行ごとに読まないよう状態ごとの表示名を覚えておく
+        cache = self.__dict__.setdefault("_status_display_cache", {})
+        if obj.status not in cache:
+            cache[obj.status] = apply_terms(obj.get_status_display())
+        return cache[obj.status]
     item = serializers.SlugRelatedField(source="item_rel", slug_field="code", queryset=Item.objects.all(), allow_null=True, required=False)
     warehouse = serializers.SlugRelatedField(source="warehouse_rel", slug_field="warehouse_number", queryset=Warehouse.objects.all(), allow_null=True, required=False)
     # 使う在庫の用途コード。この用途の在庫を先に、足りなければ汎用の在庫を使う(空は汎用のみ)。

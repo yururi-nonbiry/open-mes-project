@@ -283,9 +283,9 @@ const MobileGoodsIssuePageContent = ({ dateDefaults }: { dateDefaults: ScheduleD
                                 onChange={(e) => setSearchStatusInput(e.target.value)}
                             >
                                 <option value="">すべて</option>
-                                <option value="pending">{t('未出庫 (Pending)')}</option>
-                                <option value="shipped">{t('出庫済み (Shipped)')}</option>
-                                <option value="canceled">キャンセル (Canceled)</option>
+                                <option value="pending">{t('未出庫')}</option>
+                                <option value="shipped">{t('出庫済み')}</option>
+                                <option value="canceled">キャンセル</option>
                             </Form.Select>
                         </Form.Group>
                     </Col>

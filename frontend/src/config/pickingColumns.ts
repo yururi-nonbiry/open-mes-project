@@ -1,3 +1,4 @@
+import { registerTermTarget } from '../utils/terms';
 /**
  * 順立て・ピッキング画面の列定義(PC画面とモバイル画面)。
  * どちらもモデルの一覧ではないため、列はここで定義し、表示/非表示・並び順・表示名だけを
@@ -25,6 +26,8 @@ export const PICKING_PC_COLUMNS: PickingColumn[] = [
     { name: 'status', label: '状態', help: '追加ピッキングの印も一緒に表示されます。' },
     { name: 'remarks', label: '備考', help: '' },
 ];
+// 列名・説明の「部品」「ピッキング」「出庫」を、用語設定の呼び方に置き換える
+registerTermTarget(PICKING_PC_COLUMNS);
 
 export const PICKING_MOBILE_COLUMNS: PickingColumn[] = [
     { name: 'material_code', label: '部品コード', help: '追加ピッキングの印も一緒に表示されます。' },
@@ -34,6 +37,8 @@ export const PICKING_MOBILE_COLUMNS: PickingColumn[] = [
     { name: 'allocated_quantity', label: '引当数量', help: '', align: 'end' },
     { name: 'status', label: '状態', help: '' },
 ];
+// 列名・説明の「部品」「ピッキング」「出庫」を、用語設定の呼び方に置き換える
+registerTermTarget(PICKING_MOBILE_COLUMNS);
 
 interface DisplaySettingLike {
     model_field_name: string;

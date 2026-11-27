@@ -1,3 +1,4 @@
+import { registerTermTarget } from '../utils/terms';
 /**
  * 生産計画の「部品引き当て」画面の列定義。
  * この画面はモデルの一覧ではないため、列はここで定義し、表示/非表示・並び順・表示名だけを
@@ -28,3 +29,5 @@ export const ALLOCATION_COLUMNS: AllocationColumn[] = [
     { name: 'shortage_after', label: '引当後の不足', help: '引当後も足りない数量です。', align: 'end' },
     { name: 'unit', label: '単位', help: '部品の単位です。' },
 ];
+// 列名・説明の「部品」「ピッキング」「出庫」を、用語設定の呼び方に置き換える
+registerTermTarget(ALLOCATION_COLUMNS);

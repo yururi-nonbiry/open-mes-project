@@ -120,13 +120,19 @@ function AppContent() {
 
   // 管理者が設定した用語(部品・ピッキング・出庫)の呼び方。変わったら画面を描き直して反映する
   const [termsVersion, setTermsVersion] = useState(0);
+  // ログイン後、最初の用語の取得が終わるまで画面を表示しない。表示してから用語が変わると、
+  // 画面全体を作り直すことになり、各画面のデータ取得が二重に走るため
+  const [termsLoaded, setTermsLoaded] = useState(false);
   useEffect(() => onTermsChange(() => setTermsVersion(v => v + 1)), []);
   useEffect(() => {
     if (!isAuthenticated) return;
-    terminologyService.get().then((terms) => { setTerms(terms); });
+    terminologyService.get()
+      .then((terms) => { setTerms(terms); })
+      .catch(() => { /* 取得できなければ既定の呼び方で表示する */ })
+      .finally(() => setTermsLoaded(true));
   }, [isAuthenticated]);
 
-  if (loading) return <div className="p-4">読み込み中...</div>;
+  if (loading || (isAuthenticated && !termsLoaded)) return <div className="p-4">読み込み中...</div>;
 
   // パスワードの有効期限が切れている間は、パスワード変更のある設定画面以外を開かせない
   if (isAuthenticated && isPasswordExpired && location.pathname !== '/user/settings') {

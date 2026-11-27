@@ -397,9 +397,9 @@ class SalesOrder(models.Model):
     )
     line = fk_id_alias("line_rel")
     class Status(models.TextChoices):
-        PENDING = "pending", "Pending"  # 未出庫
-        SHIPPED = "shipped", "Shipped"  # 出庫済み
-        CANCELED = "canceled", "Canceled"  # キャンセル
+        PENDING = "pending", "未出庫"
+        SHIPPED = "shipped", "出庫済み"
+        CANCELED = "canceled", "キャンセル"
 
     status = models.CharField(
         max_length=20,

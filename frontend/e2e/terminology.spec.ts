@@ -77,3 +77,28 @@ test('FE-TERM-04 用語設定: 空欄では保存できず、エラーが表示�
   const current = await (await api.get('/api/base/terminology/')).json();
   expect(current).toMatchObject({ part: '部品', picking: 'ピッキング', issue: '出庫' });
 });
+
+test('FE-TERM-05 用語設定: 呼び方を変えていても、画面を開いたときに一覧のデータ取得が増えず、出庫予定の状態も設定の呼び方で表示されること', async ({ browser }) => {
+  // 開発サーバーは React の StrictMode で効果を二重に実行するため、既定の呼び方のときの回数と比べる
+  const countListRequests = async () => {
+    const context = await browser.newContext({ baseURL: test.info().project.use.baseURL });
+    const page = await context.newPage();
+    const listRequests: string[] = [];
+    page.on('request', (r) => { if (r.url().includes('/api/inventory/inventories/?')) listRequests.push(r.url()); });
+    await authenticate(page, generalTokens);
+    await page.goto('/inventory/inquiry');
+    await expect(page.getByRole('heading', { name: '在庫照会' })).toBeVisible();
+    await page.waitForTimeout(1500);
+    await context.close();
+    return listRequests.length;
+  };
+  expect((await putTerms({ part: '部品', picking: 'ピッキング', issue: '出庫' })).ok()).toBeTruthy();
+  const withDefaults = await countListRequests();
+  expect((await putTerms(CUSTOM)).ok()).toBeTruthy();
+  const withCustom = await countListRequests();
+  expect(withCustom).toBe(withDefaults);
+
+  const response = await api.get('/api/inventory/sales-orders/?search_status=pending&page_size=1');
+  const orders = (await response.json()).results ?? [];
+  if (orders.length > 0) expect(orders[0].status_display).toBe('未E2E発送');
+});

@@ -1,5 +1,5 @@
 import { NavIconName } from './navigationConfig';
-import { registerTermTarget } from '../utils/terms';
+import { registerTermTarget, t } from '../utils/terms';
 
 export interface SelectOption {
     value: string;
@@ -373,7 +373,13 @@ export const getFormFields = (type: string): FormField[] => {
             }
         ]
     };
-    return allFields[normalized] || [];
+    // 項目名・説明の「部品」「ピッキング」「出庫」を、用語設定の呼び方に置き換える
+    return (allFields[normalized] || []).map(field => ({
+        ...field,
+        label: t(field.label),
+        ...(field.helpText ? { helpText: t(field.helpText) } : {}),
+        ...(field.placeholder ? { placeholder: t(field.placeholder) } : {}),
+    }));
 };
 
 export const getTableConfig = (type: string): FormField[] => {

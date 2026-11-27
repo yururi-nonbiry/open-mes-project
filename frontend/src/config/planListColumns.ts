@@ -1,3 +1,4 @@
+import { registerTermTarget } from '../utils/terms';
 /**
  * 生産計画一覧(/production/plan)の列定義。
  * 一覧の列は固定の項目一覧なので、表示/非表示・並び順・表示名だけを
@@ -23,3 +24,5 @@ export const PLAN_LIST_COLUMNS: PlanListColumn[] = [
     { name: 'status', label: '状態', help: '計画の進行状況です。', align: 'center' },
     { name: 'material_status', label: '部品の状況', help: '部品の引当状況です。' },
 ];
+// 列名・説明の「部品」「ピッキング」「出庫」を、用語設定の呼び方に置き換える
+registerTermTarget(PLAN_LIST_COLUMNS);
