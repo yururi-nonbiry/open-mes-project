@@ -451,7 +451,13 @@ class CsvColumnMappingViewSet(AuditSettingsChangeMixin, IntegrityErrorAsBadReque
         # タスク情報を先にDBへ保存してから非同期タスクを開始する
         # (ワーカーが先に動き出すとAsyncTaskが見つからず状態を記録できないため)
         task_id = str(uuid.uuid4())
-        AsyncTask.objects.create(task_id=task_id, task_name=f"CSV Import: {data_type}", status="PENDING")
+        AsyncTask.objects.create(
+            task_id=task_id,
+            task_name=f"CSV Import: {data_type}",
+            status="PENDING",
+            created_by=request.user,
+            file_path=file_path,
+        )
         import_csv_task.apply_async(args=(data_type, file_path), task_id=task_id)
         log_event(
             AccessLog.EventType.CSV_IMPORTED,
@@ -462,9 +468,17 @@ class CsvColumnMappingViewSet(AuditSettingsChangeMixin, IntegrityErrorAsBadReque
         return Response({"status": "processing", "task_id": task_id}, status=status.HTTP_202_ACCEPTED)
 
     @action(detail=True, methods=["get"], url_path="csv-import-status")
+    @staticmethod
+    def _own_task(request, pk):
+        """タスクを返す。他のユーザーが開始したタスクは、管理者以外には見つからないものとして扱う。"""
+        task = AsyncTask.objects.get(task_id=pk)
+        if not request.user.is_staff and task.created_by_id not in (None, request.user.pk):
+            raise AsyncTask.DoesNotExist
+        return task
+
     def get_task_status(self, request, pk=None):
         try:
-            task = AsyncTask.objects.get(task_id=pk)
+            task = self._own_task(request, pk)
             response_data = {
                 "task_id": task.task_id,
                 "status": task.status,
@@ -479,11 +493,17 @@ class CsvColumnMappingViewSet(AuditSettingsChangeMixin, IntegrityErrorAsBadReque
     @action(detail=True, methods=["post"], url_path="csv-import-cancel")
     def cancel_task(self, request, pk=None):
         try:
-            task = AsyncTask.objects.get(task_id=pk)
+            task = self._own_task(request, pk)
             if task.status in ["PENDING", "STARTED"]:
                 import_csv_task.AsyncResult(task.task_id).revoke(terminate=True)
                 task.status = "REVOKED"
                 task.save()
+                # 強制終了したタスクは一時ファイルを消さないため、ここで消す
+                if task.file_path and os.path.exists(task.file_path):
+                    try:
+                        os.remove(task.file_path)
+                    except OSError:
+                        logger.warning("CSV取込の一時ファイルを削除できませんでした: %s", task.file_path)
                 log_event(
                     AccessLog.EventType.CSV_IMPORT_CANCELLED,
                     request,

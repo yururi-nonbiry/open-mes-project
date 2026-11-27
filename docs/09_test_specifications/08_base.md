@@ -170,6 +170,8 @@ Excelでの保存を、CP932・CRLF・末尾の空カンマ行・日時/数値�
 | BASE-TASKSTATUS-02 | 異常系 | 同上 | 一般ユーザー | 存在しない`task_id` | 404 | |
 | BASE-TASKSTATUS-03 | 正常系 | `POST csv-import-cancel/{task_id}/` | 一般ユーザー、`PENDING`状態の`AsyncTask`（`AsyncResult`をモック） | キャンセル | 200、`AsyncTask.status`が`REVOKED`に変わる | |
 | BASE-TASKSTATUS-04 | 異常系 | 同上 | 一般ユーザー、`SUCCESS`状態の`AsyncTask` | キャンセル | 400（既に完了済み） | |
+| BASE-TASKSTATUS-05 | 異常系 | `csv-import-status`・`csv-import-cancel` | 一般ユーザー、他のユーザー(管理者)が開始したタスク | 参照・キャンセル | 404、タスクは変わらない（管理者は参照できる） | 2026-11-27 追加。タスクに実行者を記録する |
+| BASE-TASKSTATUS-06 | 正常系 | `csv-import-cancel` | 自分が開始した実行中のタスク、一時ファイルあり | キャンセル | 200、一時ファイルが削除される | 2026-11-27 追加。強制終了したタスクは後始末が走らず一時ファイルが残っていた |
 
 ### 5.6 CSV列マッピング一括保存（`bulk-save` action）
 

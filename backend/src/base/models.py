@@ -1,5 +1,6 @@
 import uuid
 
+from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
@@ -252,6 +253,12 @@ class AsyncTask(models.Model):
     progress = models.PositiveIntegerField(_("進捗"), default=0)
     total = models.PositiveIntegerField(_("総数"), default=100)
     result = models.JSONField(_("結果"), null=True, blank=True)
+    # タスクを開始したユーザー(進捗の確認・キャンセルは本人と管理者だけに許す)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, verbose_name=_("実行者")
+    )
+    # 取込中の一時ファイル。キャンセルでタスクを強制終了すると後始末が走らないため、キャンセル時に消せるよう控える
+    file_path = models.CharField(_("一時ファイル"), max_length=500, blank=True)
     created_at = models.DateTimeField(_("作成日時"), auto_now_add=True)
     updated_at = models.DateTimeField(_("更新日時"), auto_now=True)
 

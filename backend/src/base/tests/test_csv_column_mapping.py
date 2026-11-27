@@ -159,6 +159,33 @@ class TaskStatusActionTests(BaseAPITestBase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
 
+    def test_base_taskstatus_05_other_users_task_hidden_from_general_user(self):
+        """他のユーザーが開始したタスクは、管理者以外には見つからない(進捗の参照・キャンセル不可)。"""
+        other = self.create_async_task(task_id="33333333-3333-3333-3333-333333333333", created_by=self.admin_user)
+        self.client.force_authenticate(user=self.user)
+        self.assertEqual(self.client.get(self._status_url(other.task_id)).status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(self.client.post(self._cancel_url(other.task_id)).status_code, status.HTTP_404_NOT_FOUND)
+        other.refresh_from_db()
+        self.assertEqual(other.status, "PENDING")
+        self.client.force_authenticate(user=self.admin_user)
+        self.assertEqual(self.client.get(self._status_url(other.task_id)).status_code, status.HTTP_200_OK)
+
+    @patch("base.api.import_csv_task")
+    def test_base_taskstatus_06_cancel_removes_temp_file(self, mock_task):
+        """キャンセルでタスクを強制終了すると後始末が走らないため、一時ファイルはキャンセル時に消す。"""
+        import os
+        import tempfile
+
+        mock_task.AsyncResult.return_value = MagicMock()
+        fd, path = tempfile.mkstemp(suffix=".csv")
+        os.close(fd)
+        task = self.create_async_task(
+            task_id="44444444-4444-4444-4444-444444444444", created_by=self.user, file_path=path
+        )
+        self.client.force_authenticate(user=self.user)
+        self.assertEqual(self.client.post(self._cancel_url(task.task_id)).status_code, status.HTTP_200_OK)
+        self.assertFalse(os.path.exists(path))
+
 class CsvColumnMappingBulkSaveTests(BaseAPITestBase):
     """BASE-CSVBULK-* : csv-mappings bulk-save action。管理者限定（降格対象外）。"""
 

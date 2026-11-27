@@ -7,6 +7,9 @@ export interface CsvResult {
     errors: string[];
 }
 
+// 進捗の確認がこの回数続けて失敗したら、確認を中断してエラーを表示する
+const MAX_POLLING_FAILURES = 3;
+
 export const useCsvImport = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [taskId, setTaskId] = useState<string | null>(null);
@@ -16,6 +19,8 @@ export const useCsvImport = () => {
     const [showResultModal, setShowResultModal] = useState(false);
     
     const pollingInterval = useRef<NodeJS.Timeout | null>(null);
+    // 進捗の確認が続けて失敗した回数。一時的な通信エラーでは止めず、続いた場合だけエラーを表示する
+    const pollingFailures = useRef(0);
 
     const stopPolling = useCallback(() => {
         if (pollingInterval.current) {
@@ -26,9 +31,11 @@ export const useCsvImport = () => {
     }, []);
 
     const startPolling = useCallback((currentTaskId: string) => {
+        pollingFailures.current = 0;
         pollingInterval.current = setInterval(async () => {
             try {
                 const result = await importService.getTaskStatus(currentTaskId);
+                pollingFailures.current = 0;
                 setTaskStatus(result.status_display ?? result.status);
                 // 進捗は処理済みの行数で返るため、全行数に対する割合(%)にする
                 setProgress(result.total > 0 ? Math.min(100, Math.round((result.progress || 0) / result.total * 100)) : 0);
@@ -59,9 +66,19 @@ export const useCsvImport = () => {
                     setShowResultModal(true);
                     setIsLoading(false);
                 }
-            } catch {
+            } catch (e) {
+                pollingFailures.current += 1;
+                if (pollingFailures.current < MAX_POLLING_FAILURES) return;
                 stopPolling();
                 setIsLoading(false);
+                setCsvResult({
+                    message: 'インポートの進捗を確認できませんでした',
+                    isError: true,
+                    errors: [
+                        `通信エラーが続いたため、進捗の確認を中断しました。取込はサーバーで続いている場合があります。(${(e as Error).message})`,
+                    ],
+                });
+                setShowResultModal(true);
             }
         }, 2000);
     }, [stopPolling]);

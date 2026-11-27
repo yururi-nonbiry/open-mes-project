@@ -407,4 +407,7 @@ export const CSV_DATA_TYPES = [
     { value: 'work_center', label: 'ワークセンターマスター' },
     { value: 'unit_cost', label: '標準単価' },
     { value: 'production_plan', label: '生産計画' },
+    // 入庫予定・出庫予定もバックエンドでCSV取込できる(入庫実績は在庫の計上と一体のため取り込めない)
+    { value: 'purchase_order', label: '入庫予定' },
+    { value: 'sales_order', label: '出庫予定' },
 ];
