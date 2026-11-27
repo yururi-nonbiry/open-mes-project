@@ -6,6 +6,7 @@ import { ProductionPlan, ProgressUpdatePayload } from '../../types/production';
 import type { StatusOption } from './types';
 import { NavIcon } from '../../components/NavIcon';
 import { t } from '../../utils/terms';
+import { applyShelfInput } from '../../utils/shelfQr';
 
 interface WorkProgressModalProps {
     isOpen: boolean;
@@ -19,6 +20,7 @@ const WorkProgressModal: React.FC<WorkProgressModalProps> = ({
     isOpen, onClose, onSuccess, plan, availableStatuses
 }) => {
     const [modalQuantities, setModalQuantities] = useState({ actual: '', good: '', defective: '' });
+    const [destination, setDestination] = useState({ warehouse: '', location: '' });
     const [modalStatus, setModalStatus] = useState('');
     const [modalError, setModalError] = useState('');
     const [submitting, setSubmitting] = useState(false);
@@ -27,6 +29,10 @@ const WorkProgressModal: React.FC<WorkProgressModalProps> = ({
         if (isOpen && plan) {
             setModalStatus(plan.status);
             setModalError('');
+            setDestination({
+                warehouse: plan.finished_goods_warehouse ?? '',
+                location: plan.finished_goods_location ?? '',
+            });
             setModalQuantities({
                 actual: String(plan.planned_quantity ?? ''),
                 good: String(plan.planned_quantity ?? ''),
@@ -63,6 +69,15 @@ const WorkProgressModal: React.FC<WorkProgressModalProps> = ({
         setModalQuantities(newQuantities);
     };
 
+    // 完了済みの計画は計上した倉庫から完成品を増減・取消するため、入庫倉庫・棚番は変更できない
+    const destinationLocked = plan?.status === 'COMPLETED';
+
+    const handleDestinationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const { name, value } = e.target;
+        // バーコードリーダーで棚番QR({"warehouse","shelf"})が入力された場合は倉庫と棚番に振り分ける
+        setDestination(prev => applyShelfInput(prev, name, value, 'location', 'warehouse'));
+    };
+
     const handleSubmit = async () => {
         setModalError('');
         if (!plan || !modalStatus) return;
@@ -82,6 +97,13 @@ const WorkProgressModal: React.FC<WorkProgressModalProps> = ({
             payload.actual_quantity = actual;
             payload.good_quantity = good;
             payload.defective_quantity = defective;
+
+            if (!destinationLocked) {
+                const warehouse = destination.warehouse.trim();
+                if (!warehouse) { setModalError('入庫倉庫を入力してください。'); return; }
+                payload.warehouse = warehouse;
+                payload.location = destination.location.trim();
+            }
         }
 
         setSubmitting(true);
@@ -216,6 +238,52 @@ const WorkProgressModal: React.FC<WorkProgressModalProps> = ({
                                     readOnly
                                 />
                                 <span className="mes-modal-field-help">製作数量 − NG数量（完成品入庫数）</span>
+                            </div>
+                        </div>
+                        <div className="col-12 col-md-6">
+                            <div className="mes-modal-field-group">
+                                <label htmlFor="modalFinishedGoodsWarehouse" className="mes-modal-field-label">
+                                    <span>入庫倉庫</span>
+                                    <span className={`mes-field-badge ${destinationLocked ? 'optional' : 'required'}`}>
+                                        {destinationLocked ? '変更不可' : '必須'}
+                                    </span>
+                                </label>
+                                <input
+                                    type="text"
+                                    className={`form-control mes-modal-input${destinationLocked ? ' bg-light' : ''}`}
+                                    id="modalFinishedGoodsWarehouse"
+                                    name="warehouse"
+                                    value={destination.warehouse}
+                                    onChange={handleDestinationChange}
+                                    readOnly={destinationLocked}
+                                    placeholder="例：FG-MAIN / W001"
+                                />
+                                <span className="mes-modal-field-help">
+                                    {destinationLocked
+                                        ? '完成品を入庫済みの倉庫です。変更する場合は完了を取り消してから完了し直してください'
+                                        : '完成品の入庫先（初期値は品番マスタのデフォルト入庫倉庫）'}
+                                </span>
+                            </div>
+                        </div>
+                        <div className="col-12 col-md-6">
+                            <div className="mes-modal-field-group">
+                                <label htmlFor="modalFinishedGoodsLocation" className="mes-modal-field-label">
+                                    <span>棚番</span>
+                                    <span className="mes-field-badge optional">{destinationLocked ? '変更不可' : '任意'}</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    className={`form-control mes-modal-input${destinationLocked ? ' bg-light' : ''}`}
+                                    id="modalFinishedGoodsLocation"
+                                    name="location"
+                                    value={destination.location}
+                                    onChange={handleDestinationChange}
+                                    readOnly={destinationLocked}
+                                    placeholder="棚番"
+                                />
+                                <span className="mes-modal-field-help">
+                                    {destinationLocked ? '完成品を入庫済みの棚番です' : '空欄の場合は棚番なしで入庫します'}
+                                </span>
                             </div>
                         </div>
                     </div>

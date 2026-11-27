@@ -6,7 +6,15 @@ from django.utils import timezone
 
 from base.feature_settings import apply_terms
 from inventory.models import SalesOrder, StockMovement
-from inventory.services import InventoryServiceError, add_stock, consume_stock, lock_inventory_rows
+from inventory.services import (
+    InventoryServiceError,
+    add_stock,
+    consume_stock,
+    get_or_create_locked_inventory,
+    item_default_location_for,
+    lock_inventory_rows,
+)
+from master.models import Warehouse
 
 from ..models import MaterialAllocation, ProductionPlan, WorkProgress
 from .allocation import build_internal_so_order_number
@@ -77,9 +85,23 @@ def update_production_progress_service(plan, data, user):
             if previous_wp_completed_quantity > 0:
                 _reverse_inventory(plan, previous_wp_completed_quantity, now, user)
             _restore_materials_for_plan(plan, now, user)
+            # 次に完了したときは、改めて完成品の入庫倉庫・棚番を指定する
+            plan.finished_goods_warehouse = None
+            plan.finished_goods_location = None
             work_progress.quantity_completed = 0
             work_progress.actual_reported_quantity = None
             work_progress.defective_reported_quantity = None
+
+        # 初めて完了になった場合に、完成品の入庫倉庫・棚番を決めて記録する。
+        # 統合計画の按分(apportion_completion)で元計画にも写すため、保存前に行う。
+        # (完了数量が0でも記録し、後から完了数量を増やした場合も同じ倉庫・棚番へ計上する)
+        if new_status == ProductionPlan.Status.COMPLETED:
+            if old_plan_status != ProductionPlan.Status.COMPLETED:
+                plan.finished_goods_warehouse, plan.finished_goods_location = _resolve_finished_goods_destination(
+                    plan, data
+                )
+            else:
+                _reject_destination_change(plan, data)
 
         plan.save()
         work_progress.save()
@@ -192,13 +214,58 @@ def _handle_pending_status(work_progress):
     work_progress.status = WorkProgress.Status.NOT_STARTED
 
 
+def default_finished_goods_destination(plan):
+    """
+    完了報告の入庫倉庫・棚番の初期値。品番マスタのデフォルト入庫倉庫(無ければ既定の完成品倉庫)と、
+    その倉庫で使える品番マスタのデフォルト入庫棚番(無ければ "")。
+    """
+    item = plan.product
+    warehouse = (item.default_warehouse if item else None) or DEFAULT_FINISHED_GOODS_WAREHOUSE
+    return warehouse, item_default_location_for(item, warehouse)
+
+
+def _resolve_finished_goods_destination(plan, data):
+    """
+    初めて完了したときの完成品の入庫倉庫・棚番。完了報告で指定されていればそれを、無ければ初期値を使う。
+    倉庫だけ指定された場合の棚番は、その倉庫で使える品番マスタのデフォルト入庫棚番(無ければ棚番なし)。
+    """
+    warehouse = (data.get("warehouse") or "").strip()
+    if warehouse:
+        default_location = item_default_location_for(plan.product, warehouse)
+    else:
+        warehouse, default_location = default_finished_goods_destination(plan)
+    location = data.get("location")
+    location = (location or "").strip() if location is not None else default_location
+    if not Warehouse.objects.filter(warehouse_number=warehouse).exists():
+        raise ValueError(f"完成品の入庫倉庫 '{warehouse}' が存在しません。")
+    return warehouse, location
+
+
+def _reject_destination_change(plan, data):
+    """完了後の完了数量の変更では、入庫倉庫・棚番を変えられない(取消時に計上した倉庫から減らすため)。"""
+    warehouse = (data.get("warehouse") or "").strip()
+    if warehouse and warehouse != _finished_goods_warehouse(plan):
+        raise ValueError(
+            "完了済みの生産計画の入庫倉庫は変更できません。変更する場合は、いったん完了を取り消してから完了し直してください。"
+        )
+
+
+def _finished_goods_warehouse(plan):
+    """完成品を計上した倉庫。記録を始める前に完了した計画は、当時の計上先である既定の完成品倉庫。"""
+    return plan.finished_goods_warehouse or DEFAULT_FINISHED_GOODS_WAREHOUSE
+
+
 def _remove_finished_goods(plan, quantity, now, user, reference_document, description):
-    """完成品倉庫から完成品を減らす(完了の取消・完了数量の減少)。他の受注が引き当てている分は減らせない。"""
+    """完成品の計上倉庫から完成品を減らす(完了の取消・完了数量の減少)。他の受注が引き当てている分は減らせない。"""
     product_code = plan.product_code
-    warehouse = DEFAULT_FINISHED_GOODS_WAREHOUSE
+    warehouse = _finished_goods_warehouse(plan)
     rows = [row for row in lock_inventory_rows(product_code, warehouse) if row.is_active]
     if not rows:
         raise ValueError(f"Inventory for product {product_code} not found for reversal.")
+    # 完了時に計上した棚から先に減らす(他の棚の古い在庫を減らして、計上した棚に実在しない在庫が残らないように)
+    if plan.finished_goods_warehouse:
+        recorded_location = plan.finished_goods_location or ""
+        rows.sort(key=lambda row: row.location != recorded_location)
     try:
         consumed, _ = consume_stock(rows, quantity)
     except InventoryServiceError as e:
@@ -231,7 +298,7 @@ def _reverse_inventory(plan, quantity, now, user):
 
 def _adjust_inventory_for_completion(plan, adjustment, total_completed, now, user):
     product_code = plan.product_code
-    target_warehouse = DEFAULT_FINISHED_GOODS_WAREHOUSE
+    target_warehouse = _finished_goods_warehouse(plan)
     description = f"Plan {plan.id} completion. Qty changed by: {adjustment}. New total: {total_completed}."
 
     if adjustment < 0:
@@ -240,7 +307,15 @@ def _adjust_inventory_for_completion(plan, adjustment, total_completed, now, use
         )
         return
 
-    row = add_stock(product_code, target_warehouse, adjustment)
+    # 記録した棚番があればその棚へ、無ければ(棚番なしを指定した場合・記録を始める前に完了した計画)
+    # 棚番なし(または既存の棚)へ計上する
+    location = plan.finished_goods_location if plan.finished_goods_warehouse else ""
+    if location:
+        row = get_or_create_locked_inventory(product_code, target_warehouse, location)
+        row.quantity += adjustment
+        row.save()
+    else:
+        row = add_stock(product_code, target_warehouse, adjustment)
     StockMovement.objects.create(
         part_number=product_code,
         quantity=adjustment,

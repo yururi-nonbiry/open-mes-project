@@ -166,3 +166,18 @@ class PlanMergeTests(ProductionAPITestBase):
         self.assertFalse(get_feature_flag(MERGE_PLANS_ON_ALLOCATION))
         set_feature_flag(MERGE_PLANS_ON_ALLOCATION, True)
         self.assertTrue(get_feature_flag(MERGE_PLANS_ON_ALLOCATION))
+
+    def test_pp_merge_16_completion_copies_finished_goods_destination_to_originals(self):
+        """PP-MERGE-16: 統合計画の完成品の入庫倉庫・棚番を元計画にも記録し、完了の取消で元計画の記録も消す。"""
+        merged = self._merged()
+        url = reverse("production_api:production-plan-update-progress", kwargs={"pk": merged.pk})
+        response = self.client.post(
+            url, {"status": "COMPLETED", "good_quantity": 80, "warehouse": "WH-A", "location": "A-05"}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.plan_a.refresh_from_db()
+        self.assertEqual((self.plan_a.finished_goods_warehouse, self.plan_a.finished_goods_location), ("WH-A", "A-05"))
+
+        self.client.post(url, {"status": "IN_PROGRESS"}, format="json")
+        self.plan_a.refresh_from_db()
+        self.assertIsNone(self.plan_a.finished_goods_warehouse)

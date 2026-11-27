@@ -17,6 +17,10 @@ export interface ProductionPlan {
     purpose?: string | null;
     /** 部品の出庫先ライン(ワークセンターコード)。引当時の既定値(空は未指定)。 */
     line?: string | null;
+    /** 完成品の入庫倉庫。完了済みは計上した倉庫、未完了は完了報告での初期値(品番マスタのデフォルト入庫倉庫など)。 */
+    finished_goods_warehouse?: string;
+    /** 完成品の入庫棚番(空は棚番なし)。完了済み・未完了の意味は finished_goods_warehouse と同じ。 */
+    finished_goods_location?: string;
     production_plan?: string;
     /** 中間品の子計画の場合、その中間品を使う親の生産計画 */
     parent_plan?: string | null;
@@ -162,6 +166,9 @@ export interface ProgressUpdatePayload {
     good_quantity?: number;
     actual_quantity?: number;
     defective_quantity?: number;
+    /** 完成品の入庫倉庫・棚番。初めて完了にするときだけ指定できる(省略時は品番マスタのデフォルト等)。 */
+    warehouse?: string;
+    location?: string;
     remarks?: string;
 }
 

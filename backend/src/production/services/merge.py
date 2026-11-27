@@ -188,6 +188,7 @@ def apportion_completion(merged, good_quantity):
     """
     統合計画の良品数を、元計画に納期順で割り振って完了にする。
     各計画には計画数量まで割り振り、計画数量を超えた分(余剰)は最後の計画に加える。在庫への計上は統合計画で済んでいる。
+    完成品の入庫倉庫・棚番は統合計画と同じものを記録する(元計画の完了を取り消す場合も同じ倉庫から減らすため)。
     """
     originals = sorted(merged.merged_plans.all(), key=_order_key)
     remaining = good_quantity
@@ -197,7 +198,18 @@ def apportion_completion(merged, good_quantity):
         plan.status = ProductionPlan.Status.COMPLETED
         plan.actual_start_datetime = merged.actual_start_datetime
         plan.actual_end_datetime = merged.actual_end_datetime
-        plan.save(update_fields=["status", "actual_start_datetime", "actual_end_datetime", "updated_at"])
+        plan.finished_goods_warehouse = merged.finished_goods_warehouse
+        plan.finished_goods_location = merged.finished_goods_location
+        plan.save(
+            update_fields=[
+                "status",
+                "actual_start_datetime",
+                "actual_end_datetime",
+                "finished_goods_warehouse",
+                "finished_goods_location",
+                "updated_at",
+            ]
+        )
         progress, _ = WorkProgress.objects.get_or_create(production_plan=plan, process_step=OVERALL_PROCESS_STEP)
         progress.status = WorkProgress.Status.COMPLETED
         progress.quantity_completed = qty
@@ -212,7 +224,18 @@ def reverse_apportion(merged):
         plan.status = ProductionPlan.Status.MERGED
         plan.actual_start_datetime = None
         plan.actual_end_datetime = None
-        plan.save(update_fields=["status", "actual_start_datetime", "actual_end_datetime", "updated_at"])
+        plan.finished_goods_warehouse = None
+        plan.finished_goods_location = None
+        plan.save(
+            update_fields=[
+                "status",
+                "actual_start_datetime",
+                "actual_end_datetime",
+                "finished_goods_warehouse",
+                "finished_goods_location",
+                "updated_at",
+            ]
+        )
         WorkProgress.objects.filter(production_plan=plan, process_step=OVERALL_PROCESS_STEP).update(
             status=WorkProgress.Status.NOT_STARTED, quantity_completed=0, end_datetime=None
         )

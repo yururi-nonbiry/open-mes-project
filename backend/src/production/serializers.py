@@ -1,3 +1,4 @@
+from django.conf import settings
 from rest_framework import serializers
 
 from base.feature_settings import apply_terms, lazy_terms
@@ -5,6 +6,7 @@ from master.models import Item, StockPurpose, Warehouse, WorkCenter
 
 from .models import MaterialAllocation, PartsUsed, ProductionPlan, ProductionPlanMaterial, WorkProgress
 from .services.materials import allocated_quantity_by_material, calc_required_quantity, normal_allocations
+from .services.progress import default_finished_goods_destination
 
 
 class ProductionPlanSerializer(serializers.ModelSerializer):
@@ -35,6 +37,23 @@ class ProductionPlanSerializer(serializers.ModelSerializer):
     child_plan_count = serializers.IntegerField(read_only=True, default=0)
     # 製品のBOMマスター(構成マスター)が登録されているか(ProductionPlanViewSet で注釈)
     has_bom = serializers.BooleanField(read_only=True, default=True)
+    # 完成品の入庫倉庫・棚番。完了済みの計画は計上した倉庫・棚番、未完了の計画は完了報告での初期値
+    # (品番マスタのデフォルト入庫倉庫・棚番、倉庫が無ければ既定の完成品倉庫)。
+    finished_goods_warehouse = serializers.SerializerMethodField()
+    finished_goods_location = serializers.SerializerMethodField()
+
+    def _finished_goods_destination(self, obj):
+        if obj.status == ProductionPlan.Status.COMPLETED:
+            if obj.finished_goods_warehouse:
+                return obj.finished_goods_warehouse, obj.finished_goods_location or ""
+            return settings.DEFAULT_FINISHED_GOODS_WAREHOUSE, ""
+        return default_finished_goods_destination(obj)
+
+    def get_finished_goods_warehouse(self, obj):
+        return self._finished_goods_destination(obj)[0]
+
+    def get_finished_goods_location(self, obj):
+        return self._finished_goods_destination(obj)[1]
 
     class Meta:
         model = ProductionPlan
@@ -60,6 +79,8 @@ class ProductionPlanSerializer(serializers.ModelSerializer):
             "child_plan_count",
             "pending_intermediate_count",
             "has_bom",
+            "finished_goods_warehouse",  # 完成品の入庫倉庫 (読み取り専用)
+            "finished_goods_location",  # 完成品の入庫棚番 (読み取り専用)
             "remarks",
             "created_at",
             "updated_at",

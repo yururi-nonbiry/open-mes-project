@@ -25,8 +25,10 @@
   実質`AllowAny`になっていたが、修正済み（[7. 既知の懸念事項](#7-既知の懸念事項)参照）。テストでは
   `force_authenticate`を使用する。
 - 関連モデル（`master.Item`, `master.Warehouse`, `inventory.Inventory`, `inventory.SalesOrder`）のテストデータ作成が前提となる。
-- `settings.DEFAULT_FINISHED_GOODS_WAREHOUSE`（デフォルト `"FG-MAIN"`）を完成品入庫先として使用するため、
-  テストではこの倉庫番号で `Warehouse`/`Inventory` を用意する。
+- 完成品の入庫倉庫・棚番は、完了報告(`update-progress`)の `warehouse`/`location` で指定する。省略時は製品の品番マスタの
+  デフォルト入庫倉庫・棚番、デフォルト入庫倉庫も無ければ `settings.DEFAULT_FINISHED_GOODS_WAREHOUSE`（デフォルト `"FG-MAIN"`）。
+  初回完了時に `ProductionPlan.finished_goods_warehouse`/`finished_goods_location` へ記録し、完了数量の増減・完了の取消は
+  記録した倉庫に対して行う（記録の無い、変更前に完了した計画は `FG-MAIN`）。テストではこの倉庫番号で `Warehouse`/`Inventory` を用意する。
 
 ## 3. モデル仕様まとめ（テスト観点の根拠）
 
@@ -101,6 +103,16 @@
 | PP-PROG-09 | 正常系 | `update-progress` | Plan.status=IN_PROGRESS | `status=CANCELLED` | 200、`plan.actual_end_datetime`設定、`WorkProgress.status=PAUSED` | |
 | PP-PROG-10 | 異常系 | `update-progress` | - | `status`未指定 | 400 | |
 | PP-PROG-11 | 正常系 | `update-progress` | Plan.status=ON_HOLD | `status=PENDING` | 200、`WorkProgress.status=NOT_STARTED` | |
+| PP-PROG-14 | 正常系 | `update-progress` | 製品の品番マスタにデフォルト入庫倉庫 `WH-A`・棚番 `A-09` | `status=COMPLETED, good_quantity=10`（倉庫・棚番省略） | 200、`WH-A`/`A-09` に完成品10、計画に `finished_goods_warehouse=WH-A` を記録 | 2026-11-27 追加 |
+| PP-PROG-15 | 正常系 | `update-progress` | PP-PROG-14 で完了後、品番マスタを `FG-MAIN`/`FG-09` に変更 | `good_quantity=15` に変更 → `status=ON_HOLD` | 増分は記録した `WH-A`/`A-09` に計上、取消も `WH-A` から減算。取消で記録をクリア | 同上 |
+| PP-PROG-16 | 正常系 | `update-progress` | 品番マスタのデフォルト入庫倉庫なし・棚番 `X-01` | `status=COMPLETED`（倉庫・棚番省略） | `FG-MAIN`/`X-01` に計上 | 同上 |
+| PP-PROG-17 | 正常系 | `update-progress` | 品番マスタのデフォルト入庫倉庫 `WH-A` | 良品0で完了 → 品番マスタを変更 → `good_quantity=3` | 良品0でも計上倉庫を記録し、増分は `WH-A` に計上 | 同上 |
+| PP-PROG-18 | 異常系 | `update-progress` | 品番マスタのデフォルト入庫倉庫が存在しない倉庫 | `status=COMPLETED`（倉庫省略） | 400（倉庫番号を含むメッセージ）、計画は完了しない | 同上 |
+| PP-PROG-19 | 正常系 | `update-progress` | 品番マスタのデフォルト `WH-A`/`A-09` | `status=COMPLETED, warehouse=FG-MAIN, location=FG-05` | 指定した `FG-MAIN`/`FG-05` に計上し記録（品番マスタより優先） | 同上 |
+| PP-PROG-20 | 正常系 | `update-progress` | 品番マスタのデフォルト `WH-A`/`A-09` | `warehouse=FG-MAIN`（棚番省略） | 別倉庫のデフォルト棚番は使わず、`FG-MAIN` の棚番なしに計上 | 同上 |
+| PP-PROG-21 | 異常系 | `update-progress` | `WH-A` で完了済み | 完了数量の変更時に `warehouse=FG-MAIN` を指定 | 400、在庫は変わらない（同じ `WH-A` の指定は200） | 同上 |
+| PP-PROG-22 | 正常系 | `GET plans/{id}/` | 品番マスタのデフォルト `WH-A`/`A-09` | 未完了・完了済み・記録の無い完了済みの計画を取得 | `finished_goods_warehouse`/`finished_goods_location` が、未完了は初期値(`WH-A`/`A-09`)、完了済みは計上先、記録なしは `FG-MAIN` | 同上 |
+| PP-PROG-23 | 正常系 | `update-progress` | `WH-A`/`A-01` に古い完成品在庫4、`WH-A`/`A-02` を指定して6で完了 | `status=ON_HOLD` | 計上した `A-02` から6を減らし、`A-01` の4は残る | 2026-11-27 追加 |
 
 ### 5.5 使用部品 CRUD（`PartsUsedViewSet`）
 
@@ -276,6 +288,7 @@
 | PP-MERGE-12 | 異常系 | `allocate-materials`・`update-progress` | 統合済みの元計画 | 引当・進捗更新 | 400 | |
 | PP-MERGE-13 | 正常系 | `update-progress` | 統合計画 | 中止 | 元計画は未着手に戻る | |
 | PP-MERGE-14 | 正常系 | 機能設定 | — | `merge_plans_on_allocation` | 既定OFF。ONに設定できる | 管理者画面から切替 |
+| PP-MERGE-16 | 正常系 | `update-progress` | 統合計画 | `WH-A`/`A-05` を指定して完了 → 進行中に戻す | 元計画にも `finished_goods_warehouse=WH-A`/`finished_goods_location=A-05` を記録し、完了の取消で元計画の記録も消す | 2026-11-27 追加 |
 
 ## 6. シリアライザの read_only_fields 確認
 

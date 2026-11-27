@@ -88,6 +88,15 @@ class ProductionPlan(models.Model):
         verbose_name="参照生産計画",
         help_text="参照する生産計画の名前や識別子を文字列で記録します。",
     )
+    # 完成品を計上した倉庫・棚番。完了報告で指定した値(初期値は品番マスタのデフォルト入庫倉庫・棚番、
+    # 倉庫が無ければ既定の完成品倉庫)を記録し、完了数量の増減・完了の取消はこの倉庫に対して行う。
+    # 完了前、および記録を始める前に完了した計画は空(空の場合は既定の完成品倉庫を使う)。
+    finished_goods_warehouse = models.CharField(
+        max_length=255, null=True, blank=True, verbose_name="完成品の入庫倉庫"
+    )
+    finished_goods_location = models.CharField(
+        max_length=255, null=True, blank=True, verbose_name="完成品の入庫棚番"
+    )
     planned_quantity = models.PositiveIntegerField(verbose_name="計画数量")
     planned_start_datetime = models.DateTimeField(verbose_name="計画開始日時")
     planned_end_datetime = models.DateTimeField(verbose_name="計画終了日時")

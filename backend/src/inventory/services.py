@@ -435,14 +435,21 @@ def resolve_receipt_destination(po, warehouse, location):
     (またはデフォルト入庫倉庫が未登録)の場合だけ使う(別倉庫の棚番を当てはめないため)。
     """
     item = po.part_number_rel
-    default_warehouse = (item.default_warehouse or "") if item else ""
-    default_location = (item.default_location or "") if item else ""
-    warehouse = warehouse or po.warehouse or default_warehouse or None
-    if not location:
-        location = po.location or ""
-    if not location and default_location and (not default_warehouse or default_warehouse == warehouse):
-        location = default_location
+    warehouse = warehouse or po.warehouse or (item.default_warehouse if item else None) or None
+    location = location or po.location or item_default_location_for(item, warehouse)
     return warehouse, location
+
+
+def item_default_location_for(item, warehouse):
+    """
+    品番マスタのデフォルト入庫棚番を、warehouse へ入庫する場合に使えるなら返す(使えなければ "")。
+    デフォルト入庫倉庫が登録済みで warehouse と異なる場合は、別倉庫の棚番になるため使わない。
+    """
+    if item is None or not item.default_location:
+        return ""
+    if item.default_warehouse and item.default_warehouse != warehouse:
+        return ""
+    return item.default_location
 
 
 def receive_purchase_order(
