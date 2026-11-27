@@ -183,6 +183,9 @@ class ProductionPlanViewSet(viewsets.ModelViewSet):
         """
         plan = self.get_object()
         ensure_plan_materials_editable(plan)
+        # 統合計画の所要部品は元計画の(計画ごとに編集した)所要量の合計のため、BOMマスターの構成で上書きさせない
+        if plan.merged_plans.exists():
+            return error_response("統合計画の部品構成は初期化できません。変更する場合は統合を解除してください。")
         if normal_allocations(plan.material_allocations.all()).exists():
             return error_response(
                 apply_terms("部品の引当がある生産計画の部品構成は初期化できません。先に引当を解除してください。")

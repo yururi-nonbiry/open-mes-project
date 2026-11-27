@@ -6,6 +6,8 @@
 - 統合計画の生産が完了したら、完了数量(良品数)を元計画に納期順で割り振る(按分)。
 """
 
+from decimal import ROUND_CEILING, Decimal
+
 from django.db import transaction
 
 from base.feature_settings import apply_terms
@@ -79,6 +81,16 @@ def find_merge_groups(plans):
     return sorted(result, key=lambda g: _order_key(g[0]))
 
 
+def _quantity_per_unit(required, total):
+    """
+    合算した所要量から1個あたり所要数量(小数3桁)を求める。所要量は合計をそのまま使うため参考値だが、
+    切り捨て・四捨五入で0になると所要量の再計算で部品が0個になるため、切り上げる。
+    """
+    if not total:
+        return Decimal(0)
+    return (Decimal(required) / Decimal(total)).quantize(Decimal("0.001"), rounding=ROUND_CEILING)
+
+
 def _common(values):
     values = set(values)
     return values.pop() if len(values) == 1 else None
@@ -131,7 +143,7 @@ def merge_plans(plans):
         ProductionPlanMaterial.objects.create(
             production_plan=merged,
             material_id=material_id,
-            quantity_per_unit=round(required / total, 3) if total else 0,
+            quantity_per_unit=_quantity_per_unit(required, total),
             required_quantity=required,
             # 子計画で賄う設定は、統合計画で子計画を作り直すときに設定される
             supply_method=(

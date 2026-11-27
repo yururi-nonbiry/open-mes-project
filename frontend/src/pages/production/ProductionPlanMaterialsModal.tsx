@@ -14,7 +14,7 @@ interface ProductionPlanMaterialsModalProps {
 }
 
 // 完了・中止した計画の構成は履歴として固定する(サーバー側でも拒否される)
-const READ_ONLY_STATUSES = ['COMPLETED', 'CANCELLED'];
+const READ_ONLY_STATUSES = ['COMPLETED', 'CANCELLED', 'MERGED'];
 
 const errorText = (e: unknown) => {
     if (e instanceof ApiError && e.errors) {
@@ -34,7 +34,8 @@ const ProductionPlanMaterialsModal: React.FC<ProductionPlanMaterialsModalProps> 
     const [message, setMessage] = useState({ text: '', type: '' });
     const [loading, setLoading] = useState(false);
 
-    const readOnly = !plan || READ_ONLY_STATUSES.includes(plan.status);
+    // 統合元(統合計画の完了で完了になった計画を含む)の部品構成は統合計画に合算済みのため変更できない
+    const readOnly = !plan || READ_ONLY_STATUSES.includes(plan.status) || !!plan.merged_into;
 
     const load = useCallback(async () => {
         if (!plan) return;

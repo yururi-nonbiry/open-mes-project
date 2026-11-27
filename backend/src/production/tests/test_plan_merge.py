@@ -173,6 +173,37 @@ class PlanMergeTests(ProductionAPITestBase):
         self.assertEqual(self.client.post(url, {"items": items}, format="json").status_code, 400)
         self.assertTrue(ProductionPlan.objects.filter(pk=self.plan_a.pk).exists())
 
+    def test_pp_merge_20_merged_plan_product_purpose_quantity_locked(self):
+        merged = self._merged()
+        url = reverse("production_api:production-plan-detail", kwargs={"pk": merged.pk})
+        self.assertEqual(self.client.patch(url, {"planned_quantity": 10}, format="json").status_code, 400)
+        other = Item.objects.create(code="PROD-009", name="Other", item_type="product")
+        self.assertEqual(self.client.patch(url, {"product_code": other.code}, format="json").status_code, 400)
+        # 備考や日時の変更、同じ値の送信はできる
+        response = self.client.patch(url, {"remarks": "memo", "planned_quantity": 80}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.content)
+        reset_url = reverse("production_api:production-plan-reset-materials", kwargs={"pk": merged.pk})
+        self.assertEqual(self.client.post(reset_url).status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(merged.materials.get(material=self.material_item1).required_quantity, 80)
+
+    def test_pp_merge_21_merged_source_plan_only_remarks_editable(self):
+        self._merged()
+        url = reverse("production_api:production-plan-detail", kwargs={"pk": self.plan_a.pk})
+        new_end = (self.plan_a.planned_end_datetime + timedelta(days=3)).isoformat()
+        self.assertEqual(self.client.patch(url, {"planned_end_datetime": new_end}, format="json").status_code, 400)
+        self.assertEqual(self.client.patch(url, {"remarks": "memo"}, format="json").status_code, 200)
+
+    def test_pp_merge_22_small_quantity_per_unit_not_rounded_to_zero(self):
+        """1個あたり所要数量が 0.0005 未満でも 0 にせず、計画数量を変えた再計算で所要量が消えないようにする。"""
+        self.plan_a.planned_quantity = 3000
+        self.plan_a.save()
+        self.create_plan_material(self.plan_a, self.material_item1, required_quantity=1, quantity_per_unit="0.001")
+        self.create_plan_material(self.plan_b, self.material_item1, required_quantity=0, quantity_per_unit=0)
+        merged = self._merged()
+        material = merged.materials.get(material=self.material_item1)
+        self.assertEqual(material.required_quantity, 1)
+        self.assertGreater(material.quantity_per_unit, 0)
+
     def test_pp_merge_15_bom_snapshot_replaced_by_edited_materials(self):
         """BOMマスターがあると計画作成時に所要部品がコピーされる。統合計画では元計画の編集後の所要量を合算する。"""
         BillOfMaterial.objects.create(product=self.product_item, material=self.material_item1, quantity=1)

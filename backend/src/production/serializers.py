@@ -130,6 +130,7 @@ class ProductionPlanSerializer(serializers.ModelSerializer):
                 )
 
         if self.instance:
+            self._validate_merge_restrictions(data)
             # 完了・中止・統合済みの計画の数量や製品を後から変えると、実績や統合元との整合が崩れる
             terminal = (
                 ProductionPlan.Status.COMPLETED,
@@ -167,6 +168,25 @@ class ProductionPlanSerializer(serializers.ModelSerializer):
                     {"planned_end_datetime": "Planned end datetime must be after planned start datetime."}
                 )
         return data
+
+    # 統合元の計画で変更できる項目(それ以外は統合計画で扱う)
+    MERGED_SOURCE_EDITABLE_FIELDS = ("remarks",)
+    # 統合計画で変更できない項目(元計画の品番・用途・数量を合算した計画のため)
+    MERGED_TARGET_LOCKED_FIELDS = ("product", "purpose_rel", "planned_quantity")
+
+    def _validate_merge_restrictions(self, data):
+        instance = self.instance
+        changed = [key for key, value in data.items() if getattr(instance, key, value) != value]
+        if instance.status == ProductionPlan.Status.MERGED or instance.merged_into_id:
+            if any(key not in self.MERGED_SOURCE_EDITABLE_FIELDS for key in changed):
+                raise serializers.ValidationError(
+                    "統合済みの生産計画は備考以外を変更できません。統合先の生産計画で変更するか、統合を解除してください。"
+                )
+        elif instance.merged_plans.exists():
+            if any(key in self.MERGED_TARGET_LOCKED_FIELDS for key in changed):
+                raise serializers.ValidationError(
+                    "統合計画の製品・用途・数量は変更できません。変更する場合は統合を解除してください。"
+                )
 
 
 class PartsUsedSerializer(serializers.ModelSerializer):
@@ -301,9 +321,11 @@ class ProductionPlanMaterialSerializer(serializers.ModelSerializer):
 
 
 def ensure_plan_materials_editable(plan):
-    """完了・中止した計画の所要部品は履歴として固定する。"""
+    """完了・中止した計画の所要部品は履歴として固定する。統合元の所要部品は統合計画に合算済みのため変更させない。"""
     if plan.status in (ProductionPlan.Status.COMPLETED, ProductionPlan.Status.CANCELLED, ProductionPlan.Status.MERGED):
         raise serializers.ValidationError(f"{plan.get_status_display()}の生産計画の部品構成は変更できません。")
+    if plan.merged_into_id:
+        raise serializers.ValidationError("統合済みの生産計画の部品構成は変更できません。")
 
 
 class MaterialAllocationSerializer(serializers.ModelSerializer):
