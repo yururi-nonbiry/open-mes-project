@@ -456,7 +456,7 @@ class CsvColumnMappingViewSet(AuditSettingsChangeMixin, IntegrityErrorAsBadReque
             task_name=f"CSV Import: {data_type}",
             status="PENDING",
             created_by=request.user,
-            file_path=file_path,
+            file_path=str(file_path),
         )
         import_csv_task.apply_async(args=(data_type, file_path), task_id=task_id)
         log_event(
