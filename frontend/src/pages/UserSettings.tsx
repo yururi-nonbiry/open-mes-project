@@ -25,6 +25,8 @@ const UserSettings = () => {
     new_password2: '',
   });
   const [apiToken, setApiToken] = useState<string | null>(null);
+  // 固定APIトークンを発行できるか(管理者、または管理者がAPIトークンのポリシーを設定したユーザーのみ)
+  const [canIssueToken, setCanIssueToken] = useState(false);
   const [isTokenVisible, setIsTokenVisible] = useState(false);
 
   // State for UI feedback
@@ -64,6 +66,7 @@ const UserSettings = () => {
       if (tokenRes.ok) {
         const tokenData = await tokenRes.json();
         setApiToken(tokenData.api_token || null);
+        setCanIssueToken(!!tokenData.can_issue);
       } else {
         console.warn("APIトークンの取得に失敗しました。");
         setApiToken(null);
@@ -258,12 +261,17 @@ const UserSettings = () => {
                 name="regenerate_token"
                 className="btn btn-sm btn-outline-warning fw-bold"
                 onClick={handleRegenerateToken}
+                disabled={!canIssueToken}
               >
-                トークンを再生成
+                {apiToken ? 'トークンを再生成' : 'トークンを発行'}
               </button>
             </div>
           </div>
-          <p className="mb-0 text-secondary small">トークンを再生成すると、現在のトークンは無効になり、新しいトークンが作成されます。</p>
+          <p className="mb-0 text-secondary small">
+            {canIssueToken
+              ? 'トークンを再生成すると、現在のトークンは無効になり、新しいトークンが作成されます。'
+              : 'APIトークンを発行するには、管理者にAPIトークンのポリシー（接続元IP・利用できるAPI）の設定を依頼してください。'}
+          </p>
         </div>
       </div>
 

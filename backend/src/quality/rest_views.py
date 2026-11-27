@@ -1,10 +1,11 @@
 import json
 import uuid
 
-from rest_framework import permissions, status, viewsets
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from base.permissions import IsAuthenticatedCreateAdminChange, IsAuthenticatedDeleteAdmin
 from base.responses import error_response
 from base.viewsets import CustomSuccessMessageMixin
 
@@ -34,7 +35,7 @@ class InspectionItemViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
     """
 
     queryset = InspectionItem.objects.prefetch_related("measurement_details").all().order_by("code")
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticatedCreateAdminChange]
     protected_error_message = (
         "この{model_name}(または削除しようとした測定詳細)は実績データが関連付けられているため削除できません。"
     )
@@ -135,7 +136,8 @@ class InspectionResultViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
         .order_by("-inspected_at")
     )
     serializer_class = InspectionResultSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    # 検査実績は品質の記録として残すため、削除は管理者のみ
+    permission_classes = [IsAuthenticatedDeleteAdmin]
 
     def get_serializer_context(self):
         """

@@ -3,9 +3,12 @@ import { useMachineMaster } from '../hooks/useMachineMaster';
 import { Machine } from '../services/machineService';
 import MachineMasterTable from './machine/MachineMasterTable';
 import MachineMasterModal from './machine/MachineMasterModal';
+import { useAuth } from '../hooks/useAuth';
 
 const MachineMasterCreation: React.FC = () => {
     const { machines, loading, error, saveMachine, deleteMachine } = useMachineMaster();
+    // 既存の設備の変更・削除は管理者のみ(APIも管理者以外は拒否する)
+    const { isStaff } = useAuth();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingMachine, setEditingMachine] = useState<Machine | null>(null);
 
@@ -44,8 +47,8 @@ const MachineMasterCreation: React.FC = () => {
             {!loading && !error && (
                 <MachineMasterTable
                     machines={machines}
-                    onEdit={handleEdit}
-                    onDelete={deleteMachine}
+                    onEdit={isStaff ? handleEdit : undefined}
+                    onDelete={isStaff ? deleteMachine : undefined}
                 />
             )}
 

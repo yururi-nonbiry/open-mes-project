@@ -200,10 +200,12 @@ interface ListModalProps {
     error: string | null;
     onEdit: (id: string | number) => void;
     onDelete: (row: RowRecord) => void;
+    /** 既存データの編集・削除ができるか(マスターの変更・削除は管理者のみ) */
+    canModify?: boolean;
     onOpenRegister?: () => void;
 }
 
-export const ListModal = ({ show, onHide, config, listData, isLoading, error, onEdit, onDelete, onOpenRegister }: ListModalProps) => {
+export const ListModal = ({ show, onHide, config, listData, isLoading, error, onEdit, onDelete, onOpenRegister, canModify = true }: ListModalProps) => {
     const normalizedType = config?.type === 'production_plan' ? 'production-plan' : config?.type;
     const dataConfig = DATA_CONFIG[normalizedType];
     const displayName = dataConfig?.name || getDataTypeDisplayName(config?.name || config?.type);
@@ -399,6 +401,7 @@ export const ListModal = ({ show, onHide, config, listData, isLoading, error, on
                                                 <td key={key} className="text-nowrap">{formatCellValue(key, row[key])}</td>
                                             ))}
                                             <td className="text-center text-nowrap">
+                                                {canModify ? (<>
                                                 <Button
                                                     variant="outline-primary"
                                                     size="sm"
@@ -415,6 +418,7 @@ export const ListModal = ({ show, onHide, config, listData, isLoading, error, on
                                                 >
                                                     削除
                                                 </Button>
+                                                </>) : <span className="text-muted small">—</span>}
                                             </td>
                                         </tr>
                                     ))}

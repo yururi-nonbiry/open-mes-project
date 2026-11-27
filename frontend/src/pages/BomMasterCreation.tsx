@@ -4,9 +4,12 @@ import { BillOfMaterial } from '../services/bomService';
 import BomMasterTable from './bom/BomMasterTable';
 import BomMasterModal from './bom/BomMasterModal';
 import BomExplodeModal from './bom/BomExplodeModal';
+import { useAuth } from '../hooks/useAuth';
 
 const BomMasterCreation: React.FC = () => {
     const { items, loading, error, fetchItems, deleteItem } = useBomMaster();
+    // 既存の構成の変更・削除は管理者のみ(APIも管理者以外は拒否する)
+    const { isStaff } = useAuth();
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<BillOfMaterial | null>(null);
@@ -50,8 +53,8 @@ const BomMasterCreation: React.FC = () => {
 
             <BomMasterTable
                 items={items}
-                onEdit={openModal}
-                onDelete={deleteItem}
+                onEdit={isStaff ? openModal : undefined}
+                onDelete={isStaff ? deleteItem : undefined}
                 onExplode={(product) => setExplodeTarget({ isOpen: true, product })}
             />
 

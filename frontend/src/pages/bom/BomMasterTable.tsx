@@ -4,8 +4,9 @@ import { t } from '../../utils/terms';
 
 interface BomMasterTableProps {
     items: BillOfMaterial[];
-    onEdit: (item: BillOfMaterial) => void;
-    onDelete: (id: string, product: string, material: string) => void;
+    /** 既存の構成の変更・削除は管理者のみ。未指定ならボタンを出さない */
+    onEdit?: (item: BillOfMaterial) => void;
+    onDelete?: (id: string, product: string, material: string) => void;
     onExplode: (product: string) => void;
 }
 
@@ -39,20 +40,23 @@ const BomMasterTable: React.FC<BomMasterTableProps> = ({ items, onEdit, onDelete
                                 <td>{item.material_unit || '—'}</td>
                                 <td>{item.remarks || '—'}</td>
                                 <td className="text-center text-nowrap sticky-action-col">
+                                    {onEdit && (
                                     <button
                                         type="button"
-                                        className="btn btn-sm btn-outline-primary fw-bold"
+                                        className="btn btn-sm btn-outline-primary fw-bold me-1"
                                         onClick={() => onEdit(item)}
                                     >
                                         編集
                                     </button>
+                                    )}
                                     <button
                                         type="button"
-                                        className="btn btn-sm btn-outline-secondary fw-bold ms-1"
+                                        className="btn btn-sm btn-outline-secondary fw-bold"
                                         onClick={() => onExplode(item.product)}
                                     >
                                         構成展開
                                     </button>
+                                    {onDelete && (
                                     <button
                                         type="button"
                                         className="btn btn-sm btn-outline-danger fw-bold ms-1"
@@ -60,6 +64,7 @@ const BomMasterTable: React.FC<BomMasterTableProps> = ({ items, onEdit, onDelete
                                     >
                                         削除
                                     </button>
+                                    )}
                                 </td>
                             </tr>
                         )) : (

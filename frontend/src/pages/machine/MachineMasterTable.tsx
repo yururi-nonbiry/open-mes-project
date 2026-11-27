@@ -3,8 +3,9 @@ import { Machine } from '../../services/machineService';
 
 interface MachineMasterTableProps {
     machines: Machine[];
-    onEdit: (machine: Machine) => void;
-    onDelete: (id: string) => void;
+    /** 既存の設備の変更・削除は管理者のみ。未指定ならボタンを出さない */
+    onEdit?: (machine: Machine) => void;
+    onDelete?: (id: string) => void;
 }
 
 const MachineMasterTable: React.FC<MachineMasterTableProps> = ({ machines, onEdit, onDelete }) => {
@@ -30,12 +31,13 @@ const MachineMasterTable: React.FC<MachineMasterTableProps> = ({ machines, onEdi
                                 <td className="text-secondary small">{machine.description || '-'}</td>
                                 <td className="text-center">
                                     <div className="d-flex justify-content-center gap-1">
-                                        <button className="btn btn-sm btn-outline-primary fw-bold" onClick={() => onEdit(machine)}>修正</button>
-                                        <button className="btn btn-sm btn-outline-danger fw-bold" onClick={() => {
+                                        {onEdit && <button className="btn btn-sm btn-outline-primary fw-bold" onClick={() => onEdit(machine)}>修正</button>}
+                                        {onDelete && <button className="btn btn-sm btn-outline-danger fw-bold" onClick={() => {
                                             if (window.confirm(`設備「${machine.name}」を削除しますか？`)) {
                                                 onDelete(machine.id!);
                                             }
-                                        }}>削除</button>
+                                        }}>削除</button>}
+                                        {!onEdit && !onDelete && <span className="text-muted small">—</span>}
                                     </div>
                                 </td>
                             </tr>

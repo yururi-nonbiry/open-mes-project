@@ -77,7 +77,6 @@ INSTALLED_APPS = [
     # Third-party apps
     "corsheaders",
     "django_vite",
-    "debug_toolbar",
     "rest_framework",
     "rest_framework.authtoken",
     "django_static_md5url",
@@ -106,8 +105,12 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "users.middleware.PasswordExpirationMiddleware",  # パスワード有効期限
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "debug_toolbar.middleware.DebugToolbarMiddleware",
 ]
+
+# Debug Toolbar はSQLや設定値を表示するため、開発(DEBUG=True)のときだけ有効にする
+if DEBUG:
+    INSTALLED_APPS.append("debug_toolbar")
+    MIDDLEWARE.append("debug_toolbar.middleware.DebugToolbarMiddleware")
 
 ROOT_URLCONF = "base.urls"
 
@@ -222,6 +225,9 @@ REST_FRAMEWORK = {
         # ApiTokenPolicyによるIP制限・スコープ制限に対応したサブクラスを使用する。
         "users.authentication.ScopedTokenAuthentication",
     ],
+    # 権限を指定し忘れたAPIが誰でも呼べてしまわないよう、既定は認証済みユーザーのみとする
+    # (ログイン・ヘルスチェック等の公開APIは各ビューで AllowAny を明示する)
+    "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
     # エラー応答を {"error": ..., "errors"?: ..., "code"?: ...} に統一する(base/responses.py 参照)。
     # あわせて権限エラー(403)を監査ログに記録する(security/exceptions.py 参照)
     "EXCEPTION_HANDLER": "security.exceptions.audit_exception_handler",

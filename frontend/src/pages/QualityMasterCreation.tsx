@@ -3,9 +3,12 @@ import { useQualityMaster } from '../hooks/useQualityMaster';
 import { InspectionItem } from '../services/qualityService';
 import QualityMasterTable from './quality/QualityMasterTable';
 import QualityMasterModal from './quality/QualityMasterModal';
+import { useAuth } from '../hooks/useAuth';
 
 const QualityMasterCreation: React.FC = () => {
     const { items, loading, error, fetchItems, deleteItem } = useQualityMaster();
+    // 既存の検査項目の変更・削除は管理者のみ(APIも管理者以外は拒否する)
+    const { isStaff } = useAuth();
     
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -48,8 +51,8 @@ const QualityMasterCreation: React.FC = () => {
 
             <QualityMasterTable
                 items={items}
-                onEdit={openModal}
-                onDelete={deleteItem}
+                onEdit={isStaff ? openModal : undefined}
+                onDelete={isStaff ? deleteItem : undefined}
             />
 
             <QualityMasterModal

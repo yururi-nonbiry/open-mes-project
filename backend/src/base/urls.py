@@ -15,6 +15,7 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 
+from django.conf import settings
 from django.urls import include, path
 
 from users.rest import CaptchaObtainAuthToken
@@ -32,6 +33,9 @@ urlpatterns = [
     path("api/quality/", include("quality.api_urls", namespace="quality_api")),
     path("api/security/", include("security.urls", namespace="security_api")),
     path("api/users/", include("users.api_urls", namespace="users_api")),
-    # Debug Toolbar
-    path("__debug__/", include("debug_toolbar.urls")),
 ]
+
+# Debug Toolbar(開発時のみ。settings で DEBUG=True のときだけ INSTALLED_APPS に加えている。
+# テスト実行時は settings.DEBUG が False に変わるため、DEBUG ではなくインストール有無で判定する)
+if "debug_toolbar" in settings.INSTALLED_APPS:
+    urlpatterns.append(path("__debug__/", include("debug_toolbar.urls")))

@@ -5,10 +5,10 @@ from django.db.models import ProtectedError
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from base.permissions import IsAuthenticatedCreateAdminChange
 from base.responses import error_response
 from base.viewsets import CustomSuccessMessageMixin
 
@@ -51,7 +51,7 @@ from .serializers import (
 
 class ItemViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
     queryset = Item.objects.all().order_by("code")
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedCreateAdminChange]
 
     def get_serializer_class(self):
         if self.action in ["list"]:
@@ -61,7 +61,7 @@ class ItemViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
 
 class SupplierViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
     queryset = Supplier.objects.all().order_by("supplier_number")
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedCreateAdminChange]
 
     def get_serializer_class(self):
         if self.action in ["list"]:
@@ -71,7 +71,7 @@ class SupplierViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
 
 class WarehouseViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
     queryset = Warehouse.objects.all().order_by("warehouse_number")
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedCreateAdminChange]
 
     def get_serializer_class(self):
         if self.action in ["list"]:
@@ -84,7 +84,7 @@ class StockPurposeViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
 
     queryset = StockPurpose.objects.all().order_by("code")
     serializer_class = StockPurposeSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedCreateAdminChange]
 
     def destroy(self, request, *args, **kwargs):
         try:
@@ -95,7 +95,7 @@ class StockPurposeViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
 
 class WarehouseLocationViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
     queryset = WarehouseLocation.objects.all().select_related("warehouse").order_by("warehouse__warehouse_number", "code")
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedCreateAdminChange]
 
     def get_queryset(self):
         queryset = self.queryset
@@ -112,7 +112,7 @@ class WarehouseLocationViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet)
 
 class CustomerViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
     queryset = Customer.objects.all().order_by("code")
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedCreateAdminChange]
 
     def get_serializer_class(self):
         if self.action in ["list"]:
@@ -122,7 +122,7 @@ class CustomerViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
 
 class WorkCenterViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
     queryset = WorkCenter.objects.all().order_by("code")
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedCreateAdminChange]
 
     def get_serializer_class(self):
         if self.action in ["list"]:
@@ -132,7 +132,7 @@ class WorkCenterViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
 
 class UnitCostViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
     queryset = UnitCost.objects.all().select_related("item").order_by("item__code")
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedCreateAdminChange]
 
     def get_serializer_class(self):
         if self.action in ["list"]:
@@ -144,7 +144,7 @@ class BillOfMaterialViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
     queryset = BillOfMaterial.objects.all().select_related("product", "material").order_by(
         "product__code", "material__code"
     )
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedCreateAdminChange]
 
     def get_serializer_class(self):
         if self.action in ["list"]:
@@ -182,7 +182,7 @@ class WorkCalendarDayViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
 
     queryset = WorkCalendarDay.objects.all().order_by("date")
     serializer_class = WorkCalendarDaySerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedCreateAdminChange]
 
     def get_queryset(self):
         queryset = self.queryset
@@ -204,7 +204,7 @@ class WorkCalendarDayViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
 class WorkCalendarSettingView(APIView):
     """曜日ごとの基本稼働パターン(単一設定)。"""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedCreateAdminChange]
 
     def get(self, request):
         return Response({"data": WorkCalendarSettingSerializer(WorkCalendarSetting.load()).data})

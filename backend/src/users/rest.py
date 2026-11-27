@@ -5,6 +5,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import ensure_csrf_cookie, requires_csrf_token
 from rest_framework import permissions, status, viewsets
 from rest_framework.authtoken.models import Token
+from rest_framework.authtoken.serializers import AuthTokenSerializer
 from rest_framework.authtoken.views import ObtainAuthToken as DefaultObtainAuthToken
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.exceptions import PermissionDenied
@@ -88,8 +89,20 @@ class CustomTokenObtainPairView(CaptchaProtectedLoginMixin, TokenObtainPairView)
     serializer_class = CustomTokenObtainPairSerializer
 
 
+class PolicyCheckedAuthTokenSerializer(AuthTokenSerializer):
+    """固定APIトークンの取得で、トークンを発行できるユーザー(can_issue_api_token)かも確認する。"""
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        if not can_issue_api_token(attrs["user"]):
+            raise PermissionDenied(API_TOKEN_NOT_ALLOWED_MESSAGE)
+        return attrs
+
+
 class CaptchaObtainAuthToken(CaptchaProtectedLoginMixin, DefaultObtainAuthToken):
     """固定APIトークンの取得ビュー(/api/token-auth/)。JWT取得と同様にCAPTCHAの対象とする。"""
+
+    serializer_class = PolicyCheckedAuthTokenSerializer
 
 
 class AuditedTokenRefreshView(TokenRefreshView):
@@ -210,20 +223,39 @@ class UserPasswordChangeView(APIView):
         return Response({"message": "パスワードが正常に変更されました。"}, status=status.HTTP_200_OK)
 
 
+def can_issue_api_token(user):
+    """
+    固定APIトークン(期限なし)を発行できるか。管理者と、管理者がAPIトークンのポリシー(接続元IP・スコープ等)を
+    設定したユーザーだけに発行する(一般ユーザーが制限のない固定トークンを自分で発行できないように)。
+    """
+    if user.is_staff or user.is_superuser:
+        return True
+    return ApiTokenPolicy.objects.filter(user=user).exists()
+
+
+API_TOKEN_NOT_ALLOWED_MESSAGE = (
+    "APIトークンを発行する権限がありません。管理者にAPIトークンのポリシーの設定を依頼してください。"
+)
+
+
 class APITokenView(APIView):
     """
     API endpoint for retrieving and regenerating the user's API token.
+    参照では発行せず(既存のトークンだけを返す)、発行・再生成は can_issue_api_token のユーザーに限る。
     """
 
     permission_classes = [IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
-        token, _ = Token.objects.get_or_create(user=request.user)
-        return Response({"api_token": token.key})
+        token = Token.objects.filter(user=request.user).first()
+        return Response(
+            {"api_token": token.key if token else None, "can_issue": can_issue_api_token(request.user)}
+        )
 
     def post(self, request, *args, **kwargs):
-        token, _ = Token.objects.get_or_create(user=request.user)
-        token.delete()
+        if not can_issue_api_token(request.user):
+            raise PermissionDenied(API_TOKEN_NOT_ALLOWED_MESSAGE)
+        Token.objects.filter(user=request.user).delete()
         new_token = Token.objects.create(user=request.user)
         log_event(AccessLog.EventType.API_TOKEN_REGENERATED, request, detail={"target": request.user.get_username()})
         return Response({"message": "APIトークンが再生成されました。", "api_token": new_token.key})

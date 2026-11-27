@@ -75,6 +75,13 @@
 | QUA-RESULT-06 | 正常系 | `DELETE inspection-results/{id}/` | 紐づく`InspectionResultDetail`が存在 | 削除 | 200、detailも連鎖削除される | `on_delete=CASCADE` |
 | QUA-RESULT-07 | 異常系 | `GET inspection-results/` | 未認証 | 呼び出し | 401 | |
 
+#### 権限（`quality/tests/test_permissions.py`）
+
+| ケースID | 分類 | 対象 | 前提条件 | 手順・入力 | 期待結果 | 備考 |
+|---|---|---|---|---|---|---|
+| QUA-PERM-01 | 異常系 | `PATCH`/`DELETE inspection-items/{id}/` | 一般ユーザー | 変更・削除 | 403 | 2026-11-27 追加。検査項目マスターの変更・削除は管理者のみ |
+| QUA-PERM-02 | 異常系 | `DELETE inspection-results/{id}/` | 一般ユーザー | 削除 | 403、実績は残る（参照は 200） | 2026-11-27 追加。検査実績は品質の記録のため削除は管理者のみ |
+
 ### 5.3 判定ロジック（純粋関数、`quality/tests/test_judgment_logic.py`）
 
 | ケースID | 分類 | 対象 | 手順・入力 | 期待結果 | 備考 |

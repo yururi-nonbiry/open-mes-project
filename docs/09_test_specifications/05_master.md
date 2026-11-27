@@ -67,6 +67,15 @@
 | MST-ITEM-08 | 異常系 | `DELETE items/{id}/` | `UnitCost`から参照されている | 削除 | 400、`{"error": ...}`、DBに残存 | `ProtectedError`を`CustomSuccessMessageMixin.destroy`が捕捉 |
 | MST-ITEM-09 | 異常系 | `GET items/` | 未認証 | 呼び出し | 401 | |
 
+#### 権限（`base.permissions.IsAuthenticatedCreateAdminChange`、`master/tests/test_permissions.py`）
+
+マスター（品目・サプライヤー・倉庫・棚・用途・顧客・ワークセンター・標準単価・BOM・稼働日カレンダー）と設備・検査項目マスターは、参照・新規登録は認証済みユーザー、既存データの変更・削除は管理者(スタッフ)のみ。CRUDの各ケースは管理者で確認する。
+
+| ケースID | 分類 | 対象 | 前提条件 | 手順・入力 | 期待結果 | 備考 |
+|---|---|---|---|---|---|---|
+| MST-PERM-01 | 正常系 | `GET`/`POST items/` | 一般ユーザー | 一覧・新規登録 | 200 / 201 | 2026-11-27 追加 |
+| MST-PERM-02 | 異常系 | `PATCH`/`DELETE items/{id}/` | 一般ユーザー | 変更・削除 | 403、変わらない | 2026-11-27 追加。画面でも一般ユーザーには編集・削除ボタンを出さない |
+
 ### 5.2 サプライヤー CRUD（`SupplierViewSet`、`master/tests/test_supplier.py`）
 
 | ケースID | 分類 | 対象 | 前提条件 | 手順・入力 | 期待結果 | 備考 |

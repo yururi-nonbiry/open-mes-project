@@ -9,12 +9,16 @@ import CsvImportSection from './import/CsvImportSection';
 import type { DeleteTarget, RowRecord } from './import/types';
 import { RegisterModal, ListModal, DeleteConfirmModal, CsvResultModal } from './import/ManagementModals';
 import { t } from '../utils/terms';
+import { useAuth } from '../hooks/useAuth';
 
 const DataImport: React.FC = () => {
     const {
         isLoading, error, modalConfig, setModalConfig, listData, formData, setFormData,
         fetchListData, fetchRecordDetail, saveRecord, deleteRecord
     } = useDataManagement();
+    // マスターの既存データの変更・削除は管理者のみ(APIも管理者以外は拒否する)。生産計画などの業務データは誰でも変更できる
+    const { isStaff } = useAuth();
+    const canModifyList = isStaff || !DATA_CONFIG[modalConfig.type]?.listUrl.startsWith('/api/master/');
 
     const {
         isLoading: isCsvLoading, taskId, taskStatus, progress, csvResult,
@@ -182,6 +186,7 @@ const DataImport: React.FC = () => {
                 error={error}
                 onEdit={handleEdit}
                 onDelete={handleDeleteClick}
+                canModify={canModifyList}
                 onOpenRegister={() => {
                     setShowListModal(false);
                     handleRegister(modalConfig.type);
