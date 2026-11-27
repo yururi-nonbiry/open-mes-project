@@ -64,6 +64,17 @@ def update_production_progress_service(plan, data, user):
             and plan.material_allocations.filter(status=MaterialAllocation.Status.ALLOCATED).exists()
         ):
             raise ValueError(apply_terms("部品の引当がある統合計画は中止できません。先に引当を解除してください。"))
+        # 完了前にピッキングした部品が残る統合計画を中止すると、元の計画が未着手に戻って同じ部品を二重にピッキングできてしまう
+        # (完了済みの計画の消費分は、完了の取消で在庫へ戻すため対象外)
+        if (
+            new_status == ProductionPlan.Status.CANCELLED
+            and plan.status not in (ProductionPlan.Status.CANCELLED, ProductionPlan.Status.COMPLETED)
+            and plan.merged_plans.exists()
+            and plan.material_allocations.filter(
+                status=MaterialAllocation.Status.ISSUED, allocation_type=MaterialAllocation.AllocationType.NORMAL
+            ).exists()
+        ):
+            raise ValueError(apply_terms("ピッキング済みの部品がある統合計画は中止できません。先に部品を返却してください。"))
         previous_wp_completed_quantity = work_progress.quantity_completed
         old_plan_status = plan.status
         plan.status = new_status

@@ -149,6 +149,16 @@ class PlanMergeTests(ProductionAPITestBase):
         self.plan_a.refresh_from_db()
         self.assertEqual(self.plan_a.status, "PENDING")
 
+    def test_pp_merge_18_cancel_rejected_when_materials_picked_before_completion(self):
+        """完了前にピッキングした部品が残る統合計画を中止すると、元計画で二重にピッキングできてしまう。"""
+        merged = self._merged()
+        self.create_material_allocation(production_plan=merged, status="ISSUED")
+        url = reverse("production_api:production-plan-update-progress", kwargs={"pk": merged.pk})
+        response = self.client.post(url, {"status": "CANCELLED"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.plan_a.refresh_from_db()
+        self.assertEqual(self.plan_a.status, "MERGED")
+
     def test_pp_merge_15_bom_snapshot_replaced_by_edited_materials(self):
         """BOMマスターがあると計画作成時に所要部品がコピーされる。統合計画では元計画の編集後の所要量を合算する。"""
         BillOfMaterial.objects.create(product=self.product_item, material=self.material_item1, quantity=1)

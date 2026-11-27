@@ -4,13 +4,14 @@
 計画はAPIのほかCSV取込(base.tasks.import_csv_task の update_or_create)でも作成・更新されるため、
 作成経路によらず確実に反映できるよう保存シグナルで処理する。
 所要部品を作り直した・所要数が変わった場合は、中間品の子計画も追従させる(不足分は作成し、減った分は減らす)。
-計画を中止した場合は、未着手・保留の子計画も中止する。
+計画を中止した場合は、未出庫の引当を解除し、未着手・保留の子計画も中止する。
 """
 
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 
 from .models import ProductionPlan
+from .services.allocation import release_open_allocations
 from .services.intermediates import (
     auto_arrange_intermediates,
     cancel_child_plans,
@@ -56,6 +57,8 @@ def sync_plan_materials(sender, instance, created, raw=False, **kwargs):
 
     if instance.status == ProductionPlan.Status.CANCELLED:
         if previous["status"] != ProductionPlan.Status.CANCELLED:
+            # 中止した計画の未出庫の引当を解除する(残すと在庫の引当数が戻らず、他の計画で使えなくなる)
+            release_open_allocations(instance)
             cancel_child_plans(instance)
     elif previous_required is not None:
         trim_child_plans(instance, previous_required)

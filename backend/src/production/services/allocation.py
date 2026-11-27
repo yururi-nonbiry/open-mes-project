@@ -221,6 +221,17 @@ def release_material_allocation_service(allocation):
         allocation.delete()
 
 
+def release_open_allocations(plan):
+    """
+    計画の未出庫(ALLOCATED)の引当をすべて解除し、在庫の引当数(reserved)を戻す。解除した件数を返す。
+    計画を中止したとき(子計画の連鎖中止・CSV取込での変更を含む)に、確保した在庫が中止した計画に残り続けないようにする。
+    """
+    allocations = list(plan.material_allocations.filter(status=MaterialAllocation.Status.ALLOCATED))
+    for allocation in allocations:
+        release_material_allocation_service(allocation)
+    return len(allocations)
+
+
 def update_material_allocation_status_service(allocation, new_status, user, now=None):
     """
     材料引当のステータスを変更し、実在庫の増減を伴わせるサービス。

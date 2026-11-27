@@ -141,6 +141,14 @@
 | MA-STATUS-04 | 異常系 | `change-status` | status=ALLOCATED | `status=RETURNED`（許可されない遷移） | 400 | |
 | MA-STATUS-05 | 異常系 | `change-status` | - | `status`未指定 | 400 | |
 | MA-STATUS-06 | 異常系 | `change-status` | `allocation.warehouse`が未設定 | `status=ISSUED` | 400 | |
+| PP-DELGUARD-01 | 異常系 | `DELETE plans/{id}/` | 引当済(ALLOCATED)の部品がある | 削除 | 400、計画は残る | |
+| PP-DELGUARD-02 | 正常系 | `DELETE plans/{id}/` | 引当なし | 削除 | 204 | |
+| PP-DELGUARD-03 | 異常系 | `DELETE plans/{id}/` | 完了・進行中の計画 | 削除 | 400、計画は残る | 2026-11-27 追加 |
+| PP-DELGUARD-04 | 異常系 | `DELETE plans/{id}/` | ピッキング済(ISSUED)の部品がある | 削除 | 400、計画は残る | 2026-11-27 追加。修正前は出庫記録ごと消え、統合計画なら元計画で二重にピッキングできた |
+| PP-DELGUARD-05 | 正常系 | `DELETE plans/{id}/` | 未着手の子計画がある | 親を削除 | 子計画は中止される | 2026-11-27 追加。修正前は親を失った子計画が未着手のまま残っていた |
+| PP-DELGUARD-06 | 正常系 | `DELETE plans/{id}/` | 統合計画 | 削除 | 元計画は未着手に戻り、統合先が外れる | 2026-11-27 追加 |
+| PP-CANCEL-01 | 正常系 | `update-progress` | 引当済(ALLOCATED)の部品がある通常の計画 | 中止 | 引当は解除され `Inventory.reserved` が戻り、内部SOはキャンセル | 2026-11-27 追加。修正前は引当が中止した計画に残り続けていた |
+| PP-CANCEL-02 | 正常系 | 計画の中止 | 引当のある未着手の子計画 | 親を中止 | 子計画は中止され、子計画の引当も解除される | 2026-11-27 追加 |
 
 ### 5.7 作業進捗 CRUD（`WorkProgressViewSet`）
 
@@ -290,6 +298,7 @@
 | PP-MERGE-14 | 正常系 | 機能設定 | — | `merge_plans_on_allocation` | 既定OFF。ONに設定できる | 管理者画面から切替 |
 | PP-MERGE-16 | 正常系 | `update-progress` | 統合計画 | `WH-A`/`A-05` を指定して完了 → 進行中に戻す | 元計画にも `finished_goods_warehouse=WH-A`/`finished_goods_location=A-05` を記録し、完了の取消で元計画の記録も消す | 2026-11-27 追加 |
 | PP-MERGE-17 | 異常系 | `update-progress` | 統合計画の完了で按分され完了になった元計画 | 元計画を `ON_HOLD` に変更、または完了数量を変更 | 400、元計画は完了のまま、完成品在庫は変わらない（統合計画で更新する） | 2026-11-27 追加。修正前は元計画単独で完了を取り消せ、完成品在庫が二重に減っていた |
+| PP-MERGE-18 | 異常系 | `update-progress` | 完了前に部品をピッキング(ISSUED)した統合計画 | 中止 | 400、元計画は統合済のまま | 2026-11-27 追加。修正前は元計画が未着手に戻り、同じ部品を二重にピッキングできた |
 
 ## 6. シリアライザの read_only_fields 確認
 

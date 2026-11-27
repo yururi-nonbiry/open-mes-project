@@ -1,4 +1,5 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import transaction
 from django.db.models import Count, Exists, OuterRef, Q
 from master.models import BillOfMaterial
 from django_filters import rest_framework as filters  # django-filterをインポート
@@ -47,7 +48,7 @@ from .services.intermediates import (
     trim_child_plans,
 )
 from .services.bulk_allocation import bulk_allocate_materials, get_allocation_overview
-from .services.merge import find_merge_groups, merge_blocker, merge_plans, unmerge_plan
+from .services.merge import find_merge_groups, merge_blocker, merge_plans, release_merged_plans, unmerge_plan
 from .services.materials import allocated_quantity_by_material, normal_allocations
 
 
@@ -348,17 +349,36 @@ class ProductionPlanViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         plan = self.get_object()
-        if plan.status == ProductionPlan.Status.MERGED:
-            return error_response("統合済みの生産計画は削除できません。統合先の生産計画で統合を解除してください。")
-        # 引当が残ったまま削除すると、在庫の引当数(reserved)が解放されず残り続けるため、先に引当を解除してもらう
-        if plan.material_allocations.filter(status=MaterialAllocation.Status.ALLOCATED).exists():
-            return error_response("引当済みの部品がある生産計画は削除できません。先に部品の引当を解除してください。")
-        # 完了した統合計画を削除すると、元の計画を未着手に戻して二重に生産・計上できてしまう
-        if plan.status == ProductionPlan.Status.COMPLETED and plan.merged_plans.exists():
-            return error_response("完了した統合計画は削除できません。")
-        # 統合計画を削除する場合は、元の計画を未着手に戻す
-        plan.merged_plans.update(status=ProductionPlan.Status.PENDING, merged_into=None)
-        return super().destroy(request, *args, **kwargs)
+        with transaction.atomic():
+            # 同時の引当・進捗更新と競合しないよう、計画の行をロックして最新の状態で判定する
+            plan = ProductionPlan.objects.select_for_update().get(pk=plan.pk)
+            # 統合元(統合済み、および統合計画の完了で按分され完了になった計画)は統合計画で扱う
+            if plan.status == ProductionPlan.Status.MERGED or plan.merged_into_id:
+                return error_response("統合済みの生産計画は削除できません。統合先の生産計画で統合を解除してください。")
+            # 完了・進行中の計画は完成品在庫・材料消費の実績があるため削除させない(中止で扱う)
+            if plan.status in (ProductionPlan.Status.COMPLETED, ProductionPlan.Status.IN_PROGRESS):
+                return error_response("完了・進行中の生産計画は削除できません。")
+            # 引当が残ったまま削除すると、在庫の引当数(reserved)が解放されず残り続けるため、先に引当を解除してもらう
+            if plan.material_allocations.filter(status=MaterialAllocation.Status.ALLOCATED).exists():
+                return error_response(
+                    apply_terms("引当済みの部品がある生産計画は削除できません。先に部品の引当を解除してください。")
+                )
+            # ピッキング済みの部品が残る計画を削除すると出庫の記録が消え、
+            # 統合計画なら元の計画で二重にピッキングできてしまう
+            if plan.material_allocations.filter(status=MaterialAllocation.Status.ISSUED).exists():
+                return error_response(
+                    apply_terms("ピッキング済みの部品がある生産計画は削除できません。先に部品を返却してください。")
+                )
+            is_merged = plan.merged_plans.exists()
+            # 中止扱いにしてから削除する。未着手・保留の子計画は中止され(signals)、親を失った子計画が残らない
+            if plan.status != ProductionPlan.Status.CANCELLED:
+                plan.status = ProductionPlan.Status.CANCELLED
+                plan.save(update_fields=["status", "updated_at"])
+            # 統合計画を削除する場合は、元の計画を未着手に戻し、統合時に中止した子計画を作り直す
+            if is_merged:
+                release_merged_plans(plan)
+            plan.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=["post"], url_path="update-progress")
     def update_progress(self, request, pk=None):

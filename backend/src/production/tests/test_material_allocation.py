@@ -171,3 +171,76 @@ class ProductionPlanDeleteGuardTests(ProductionAPITestBase):
         plan = self.create_plan()
         response = self.client.delete(reverse("production_api:production-plan-detail", args=[plan.id]))
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+    def _delete(self, plan):
+        return self.client.delete(reverse("production_api:production-plan-detail", args=[plan.id]))
+
+    def test_pp_delguard_03_completed_or_in_progress_plan_cannot_be_deleted(self):
+        for plan_status in ("COMPLETED", "IN_PROGRESS"):
+            plan = self.create_plan(status=plan_status)
+            self.assertEqual(self._delete(plan).status_code, status.HTTP_400_BAD_REQUEST, plan_status)
+            self.assertTrue(type(plan).objects.filter(id=plan.id).exists())
+
+    def test_pp_delguard_04_plan_with_issued_material_cannot_be_deleted(self):
+        plan = self.create_plan()
+        self.create_material_allocation(production_plan=plan, status="ISSUED")
+        self.assertEqual(self._delete(plan).status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertTrue(type(plan).objects.filter(id=plan.id).exists())
+
+    def test_pp_delguard_05_deleting_plan_cancels_pending_child_plans(self):
+        parent = self.create_plan()
+        child = self.create_plan(plan_name="Child", parent_plan=parent)
+        self.assertEqual(self._delete(parent).status_code, status.HTTP_204_NO_CONTENT)
+        child.refresh_from_db()
+        self.assertEqual(child.status, "CANCELLED")
+
+    def test_pp_delguard_06_deleting_merged_plan_releases_originals(self):
+        a = self.create_plan(plan_name="A")
+        b = self.create_plan(plan_name="B")
+        response = self.client.post(
+            reverse("production_api:production-plan-merge-plans"), {"plan_ids": [str(a.id), str(b.id)]}, format="json"
+        )
+        merged_id = response.json()["data"]["id"]
+        merged = type(a).objects.get(pk=merged_id)
+        self.assertEqual(self._delete(merged).status_code, status.HTTP_204_NO_CONTENT)
+        for plan in (a, b):
+            plan.refresh_from_db()
+            self.assertEqual((plan.status, plan.merged_into_id), ("PENDING", None))
+
+
+class PlanCancelReleasesAllocationTests(ProductionAPITestBase):
+    """PP-CANCEL-* : 計画の中止で未出庫の引当を解除し、在庫の引当数(reserved)を戻す。"""
+
+    def _allocate(self, plan, quantity):
+        self.create_plan_material(plan, self.material_item1, required_quantity=quantity)
+        url = reverse("production_api:production-plan-allocate-materials", args=[plan.id])
+        allocations = [
+            {"part_number": self.material_item1.code, "warehouse": "WH-A", "quantity_to_allocate": quantity}
+        ]
+        response = self.client.post(url, {"allocations": allocations}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.content)
+
+    def test_pp_cancel_01_cancel_releases_allocated_materials(self):
+        stock = self.create_inventory(quantity=10)
+        plan = self.create_plan()
+        self._allocate(plan, 4)
+        url = reverse("production_api:production-plan-update-progress", args=[plan.id])
+        response = self.client.post(url, {"status": "CANCELLED"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.content)
+        stock.refresh_from_db()
+        self.assertEqual(stock.reserved, 0)
+        self.assertFalse(MaterialAllocation.objects.filter(production_plan=plan).exists())
+        self.assertFalse(
+            SalesOrder.objects.filter(status=SalesOrder.Status.PENDING, order_number__startswith="INT-").exists()
+        )
+
+    def test_pp_cancel_02_auto_cancelled_child_plan_releases_allocations(self):
+        stock = self.create_inventory(quantity=10)
+        parent = self.create_plan()
+        child = self.create_plan(plan_name="Child", parent_plan=parent)
+        self._allocate(child, 3)
+        parent.status = "CANCELLED"
+        parent.save()
+        child.refresh_from_db()
+        stock.refresh_from_db()
+        self.assertEqual((child.status, stock.reserved), ("CANCELLED", 0))
