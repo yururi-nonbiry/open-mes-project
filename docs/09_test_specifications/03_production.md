@@ -113,6 +113,7 @@
 | PP-PROG-21 | 異常系 | `update-progress` | `WH-A` で完了済み | 完了数量の変更時に `warehouse=FG-MAIN` を指定 | 400、在庫は変わらない（同じ `WH-A` の指定は200） | 同上 |
 | PP-PROG-22 | 正常系 | `GET plans/{id}/` | 品番マスタのデフォルト `WH-A`/`A-09` | 未完了・完了済み・記録の無い完了済みの計画を取得 | `finished_goods_warehouse`/`finished_goods_location` が、未完了は初期値(`WH-A`/`A-09`)、完了済みは計上先、記録なしは `FG-MAIN` | 同上 |
 | PP-PROG-23 | 正常系 | `update-progress` | `WH-A`/`A-01` に古い完成品在庫4、`WH-A`/`A-02` を指定して6で完了 | `status=ON_HOLD` | 計上した `A-02` から6を減らし、`A-01` の4は残る | 2026-11-27 追加 |
+| PP-PROG-CONSUME-01 | 異常系 | `update-progress` | 進行中、引当した材料の在庫が無効 | `status=COMPLETED` | 400、計画は進行中のまま（材料を消費せずに完了にしない） | 2026-11-27 追加。修正前はログを出すだけで材料を消費せず完了していた |
 
 ### 5.5 使用部品 CRUD（`PartsUsedViewSet`）
 

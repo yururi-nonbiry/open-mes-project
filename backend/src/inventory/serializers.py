@@ -210,6 +210,11 @@ class InventorySerializer(serializers.ModelSerializer):
                         "在庫の品番・倉庫・用途・棚番は直接変更できません。"
                         "棚の移動・用途の変更・在庫調整から行ってください。"
                     )
+            # 引当の残る在庫を無効にすると、出庫・生産完了で対象の在庫から外れて引当を解放できなくなる
+            if data.get("is_active") is False and instance.is_active and instance.reserved > 0:
+                raise serializers.ValidationError(
+                    {"is_active": "引当済みの在庫は無効にできません。先に引当を解除するか出庫してください。"}
+                )
         else:
             missing = [name for name, field in (("part_number", "part_number_rel"), ("warehouse", "warehouse_rel"))
                        if not data.get(field)]

@@ -126,6 +126,18 @@ class InventoryCrudTests(InventoryAPITestBase):
         with self.assertRaises(IntegrityError):
             self.inventory2.save()
 
+    def test_inv_crud_16_reserved_inventory_cannot_be_deactivated(self):
+        self.inventory1.reserved = 10
+        self.inventory1.save()
+        url = reverse("inventory_api:inventory-detail", kwargs={"pk": self.inventory1.id})
+        response = self.client.patch(url, {"is_active": False}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.inventory1.refresh_from_db()
+        self.assertTrue(self.inventory1.is_active)
+        # 引当のない在庫は無効にできる
+        url = reverse("inventory_api:inventory-detail", kwargs={"pk": self.inventory2.id})
+        self.assertEqual(self.client.patch(url, {"is_active": False}, format="json").status_code, 200)
+
 class InventoryDeleteTests(InventoryAPITestBase):
     """INV-CRUD-10〜: 在庫レコードの削除。"""
 

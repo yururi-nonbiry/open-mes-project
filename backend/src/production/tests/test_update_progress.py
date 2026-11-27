@@ -386,3 +386,18 @@ class UpdateProgressTests(ProductionAPITestBase):
         self.assertEqual(self._finished_qty(self.warehouse_a.warehouse_number, "A-02"), 0)
         old_stock.refresh_from_db()
         self.assertEqual(old_stock.quantity, 4)
+
+
+class CompletionRequiresMaterialStockTests(ProductionAPITestBase):
+    """PP-PROG-CONSUME-* : 完了時に消費する材料の在庫が見つからなければ完了させない。"""
+
+    def test_pp_prog_consume_01_completion_rejected_when_allocated_stock_inactive(self):
+        plan = self.create_plan(status="IN_PROGRESS")
+        inventory = self.create_inventory(quantity=10, reserved=5)
+        self.create_material_allocation(production_plan=plan, allocated_quantity=5)
+        Inventory.objects.filter(pk=inventory.pk).update(is_active=False)
+        url = reverse("production_api:production-plan-update-progress", args=[plan.id])
+        response = self.client.post(url, {"status": "COMPLETED", "good_quantity": 1}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        plan.refresh_from_db()
+        self.assertEqual(plan.status, "IN_PROGRESS")

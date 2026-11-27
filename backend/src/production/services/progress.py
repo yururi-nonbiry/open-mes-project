@@ -359,8 +359,11 @@ def _consume_materials_for_plan(plan, now, user):
             row for row in lock_inventory_rows(alloc.material_code, alloc.warehouse, alloc.purpose) if row.is_active
         ]
         if not rows:
-            logger.error(f"Inventory not found for consumption: {alloc.material_code} in {alloc.warehouse}")
-            continue
+            # 材料を消費せずに完了にすると、引当(reserved)が残り在庫も減らないため、完了させない
+            raise ValueError(
+                f"Cannot consume materials for plan {plan.id}: active inventory for "
+                f"'{alloc.material_code}' in '{alloc.warehouse}' was not found."
+            )
 
         quantity_to_consume = alloc.allocated_quantity
         try:

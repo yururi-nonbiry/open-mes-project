@@ -62,6 +62,7 @@
 | INV-CRUD-13 | 異常系 | `POST inventories/` | 同じ品番・倉庫・棚番の汎用在庫が既存 | 作成 | 400（500にならない） | 2026-11-27 追加 |
 | INV-CRUD-14 | 異常系 | `POST inventories/` | — | 品番・倉庫なしで作成 | 400 | 2026-11-27 追加。品番・倉庫は必須(DBも NOT NULL) |
 | INV-CRUD-15 | 異常系 | DB制約 | 在庫数量50 | 引当済数量を51にして保存 | `IntegrityError`（在庫数量 >= 引当済数量 >= 0 の CheckConstraint） | 2026-11-27 追加 |
+| INV-CRUD-16 | 異常系 | `PATCH inventories/{id}/` | 引当済数量 > 0 の在庫 | `is_active=false` | 400、有効のまま（引当のない在庫は無効にできる） | 2026-11-27 追加。修正前は無効化で出庫・完了の対象から外れ、引当が残り続けた |
 
 ### 5.2 在庫移動 `move`（`POST inventories/{id}/move/`）
 
