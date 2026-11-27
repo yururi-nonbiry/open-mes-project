@@ -23,9 +23,9 @@
 - **React 19** + **TypeScript** によるSPA。ビルドツールは**Vite 8**。
 - **react-router-dom 7**: クライアントサイドルーティング。
 - **react-bootstrap** / **bootstrap 5**: UIコンポーネントとスタイリング。
-- **@zxing/browser** / **@zxing/library** / **html5-qrcode**: バーコード・QRコードの読み取り機能（現場でのスキャン作業を想定）。
+- **@zxing/library** / **barcode-detector**: バーコード・QRコードの読み取り機能（現場でのスキャン作業を想定）。
 - **qrcode.react**: QRコードの生成・表示。
-- **@hello-pangea/dnd** / **sortablejs**: ドラッグ&ドロップ（倉庫レイアウト編集などで使用）。
+- **@hello-pangea/dnd**: ドラッグ&ドロップ（表示設定・検査項目の並べ替えなどで使用）。
 - **react-dropzone**: ファイル（CSVインポート等）のドラッグ&ドロップアップロード。
 - **ESLint** + **typescript-eslint**: Lintツール。
 

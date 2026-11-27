@@ -190,7 +190,7 @@ const InspectionResultModal: React.FC<InspectionResultModalProps> = ({ item, onC
                         </div>
                         <div className="mt-4 text-end border-top pt-3">
                             <button type="button" className="btn btn-secondary" onClick={onClose}>閉じる</button>
-                            <button type="submit" className="btn btn-primary ml-2" disabled={submitting || closing || loading}>
+                            <button type="submit" className="btn btn-primary ms-2" disabled={submitting || closing || loading}>
                                 {submitting ? '登録中...' : '検査結果を登録'}
                             </button>
                         </div>

@@ -10,6 +10,7 @@ import { PICKING_MOBILE_COLUMNS, PICKING_MOBILE_DATA_TYPE, applyColumnSettings }
 import type { PickingColumn } from '../../config/pickingColumns';
 import { errorMessage } from './mobileTypes';
 import './MobileLocationTransferPage.css'; // スタイルを再利用
+import { t, registerTermTarget } from '../../utils/terms';
 
 interface PlanGroup {
     key: string;
@@ -271,5 +272,3 @@ const MobilePickingPage = () => {
 };
 
 export default MobilePickingPage;
-
-import { t, registerTermTarget } from '../../utils/terms';

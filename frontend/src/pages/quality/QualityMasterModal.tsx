@@ -1,6 +1,6 @@
 import type { ApiErrorLike } from '../apiErrorTypes';
 import React, { useState, useEffect, useRef } from 'react';
-import Sortable from 'sortablejs';
+import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import Modal from '../../components/Modal';
 import qualityService, { InspectionItem, MeasurementDetail } from '../../services/qualityService';
 
@@ -35,8 +35,6 @@ const QualityMasterModal: React.FC<QualityMasterModalProps> = ({ isOpen, onClose
     const [globalMessage, setGlobalMessage] = useState({ text: '', type: '' });
     const [submitting, setSubmitting] = useState(false);
 
-    const formsetTableBodyRef = useRef<HTMLTableSectionElement>(null);
-    const sortable = useRef<Sortable | null>(null);
     const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     // 保存後に自動で閉じるタイマーを、画面が閉じられたあとに実行しない
     useEffect(() => () => { if (closeTimer.current) clearTimeout(closeTimer.current); }, []);
@@ -79,32 +77,18 @@ const QualityMasterModal: React.FC<QualityMasterModalProps> = ({ isOpen, onClose
         }
     }, [isOpen, editingItem]);
 
-    useEffect(() => {
-        if (isOpen && formsetTableBodyRef.current) {
-            sortable.current = Sortable.create(formsetTableBodyRef.current, {
-                handle: '.drag-handle',
-                animation: 150,
-                onEnd: (evt: Sortable.SortableEvent) => {
-                    const { oldIndex, newIndex } = evt;
-                    // SortableがDOMを動かした分を元に戻し、並び順の更新はReactの状態だけで行う(DOMとの二重更新を避ける)
-                    evt.from.removeChild(evt.item);
-                    evt.from.insertBefore(evt.item, evt.from.children[oldIndex ?? 0] || null);
-                    if (oldIndex !== undefined && newIndex !== undefined) {
-                        setMeasurementDetails(currentDetails => {
-                            const newDetails = [...currentDetails];
-                            const [movedItem] = newDetails.splice(oldIndex, 1);
-                            newDetails.splice(newIndex, 0, movedItem);
-                            return newDetails;
-                        });
-                    }
-                },
-            });
-        }
-        return () => {
-            sortable.current?.destroy();
-            sortable.current = null;
-        };
-    }, [isOpen, measurementDetails]);
+    // 測定詳細の行をドラッグで並べ替える(並び順は React の状態だけで持つ)
+    const handleDetailDragEnd = (result: DropResult) => {
+        if (!result.destination || result.destination.index === result.source.index) return;
+        const from = result.source.index;
+        const to = result.destination.index;
+        setMeasurementDetails(currentDetails => {
+            const newDetails = [...currentDetails];
+            const [movedItem] = newDetails.splice(from, 1);
+            newDetails.splice(to, 0, movedItem);
+            return newDetails;
+        });
+    };
 
     const handleMainFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value, type } = e.target;
@@ -215,7 +199,7 @@ const QualityMasterModal: React.FC<QualityMasterModalProps> = ({ isOpen, onClose
                 <hr />
                 <form onSubmit={handleSubmit} noValidate>
                     <div id="mainInspectionItemFieldsContainer" className="d-flex flex-wrap gap-3 overflow-auto pb-3">
-                        <div className="form-group" style={{ flex: '0 0 auto', minWidth: '200px' }}>
+                        <div className="mb-3" style={{ flex: '0 0 auto', minWidth: '200px' }}>
                             <label htmlFor="modal_id_code">検査項目コード*</label>
                             <input 
                                 type="text" id="modal_id_code" name="code" 
@@ -224,7 +208,7 @@ const QualityMasterModal: React.FC<QualityMasterModalProps> = ({ isOpen, onClose
                             />
                             <div className="invalid-feedback">{formErrors.code}</div>
                         </div>
-                        <div className="form-group" style={{ flex: '0 0 auto', minWidth: '200px' }}>
+                        <div className="mb-3" style={{ flex: '0 0 auto', minWidth: '200px' }}>
                             <label htmlFor="modal_id_name">検査項目名*</label>
                             <input 
                                 type="text" id="modal_id_name" name="name" 
@@ -233,7 +217,7 @@ const QualityMasterModal: React.FC<QualityMasterModalProps> = ({ isOpen, onClose
                             />
                             <div className="invalid-feedback">{formErrors.name}</div>
                         </div>
-                        <div className="form-group" style={{ flex: '0 0 auto', minWidth: '200px' }}>
+                        <div className="mb-3" style={{ flex: '0 0 auto', minWidth: '200px' }}>
                             <label htmlFor="modal_id_inspection_type">検査種別*</label>
                             <select 
                                 id="modal_id_inspection_type" name="inspection_type" 
@@ -244,7 +228,7 @@ const QualityMasterModal: React.FC<QualityMasterModalProps> = ({ isOpen, onClose
                             </select>
                             <div className="invalid-feedback">{formErrors.inspection_type}</div>
                         </div>
-                        <div className="form-group" style={{ flex: '0 0 auto', minWidth: '200px' }}>
+                        <div className="mb-3" style={{ flex: '0 0 auto', minWidth: '200px' }}>
                             <label htmlFor="modal_id_target_object_type">対象物タイプ*</label>
                             <select 
                                 id="modal_id_target_object_type" name="target_object_type" 
@@ -258,7 +242,7 @@ const QualityMasterModal: React.FC<QualityMasterModalProps> = ({ isOpen, onClose
                     </div>
                     <div className="mt-3 row">
                         <div className="col-md-6">
-                            <div className="form-group">
+                            <div className="mb-3">
                                 <label htmlFor="modal_id_description">説明</label>
                                 <textarea 
                                     id="modal_id_description" name="description" 
@@ -269,7 +253,7 @@ const QualityMasterModal: React.FC<QualityMasterModalProps> = ({ isOpen, onClose
                             </div>
                         </div>
                         <div className="col-md-6 d-flex align-items-center">
-                            <div className="form-group form-check mb-0">
+                            <div className="form-check mb-0">
                                 <input 
                                     id="modal_id_is_active" name="is_active" type="checkbox" 
                                     checked={currentItem.is_active} onChange={handleMainFormChange} 
@@ -298,13 +282,19 @@ const QualityMasterModal: React.FC<QualityMasterModalProps> = ({ isOpen, onClose
                                         <th style={{ width: '60px' }}>削除</th>
                                     </tr>
                                 </thead>
-                                <tbody ref={formsetTableBodyRef}>
+                                <DragDropContext onDragEnd={handleDetailDragEnd}>
+                                <Droppable droppableId="measurement-details">
+                                {(droppableProvided) => (
+                                <tbody ref={droppableProvided.innerRef} {...droppableProvided.droppableProps}>
                                     {measurementDetails.map((detail, index) => {
                                         const prefix = `measurement_details-${index}`;
                                         const isQuantitative = detail.measurement_type === 'quantitative';
+                                        const rowKey = detail._key ?? `row-index-${index}`;
                                         return (
-                                            <tr key={detail._key ?? index} className="formset-row">
-                                                <td className="drag-handle" style={{ cursor: 'move', textAlign: 'center' }}>☰</td>
+                                            <Draggable key={rowKey} draggableId={rowKey} index={index}>
+                                            {(draggableProvided) => (
+                                            <tr ref={draggableProvided.innerRef} {...draggableProvided.draggableProps} className="formset-row">
+                                                <td className="drag-handle" {...draggableProvided.dragHandleProps} style={{ cursor: 'move', textAlign: 'center' }}>☰</td>
                                                 <td>
                                                     <input 
                                                         type="text" value={detail.name || ''} 
@@ -358,9 +348,15 @@ const QualityMasterModal: React.FC<QualityMasterModalProps> = ({ isOpen, onClose
                                                     </button>
                                                 </td>
                                             </tr>
+                                            )}
+                                            </Draggable>
                                         );
                                     })}
+                                    {droppableProvided.placeholder}
                                 </tbody>
+                                )}
+                                </Droppable>
+                                </DragDropContext>
                             </table>
                         </div>
                         <button type="button" onClick={addDetailRow} className="btn btn-sm btn-success mb-2">
@@ -370,11 +366,11 @@ const QualityMasterModal: React.FC<QualityMasterModalProps> = ({ isOpen, onClose
 
                     {globalMessage.text && <div className={`alert alert-${globalMessage.type} mt-3`}>{globalMessage.text}</div>}
 
-                    <div className="mt-4 text-right border-top pt-3">
+                    <div className="mt-4 text-end border-top pt-3">
                         <button type="submit" className="btn btn-primary" disabled={submitting}>
                             {submitting ? '保存中...' : '保存'}
                         </button>
-                        <button type="button" className="btn btn-secondary ml-2" onClick={onClose}>閉じる</button>
+                        <button type="button" className="btn btn-secondary ms-2" onClick={onClose}>閉じる</button>
                     </div>
                 </form>
             </div>
