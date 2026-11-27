@@ -26,16 +26,27 @@ class QrCodeActionCrudTests(BaseAPITestBase):
             "name": "新規アクション",
             "action_type": "regex",
             "qr_code_pattern": r"^LOT-.+",
-            "action_name": "update_inventory",
+            "action_name": "update_search",
         }
         response = self.client.post(self.list_url, payload, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertTrue(QrCodeAction.objects.filter(name="新規アクション").exists())
 
+    def test_base_qraction_02c_unimplemented_action_rejected(self):
+        """仮実装(何もしない)のアクションは新たに選べない。既存の設定はそのまま残せる。"""
+        payload = {
+            "name": "仮実装", "action_type": "regex", "qr_code_pattern": r"^X-.+", "action_name": "update_inventory"
+        }
+        self.assertEqual(self.client.post(self.list_url, payload, format="json").status_code, 400)
+        detail = reverse("base_api:qr-code-action-detail", args=[self.qr_action.pk])
+        unchanged = {"description": "memo", "action_name": self.qr_action.action_name}
+        response = self.client.patch(detail, unchanged, format="json")
+        self.assertEqual(response.status_code, 200, response.content)
+
     def test_base_qraction_02b_invalid_regex_rejected(self):
         response = self.client.post(
             self.list_url,
-            {"name": "不正パターン", "action_type": "regex", "qr_code_pattern": "ITEM-(", "action_name": "mark_as_received"},
+            {"name": "不正パターン", "action_type": "regex", "qr_code_pattern": "ITEM-(", "action_name": "update_search"},
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

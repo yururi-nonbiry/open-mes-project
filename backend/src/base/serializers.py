@@ -48,6 +48,15 @@ class QrCodeActionSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id"]
 
+    # 実装されているアクション。入庫としてマーク・在庫更新は仮実装(何もしない)のため、新たには選ばせない
+    IMPLEMENTED_ACTIONS = ("update_search",)
+
+    def validate_action_name(self, value):
+        unchanged = self.instance is not None and self.instance.action_name == value
+        if value not in self.IMPLEMENTED_ACTIONS and not unchanged:
+            raise serializers.ValidationError("このアクションはまだ実装されていないため選べません。")
+        return value
+
     def validate_qr_code_pattern(self, value):
         if value:
             try:

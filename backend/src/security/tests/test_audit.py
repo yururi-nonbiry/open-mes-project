@@ -111,7 +111,7 @@ class AuditLogTests(SecurityAPITestBase):
         self.client.force_authenticate(self.staff_user)
         response = self.client.post(
             reverse("base_api:qr-code-action-list"),
-            {"name": "入庫", "action_type": "regex", "qr_code_pattern": "^PO-", "action_name": "mark_as_received"},
+            {"name": "入庫", "action_type": "regex", "qr_code_pattern": "^PO-", "action_name": "update_search"},
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)

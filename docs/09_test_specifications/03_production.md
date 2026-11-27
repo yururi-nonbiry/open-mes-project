@@ -125,7 +125,7 @@
 | PU-CRUD-01 | 正常系 | `GET parts-used/` | 複数件存在 | 一覧取得 | 200、`-used_datetime`降順 | |
 | PU-CRUD-02 | 正常系 | `GET parts-used/?production_plan=...` | 複数のBOM識別子が混在 | 部分一致検索 | 200、一致する件のみ | |
 | PU-CRUD-03 | 正常系 | `GET parts-used/?part_code=...` | 複数部品が混在 | 部分一致検索 | 200、一致する件のみ | |
-| PU-CRUD-04 | 正常系 | `POST parts-used/` | Item(`item_type="material"`)が存在 | 有効なデータで作成 | 201 | |
+| PU-CRUD-04 | 異常系 | `POST parts-used/` | - | 作成 | 405（旧来の使用部品は参照専用。所要部品は `ProductionPlanMaterial` で扱う） | 2026-11-27 変更（REF-10） |
 
 ### 5.6 材料引当 CRUD・削除・ステータス変更（`MaterialAllocationViewSet`）
 

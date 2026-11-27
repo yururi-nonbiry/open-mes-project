@@ -186,6 +186,7 @@ Excelでの保存を、CP932・CRLF・末尾の空カンマ行・日時/数値�
 |---|---|---|---|---|---|---|
 | BASE-QRACTION-01 | 正常系 | `GET qr-code-actions/` | 管理者 | 一覧取得 | 200、プレーンな配列 | |
 | BASE-QRACTION-02 | 正常系 | `POST qr-code-actions/` | 管理者 | 有効なデータで作成 | 201 | |
+| BASE-QRACTION-02c | 異常系 | `POST qr-code-actions/` | 管理者 | 仮実装のアクション(`update_inventory`)で作成。既存の設定は同じアクションのまま更新 | 作成は400、既存の更新は200 | 2026-11-27 追加（REF-10） |
 | BASE-QRACTION-03 | 異常系 | `POST qr-code-actions/` | `name`重複、管理者 | 作成 | 400 | |
 | BASE-QRACTION-04 | 正常系 | `GET qr-code-actions/?is_active=false` | 有効・無効混在、管理者 | フィルタ取得 | 200、無効なもののみ | `filterset_fields = ["is_active"]` |
 | BASE-QRACTION-05 | 正常系 | `DELETE qr-code-actions/{id}/` | 管理者 | 削除 | 204 | |

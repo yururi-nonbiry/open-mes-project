@@ -447,9 +447,10 @@ class PartsSupplySimulationView(APIView):
         return Response(result)
 
 
-class PartsUsedViewSet(viewsets.ModelViewSet):
+class PartsUsedViewSet(viewsets.ReadOnlyModelViewSet):
     """
-    API endpoint that allows PartsUsed records to be viewed or created.
+    旧来の使用部品(PartsUsed)の参照用API。所要部品は ProductionPlanMaterial に移行したため、
+    既存データの確認用に参照だけを残す(登録・変更・削除はできない)。
     """
 
     queryset = PartsUsed.objects.all().select_related("part", "warehouse_rel").order_by("-used_datetime")

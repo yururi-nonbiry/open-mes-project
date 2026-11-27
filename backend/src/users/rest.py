@@ -1,6 +1,6 @@
 import logging
 
-from django.contrib.auth import login, logout, update_session_auth_hash
+from django.contrib.auth import logout, update_session_auth_hash
 from django.http import JsonResponse
 from django.views.decorators.csrf import ensure_csrf_cookie, requires_csrf_token
 from rest_framework import permissions, status, viewsets
@@ -22,9 +22,7 @@ from .models import ApiTokenPolicy, CustomUser
 from .serializers import (
     AdminUserSerializer,
     ApiTokenPolicySerializer,
-    CustomAuthTokenSerializer,
     CustomTokenObtainPairSerializer,
-    CustomUserSerializer,
     PasswordChangeSerializer,
     UserProfileUpdateSerializer,
     revoke_refresh_tokens,
@@ -44,40 +42,6 @@ def csrf_failure(request, reason=""):
     logger.warning(f"CSRF verification failed. Reason: {reason}. Referer: {referer}. Host: {host}")
 
     return JsonResponse({"error": "CSRF verification failed.", "reason": reason}, status=403)
-
-
-@api_view(["POST"])
-def register_user(request):
-    serializer = CustomUserSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
-    user = serializer.save()  # serializer.save() returns the created user instance
-    token, created = Token.objects.get_or_create(user=user)  # Get or create token
-    return Response(
-        {
-            "message": "ユーザー登録が完了しました",
-            "token": token.key,  # Include token in the response
-        },
-        status=status.HTTP_201_CREATED,
-    )
-
-
-class CustomObtainAuthToken(DefaultObtainAuthToken):
-    """
-    Custom token authentication view that uses our custom serializer.
-    This allows the API to explicitly expect 'custom_id' instead of 'username'.
-    """
-
-    serializer_class = CustomAuthTokenSerializer
-
-    def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.validated_data["user"]
-        # Start a session upon successful authentication
-        login(request, user)
-        token, created = Token.objects.get_or_create(user=user)
-        user_data = CustomUserSerializer(user).data
-        return Response({"token": token.key, "user": user_data})
 
 
 class CustomTokenObtainPairView(CaptchaProtectedLoginMixin, TokenObtainPairView):

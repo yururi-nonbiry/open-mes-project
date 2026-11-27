@@ -30,7 +30,8 @@ class PartsUsedCrudTests(ProductionAPITestBase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["results"]), 1)
 
-    def test_pu_crud_04_create(self):
+    def test_pu_crud_04_create_not_allowed(self):
+        """旧来の使用部品は参照専用(所要部品は ProductionPlanMaterial で扱う)。"""
         payload = {
             "production_plan": "BOM-3",
             "part_code": self.material_item2.code,
@@ -38,4 +39,4 @@ class PartsUsedCrudTests(ProductionAPITestBase):
             "quantity_used": 3,
         }
         response = self.client.post(self.list_url, payload, format="json")
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)

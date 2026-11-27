@@ -11,7 +11,7 @@
 - **範囲外**:
   - `quality/urls.py`は空（`api_urls.py`に委譲済み）、`quality/views.py`も「新UIはrest_views.pyで実装」との
     コメントのみのスタブで対象外。
-  - `quality/forms.py`（`InspectionItemForm`等のDjango `ModelForm`群）は、対応する`urls.py`/`views.py`が
+  - `quality/forms.py`（`InspectionItemForm`等のDjango `ModelForm`群。2026-11-27 に削除）は、対応する`urls.py`/`views.py`が
     空のため到達不能なレガシーコードであり対象外。
   - `InspectionResult.part_number`/`related_order_number`等は`master.Item`や`production`のオーダーへの
     実FKではなく単なる文字列フィールドのため、他アプリとの参照整合性はそもそも存在せず本書の対象外。

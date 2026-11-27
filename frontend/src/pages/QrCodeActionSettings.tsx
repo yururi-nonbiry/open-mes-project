@@ -19,11 +19,14 @@ interface QrCodeAction extends ActionTemplate {
 type FormErrors = Record<string, string | string[] | undefined>;
 
 // 実行内容(action_name)の選択肢。サーバー側の REGISTERED_ACTIONS と対応する
+// (入庫としてマーク・在庫更新は仮実装で何もしないため選択肢に出さない。既存の設定は表示だけする)
 const ACTION_NAME_OPTIONS = [
     { value: 'update_search', label: '検索欄に入力（パターンで抜き出した部分）' },
-    { value: 'mark_as_received', label: '入庫としてマーク（仮実装）' },
-    { value: 'update_inventory', label: '在庫更新（仮実装）' },
 ];
+const LEGACY_ACTION_LABELS: Record<string, string> = {
+    mark_as_received: '入庫としてマーク（仮実装・選択不可）',
+    update_inventory: '在庫更新（仮実装・選択不可）',
+};
 
 const ACTION_TEMPLATES: Record<string, ActionTemplate> = {
     '入庫処理（検索）': {
@@ -288,6 +291,9 @@ const QrCodeActionSettings = () => {
                                 <Col sm={9}>
                                     <Form.Select name="action_name" value={currentAction.action_name} onChange={handleFormChange} isInvalid={!!formErrors.action_name}>
                                         {ACTION_NAME_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                                        {LEGACY_ACTION_LABELS[currentAction.action_name] && (
+                                            <option value={currentAction.action_name} disabled>{LEGACY_ACTION_LABELS[currentAction.action_name]}</option>
+                                        )}
                                     </Form.Select>
                                     <Form.Control.Feedback type="invalid">{formErrors.action_name}</Form.Control.Feedback>
                                 </Col>

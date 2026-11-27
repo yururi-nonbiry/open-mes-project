@@ -9,13 +9,12 @@
   (`settings/password/`)、APIトークンの参照・再生成 (`settings/token/`)、ログアウト (`logout/`)、
   管理者向けユーザーCRUD (`UserViewSet`)、パスワード有効期限ミドルウェア (`users/middleware.py`)。
 - **範囲外（他アプリ・非対象の責務）**:
-  - `users/urls.py`（空、非APIビュー用に予約されているが未使用）、`users/forms.py`
+  - `users/urls.py`（空、非APIビュー用に予約されているが未使用）、`users/forms.py`（2026-11-27 に削除）
     （`CustomPasswordChangeForm`。どこからも参照されていないテンプレートビュー用フォーム）。
   - トップレベル `base/urls.py` の `api/token-auth/`（DRF標準の `ObtainAuthToken` に画像認証を加えた
     `CaptchaObtainAuthToken`）は対象外だが、本書 [7. 既知の懸念事項](#7-既知の懸念事項) で軽く触れる。
     ログイン失敗によるロック・画像認証・監査ログは [09_security.md](./09_security.md) で扱う。
-  - `register_user` / `CustomObtainAuthToken`（`rest.py`）はどのURLconfからも参照されていないデッドコードのため、
-    テスト対象外（[7. 既知の懸念事項](#7-既知の懸念事項) 参照）。
+  - 以前あった `register_user` / `CustomObtainAuthToken`（どのURLconfからも参照されていないデッドコード）は 2026-11-27 に削除した。
 
 ## 2. 前提・テスト環境
 
@@ -214,6 +213,4 @@
    この名前のURLが存在しない（ログイン相当は`token_obtain_pair`）。実害は小さい
    （項目3の通り、そもそも未認証状態の`token/`呼び出しではミドルウェアのチェック自体がスキップされるため）が、
    コードの意図と実装のズレとして記録する。
-5. **`register_user`/ `CustomObtainAuthToken`（`rest.py`）はデッドコード**:
-   どちらもどのURLconfからも参照されておらず、到達不能。将来的な整理対象として記録するに留め、
-   今回は削除・修正を行っていない。
+5. **`register_user`/ `CustomObtainAuthToken`（`rest.py`）はデッドコード**: 2026-11-27 に削除済み（REF-10）。

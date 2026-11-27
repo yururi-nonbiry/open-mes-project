@@ -292,21 +292,6 @@ class SalesOrderAllocationItemSerializer(serializers.Serializer):
         pass  # No model to link, standard serializer
 
 
-class AllocateInventoryForSalesOrderRequestSerializer(serializers.Serializer):
-    """
-    Serializer for the request to allocate inventory for a sales order.
-    """
-
-    sales_order_reference = serializers.CharField(
-        max_length=20,  # Align with SalesOrder.order_number max_length
-        required=True,
-        help_text="Reference identifier for the sales order (e.g., order number).",
-    )
-    allocations = SalesOrderAllocationItemSerializer(
-        many=True, required=True, help_text="List of parts and quantities to allocate."
-    )
-
-
 class SalesOrderSerializer(serializers.ModelSerializer):
     """
     出庫予定モデルのためのシリアライザ。
