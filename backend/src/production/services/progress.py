@@ -255,11 +255,16 @@ def _resolve_finished_goods_destination(plan, data):
 
 
 def _reject_destination_change(plan, data):
-    """完了後の完了数量の変更では、入庫倉庫・棚番を変えられない(取消時に計上した倉庫から減らすため)。"""
+    """完了後の完了数量の変更では、入庫倉庫・棚番を変えられない(取消時に計上した倉庫・棚から減らすため)。"""
     warehouse = (data.get("warehouse") or "").strip()
-    if warehouse and warehouse != _finished_goods_warehouse(plan):
+    location = data.get("location")
+    recorded_location = (plan.finished_goods_location or "") if plan.finished_goods_warehouse else ""
+    if (warehouse and warehouse != _finished_goods_warehouse(plan)) or (
+        location is not None and str(location).strip() != recorded_location
+    ):
         raise ValueError(
-            "完了済みの生産計画の入庫倉庫は変更できません。変更する場合は、いったん完了を取り消してから完了し直してください。"
+            "完了済みの生産計画の入庫倉庫・棚番は変更できません。"
+            "変更する場合は、いったん完了を取り消してから完了し直してください。"
         )
 
 

@@ -6,7 +6,6 @@ import type { ScheduleDateDefaults } from '../services/scheduleDateDefaultsServi
 import ReceiptLocationMap from '../components/common/ReceiptLocationMap';
 import authFetch, { ApiError } from '../utils/api';
 import { executeQrAction } from '../utils/qrAction';
-import { applyShelfInput } from '../utils/shelfQr';
 import inventoryService from '../services/inventoryService';
 import { NavIcon } from '../components/NavIcon';
 import './InventoryInquiry.css';
@@ -97,13 +96,14 @@ const GoodsReceiptContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefau
   // 納品記録モーダル
   // デフォルト入庫棚番の登録確認モーダル(OK/キャンセルの結果を Promise で返す)
   const [defaultLocationConfirm, setDefaultLocationConfirm] = useState<{ partNumber: string; location: string } | null>(null);
-  const defaultLocationResolver = useRef<((value: boolean) => void) | null>(null);
+  // 結果: true=登録して入庫 / false=登録しないで入庫 / null=入庫を取りやめる(×・Esc・キャンセル)
+  const defaultLocationResolver = useRef<((value: boolean | null) => void) | null>(null);
   const askRegisterDefaultLocation = (partNumber: string, location: string) =>
-    new Promise<boolean>(resolve => {
+    new Promise<boolean | null>(resolve => {
       defaultLocationResolver.current = resolve;
       setDefaultLocationConfirm({ partNumber, location });
     });
-  const answerRegisterDefaultLocation = (value: boolean) => {
+  const answerRegisterDefaultLocation = (value: boolean | null) => {
     defaultLocationResolver.current?.(value);
     defaultLocationResolver.current = null;
     setDefaultLocationConfirm(null);
@@ -286,7 +286,7 @@ const GoodsReceiptContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefau
   const handleReceiptFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     // バーコードリーダーで棚番QR({"warehouse","shelf"})が入力された場合は倉庫と棚番に振り分ける
-    setReceiptFormData(prev => applyShelfInput(prev, name, value, 'location', 'warehouse'));
+    setReceiptFormData(prev => inventoryService.applyReceiptFormChange(prev, name, value, receiptModal.order));
   };
 
   const receiptSubmittingRef = useRef(false);
@@ -307,9 +307,14 @@ const GoodsReceiptContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefau
     if (receiptSubmittingRef.current) return;
     receiptSubmittingRef.current = true;
     const location = receiptFormData.location.trim();
-    const registerDefaultLocation =
-      (await inventoryService.shouldConfirmRegisterDefaultLocation(targetOrder, location)) &&
-      (await askRegisterDefaultLocation(targetOrder.part_number ?? '', location));
+    const registerDefaultLocation = (await inventoryService.shouldConfirmRegisterDefaultLocation(targetOrder, location))
+      ? await askRegisterDefaultLocation(targetOrder.part_number ?? '', location)
+      : false;
+    if (registerDefaultLocation === null) {
+      // 確認を閉じた場合は入庫しない
+      receiptSubmittingRef.current = false;
+      return;
+    }
 
     try {
       const result = await inventoryService.receivePurchaseOrder({
@@ -846,7 +851,7 @@ const GoodsReceiptContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefau
       {/* デフォルト入庫棚番の登録確認 */}
       <Modal
         show={defaultLocationConfirm !== null}
-        onHide={() => answerRegisterDefaultLocation(false)}
+        onHide={() => answerRegisterDefaultLocation(null)}
         centered
         backdrop="static"
         className="mes-clean-modal"

@@ -401,3 +401,21 @@ class CompletionRequiresMaterialStockTests(ProductionAPITestBase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         plan.refresh_from_db()
         self.assertEqual(plan.status, "IN_PROGRESS")
+
+
+class CompletedDestinationLockedTests(ProductionAPITestBase):
+    """PP-PROG-DEST-* : 完了後の完了数量の変更では、入庫倉庫だけでなく棚番も変えられない。"""
+
+    def test_pp_prog_dest_01_location_change_rejected_after_completion(self):
+        plan = self.create_plan(status="IN_PROGRESS")
+        url = reverse("production_api:production-plan-update-progress", args=[plan.id])
+        payload = {"status": "COMPLETED", "good_quantity": 5, "warehouse": "WH-A", "location": "A-05"}
+        self.assertEqual(self.client.post(url, payload, format="json").status_code, status.HTTP_200_OK)
+        payload = {"status": "COMPLETED", "good_quantity": 6, "warehouse": "WH-A", "location": "A-06"}
+        self.assertEqual(self.client.post(url, payload, format="json").status_code, status.HTTP_400_BAD_REQUEST)
+        # 同じ棚番・棚番の指定なしなら数量を変えられる
+        payload = {"status": "COMPLETED", "good_quantity": 6, "warehouse": "WH-A", "location": "A-05"}
+        self.assertEqual(self.client.post(url, payload, format="json").status_code, status.HTTP_200_OK)
+        payload = {"status": "COMPLETED", "good_quantity": 7}
+        self.assertEqual(self.client.post(url, payload, format="json").status_code, status.HTTP_200_OK)
+        self.assertEqual(Inventory.objects.get(part_number_rel_id=plan.product_code, location="A-05").quantity, 7)

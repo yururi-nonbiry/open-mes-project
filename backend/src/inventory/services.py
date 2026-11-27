@@ -431,12 +431,15 @@ _UNSET = object()
 def resolve_receipt_destination(po, warehouse, location):
     """
     入庫倉庫・棚番を 入庫時の指定 → 発注 → 品番マスタのデフォルト の順で決める。
-    品番マスタのデフォルト入庫棚番は、入庫倉庫が品番マスタのデフォルト入庫倉庫と同じ
-    (またはデフォルト入庫倉庫が未登録)の場合だけ使う(別倉庫の棚番を当てはめないため)。
+    棚番は、指定が無い(None)場合だけ補い、空文字の指定は「棚番なし」としてそのまま使う。
+    発注の棚番は入庫倉庫が発注の倉庫と同じ(または発注に倉庫が無い)場合だけ、品番マスタのデフォルト入庫棚番は
+    入庫倉庫が品番マスタのデフォルト入庫倉庫と同じ(または未登録)の場合だけ使う(別倉庫の棚番を当てはめないため)。
     """
     item = po.part_number_rel
     warehouse = warehouse or po.warehouse or (item.default_warehouse if item else None) or None
-    location = location or po.location or item_default_location_for(item, warehouse)
+    if location is None:
+        po_location = po.location if not po.warehouse or po.warehouse == warehouse else ""
+        location = po_location or item_default_location_for(item, warehouse)
     return warehouse, location
 
 

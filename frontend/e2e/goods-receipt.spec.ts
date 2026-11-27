@@ -506,6 +506,23 @@ test('FE-GR-17 確認モーダルで「登録しないで入庫」を選ぶと�
   expect(await getItemDefaultLocation(api, DEFAULT_LOCATION_ITEM)).toBe('');
 });
 
+test('FE-GR-20 確認モーダルを×で閉じると、入庫は実行されず入庫処理の画面に戻ること', async ({ page }) => {
+  const order = await openReceiptModalFor(page, '');
+  await modal(page).getByRole('button', { name: '入庫を確定する' }).click();
+
+  const dialog = confirmDialog(page);
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: 'Close' }).click();
+  await expect(dialog).toBeHidden();
+  await expect(modal(page).locator('.alert-success')).toHaveCount(0);
+
+  expect((await getPurchaseOrder(api, order.id)).received_quantity).toBe(0);
+  expect(await getItemDefaultLocation(api, DEFAULT_LOCATION_ITEM)).toBe('');
+  // 閉じた後も、改めて入庫を確定できる
+  await modal(page).getByRole('button', { name: '入庫を確定する' }).click();
+  await expect(dialog).toBeVisible();
+});
+
 test('FE-GR-18 デフォルト入庫棚番が登録済みの品番を入庫する場合、確認モーダルが表示されないこと', async ({ page }) => {
   const order = await openReceiptModalFor(page, 'E2E-REGISTERED');
   await modal(page).getByRole('button', { name: '入庫を確定する' }).click();

@@ -22,13 +22,14 @@ const remainingOf = (order: PurchaseOrderRow) => (order.quantity ?? 0) - (order.
 const MobileGoodsReceiptPageContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefaults }) => {
   // デフォルト入庫棚番の登録確認モーダル(結果を Promise で返す)
   const [defaultLocationConfirm, setDefaultLocationConfirm] = useState<{ partNumber: string; location: string } | null>(null);
-  const defaultLocationResolver = useRef<((value: boolean) => void) | null>(null);
+  // 結果: true=登録して入庫 / false=登録しないで入庫 / null=入庫を取りやめる(×・Esc・キャンセル)
+  const defaultLocationResolver = useRef<((value: boolean | null) => void) | null>(null);
   const askRegisterDefaultLocation = (partNumber: string, location: string) =>
-    new Promise<boolean>(resolve => {
+    new Promise<boolean | null>(resolve => {
       defaultLocationResolver.current = resolve;
       setDefaultLocationConfirm({ partNumber, location });
     });
-  const answerRegisterDefaultLocation = (value: boolean) => {
+  const answerRegisterDefaultLocation = (value: boolean | null) => {
     defaultLocationResolver.current?.(value);
     defaultLocationResolver.current = null;
     setDefaultLocationConfirm(null);
@@ -179,7 +180,7 @@ const MobileGoodsReceiptPageContent = ({ dateDefaults }: { dateDefaults: Schedul
 
   const handleReceiptFormChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setReceiptFormData(prev => applyShelfInput(prev, name, value, 'location', 'warehouse'));
+    setReceiptFormData(prev => inventoryService.applyReceiptFormChange(prev, name, value, selectedOrder));
   };
 
   const receiptSubmittingRef = useRef(false);
@@ -204,9 +205,14 @@ const MobileGoodsReceiptPageContent = ({ dateDefaults }: { dateDefaults: Schedul
     if (receiptSubmittingRef.current) return;
     receiptSubmittingRef.current = true;
     const location = receiptFormData.location.trim();
-    const registerDefaultLocation =
-      (await inventoryService.shouldConfirmRegisterDefaultLocation(selectedOrder, location)) &&
-      (await askRegisterDefaultLocation(selectedOrder.part_number ?? '', location));
+    const registerDefaultLocation = (await inventoryService.shouldConfirmRegisterDefaultLocation(selectedOrder, location))
+      ? await askRegisterDefaultLocation(selectedOrder.part_number ?? '', location)
+      : false;
+    if (registerDefaultLocation === null) {
+      // 確認を閉じた場合は入庫しない
+      receiptSubmittingRef.current = false;
+      return;
+    }
 
     try {
       const result = await inventoryService.receivePurchaseOrder({
@@ -283,7 +289,7 @@ const MobileGoodsReceiptPageContent = ({ dateDefaults }: { dateDefaults: Schedul
               <label htmlFor="warehouse" className="form-label">入庫倉庫</label>
               <div className="input-group">
                 <input type="text" id="warehouse" name="warehouse" value={receiptFormData.warehouse} onChange={handleReceiptFormChange} className="form-control" placeholder="倉庫" />
-                <button className="btn btn-outline-secondary" type="button" onClick={() => startCameraScan((value: string) => setReceiptFormData(prev => applyShelfInput(prev, 'warehouse', value, 'location', 'warehouse')))} title="カメラでスキャン" aria-label="カメラでスキャン"><CameraIcon /></button>
+                <button className="btn btn-outline-secondary" type="button" onClick={() => startCameraScan((value: string) => setReceiptFormData(prev => inventoryService.applyReceiptFormChange(prev, 'warehouse', value, selectedOrder)))} title="カメラでスキャン" aria-label="カメラでスキャン"><CameraIcon /></button>
               </div>
             </div>
             <div className="mb-3">
@@ -356,6 +362,7 @@ const MobileGoodsReceiptPageContent = ({ dateDefaults }: { dateDefaults: Schedul
             <div className="d-grid gap-2 mt-4">
               <button type="button" className="btn btn-primary" onClick={() => answerRegisterDefaultLocation(true)}>登録して入庫</button>
               <button type="button" className="btn btn-secondary" onClick={() => answerRegisterDefaultLocation(false)}>登録しないで入庫</button>
+              <button type="button" className="btn btn-outline-secondary" onClick={() => answerRegisterDefaultLocation(null)}>入庫をやめる</button>
             </div>
           </div>
         </div>

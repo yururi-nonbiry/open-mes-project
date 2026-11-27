@@ -227,6 +227,33 @@ class ProcessReceiptTests(InventoryAPITestBase):
             ).exists()
         )
 
+    def test_po_recv_10d_explicit_empty_location_means_no_shelf(self):
+        """棚番を空欄で明示した場合は、発注・品番マスタの棚番で補わず棚番なしで入庫する。"""
+        self.item1.default_location = "A-09"
+        self.item1.save()
+        po = self.create_purchase_order(
+            order_number="PO-107", quantity=5, warehouse=self.warehouse_a.warehouse_number, location="A-01"
+        )
+        response = self.client.post(
+            self.url, {"purchase_order_id": str(po.id), "received_quantity": 5, "location": ""}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.content)
+        self.assertTrue(Inventory.objects.filter(part_number_rel_id=self.item1.code, location="").exists())
+
+    def test_po_recv_10e_po_location_not_used_for_other_warehouse(self):
+        """入庫倉庫を発注の倉庫から変えた場合、発注の棚番(別倉庫の棚)は当てはめない。"""
+        po = self.create_purchase_order(
+            order_number="PO-108", quantity=5, warehouse=self.warehouse_a.warehouse_number, location="A-01"
+        )
+        response = self.client.post(
+            self.url,
+            {"purchase_order_id": str(po.id), "received_quantity": 5, "warehouse": self.warehouse_b.warehouse_number},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.content)
+        inventory = Inventory.objects.get(part_number_rel_id=self.item1.code)
+        self.assertEqual((inventory.warehouse, inventory.location), (self.warehouse_b.warehouse_number, ""))
+
     def test_po_recv_11_no_warehouse_available_rejected(self):
         po_no_wh = self.create_purchase_order(order_number="PO-103", quantity=5)
         response = self.client.post(

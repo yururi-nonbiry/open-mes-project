@@ -1,6 +1,7 @@
 import authFetch, { apiRequest, handleError, toApiError, ApiError } from '../utils/api';
 import { WarehouseLocationMap } from './warehouseLocationService';
 import { t } from '../utils/terms';
+import { applyShelfInput } from '../utils/shelfQr';
 
 export interface InventoryItem {
     id: string | number;
@@ -123,6 +124,14 @@ const withMixedPurposeConfirm = async <T>(
         }
         throw err;
     }
+};
+
+/** 入庫の倉庫・棚番の初期値を決めるのに使う発注の項目 */
+type ReceiptDestinationSource = {
+    warehouse?: string | null;
+    location?: string | null;
+    item_default_warehouse?: string | null;
+    item_default_location?: string | null;
 };
 
 const inventoryService = {
@@ -249,17 +258,35 @@ const inventoryService = {
      * 入庫画面の倉庫・棚番の初期値を 発注 → 品番マスタのデフォルト の順で決める(サーバー側の補完と同じ規則)。
      * 品番マスタのデフォルト棚番は、倉庫が品番マスタのデフォルト倉庫と同じ(または未登録)の場合だけ使う。
      */
-    getReceiptDestinationDefaults: (order: {
-        warehouse?: string | null;
-        location?: string | null;
-        item_default_warehouse?: string | null;
-        item_default_location?: string | null;
-    }): { warehouse: string; location: string } => {
+    getReceiptDestinationDefaults: (order: ReceiptDestinationSource): { warehouse: string; location: string } => {
+        const warehouse = order.warehouse || order.item_default_warehouse || '';
+        return { warehouse, location: inventoryService.getReceiptDefaultLocation(order, warehouse) };
+    },
+
+    /**
+     * 指定した倉庫へ入庫する場合の棚番の初期値。発注の棚番は発注の倉庫と同じ(または発注に倉庫が無い)場合だけ、
+     * 品番マスタのデフォルト棚番はデフォルト倉庫と同じ(または未登録)場合だけ使う(別倉庫の棚番を当てはめない)。
+     */
+    getReceiptDefaultLocation: (order: ReceiptDestinationSource, warehouse: string): string => {
+        const orderLocation = !order.warehouse || order.warehouse === warehouse ? order.location || '' : '';
         const defaultWarehouse = order.item_default_warehouse || '';
-        const warehouse = order.warehouse || defaultWarehouse;
         const useDefaultLocation = !defaultWarehouse || defaultWarehouse === warehouse;
-        const location = order.location || (useDefaultLocation ? order.item_default_location || '' : '');
-        return { warehouse, location };
+        return orderLocation || (useDefaultLocation ? order.item_default_location || '' : '');
+    },
+
+    /**
+     * 入庫フォームの入力変更。棚番QRは倉庫と棚番に振り分け、倉庫を手で変えたときは、
+     * 棚番が前の倉庫の初期値のままなら新しい倉庫の初期値に置き換える(前の倉庫の棚番で入庫しないように)。
+     */
+    applyReceiptFormChange: <T extends { warehouse: string; location: string }>(
+        prev: T, name: string, value: string, order: ReceiptDestinationSource | null
+    ): T => {
+        const next = applyShelfInput(prev, name, value, 'location', 'warehouse');
+        if (order && name === 'warehouse' && next.location === prev.location && next.warehouse !== prev.warehouse
+            && prev.location === inventoryService.getReceiptDefaultLocation(order, prev.warehouse.trim())) {
+            return { ...next, location: inventoryService.getReceiptDefaultLocation(order, next.warehouse.trim()) };
+        }
+        return next;
     },
 
     /** 入庫予定の納品日・納品数の更新(記録のみで在庫には反映しない)。失敗時は ApiError を送出する。 */

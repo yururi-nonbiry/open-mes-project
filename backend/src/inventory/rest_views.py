@@ -325,7 +325,8 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
                 purchase_order_id,
                 received_quantity,
                 str(request.data.get("warehouse") or "").strip(),
-                str(request.data.get("location") or "").strip(),
+                # 棚番は未指定(None)と空欄の明示(棚番なし)を区別する。未指定なら発注・品番マスタの棚番で補う
+                None if request.data.get("location") is None else str(request.data.get("location")).strip(),
                 request.user,
                 confirm_mixed_purpose=request.data.get("confirm_mixed_purpose") is True,
                 **(
