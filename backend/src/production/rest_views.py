@@ -594,3 +594,9 @@ class WorkProgressViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(operator_id=operator_id)
 
         return queryset
+
+    def destroy(self, request, *args, **kwargs):
+        # 全体進捗を消すと前回の完了数量が失われ、再完了で完成品を二重に計上し、完了の取消で完成品を減らせなくなる
+        if self.get_object().process_step == WorkProgress.OVERALL_PROCESS_STEP:
+            return error_response("全体進捗は削除できません。進捗は生産計画の進捗更新で変更してください。")
+        return super().destroy(request, *args, **kwargs)

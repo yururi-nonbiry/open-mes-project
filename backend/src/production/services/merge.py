@@ -22,7 +22,7 @@ from .intermediates import (
     trim_child_plans,
 )
 
-OVERALL_PROCESS_STEP = "Overall Plan Progress"  # progress.py の全体進捗と同じ工程名
+OVERALL_PROCESS_STEP = WorkProgress.OVERALL_PROCESS_STEP
 
 
 def _order_key(plan):

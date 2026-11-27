@@ -160,6 +160,10 @@
 | WP-CRUD-04 | 異常系 | `POST work-progress/` | 同一`(production_plan, process_step)`が既存 | 重複作成 | 400（`IntegrityError`起因、DRFの一意制約バリデーション） | |
 | WP-CRUD-05 | 異常系 | `POST work-progress/` | - | `start_datetime >= end_datetime` | 400（シリアライザ`validate`） | |
 | WP-CRUD-06 | 正常系 | `PATCH work-progress/{id}/` | 既存レコードが存在 | `status`/`quantity_completed`を直接書き換え | `read_only_fields`のため無視され変化しない | `update-progress`経由でのみ変更可能という設計 |
+| WP-OVERALL-01 | 異常系 | `DELETE work-progress/{id}/` | 完了済み計画の全体進捗("Overall Plan Progress") | 削除 | 400、行は残る | 2026-11-27 追加。修正前は削除後の再完了で完成品が二重計上され、完了の取消で完成品を減らせなかった |
+| WP-OVERALL-02 | 異常系 | `PATCH work-progress/{id}/` | 全体進捗 | `process_step` を変更 | 400（備考の変更は 200。開始と終了が同時刻でも検証エラーにしない） | 2026-11-27 追加 |
+| WP-OVERALL-03 | 異常系 | `POST work-progress/` | — | `process_step="Overall Plan Progress"` で作成 | 400（全体進捗は進捗更新だけが作る） | 2026-11-27 追加 |
+| WP-OVERALL-04 | 正常系 | `DELETE work-progress/{id}/` | 全体進捗以外の工程 | 削除 | 204 | 2026-11-27 追加 |
 
 ### 5.8 部品供給シミュレーション（`PartsSupplySimulationView`、`production/tests/test_parts_supply_simulation.py`）
 

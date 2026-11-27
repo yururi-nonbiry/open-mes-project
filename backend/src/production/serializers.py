@@ -460,6 +460,18 @@ class WorkProgressSerializer(serializers.ModelSerializer):
         Check that start_datetime is before end_datetime.
         Handles both create (POST) and partial update (PATCH) scenarios.
         """
+        # 全体進捗の行は完成品在庫・材料消費の計上と連動しており、完了の取消・数量変更で前回の完了数量を読むため、
+        # 進捗更新(update-progress)だけが作成・管理する。直接の作成・工程名の変更・別計画への付け替えはさせない。
+        overall = WorkProgress.OVERALL_PROCESS_STEP
+        if data.get("process_step") == overall and (not self.instance or self.instance.process_step != overall):
+            raise serializers.ValidationError(
+                {"process_step": f"工程名「{overall}」は全体進捗用のため使えません。進捗更新から登録してください。"}
+            )
+        if self.instance and self.instance.process_step == overall:
+            for field in ("process_step", "production_plan"):
+                if field in data and data[field] != getattr(self.instance, field):
+                    raise serializers.ValidationError("全体進捗の工程名・生産計画は変更できません。")
+
         if self.instance:  # This is an update
             start = data.get("start_datetime", self.instance.start_datetime)
             end = data.get("end_datetime", self.instance.end_datetime)
@@ -467,8 +479,9 @@ class WorkProgressSerializer(serializers.ModelSerializer):
             start = data.get("start_datetime")
             end = data.get("end_datetime")
 
+        # 進捗更新で開始と同時に完了した行は開始=終了になるため、同時刻は許可する
         if start and end:
-            if start >= end:
+            if start > end:
                 raise serializers.ValidationError({"end_datetime": "End datetime must be after start datetime."})
         return data
 

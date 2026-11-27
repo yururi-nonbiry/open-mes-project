@@ -38,7 +38,7 @@ def update_production_progress_service(plan, data, user):
         raise ValueError("統合済みには変更できません。生産計画を統合する操作で行ってください。")
 
     now = timezone.now()
-    PROCESS_STEP_OVERALL = "Overall Plan Progress"
+    PROCESS_STEP_OVERALL = WorkProgress.OVERALL_PROCESS_STEP
 
     with transaction.atomic():
         # 行ロックを取得した上で最新の状態を再取得する。ロックせずに旧ステータスを判定すると、

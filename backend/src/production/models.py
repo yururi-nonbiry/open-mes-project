@@ -323,6 +323,9 @@ class WorkProgress(models.Model):
     作業進捗モデル
     """
 
+    # 計画全体の進捗(完了数量の記録)に使う工程名。進捗更新(update-progress)だけが作成・更新する。
+    OVERALL_PROCESS_STEP = "Overall Plan Progress"
+
     class Status(models.TextChoices):
         NOT_STARTED = "NOT_STARTED", "未開始"
         IN_PROGRESS = "IN_PROGRESS", "進行中"
