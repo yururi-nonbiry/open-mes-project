@@ -52,7 +52,9 @@ def update_production_progress_service(plan, data, user):
                 "status": WorkProgress.Status.NOT_STARTED,
             },
         )
-        if plan.status == ProductionPlan.Status.MERGED:
+        # 統合された元計画(統合済み、および統合計画の完了で按分され完了になった計画)は統合計画で更新する。
+        # 元計画の完了を単独で取り消すと、統合計画で計上した完成品在庫を二重に減らしてしまう。
+        if plan.status == ProductionPlan.Status.MERGED or plan.merged_into_id:
             raise ValueError("統合済みの生産計画の進捗は更新できません。統合先の生産計画で更新してください。")
         # 部品を引き当てたままの統合計画を中止すると、元の計画だけ未着手に戻り、引当(在庫の確保)が中止した計画に残り続ける
         if (

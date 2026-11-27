@@ -5,6 +5,7 @@ from django.utils import timezone
 from rest_framework import status
 
 from base.feature_settings import MERGE_PLANS_ON_ALLOCATION, get_feature_flag, set_feature_flag
+from inventory.models import Inventory
 from master.models import BillOfMaterial, Item
 
 from ..models import MaterialAllocation, ProductionPlan, WorkProgress
@@ -181,3 +182,21 @@ class PlanMergeTests(ProductionAPITestBase):
         self.client.post(url, {"status": "IN_PROGRESS"}, format="json")
         self.plan_a.refresh_from_db()
         self.assertIsNone(self.plan_a.finished_goods_warehouse)
+
+    def test_pp_merge_17_apportioned_original_cannot_be_progressed(self):
+        """PP-MERGE-17: 統合計画の完了で完了になった元計画は、単独で完了の取消・数量変更ができない。"""
+        merged = self._merged()
+        self.assertEqual(self._complete(merged, 80).status_code, status.HTTP_200_OK)
+        stock_before = sum(row.quantity for row in Inventory.objects.filter(part_number_rel_id=merged.product_code))
+        self.plan_a.refresh_from_db()
+        self.assertEqual(self.plan_a.status, "COMPLETED")
+
+        url = reverse("production_api:production-plan-update-progress", kwargs={"pk": self.plan_a.pk})
+        self.assertEqual(self.client.post(url, {"status": "ON_HOLD"}, format="json").status_code, 400)
+        self.assertEqual(self._complete(self.plan_a, 10).status_code, status.HTTP_400_BAD_REQUEST)
+
+        self.plan_a.refresh_from_db()
+        self.assertEqual(self.plan_a.status, "COMPLETED")
+        self.assertEqual(WorkProgress.objects.get(production_plan=self.plan_a).quantity_completed, 30)
+        stock_after = sum(row.quantity for row in Inventory.objects.filter(part_number_rel_id=merged.product_code))
+        self.assertEqual(stock_after, stock_before)

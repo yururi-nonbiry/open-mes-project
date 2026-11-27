@@ -130,3 +130,31 @@ test('FE-WP-03 完了済みの計画では、入庫倉庫・棚番が計上先�
   await expect(warehouse).not.toBeEditable();
   await expect(modal(page).getByText('変更不可').first()).toBeVisible();
 });
+
+test('FE-WP-04 統合計画の完了で完了になった元の計画は、作業進捗から単独で登録できないこと', async ({ page }) => {
+  await setProductDefaults(WAREHOUSE, null);
+  const a = await createPlan();
+  const b = await createPlan();
+  const merge = await api.post('/api/production/plans/merge-plans/', { data: { plan_ids: [a.id, b.id] } });
+  expect(merge.ok(), await merge.text()).toBeTruthy();
+  const merged = (await merge.json()).data as Plan;
+  const done = await api.post(`/api/production/plans/${merged.id}/update-progress/`, {
+    data: { status: 'COMPLETED', good_quantity: 10, actual_quantity: 10, defective_quantity: 0 },
+  });
+  expect(done.ok(), await done.text()).toBeTruthy();
+  expect((await getPlan(a.id)).status).toBe('COMPLETED');
+
+  await authenticate(page, adminTokens);
+  await page.goto('/production/work-progress');
+  await page.locator('.receipt-status-tabs').getByRole('button', { name: '完了', exact: true }).click();
+  await page.locator('#searchPlanName').fill(a.plan_name);
+  const row = page.locator('.goods-receipt-table tbody tr').filter({ hasText: a.plan_name });
+  await expect(row).toHaveCount(1);
+  await expect(row).toContainText('統合計画で登録');
+  await expect(row.getByRole('button', { name: '進捗・完了登録' })).toHaveCount(0);
+
+  // APIで直接、元の計画の完了を取り消そうとしても拒否される
+  const reverse = await api.post(`/api/production/plans/${a.id}/update-progress/`, { data: { status: 'ON_HOLD' } });
+  expect(reverse.status()).toBe(400);
+  expect((await getPlan(a.id)).status).toBe('COMPLETED');
+});

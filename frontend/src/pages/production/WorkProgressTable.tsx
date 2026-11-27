@@ -82,13 +82,20 @@ const WorkProgressTable: React.FC<WorkProgressTableProps> = ({
                         </span>
                     </td>
                     <td className="text-center text-nowrap sticky-action-col">
-                        <button
-                            type="button"
-                            className="btn btn-sm btn-primary fw-bold px-3"
-                            onClick={() => onOpenModal(plan)}
-                        >
-                            進捗・完了登録
-                        </button>
+                        {plan.merged_into ? (
+                            // 統合された元計画は統合計画で進捗・完了を登録する(単独で完了を取り消すと完成品在庫が二重に減るため)
+                            <span className="small text-muted" title={`統合計画「${plan.merged_into_name ?? ''}」で登録してください`}>
+                                統合計画で登録
+                            </span>
+                        ) : (
+                            <button
+                                type="button"
+                                className="btn btn-sm btn-primary fw-bold px-3"
+                                onClick={() => onOpenModal(plan)}
+                            >
+                                進捗・完了登録
+                            </button>
+                        )}
                     </td>
                 </tr>
             );

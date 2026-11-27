@@ -289,6 +289,7 @@
 | PP-MERGE-13 | 正常系 | `update-progress` | 統合計画 | 中止 | 元計画は未着手に戻る | |
 | PP-MERGE-14 | 正常系 | 機能設定 | — | `merge_plans_on_allocation` | 既定OFF。ONに設定できる | 管理者画面から切替 |
 | PP-MERGE-16 | 正常系 | `update-progress` | 統合計画 | `WH-A`/`A-05` を指定して完了 → 進行中に戻す | 元計画にも `finished_goods_warehouse=WH-A`/`finished_goods_location=A-05` を記録し、完了の取消で元計画の記録も消す | 2026-11-27 追加 |
+| PP-MERGE-17 | 異常系 | `update-progress` | 統合計画の完了で按分され完了になった元計画 | 元計画を `ON_HOLD` に変更、または完了数量を変更 | 400、元計画は完了のまま、完成品在庫は変わらない（統合計画で更新する） | 2026-11-27 追加。修正前は元計画単独で完了を取り消せ、完成品在庫が二重に減っていた |
 
 ## 6. シリアライザの read_only_fields 確認
 
