@@ -90,6 +90,12 @@ class AdditionalIssueTests(ProductionAPITestBase):
         response = self.client.post(self.url, {"items": [self._item(1)]}, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_pp_addissue_09_completed_plan_rejected(self):
+        self.plan.status = "COMPLETED"
+        self.plan.save()
+        response = self.client.post(self.url, {"items": [self._item(1)]}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_pp_addissue_07_completion_reversal_keeps_additional_issued(self):
         """生産完了の取消で通常の引当は引当状態に戻るが、追加出庫は実際に使った分のため戻さない。"""
         self.client.post(self.url, {"items": [self._item(2)]}, format="json")

@@ -159,6 +159,20 @@ class PlanMergeTests(ProductionAPITestBase):
         self.plan_a.refresh_from_db()
         self.assertEqual(self.plan_a.status, "MERGED")
 
+    def test_pp_merge_19_completed_original_cannot_be_deleted_or_issued(self):
+        """統合計画の完了で完了になった元計画(status=COMPLETED, merged_into あり)も統合元として扱う。"""
+        merged = self._merged()
+        self.create_inventory(quantity=100)
+        self.assertEqual(self._complete(merged, 80).status_code, status.HTTP_200_OK)
+        self.plan_a.refresh_from_db()
+        self.assertEqual((self.plan_a.status, self.plan_a.merged_into_id), ("COMPLETED", merged.id))
+        response = self.client.delete(reverse("production_api:production-plan-detail", kwargs={"pk": self.plan_a.pk}))
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        url = reverse("production_api:production-plan-issue-additional-materials", kwargs={"pk": self.plan_a.pk})
+        items = [{"part_number": self.material_item1.code, "warehouse": "WH-A", "quantity": 1}]
+        self.assertEqual(self.client.post(url, {"items": items}, format="json").status_code, 400)
+        self.assertTrue(ProductionPlan.objects.filter(pk=self.plan_a.pk).exists())
+
     def test_pp_merge_15_bom_snapshot_replaced_by_edited_materials(self):
         """BOMマスターがあると計画作成時に所要部品がコピーされる。統合計画では元計画の編集後の所要量を合算する。"""
         BillOfMaterial.objects.create(product=self.product_item, material=self.material_item1, quantity=1)

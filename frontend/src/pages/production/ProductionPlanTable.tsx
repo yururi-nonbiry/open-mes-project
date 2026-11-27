@@ -186,7 +186,8 @@ const ProductionPlanTable: React.FC<ProductionPlanTableProps> = ({
                         </td>
                     ))}
                     <td className="text-center text-nowrap sticky-action-col">
-                        {plan.status === 'MERGED' ? (
+                        {/* 統合元(統合済み、および統合計画の完了で按分され完了になった計画)は統合計画で操作する */}
+                        {plan.status === 'MERGED' || plan.merged_into ? (
                             <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => onDetail(plan)}>
                                 詳細
                             </button>
@@ -205,9 +206,11 @@ const ProductionPlanTable: React.FC<ProductionPlanTableProps> = ({
                                 </span>
                             )}
                         </button>
-                        <button type="button" className="btn btn-sm btn-outline-secondary ms-1" onClick={() => onAdditionalIssue(plan)}>
-                            {t('追加ピッキング')}
-                        </button>
+                        {!['COMPLETED', 'CANCELLED'].includes(plan.status) && (
+                            <button type="button" className="btn btn-sm btn-outline-secondary ms-1" onClick={() => onAdditionalIssue(plan)}>
+                                {t('追加ピッキング')}
+                            </button>
+                        )}
                         <button type="button" className="btn btn-sm btn-outline-secondary ms-1" onClick={() => onDetail(plan)}>
                             詳細
                         </button>

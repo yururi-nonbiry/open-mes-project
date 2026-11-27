@@ -330,8 +330,14 @@ def issue_additional_materials_service(production_plan, items, user, remarks=Non
     """
     if production_plan.status == ProductionPlan.Status.CANCELLED:
         raise ValueError(apply_terms("中止された生産計画には追加ピッキングできません。"))
-    if production_plan.status == ProductionPlan.Status.MERGED:
+    # 統合元(統合済み、および統合計画の完了で按分され完了になった計画)は統合計画で扱う
+    if production_plan.status == ProductionPlan.Status.MERGED or production_plan.merged_into_id:
         raise ValueError(apply_terms("統合済みの生産計画には追加ピッキングできません。統合先の生産計画で行ってください。"))
+    # 完了した計画は材料の消費を確定しているため、追加ピッキングは完了を取り消してから行う
+    if production_plan.status == ProductionPlan.Status.COMPLETED:
+        raise ValueError(
+            apply_terms("完了した生産計画には追加ピッキングできません。完了を取り消してから行ってください。")
+        )
     if not isinstance(items, list) or not items:
         raise ValueError(apply_terms("追加ピッキングする部品を1件以上指定してください。"))
 
