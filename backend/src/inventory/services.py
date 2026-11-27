@@ -428,6 +428,23 @@ def adjust_inventory(inventory_pk, new_quantity, new_location, user, confirm_mix
 _UNSET = object()
 
 
+def resolve_receipt_destination(po, warehouse, location):
+    """
+    入庫倉庫・棚番を 入庫時の指定 → 発注 → 品番マスタのデフォルト の順で決める。
+    品番マスタのデフォルト入庫棚番は、入庫倉庫が品番マスタのデフォルト入庫倉庫と同じ
+    (またはデフォルト入庫倉庫が未登録)の場合だけ使う(別倉庫の棚番を当てはめないため)。
+    """
+    item = po.part_number_rel
+    default_warehouse = (item.default_warehouse or "") if item else ""
+    default_location = (item.default_location or "") if item else ""
+    warehouse = warehouse or po.warehouse or default_warehouse or None
+    if not location:
+        location = po.location or ""
+    if not location and default_location and (not default_warehouse or default_warehouse == warehouse):
+        location = default_location
+    return warehouse, location
+
+
 def receive_purchase_order(
     purchase_order_id, received_quantity, warehouse, location, user, purpose=_UNSET, confirm_mixed_purpose=False
 ):
@@ -455,8 +472,8 @@ def receive_purchase_order(
         if received_quantity > remaining_quantity:
             raise InventoryServiceError(f"入庫数量が残数量({remaining_quantity})を超えています。")
 
-        warehouse = warehouse or po.warehouse
-        location = location or po.location or ""
+        # 入庫倉庫・棚番は 入庫時の指定 → 発注 → 品番マスタのデフォルト の順で補う
+        warehouse, location = resolve_receipt_destination(po, warehouse, location)
         if not warehouse:
             raise InventoryServiceError("入庫倉庫が指定されていません。")
         if not Warehouse.objects.filter(warehouse_number=warehouse).exists():

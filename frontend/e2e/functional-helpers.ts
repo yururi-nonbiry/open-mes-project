@@ -88,7 +88,15 @@ export async function saveDisplaySettings(api: APIRequestContext, dataType: stri
 
 export async function createPurchaseOrder(
   api: APIRequestContext,
-  fields: { order_number: string; product_name: string; expected_arrival: string; quantity?: number; part_number?: string },
+  fields: {
+    order_number: string;
+    product_name: string;
+    expected_arrival: string;
+    quantity?: number;
+    part_number?: string;
+    warehouse?: string | null;
+    location?: string | null;
+  },
 ): Promise<PurchaseOrder> {
   const response = await api.post('/api/inventory/purchase-orders/', {
     data: {
@@ -156,6 +164,18 @@ export async function setItemDefaultLocation(api: APIRequestContext, code: strin
         data: { code, name: code, item_type: 'material', unit: '個', default_location: defaultLocation },
       });
   expect(response.ok(), `品目 ${code} のデフォルト入庫棚番を ${defaultLocation || '(未登録)'} にできること`).toBeTruthy();
+}
+
+/** 品目マスタのデフォルト入庫倉庫・棚番をまとめて指定値にする(品目は作成済みであること)。 */
+export async function setItemDefaultDestination(
+  api: APIRequestContext,
+  code: string,
+  defaults: { default_warehouse: string; default_location: string },
+) {
+  const item = await findItem(api, code);
+  expect(item, `品目 ${code} が存在すること`).toBeTruthy();
+  const response = await api.patch(`/api/master/items/${item!.id}/`, { data: defaults });
+  expect(response.ok(), `品目 ${code} のデフォルト入庫倉庫・棚番を更新できること`).toBeTruthy();
 }
 
 export async function getItemDefaultLocation(api: APIRequestContext, code: string): Promise<string> {

@@ -245,6 +245,23 @@ const inventoryService = {
         return !!options.confirm_register_default_location;
     },
 
+    /**
+     * 入庫画面の倉庫・棚番の初期値を 発注 → 品番マスタのデフォルト の順で決める(サーバー側の補完と同じ規則)。
+     * 品番マスタのデフォルト棚番は、倉庫が品番マスタのデフォルト倉庫と同じ(または未登録)の場合だけ使う。
+     */
+    getReceiptDestinationDefaults: (order: {
+        warehouse?: string | null;
+        location?: string | null;
+        item_default_warehouse?: string | null;
+        item_default_location?: string | null;
+    }): { warehouse: string; location: string } => {
+        const defaultWarehouse = order.item_default_warehouse || '';
+        const warehouse = order.warehouse || defaultWarehouse;
+        const useDefaultLocation = !defaultWarehouse || defaultWarehouse === warehouse;
+        const location = order.location || (useDefaultLocation ? order.item_default_location || '' : '');
+        return { warehouse, location };
+    },
+
     /** 入庫予定の納品日・納品数の更新(記録のみで在庫には反映しない)。失敗時は ApiError を送出する。 */
     updatePurchaseOrderDelivery: (
         purchaseOrderId: string | number,

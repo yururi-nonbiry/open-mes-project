@@ -15,6 +15,7 @@ import {
   newRunId,
   requireEnv,
   saveDisplaySettings,
+  setItemDefaultDestination,
   setItemDefaultLocation,
   type DisplaySetting,
   type PurchaseOrder,
@@ -515,4 +516,28 @@ test('FE-GR-18 デフォルト入庫棚番が登録済みの品番を入庫す�
   expect((await getPurchaseOrder(api, order.id)).received_quantity).toBe(10);
   // 登録済みの棚番は上書きされない
   expect(await getItemDefaultLocation(api, DEFAULT_LOCATION_ITEM)).toBe('E2E-REGISTERED');
+});
+
+test('FE-GR-19 入庫予定に倉庫・棚番が無い場合、品番マスタのデフォルト入庫倉庫・棚番が初期値になり、そのまま入庫できること', async ({ page }) => {
+  await setItemDefaultLocation(api, DEFAULT_LOCATION_ITEM, 'E2E-DEF-LOC');
+  await setItemDefaultDestination(api, DEFAULT_LOCATION_ITEM, { default_warehouse: E2E_WAREHOUSE, default_location: 'E2E-DEF-LOC' });
+  const order = await createPurchaseOrder(api, {
+    order_number: `${PREFIX}${newRunId()}-M${Math.floor(Math.random() * 90 + 10)}`,
+    product_name: 'E2Eデフォルト倉庫確認品',
+    expected_arrival: EXPECTED_ARRIVAL,
+    part_number: DEFAULT_LOCATION_ITEM,
+    warehouse: null,
+    location: null,
+  });
+  await setSettings(CUSTOM_SETTINGS);
+  await openPage(page);
+  const row = await searchOrder(page, order.order_number);
+  await row.getByRole('button', { name: '入庫処理', exact: true }).click();
+
+  await expect(page.locator('#modal_warehouse_input')).toHaveValue(E2E_WAREHOUSE);
+  await expect(page.locator('#modal_location_input')).toHaveValue('E2E-DEF-LOC');
+
+  await modal(page).getByRole('button', { name: '入庫を確定する' }).click();
+  await expect(modal(page).locator('.alert-success')).toContainText('入庫処理が完了し、在庫へ反映されました。');
+  expect((await getPurchaseOrder(api, order.id)).received_quantity).toBe(10);
 });

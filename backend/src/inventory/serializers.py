@@ -69,12 +69,18 @@ class PurchaseOrderSerializer(serializers.ModelSerializer):
     purpose = serializers.SlugRelatedField(
         source="purpose_rel", slug_field="code", queryset=StockPurpose.objects.all(), allow_null=True, required=False
     )
-    # 品番マスタのデフォルト入庫棚番(入庫画面で未登録の確認に使う。読み取り専用)
+    # 品番マスタのデフォルト入庫棚番(入庫画面で未登録の確認と初期値に使う。読み取り専用)
     item_default_location = serializers.SerializerMethodField()
+    # 品番マスタのデフォルト入庫倉庫(入庫画面の初期値に使う。読み取り専用)
+    item_default_warehouse = serializers.SerializerMethodField()
 
     def get_item_default_location(self, obj):
         item = obj.part_number_rel
         return (item.default_location or "") if item else None
+
+    def get_item_default_warehouse(self, obj):
+        item = obj.part_number_rel
+        return (item.default_warehouse or "") if item else None
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -119,6 +125,7 @@ class PurchaseOrderSerializer(serializers.ModelSerializer):
             "delivered_quantity",  # 納品数 (任意、同上)
             "status",  # ステータス (デフォルト'pending'、読み取り専用)
             "item_default_location",  # 品番のデフォルト入庫棚番 (読み取り専用)
+            "item_default_warehouse",  # 品番のデフォルト入庫倉庫 (読み取り専用)
         ]
         read_only_fields = [
             "id",

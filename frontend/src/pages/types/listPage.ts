@@ -31,6 +31,7 @@ export interface PurchaseOrderRow {
   item?: string | null;
   part_number?: string | null;
   item_default_location?: string | null;
+  item_default_warehouse?: string | null;
   quantity?: number | null;
   received_quantity?: number | null;
   warehouse?: string | null;

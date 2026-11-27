@@ -175,6 +175,58 @@ class ProcessReceiptTests(InventoryAPITestBase):
             ).exists()
         )
 
+    def test_po_recv_10a_falls_back_to_item_default_warehouse_and_location(self):
+        """発注にも入力にも倉庫・棚番が無い場合は、品番マスタのデフォルトで入庫する。"""
+        self.item1.default_warehouse = self.warehouse_b.warehouse_number
+        self.item1.default_location = "B-09"
+        self.item1.save()
+        po = self.create_purchase_order(order_number="PO-104", quantity=5)
+        response = self.client.post(
+            self.url, {"purchase_order_id": str(po.id), "received_quantity": 5}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(
+            Inventory.objects.filter(
+                part_number_rel_id=self.item1.code, warehouse_rel_id=self.warehouse_b.warehouse_number, location="B-09"
+            ).exists()
+        )
+
+    def test_po_recv_10b_item_default_location_not_used_for_other_warehouse(self):
+        """入庫倉庫が品番マスタのデフォルト倉庫と異なる場合、デフォルト棚番は当てはめない。"""
+        self.item1.default_warehouse = self.warehouse_b.warehouse_number
+        self.item1.default_location = "B-09"
+        self.item1.save()
+        po = self.create_purchase_order(order_number="PO-105", quantity=5)
+        response = self.client.post(
+            self.url,
+            {"purchase_order_id": str(po.id), "received_quantity": 5, "warehouse": self.warehouse_a.warehouse_number},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(
+            Inventory.objects.filter(
+                part_number_rel_id=self.item1.code, warehouse_rel_id=self.warehouse_a.warehouse_number, location=""
+            ).exists()
+        )
+
+    def test_po_recv_10c_po_values_take_priority_over_item_default(self):
+        """発注に倉庫・棚番があれば、品番マスタのデフォルトより発注を優先する。"""
+        self.item1.default_warehouse = self.warehouse_a.warehouse_number
+        self.item1.default_location = "A-09"
+        self.item1.save()
+        po = self.create_purchase_order(
+            order_number="PO-106", quantity=5, warehouse=self.warehouse_b.warehouse_number, location="B-01"
+        )
+        response = self.client.post(
+            self.url, {"purchase_order_id": str(po.id), "received_quantity": 5}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(
+            Inventory.objects.filter(
+                part_number_rel_id=self.item1.code, warehouse_rel_id=self.warehouse_b.warehouse_number, location="B-01"
+            ).exists()
+        )
+
     def test_po_recv_11_no_warehouse_available_rejected(self):
         po_no_wh = self.create_purchase_order(order_number="PO-103", quantity=5)
         response = self.client.post(

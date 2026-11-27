@@ -133,8 +133,7 @@ const MobileGoodsReceiptPageContent = ({ dateDefaults }: { dateDefaults: Schedul
     setSelectedOrder(order);
     setReceiptFormData({
       received_quantity: remainingQuantity > 0 ? String(remainingQuantity) : '',
-      location: order.location || '',
-      warehouse: order.warehouse || '',
+      ...inventoryService.getReceiptDestinationDefaults(order),
       purpose: order.purpose || '',
     });
     setFormError('');
