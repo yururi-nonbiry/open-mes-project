@@ -1,7 +1,6 @@
 import datetime
 from decimal import Decimal, InvalidOperation
 
-from django.db.models import ProtectedError
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
@@ -85,12 +84,8 @@ class StockPurposeViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):
     queryset = StockPurpose.objects.all().order_by("code")
     serializer_class = StockPurposeSerializer
     permission_classes = [IsAuthenticatedCreateAdminChange]
-
-    def destroy(self, request, *args, **kwargs):
-        try:
-            return super().destroy(request, *args, **kwargs)
-        except ProtectedError:
-            return error_response("この用途は在庫で使用されているため削除できません。無効にしてください。")
+    # 削除できないときの案内(CustomSuccessMessageMixin.destroy が ProtectedError を捕まえて返す)
+    protected_error_message = "この用途は在庫で使用されているため削除できません。無効にしてください。"
 
 
 class WarehouseLocationViewSet(CustomSuccessMessageMixin, viewsets.ModelViewSet):

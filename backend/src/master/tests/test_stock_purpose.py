@@ -47,4 +47,6 @@ class StockPurposeCrudTests(MasterAPITestBase):
         )
         response = self.client.delete(self._detail_url(self.purpose.id))
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        # 用途向けの案内を返す(共通の文言ではなく、無効化を促す)
+        self.assertIn("無効にしてください", response.json()["error"])
         self.assertTrue(StockPurpose.objects.filter(code="PRD-A").exists())

@@ -22,6 +22,9 @@ class ProductionPlanCrudTests(ProductionAPITestBase):
         response = self.client.get(self.list_url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["results"]), 2)
+        # 他の一覧と同じ形のページ情報を返す(既定100件/ページ)
+        page = (response.data["total_pages"], response.data["current_page"], response.data["page_size"])
+        self.assertEqual(page, (1, 1, 100))
 
     def test_pp_crud_02_create(self):
         now = timezone.now()

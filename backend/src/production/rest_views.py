@@ -11,7 +11,6 @@ from rest_framework import (
 )
 from rest_framework.decorators import action  # actionデコレータをインポート
 from rest_framework.filters import OrderingFilter  # OrderingFilterをインポート
-from rest_framework.pagination import PageNumberPagination  # Import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response  # Responseをインポート
 from rest_framework.views import APIView  # APIViewをインポート
@@ -54,11 +53,11 @@ from .services.merge import find_merge_groups, merge_blocker, merge_plans, relea
 from .services.materials import allocated_quantity_by_material, normal_allocations
 
 
-# Define a pagination class specifically for Production Plans API
-class ProductionPlanApiPagination(PageNumberPagination):
-    page_size = 100  # Default number of items per page
-    page_size_query_param = "page_size"  # Allow client to override page_size via query param
-    max_page_size = 200  # Maximum page size allowed
+class ProductionPlanApiPagination(StandardResultsSetPagination):
+    """生産計画の一覧のページ分け。応答の形は他の一覧と同じ(総ページ数・現在ページを含む)で、件数だけ多めにする。"""
+
+    page_size = 100
+    max_page_size = 200
 
 
 def _count_of(queryset):
