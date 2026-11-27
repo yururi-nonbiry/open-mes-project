@@ -31,3 +31,27 @@ test('FE-QM-01 検査項目の測定詳細の行を、つまみ(☰)のドラッ
   await expect(names.nth(0)).toHaveValue('E2E-B');
   await expect(names.nth(1)).toHaveValue('E2E-A');
 });
+
+test('FE-QM-02 共通モーダルはダイアログとして扱われ、Esc・背景のクリックで閉じ、モーダル内から背景へドラッグしても閉じないこと', async ({ page }) => {
+  await authenticate(page, tokens);
+  await page.goto('/quality/master-creation');
+  const open = page.getByRole('button', { name: /新規検査項目登録/ });
+  await open.click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+
+  await open.click();
+  await expect(dialog).toBeVisible();
+  // モーダル内で押して背景で離す(テキスト選択など)では閉じない
+  const box = (await dialog.boundingBox())!;
+  await page.mouse.move(box.x + 20, box.y + 20);
+  await page.mouse.down();
+  await page.mouse.move(5, 5);
+  await page.mouse.up();
+  await expect(dialog).toBeVisible();
+  // 背景をクリックすると閉じる
+  await page.mouse.click(5, 5);
+  await expect(dialog).toHaveCount(0);
+});
