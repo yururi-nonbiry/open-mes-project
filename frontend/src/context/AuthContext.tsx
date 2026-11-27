@@ -2,6 +2,10 @@ import React, { useState, useEffect, useCallback, ReactNode } from 'react';
 import authFetch from '../utils/api';
 import { AuthContext } from './authContextValue';
 
+// セッション確認を通信障害で失敗したときの再試行の回数と間隔
+const SESSION_CHECK_ATTEMPTS = 3;
+const SESSION_CHECK_RETRY_MS = 1000;
+
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('access_token'));
   const [isStaff, setIsStaff] = useState(false);
@@ -46,23 +50,35 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return;
     }
 
-    try {
-      const res = await authFetch('/api/users/session/');
-      if (res.ok) {
-        const json = await res.json();
-        setIsAuthenticated(json.isAuthenticated);
-        setIsStaff(json.isStaff || json.isSuperuser);
-        setIsSuperuser(!!json.isSuperuser);
-        setIsPasswordExpired(!!json.isPasswordExpired);
-      } else {
-        logout();
+    // 一時的な通信障害(オフライン・サーバーエラー)ではログアウトしない。トークンを消すのは、
+    // 認証できないと分かったとき(401/403)だけにする(消すと復旧後も再ログインが必要になるため)
+    for (let attempt = 0; attempt < SESSION_CHECK_ATTEMPTS; attempt += 1) {
+      try {
+        const res = await authFetch('/api/users/session/');
+        if (res.ok) {
+          const json = await res.json();
+          setIsAuthenticated(json.isAuthenticated);
+          setIsStaff(json.isStaff || json.isSuperuser);
+          setIsSuperuser(!!json.isSuperuser);
+          setIsPasswordExpired(!!json.isPasswordExpired);
+          setLoading(false);
+          return;
+        }
+        if (res.status === 401 || res.status === 403) {
+          logout();
+          setLoading(false);
+          return;
+        }
+      } catch (e) {
+        console.error("Auth check failed:", e);
       }
-    } catch (e) {
-      console.error("Auth check failed:", e);
-      logout();
-    } finally {
-      setLoading(false);
+      if (attempt < SESSION_CHECK_ATTEMPTS - 1) {
+        await new Promise(resolve => setTimeout(resolve, SESSION_CHECK_RETRY_MS));
+      }
     }
+    // 確認できなかった場合もトークンは残し、ログイン済みとして扱う(各画面の API が改めて認証する)
+    setIsAuthenticated(true);
+    setLoading(false);
   }, [logout]);
 
   useEffect(() => {

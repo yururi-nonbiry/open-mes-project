@@ -145,7 +145,8 @@ const ManualFlow: React.FC = () => (
         <h3 className={styles.flowLaneTitle}>{lane.title}</h3>
         <ol className={styles.flowSteps}>
           {lane.steps.map((step) => (
-            <li key={step.path} className={styles.flowStep}>
+            // 同じ画面に2つの工程がある(部品引当・ピッキング)ため、画面のパスではなく工程名をキーにする
+            <li key={step.label} className={styles.flowStep}>
               <Link to={step.path} className={styles.flowBox}>
                 <span className={styles.flowLabel}>{step.label}</span>
                 <span className={styles.flowHint}>{step.hint}</span>

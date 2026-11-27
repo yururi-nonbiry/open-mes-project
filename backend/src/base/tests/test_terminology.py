@@ -1,5 +1,6 @@
 from django.urls import reverse
 from rest_framework import status
+from rest_framework.test import APITestCase
 
 from .. import feature_settings
 from ..models import BaseSetting
@@ -59,3 +60,32 @@ class TerminologyTests(BaseAPITestBase):
         feature_settings.set_term("picking", "出庫")
         feature_settings.set_term("issue", "ピッキング")
         self.assertEqual(feature_settings.apply_terms("ピッキングと出庫"), "出庫とピッキング")
+
+
+class WorkflowVisibilityTests(APITestCase):
+    """BASE-WFVIS-* : トップ画面の業務フローの表示設定をサーバーに保存し、全ユーザーで共通にする。"""
+
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+        self.admin = User.objects.create_user(custom_id="wfadmin", password="pw", username="wfadmin", is_staff=True)
+        self.user = User.objects.create_user(custom_id="wfuser", password="pw", username="wfuser")
+        self.url = reverse("base_api:workflow-visibility")
+
+    def test_base_wfvis_01_default_visible_and_shared(self):
+        self.client.force_authenticate(self.user)
+        self.assertEqual(self.client.get(self.url).data["receipt-flow"], "visible")
+        self.assertEqual(self.client.put(self.url, {"receipt-flow": "hidden"}, format="json").status_code, 403)
+
+        self.client.force_authenticate(self.admin)
+        response = self.client.put(self.url, {"receipt-flow": "hidden", "production-plan-flow": "grayed"}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.client.put(self.url, {"receipt-flow": "nope"}, format="json").status_code, 400)
+
+        self.client.force_authenticate(self.user)
+        data = self.client.get(self.url).data
+        self.assertEqual(
+            (data["receipt-flow"], data["production-plan-flow"], data["production-issue-flow"]),
+            ("hidden", "grayed", "visible"),
+        )

@@ -158,6 +158,39 @@ class PickingSearchFieldsView(APIView):
         return Response(self._current())
 
 
+class WorkflowVisibilityView(APIView):
+    """
+    トップ画面の業務フローの表示設定(表示・グレー表示・非表示)。システム全体で共通にするためサーバーに保存する。
+    参照はログインユーザー全員、変更は管理者のみ。
+    """
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [permissions.IsAuthenticated()]
+        return [permissions.IsAdminUser()]
+
+    def get(self, request, *args, **kwargs):
+        return Response(feature_settings.get_workflow_visibility())
+
+    def put(self, request, *args, **kwargs):
+        if not isinstance(request.data, dict):
+            return error_response("フローごとの表示設定をオブジェクトで指定してください。")
+        updates = {}
+        for flow in feature_settings.WORKFLOW_FLOWS:
+            if flow not in request.data:
+                continue
+            if request.data[flow] not in feature_settings.WORKFLOW_VISIBILITY_CHOICES:
+                return error_response(f"{flow} は visible / grayed / hidden のいずれかで指定してください。")
+            updates[flow] = request.data[flow]
+        current = feature_settings.set_workflow_visibility(updates)
+        log_event(
+            AccessLog.EventType.SETTINGS_CHANGED,
+            request,
+            detail={"setting": "workflow_visibility", "operation": "update", "values": current},
+        )
+        return Response(current)
+
+
 class TerminologyView(APIView):
     """
     画面・メッセージで使う用語の呼び方(part=部品 / picking=ピッキング / issue=出庫)。

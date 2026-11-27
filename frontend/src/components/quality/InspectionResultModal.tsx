@@ -118,17 +118,17 @@ const InspectionResultModal: React.FC<InspectionResultModalProps> = ({ item, onC
         let inputElement;
         if (field.type === 'select') {
             inputElement = (
-                <select {...commonProps} value={(formData[field.name] as string | number) || ''}>
+                <select {...commonProps} value={(formData[field.name] as string | number | null | undefined) ?? ''}>
                     <option value="">---------</option>
                     {field.choices?.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                 </select>
             );
         } else if (field.type === 'textarea') {
-            inputElement = <textarea {...commonProps} rows={3} value={(formData[field.name] as string | number) || ''} />;
+            inputElement = <textarea {...commonProps} rows={3} value={(formData[field.name] as string | number | null | undefined) ?? ''} />;
         } else if (field.type === 'file') {
             inputElement = <input type="file" {...commonProps} />;
         } else {
-            inputElement = <input type={field.type} {...commonProps} value={(formData[field.name] as string | number) || ''} />;
+            inputElement = <input type={field.type} {...commonProps} value={(formData[field.name] as string | number | null | undefined) ?? ''} />;
         }
         
         return (
@@ -159,7 +159,7 @@ const InspectionResultModal: React.FC<InspectionResultModalProps> = ({ item, onC
                     type={detail.measurement_type === 'quantitative' ? 'number' : 'text'} 
                     className="form-control form-control-sm mt-1" 
                     name={`measurement_value_${detail.id}`} 
-                    value={(formData[`measurement_value_${detail.id}`] as string | number) || ''} 
+                    value={(formData[`measurement_value_${detail.id}`] as string | number | null | undefined) ?? ''} 
                     onChange={handleInputChange} 
                     step={detail.measurement_type === 'quantitative' ? 'any' : undefined} 
                 />

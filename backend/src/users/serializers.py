@@ -115,6 +115,13 @@ class AdminUserSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("スーパーユーザー権限を変更できるのはスーパーユーザーのみです。")
         return value
 
+    def validate(self, attrs):
+        # スーパーユーザーは管理画面に入れるよう、スタッフ権限も持たせる(スタッフでないスーパーユーザーを作らない)
+        is_superuser = attrs.get("is_superuser", self.instance.is_superuser if self.instance else False)
+        if is_superuser:
+            attrs["is_staff"] = True
+        return attrs
+
     def validate_password(self, value):
         # 管理者が設定するパスワードも、利用者自身の変更と同じパスワードポリシー(AUTH_PASSWORD_VALIDATORS)で検証する
         if value:

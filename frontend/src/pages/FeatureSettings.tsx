@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import inventoryService from '../services/inventoryService';
-import { ApiError } from '../utils/api';
+import { ApiError, describeError } from '../utils/api';
 import terminologyService from '../services/terminologyService';
 import { TERM_DEFAULTS, getTerms, setTerms } from '../utils/terms';
 import type { TermKey, Terms } from '../utils/terms';
@@ -16,6 +16,7 @@ import {
   WorkflowFeatureSettings,
   getWorkflowFeatureSettings,
   saveWorkflowFeatureSettings,
+  loadWorkflowFeatureSettings,
   DEFAULT_WORKFLOW_FEATURE_SETTINGS,
 } from '../services/workflowFeatureService';
 
@@ -212,17 +213,30 @@ const FeatureSettings: React.FC = () => {
     setSaveMessage(null);
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  // 業務フローの表示設定はサーバーに保存し、全ユーザー・全端末で共通にする
+  useEffect(() => {
+    loadWorkflowFeatureSettings().then(setSettings);
+  }, []);
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    saveWorkflowFeatureSettings(settings);
-    setSaveMessage('有効機能設定を保存しました。トップページの全体業務フローに反映されています。');
+    try {
+      await saveWorkflowFeatureSettings(settings);
+      setSaveMessage('有効機能設定を保存しました。トップページの全体業務フローに反映されています。');
+    } catch (err) {
+      setSaveMessage(describeError(err));
+    }
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
     if (window.confirm('すべてのフローを表示（初期設定）に戻しますか？')) {
       setSettings({ ...DEFAULT_WORKFLOW_FEATURE_SETTINGS });
-      saveWorkflowFeatureSettings({ ...DEFAULT_WORKFLOW_FEATURE_SETTINGS });
-      setSaveMessage('設定を初期状態（すべて表示）に戻しました。');
+      try {
+        await saveWorkflowFeatureSettings({ ...DEFAULT_WORKFLOW_FEATURE_SETTINGS });
+        setSaveMessage('設定を初期状態（すべて表示）に戻しました。');
+      } catch (err) {
+        setSaveMessage(describeError(err));
+      }
     }
   };
 

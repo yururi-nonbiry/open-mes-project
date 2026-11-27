@@ -156,7 +156,12 @@ const UserForm: React.FC = () => {
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
         const checked = (e.target as HTMLInputElement).checked;
-        setForm(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+        setForm(prev => ({
+            ...prev,
+            [name]: type === 'checkbox' ? checked : value,
+            // スーパーユーザーは管理画面に入れるよう、スタッフ権限も付ける(スタッフでないスーパーユーザーを作らない)
+            ...(name === 'is_superuser' && checked ? { is_staff: true } : {}),
+        }));
     };
 
     const handleSubmit = async (e: React.FormEvent) => {

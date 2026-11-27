@@ -1,5 +1,6 @@
 """管理者画面から切り替える機能のON/OFF設定(BaseSetting に保存する)。"""
 
+import json
 import re
 
 from django.utils.functional import lazy
@@ -141,3 +142,34 @@ def apply_terms(text):
 
 # 画面に出る文言のクラス定義時に使う遅延評価版(表示する時点で設定を読む)
 lazy_terms = lazy(apply_terms, str)
+
+
+# トップ画面に出す業務フローの表示設定(管理者がシステム全体で決める)。{フローID: visible | grayed | hidden}
+WORKFLOW_VISIBILITY_SETTING = "workflow_flow_visibility"
+WORKFLOW_FLOWS = ("receipt-flow", "production-plan-flow", "production-issue-flow")
+WORKFLOW_VISIBILITY_CHOICES = ("visible", "grayed", "hidden")
+
+
+def get_workflow_visibility():
+    """業務フローごとの表示設定。未設定・不正な値のフローは表示(visible)。"""
+    setting = BaseSetting.objects.filter(name=WORKFLOW_VISIBILITY_SETTING, is_deleted=False, is_active=True).first()
+    stored = {}
+    if setting is not None:
+        try:
+            stored = json.loads(setting.value) or {}
+        except (TypeError, ValueError):
+            stored = {}
+    return {
+        flow: stored.get(flow) if stored.get(flow) in WORKFLOW_VISIBILITY_CHOICES else "visible"
+        for flow in WORKFLOW_FLOWS
+    }
+
+
+def set_workflow_visibility(values):
+    current = get_workflow_visibility()
+    current.update({flow: values[flow] for flow in WORKFLOW_FLOWS if flow in values})
+    BaseSetting.objects.update_or_create(
+        name=WORKFLOW_VISIBILITY_SETTING,
+        defaults={"value": json.dumps(current), "is_active": True, "is_deleted": False},
+    )
+    return current

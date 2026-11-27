@@ -4,6 +4,7 @@ import { NAV_CATEGORIES, WORKFLOW_TRACKS, getCircledNumber } from '../config/nav
 import { NavIcon } from '../components/NavIcon';
 import {
   getWorkflowFeatureSettings,
+  loadWorkflowFeatureSettings,
   FlowTrackId,
 } from '../services/workflowFeatureService';
 
@@ -25,6 +26,8 @@ const TopPage: React.FC<TopPageProps> = ({
   const [featureSettings, setFeatureSettings] = useState(getWorkflowFeatureSettings);
 
   useEffect(() => {
+    // サーバーに保存された設定を読み込む(手元の控えで先に表示し、取得できたら更新する)
+    loadWorkflowFeatureSettings();
     const handleUpdate = () => {
       setFeatureSettings(getWorkflowFeatureSettings());
     };
@@ -120,6 +123,9 @@ const TopPage: React.FC<TopPageProps> = ({
                       to={track.startStandalonePath}
                       className={`track-start-btn is-standalone ${isGrayed ? 'disabled' : ''}`}
                       tabIndex={isGrayed ? -1 : undefined}
+                      aria-disabled={isGrayed || undefined}
+                      // 休止中のフローはクリックしても開かない(見た目だけ無効では遷移できてしまう)
+                      onClick={isGrayed ? (e) => e.preventDefault() : undefined}
                     >
                       <span>▶ ナビ開始（他アプリを使わない場合）</span>
                     </Link>
@@ -127,6 +133,8 @@ const TopPage: React.FC<TopPageProps> = ({
                       to={track.startExternalPath}
                       className={`track-start-btn is-external ${isGrayed ? 'disabled' : ''}`}
                       tabIndex={isGrayed ? -1 : undefined}
+                      aria-disabled={isGrayed || undefined}
+                      onClick={isGrayed ? (e) => e.preventDefault() : undefined}
                     >
                       <span>▶ ナビ開始（他アプリ同期済みの場合）</span>
                     </Link>

@@ -169,3 +169,16 @@ class UserViewSetSuperuserProtectionTests(UsersAPITestBase):
         self.client.force_authenticate(user=None)
         response = self.client.post(reverse("users_api:token_refresh"), {"refresh": str(refresh)}, format="json")
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class SuperuserImpliesStaffTests(UsersAPITestBase):
+    """USR-VS-SUPER-* : スーパーユーザーにするとスタッフ権限も付く。"""
+
+    def test_usr_vs_super_01_superuser_is_staff(self):
+        self.client.force_authenticate(user=self.superuser)
+        response = self.client.patch(
+            reverse("users_api:user-detail", args=[self.user.id]), {"is_superuser": True, "is_staff": False}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.content)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.is_superuser and self.user.is_staff)

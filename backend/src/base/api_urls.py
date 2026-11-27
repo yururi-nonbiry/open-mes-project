@@ -12,6 +12,7 @@ from .api import (
     QrCodeActionViewSet,
     ScheduleDateDefaultsView,
     TerminologyView,
+    WorkflowVisibilityView,
 )
 
 app_name = "base_api"
@@ -27,6 +28,7 @@ urlpatterns = [
     path("schedule-date-defaults/", ScheduleDateDefaultsView.as_view(), name="schedule-date-defaults"),
     path("picking-search-fields/", PickingSearchFieldsView.as_view(), name="picking-search-fields"),
     path("terminology/", TerminologyView.as_view(), name="terminology"),
+    path("workflow-visibility/", WorkflowVisibilityView.as_view(), name="workflow-visibility"),
     path("health/", HealthCheckView.as_view(), name="health-check"),
     path("model-fields/", ModelFieldsView.as_view(), name="model-fields"),
     path(

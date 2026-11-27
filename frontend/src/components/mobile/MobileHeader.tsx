@@ -23,6 +23,11 @@ const MobileHeader = ({ onMenuClick, isMenuOpen }: MobileHeaderProps) => {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
+  // モバイル画面を離れたら、モバイル用のテーマの指定を外す(PC画面にダークテーマが残らないように)
+  useEffect(() => () => {
+    document.documentElement.removeAttribute('data-theme');
+  }, []);
+
   const toggleTheme = () => {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
   };

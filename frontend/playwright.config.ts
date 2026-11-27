@@ -23,7 +23,7 @@ const functionalUse = { locale: 'ja-JP', timezoneId: 'Asia/Tokyo' };
 const functionalProjects = [
   {
     name: 'functional-hd',
-    testMatch: ['**/goods-receipt.spec.ts', '**/qr-code-action-settings.spec.ts', '**/data-import-plan.spec.ts', '**/shipment-schedule.spec.ts', '**/inventory-move-modal.spec.ts', '**/inspection-history.spec.ts', '**/goods-issue.spec.ts', '**/inventory-lists.spec.ts', '**/terminology.spec.ts', '**/manual-search.spec.ts', '**/production-plan-merge.spec.ts', '**/picking-search-fields.spec.ts', '**/allocation-purpose-column.spec.ts', '**/picking-columns.spec.ts', '**/work-progress-completion.spec.ts'],
+    testMatch: ['**/goods-receipt.spec.ts', '**/qr-code-action-settings.spec.ts', '**/data-import-plan.spec.ts', '**/shipment-schedule.spec.ts', '**/inventory-move-modal.spec.ts', '**/inspection-history.spec.ts', '**/session-and-workflow.spec.ts', '**/goods-issue.spec.ts', '**/inventory-lists.spec.ts', '**/terminology.spec.ts', '**/manual-search.spec.ts', '**/production-plan-merge.spec.ts', '**/picking-search-fields.spec.ts', '**/allocation-purpose-column.spec.ts', '**/picking-columns.spec.ts', '**/work-progress-completion.spec.ts'],
     use: { ...hdViewport, ...functionalUse },
   },
   {

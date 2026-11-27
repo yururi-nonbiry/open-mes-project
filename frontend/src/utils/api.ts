@@ -189,7 +189,12 @@ const authFetch = async (url: string, options: RequestInit = {}): Promise<Respon
           body: JSON.stringify({ refresh: refreshToken }),
         });
 
-        if (!refreshResponse.ok) { throw new Error('Session expired'); }
+        if (!refreshResponse.ok) {
+          // リフレッシュトークンが無効(400/401)なときだけログアウトする。サーバーエラー(5xx)は一時的な障害として扱う
+          const error = new Error(refreshResponse.status >= 500 ? 'Token refresh failed (server error)' : 'Session expired');
+          (error as Error & { sessionExpired?: boolean }).sessionExpired = refreshResponse.status < 500;
+          throw error;
+        }
 
         const newTokens = await refreshResponse.json();
         localStorage.setItem('access_token', newTokens.access);
@@ -206,7 +211,10 @@ const authFetch = async (url: string, options: RequestInit = {}): Promise<Respon
       } catch (error) {
         isRefreshing = false;
         processQueue(error, null);
-        window.dispatchEvent(new Event('logout'));
+        // 通信できなかった(オフライン等)・サーバーエラーのときはトークンを残す(復旧後にそのまま使えるように)
+        if ((error as Error & { sessionExpired?: boolean }).sessionExpired) {
+          window.dispatchEvent(new Event('logout'));
+        }
         return Promise.reject(error);
       }
     }
