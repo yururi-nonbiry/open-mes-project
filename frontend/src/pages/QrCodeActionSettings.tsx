@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Button, Modal, Form, Spinner, Alert, Row, Col } from 'react-bootstrap';
 import authFetch, { ApiError, apiRequest } from '../utils/api';
 import { NavIcon } from '../components/NavIcon';
+import SystemSettingsSubnav from '../components/common/SystemSettingsSubnav';
 
 interface ActionTemplate {
     action_type: string;
@@ -160,6 +161,8 @@ const QrCodeActionSettings = () => {
 
     return (
         <div className="goods-receipt-page">
+            {/* 他の設定画面(①〜③)と同じサブナビゲーション(この画面だけ無かった) */}
+            <SystemSettingsSubnav />
             <div className="goods-receipt-filter-panel">
                 <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
                     <div className="d-flex align-items-center gap-2">

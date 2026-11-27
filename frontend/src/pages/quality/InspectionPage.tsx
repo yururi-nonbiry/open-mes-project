@@ -1,16 +1,13 @@
 import React, { useState } from 'react';
-import { useInspectionItems } from '../hooks/useInspectionItems';
-import { InspectionItem } from '../services/qualityService';
-import InspectionItemTable from './quality/InspectionItemTable';
-import InspectionResultModal from '../components/quality/InspectionResultModal';
+import { useInspectionItems } from '../../hooks/useInspectionItems';
+import { InspectionItem } from '../../services/qualityService';
+import InspectionItemTable from './InspectionItemTable';
+import InspectionResultModal from '../../components/quality/InspectionResultModal';
 
-const ProcessInspection: React.FC = () => {
-    const { items, loading, error } = useInspectionItems('in_process');
+/** 検査の実施画面(受入検査・工程内検査で共通)。inspectionType の検査項目を一覧し、選んだ項目の結果を登録する。 */
+const InspectionPage: React.FC<{ inspectionType: 'acceptance' | 'in_process' }> = ({ inspectionType }) => {
+    const { items, loading, error } = useInspectionItems(inspectionType);
     const [selectedItem, setSelectedItem] = useState<InspectionItem | null>(null);
-
-    const handleSuccess = () => {
-        setSelectedItem(null);
-    };
 
     return (
         <div className="goods-receipt-page">
@@ -28,11 +25,11 @@ const ProcessInspection: React.FC = () => {
                 <InspectionResultModal
                     item={selectedItem}
                     onClose={() => setSelectedItem(null)}
-                    onSuccess={handleSuccess}
+                    onSuccess={() => setSelectedItem(null)}
                 />
             )}
         </div>
     );
 };
 
-export default ProcessInspection;
+export default InspectionPage;

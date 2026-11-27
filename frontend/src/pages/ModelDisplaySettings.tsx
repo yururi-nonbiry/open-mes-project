@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { DropResult } from '@hello-pangea/dnd';
-import { Link } from 'react-router-dom';
 import { Table, Button, Form, Spinner, Alert, Tooltip, OverlayTrigger } from 'react-bootstrap';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import authFetch, { apiRequest, describeError } from '../utils/api';
 import type { ModelDisplayRow, ModelDisplaySettingRecord, ModelFieldInfo, SaveStatus, BulkSaveResult, FieldChangeEvent } from './types/displaySettings';
 import { registerTermTarget } from '../utils/terms';
+import SystemSettingsSubnav from '../components/common/SystemSettingsSubnav';
 
 // This could be moved to a shared constants file
 // 入庫予定・出庫予定は入庫処理・出庫処理の画面の列として「ページ項目表示設定」で設定する
@@ -156,13 +156,7 @@ const ModelDisplaySettings = () => {
 
     return (
         <div className="goods-receipt-page">
-            <div className="system-subnav-bar">
-                <Link to="/system/settings" className="system-subnav-link">← システム設定一覧</Link>
-                <Link to="/system/csv-mappings" className="system-subnav-link">① CSVマッピング設定</Link>
-                <Link to="/system/model-display-settings" className="system-subnav-link active">② モデル項目表示設定</Link>
-                <Link to="/system/page-display-settings" className="system-subnav-link">③ ページ項目表示設定</Link>
-                <Link to="/system/qr-code-actions" className="system-subnav-link">④ QRコードアクション設定</Link>
-            </div>
+            <SystemSettingsSubnav />
 
             <div className="goods-receipt-filter-panel">
                 <div className="receipt-status-tabs-row">

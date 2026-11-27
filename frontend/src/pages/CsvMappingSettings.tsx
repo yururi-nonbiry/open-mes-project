@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { DropResult } from '@hello-pangea/dnd';
-import { Link } from 'react-router-dom';
 import { Table, Button, Form, Spinner, Alert, Tooltip, OverlayTrigger } from 'react-bootstrap';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import authFetch, { apiRequest, describeError } from '../utils/api';
 import type { CsvMappingRow, CsvMappingRecord, ModelDisplaySettingRecord, ModelFieldInfo, SaveStatus, BulkSaveResult, FieldChangeEvent } from './types/displaySettings';
+import SystemSettingsSubnav from '../components/common/SystemSettingsSubnav';
 
 const DATA_TYPE_CHOICES = [
     { value: 'item', label: '品番マスター' },
@@ -159,13 +159,7 @@ const CsvMappingSettings = () => {
 
     return (
         <div className="goods-receipt-page">
-            <div className="system-subnav-bar">
-                <Link to="/system/settings" className="system-subnav-link">← システム設定一覧</Link>
-                <Link to="/system/csv-mappings" className="system-subnav-link active">① CSVマッピング設定</Link>
-                <Link to="/system/model-display-settings" className="system-subnav-link">② モデル項目表示設定</Link>
-                <Link to="/system/page-display-settings" className="system-subnav-link">③ ページ項目表示設定</Link>
-                <Link to="/system/qr-code-actions" className="system-subnav-link">④ QRコードアクション設定</Link>
-            </div>
+            <SystemSettingsSubnav />
 
             <div className="goods-receipt-filter-panel">
                 <div className="receipt-status-tabs-row">

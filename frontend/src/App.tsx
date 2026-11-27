@@ -26,8 +26,8 @@ const ProductionPlan = lazy(() => import('./pages/ProductionPlan'));
 const MaterialAllocation = lazy(() => import('./pages/MaterialAllocation'));
 const PartsSupplySimulationPage = lazy(() => import('./pages/production/PartsSupplySimulationPage'));
 const WorkProgress = lazy(() => import('./pages/WorkProgress'));
-const ProcessInspection = lazy(() => import('./pages/ProcessInspection'));
-const AcceptanceInspection = lazy(() => import('./pages/AcceptanceInspection'));
+// 受入検査・工程内検査は同じ画面(検査の種類だけが違う)
+const InspectionPage = lazy(() => import('./pages/quality/InspectionPage'));
 const QualityMasterCreation = lazy(() => import('./pages/QualityMasterCreation'));
 const StartInspection = lazy(() => import('./pages/StartInspection'));
 const InspectionHistory = lazy(() => import('./pages/InspectionHistory'));
@@ -195,8 +195,8 @@ function AppContent() {
           <Route path="/production/material-allocation" element={<MaterialAllocation />} />
           <Route path="/production/parts-supply-simulation" element={<PartsSupplySimulationPage />} />
           <Route path="/production/work-progress" element={<WorkProgress />} />
-          <Route path="/quality/process-inspection" element={<ProcessInspection />} />
-          <Route path="/quality/acceptance-inspection" element={<AcceptanceInspection />} />
+          <Route path="/quality/process-inspection" element={<InspectionPage inspectionType="in_process" />} />
+          <Route path="/quality/acceptance-inspection" element={<InspectionPage inspectionType="acceptance" />} />
           <Route path="/quality/master-creation" element={<QualityMasterCreation />} />
           <Route path="/machine/start-inspection" element={<StartInspection />} />
           <Route path="/machine/inspection-history" element={<InspectionHistory />} />
