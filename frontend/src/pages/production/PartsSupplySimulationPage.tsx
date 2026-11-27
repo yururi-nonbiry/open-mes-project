@@ -33,17 +33,25 @@ const PartsSupplySimulationPage = () => {
     useEffect(() => {
         let cancelled = false;
         const load = async () => {
+            // ステータスを1つも選んでいないときは対象なし(全件を取得して統合元と統合計画を二重に数えないように)
+            if (selectedStatuses.size === 0) {
+                setPlans([]);
+                setSelectedPlanIds(new Set());
+                return;
+            }
             setPlansLoading(true);
             try {
                 const data = await productionService.getProductionPlans({
                     page_size: 200,
                     ordering: 'planned_start_datetime',
-                    ...(selectedStatuses.size > 0 ? { status__in: Array.from(selectedStatuses).join(',') } : {}),
+                    status__in: Array.from(selectedStatuses).join(','),
                 });
                 if (cancelled) return;
-                setPlans(data.results);
+                // 統合元の計画(統合計画の完了で完了になったものを含む)は統合計画で数えるため対象にしない
+                const targets = data.results.filter(p => p.status !== 'MERGED' && !p.merged_into);
+                setPlans(targets);
                 // 一覧に無くなった計画の選択は外す
-                setSelectedPlanIds(prev => new Set([...prev].filter(id => data.results.some(p => p.id === id))));
+                setSelectedPlanIds(prev => new Set([...prev].filter(id => targets.some(p => p.id === id))));
             } catch (e) {
                 if (!cancelled) setError((e as ApiErrorLike).message);
             } finally {
@@ -160,7 +168,7 @@ const PartsSupplySimulationPage = () => {
                         </div>
                         <div className="form-text">{selectedPlanIds.size}件選択中。比較したい組み合わせ（例: Aのみ／A+B）にチェックしてください。</div>
                     </div>
-                    <button className="btn btn-primary" onClick={runSimulation} disabled={loading}>
+                    <button className="btn btn-primary" onClick={runSimulation} disabled={loading || plans.length === 0}>
                         {loading ? '計算中...' : 'シミュレーション実行'}
                     </button>
                 </div>

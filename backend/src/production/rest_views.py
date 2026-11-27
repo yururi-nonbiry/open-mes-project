@@ -417,7 +417,12 @@ class PartsSupplySimulationView(APIView):
 
     def get(self, request):
         plan_ids_param = request.query_params.get("plan_ids")
-        queryset = ProductionPlan.objects.select_related("product")
+        # 統合元の計画(統合済み、および統合計画の完了で按分され完了になった計画)は統合計画と二重に数えるため常に除く
+        queryset = (
+            ProductionPlan.objects.select_related("product")
+            .exclude(status=ProductionPlan.Status.MERGED)
+            .filter(merged_into__isnull=True)
+        )
 
         if plan_ids_param:
             plan_ids = [pid for pid in plan_ids_param.split(",") if pid]

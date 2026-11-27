@@ -297,3 +297,52 @@ class PartsSupplySimulationPurposeTests(ProductionAPITestBase):
         plans, _ = self._run(plan)
         self.assertFalse(plans["N-plan"]["feasible"])
         self.assertEqual(plans["N-plan"]["limiting_parts"][0]["shortage_quantity"], 5)
+
+    def test_pss_15_available_counts_only_purposes_of_plans_using_the_part(self):
+        """部品の利用可能数は、その部品を使う計画が使える用途(と汎用)の在庫だけを数える。"""
+        other_part = self.material_item2
+        self.create_inventory(location="A-01", quantity=10)
+        self.create_inventory(location="A-01", quantity=100, purpose="PRD-B")
+        plan_a = self._plan("A-plan", 1, purpose="PRD-A")
+        # 用途B の計画は MAT-001 を使わない
+        plan_b = self.create_plan(plan_name="B-plan", planned_start_datetime=self.now, purpose="PRD-B")
+        self.create_plan_material(plan_b, material=other_part, required_quantity=1)
+        response = self.client.get(self.url, {"plan_ids": f"{plan_a.id},{plan_b.id}"})
+        part = next(p for p in response.data["parts"] if p["part_code"] == self.material_item1.code)
+        self.assertEqual(part["available_quantity"], 10)
+
+
+class PartsSupplySimulationMergeTests(ProductionAPITestBase):
+    """PSS-16〜: 統合計画と統合元の計画を二重に数えない・計画ごとの不足数。"""
+
+    def setUp(self):
+        super().setUp()
+        self.url = reverse("production_api:parts-supply-simulation")
+        self.now = timezone.now()
+
+    def test_pss_16_merged_source_plans_excluded(self):
+        a = self.create_plan(plan_name="A", planned_quantity=5)
+        b = self.create_plan(plan_name="B", planned_quantity=5)
+        for plan in (a, b):
+            self.create_plan_material(plan, required_quantity=5)
+        response = self.client.post(
+            reverse("production_api:production-plan-merge-plans"), {"plan_ids": [str(a.id), str(b.id)]}, format="json"
+        )
+        merged_id = response.json()["data"]["id"]
+        for params in ({"status": "PENDING,IN_PROGRESS,MERGED,COMPLETED"}, {"plan_ids": f"{a.id},{b.id},{merged_id}"}):
+            response = self.client.get(self.url, params)
+            self.assertEqual([str(p["plan_id"]) for p in response.data["plans"]], [str(merged_id)])
+            self.assertEqual(response.data["parts"][0]["total_required_quantity"], 10)
+
+    def test_pss_17_limiting_part_shortage_is_per_plan(self):
+        """先行計画の不足を含めた累計ではなく、その計画で足りない数量を返す。"""
+        self.create_inventory(quantity=2)
+        first = self.create_plan(plan_name="First", planned_start_datetime=self.now)
+        second = self.create_plan(plan_name="Second", planned_start_datetime=self.now + timezone.timedelta(days=1))
+        self.create_plan_material(first, required_quantity=5)  # 不足3
+        self.create_plan_material(second, required_quantity=4)  # 不足4(累計7)
+        response = self.client.get(self.url, {"plan_ids": f"{first.id},{second.id}"})
+        by_name = {p["plan_name"]: p for p in response.data["plans"]}
+        self.assertEqual(by_name["First"]["limiting_parts"][0]["shortage_quantity"], 3)
+        self.assertEqual(by_name["Second"]["limiting_parts"][0]["shortage_quantity"], 4)
+        self.assertEqual(response.data["parts"][0]["shortage_quantity"], 7)

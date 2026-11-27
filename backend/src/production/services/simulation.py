@@ -67,14 +67,17 @@ def simulate_parts_supply(plans):
     # (part_code, warehouse, purpose) -> 利用可能数量。purpose が None は汎用の在庫。
     # 計画が使える在庫は「計画の用途の在庫」と「汎用の在庫」だけなので、対象の計画のどれかが使える用途の在庫のみ数える。
     # part_codeのみをキーにした合計も別途保持する(表示用)。
-    usable_purposes = {None} | {plan.purpose for plan in plans}
+    # 部品ごとに、その部品を使う計画が使える用途(計画の用途と汎用)。表示する利用可能数はこの用途の在庫だけを合計する。
+    plans_by_id = {plan.id: plan for plan in plans}
+    purposes_by_part = defaultdict(lambda: {None})
+    for plan_id, values in materials_by_plan.items():
+        for m in values:
+            purposes_by_part[m.material_id].add(plans_by_id[plan_id].purpose)
     available_by_part_warehouse = defaultdict(int)
-    available_by_part_total = defaultdict(int)
     for inv in Inventory.objects.filter(part_number_rel_id__in=part_codes, is_active=True, is_allocatable=True):
-        if inv.purpose not in usable_purposes:
+        if inv.purpose not in purposes_by_part[inv.part_number]:
             continue
         available_by_part_warehouse[(inv.part_number, inv.warehouse, inv.purpose)] += inv.available_quantity
-        available_by_part_total[inv.part_number] += inv.available_quantity
 
     # 計画を日付順に処理しながら実際に在庫を減らしていく残数。倉庫指定ありの需要と倉庫指定なしの
     # 需要が同じ在庫を二重に当てにしないよう、両者で共通の残数を消費する。
@@ -120,13 +123,11 @@ def simulate_parts_supply(plans):
             )
 
     def resolve_available(part_code, warehouse):
-        if warehouse:
-            return sum(
-                qty
-                for (code, wh, _purpose), qty in available_by_part_warehouse.items()
-                if code == part_code and wh == warehouse
-            )
-        return available_by_part_total.get(part_code, 0)
+        return sum(
+            qty
+            for (code, wh, _purpose), qty in available_by_part_warehouse.items()
+            if code == part_code and (not warehouse or wh == warehouse)
+        )
 
     def consume(part_code, warehouse, quantity, purpose=None):
         """
@@ -203,8 +204,7 @@ def simulate_parts_supply(plans):
             summary["total_required_quantity"] = cumulative_required[key]
 
             if cumulative_shortage[key] > 0:
-                shortage_quantity = cumulative_shortage[key]
-                max_shortage[key] = max(max_shortage[key], shortage_quantity)
+                max_shortage[key] = max(max_shortage[key], cumulative_shortage[key])
                 summary["shortage_quantity"] = max_shortage[key]
                 if summary["shortage_plan_id"] is None:
                     # この部品が初めて不足に転じた計画（＝支給元への連絡が必要になる納期）を記録
@@ -222,7 +222,8 @@ def simulate_parts_supply(plans):
                             "part_code": part_code,
                             "part_name": summary["part_name"],
                             "warehouse": warehouse,
-                            "shortage_quantity": shortage_quantity,
+                            # この計画で足りない数量(先行計画の不足を含めた累計ではない)
+                            "shortage_quantity": plan_shortage,
                         }
                     )
 

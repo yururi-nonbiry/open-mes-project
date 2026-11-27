@@ -180,6 +180,9 @@
 | PSS-12 | 正常系/異常系 | `GET parts-supply-simulation/` | 用途A(4)・用途B(100)・汎用(10)の在庫、用途Aの計画 | 所要14／15 | 14は生産可能、15は不足1（用途Bの在庫は使わない）。`available_quantity`は使える在庫（14）のみ | `production/tests/test_parts_supply_simulation.py` |
 | PSS-13 | 正常系 | `GET parts-supply-simulation/` | 用途A(4)・汎用(5)の在庫、用途Aの計画(所要6)→用途なしの計画(所要5) | 両計画を指定 | 用途Aの計画は用途A4+汎用2を使い、後の計画は汎用の残り3で不足2 | 用途の在庫を先に使う |
 | PSS-14 | 異常系 | `GET parts-supply-simulation/` | 用途Aの在庫(10)のみ、用途なしの計画(所要5) | 計画を指定 | 不足5（用途なしの計画は汎用のみ使える） | |
+| PSS-15 | 正常系 | 部品の利用可能数 | 用途B の計画は対象部品を使わない | 実行 | 部品の利用可能数に用途B の在庫を含めない（部品を使う計画の用途＋汎用のみ） | 2026-11-27 追加 |
+| PSS-16 | 正常系 | 統合計画 | 統合計画と統合元の計画 | ステータス指定・計画ID指定で実行 | 統合元の計画は常に対象外で、所要量を二重に数えない | 2026-11-27 追加 |
+| PSS-17 | 正常系 | 計画ごとの不足数 | 先行計画でも不足 | 実行 | `limiting_parts.shortage_quantity` は計画単体の不足数（部品の不足合計は累計） | 2026-11-27 追加。修正前は累計を返し過大表示になっていた |
 
 ### 5.9 生産計画の所要部品（`ProductionPlanMaterialViewSet`・`signals.py`、`production/tests/test_plan_materials.py`）
 
