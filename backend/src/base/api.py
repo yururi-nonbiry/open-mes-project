@@ -25,6 +25,7 @@ from .csv_io import build_export_csv, format_export_value
 from .model_utils import CSV_IMPORT_FK_ALIASES, fk_alias_name
 from .models import DATA_TYPE_MODEL_MAPPING as CSV_DATA_TYPE_MODELS
 from .models import AsyncTask, CsvColumnMapping, ModelDisplaySetting, QrCodeAction
+from .permissions import IsAuthenticatedReadOrAdminWrite
 from .responses import VALIDATION_ERROR_MESSAGE, error_response
 from .serializers import CsvColumnMappingSerializer, ModelDisplaySettingSerializer, QrCodeActionSerializer
 from .tasks import IMPORT_DISABLED_DATA_TYPES, PROTECTED_IMPORT_FIELDS, import_csv_task
@@ -53,10 +54,7 @@ class FeatureOptionsView(APIView):
     機能のON/OFF設定。参照はログインユーザー全員、変更は管理者のみ。
     """
 
-    def get_permissions(self):
-        if self.request.method == "GET":
-            return [permissions.IsAuthenticated()]
-        return [permissions.IsAdminUser()]
+    permission_classes = [IsAuthenticatedReadOrAdminWrite]
 
     @staticmethod
     def _current():
@@ -90,10 +88,7 @@ class ScheduleDateDefaultsView(APIView):
     参照はログインユーザー全員、変更は管理者のみ。
     """
 
-    def get_permissions(self):
-        if self.request.method == "GET":
-            return [permissions.IsAuthenticated()]
-        return [permissions.IsAdminUser()]
+    permission_classes = [IsAuthenticatedReadOrAdminWrite]
 
     @staticmethod
     def _current():
@@ -132,10 +127,7 @@ class PickingSearchFieldsView(APIView):
     参照はログインユーザー全員、変更は管理者のみ。
     """
 
-    def get_permissions(self):
-        if self.request.method == "GET":
-            return [permissions.IsAuthenticated()]
-        return [permissions.IsAdminUser()]
+    permission_classes = [IsAuthenticatedReadOrAdminWrite]
 
     @staticmethod
     def _current():
@@ -164,10 +156,7 @@ class WorkflowVisibilityView(APIView):
     参照はログインユーザー全員、変更は管理者のみ。
     """
 
-    def get_permissions(self):
-        if self.request.method == "GET":
-            return [permissions.IsAuthenticated()]
-        return [permissions.IsAdminUser()]
+    permission_classes = [IsAuthenticatedReadOrAdminWrite]
 
     def get(self, request, *args, **kwargs):
         return Response(feature_settings.get_workflow_visibility())
@@ -197,10 +186,7 @@ class TerminologyView(APIView):
     参照はログインユーザー全員、変更は管理者のみ。
     """
 
-    def get_permissions(self):
-        if self.request.method == "GET":
-            return [permissions.IsAuthenticated()]
-        return [permissions.IsAdminUser()]
+    permission_classes = [IsAuthenticatedReadOrAdminWrite]
 
     def get(self, request, *args, **kwargs):
         return Response(feature_settings.get_terms())
@@ -365,7 +351,67 @@ class AuditSettingsChangeMixin:
         self._log_setting_change("delete", pk, name)
 
 
-class CsvColumnMappingViewSet(AuditSettingsChangeMixin, IntegrityErrorAsBadRequestMixin, viewsets.ModelViewSet):
+class BulkReplaceByDataTypeMixin:
+    """
+    設定(CSVマッピング・表示設定)をデータ種別ごとに一括で置き換える bulk-save の共通処理。
+    送られた行を検証し、すべて正しければデータ種別の既存の設定を消して作り直す(1件でも誤りがあれば何も変えない)。
+    """
+
+    #: 一括保存の成功メッセージの「〜を保存しました」に入る設定の名前
+    bulk_save_label = "設定"
+
+    def include_in_bulk_save(self, data):
+        """保存の対象にする行か(対象外の行は検証もしない)。"""
+        return True
+
+    def bulk_replace(self, request):
+        data_type = request.query_params.get("data_type")
+        if not data_type:
+            return error_response('Query parameter "data_type" is required.')
+        rows = request.data
+        if not isinstance(rows, list):
+            return error_response("Request body must be a list of setting objects.")
+
+        model = self.get_serializer().Meta.model
+        objects_to_create = []
+        validation_errors = {}
+        for index, data in enumerate(rows):
+            if not isinstance(data, dict):
+                validation_errors[f"index {index}"] = ["設定はオブジェクトで指定してください。"]
+                continue
+            if not self.include_in_bulk_save(data):
+                continue
+            data["data_type"] = data_type
+            serializer = self.get_serializer(data=data)
+            if serializer.is_valid():
+                objects_to_create.append(model(**serializer.validated_data))
+            else:
+                validation_errors[data.get("model_field_name") or f"index {index}"] = serializer.errors
+        if validation_errors:
+            return error_response(VALIDATION_ERROR_MESSAGE, errors=validation_errors)
+
+        try:
+            with transaction.atomic():
+                model.objects.filter(data_type=data_type).delete()
+                model.objects.bulk_create(objects_to_create)
+        except IntegrityError:
+            return error_response("同じ項目が重複して指定されています。")
+        log_event(
+            AccessLog.EventType.SETTINGS_CHANGED,
+            request,
+            detail={
+                "setting": self.audit_setting_name,
+                "operation": "bulk_save",
+                "data_type": data_type,
+                "count": len(objects_to_create),
+            },
+        )
+        return Response({"message": f"{data_type} の{self.bulk_save_label}を保存しました。"}, status=status.HTTP_200_OK)
+
+
+class CsvColumnMappingViewSet(
+    AuditSettingsChangeMixin, BulkReplaceByDataTypeMixin, IntegrityErrorAsBadRequestMixin, viewsets.ModelViewSet
+):
     """
     CSV列マッピング設定を管理するためのAPIビューセット。
     """
@@ -550,57 +596,14 @@ class CsvColumnMappingViewSet(AuditSettingsChangeMixin, IntegrityErrorAsBadReque
 
     @action(detail=False, methods=["post"], url_path="bulk-save")
     def bulk_save(self, request, *args, **kwargs):
-        """
-        指定されたデータ種別のマッピング設定を一括で保存（上書き）する。
-        """
-        data_type = request.query_params.get("data_type")
-        if not data_type:
-            return error_response('Query parameter "data_type" is required.')
+        """指定されたデータ種別のマッピング設定を一括で保存（上書き）する。"""
+        return self.bulk_replace(request)
 
-        mappings_data = request.data
-        if not isinstance(mappings_data, list):
-            return error_response("Request body must be a list of mapping objects.")
+    # 有効で、CSVの列名が入っている行だけを保存する
+    bulk_save_label = "マッピング"
 
-        objects_to_create = []
-        validation_errors = {}
-
-        for index, data in enumerate(mappings_data):
-            if not isinstance(data, dict):
-                validation_errors[f"index {index}"] = ["設定はオブジェクトで指定してください。"]
-                continue
-            if not data.get("is_active") or not (data.get("csv_header") or "").strip():
-                continue
-
-            data["data_type"] = data_type
-            serializer = self.get_serializer(data=data)
-            if serializer.is_valid():
-                objects_to_create.append(CsvColumnMapping(**serializer.validated_data))
-            else:
-                validation_errors[data.get("model_field_name") or f"index {index}"] = serializer.errors
-
-        if validation_errors:
-            return error_response(VALIDATION_ERROR_MESSAGE, errors=validation_errors)
-
-        try:
-            with transaction.atomic():
-                # 既存のマッピングを削除
-                CsvColumnMapping.objects.filter(data_type=data_type).delete()
-                # 新しいマッピングを一括作成
-                CsvColumnMapping.objects.bulk_create(objects_to_create)
-        except IntegrityError:
-            return error_response("同じ項目が重複して指定されています。")
-        log_event(
-            AccessLog.EventType.SETTINGS_CHANGED,
-            request,
-            detail={
-                "setting": self.audit_setting_name,
-                "operation": "bulk_save",
-                "data_type": data_type,
-                "count": len(objects_to_create),
-            },
-        )
-
-        return Response({"message": f"{data_type} のマッピングを保存しました。"}, status=status.HTTP_200_OK)
+    def include_in_bulk_save(self, data):
+        return bool(data.get("is_active")) and bool((data.get("csv_header") or "").strip())
 
 
 # 安全に実行可能なアクション関数を定義
@@ -674,7 +677,9 @@ class QrCodeActionViewSet(AuditSettingsChangeMixin, viewsets.ModelViewSet):
         return error_response("No matching action found for the given QR data.", status.HTTP_404_NOT_FOUND)
 
 
-class ModelDisplaySettingViewSet(AuditSettingsChangeMixin, IntegrityErrorAsBadRequestMixin, viewsets.ModelViewSet):
+class ModelDisplaySettingViewSet(
+    AuditSettingsChangeMixin, BulkReplaceByDataTypeMixin, IntegrityErrorAsBadRequestMixin, viewsets.ModelViewSet
+):
     """
     モデル項目表示設定を管理するためのAPIビューセット。
     """
@@ -697,49 +702,7 @@ class ModelDisplaySettingViewSet(AuditSettingsChangeMixin, IntegrityErrorAsBadRe
 
     @action(detail=False, methods=["post"], url_path="bulk-save")
     def bulk_save(self, request, *args, **kwargs):
-        """
-        指定されたデータ種別の表示設定を一括で保存（上書き）する。
-        """
-        data_type = request.query_params.get("data_type")
-        if not data_type:
-            return error_response('Query parameter "data_type" is required.')
+        """指定されたデータ種別の表示設定を一括で保存（上書き）する。"""
+        return self.bulk_replace(request)
 
-        settings_data = request.data
-        if not isinstance(settings_data, list):
-            return error_response("Request body must be a list of setting objects.")
-
-        objects_to_create = []
-        validation_errors = {}
-
-        for index, data in enumerate(settings_data):
-            if not isinstance(data, dict):
-                validation_errors[f"index {index}"] = ["設定はオブジェクトで指定してください。"]
-                continue
-            data["data_type"] = data_type
-            serializer = self.get_serializer(data=data)
-            if serializer.is_valid():
-                objects_to_create.append(ModelDisplaySetting(**serializer.validated_data))
-            else:
-                validation_errors[data.get("model_field_name") or f"index {index}"] = serializer.errors
-
-        if validation_errors:
-            return error_response(VALIDATION_ERROR_MESSAGE, errors=validation_errors)
-
-        try:
-            with transaction.atomic():
-                ModelDisplaySetting.objects.filter(data_type=data_type).delete()
-                ModelDisplaySetting.objects.bulk_create(objects_to_create)
-        except IntegrityError:
-            return error_response("同じ項目が重複して指定されています。")
-        log_event(
-            AccessLog.EventType.SETTINGS_CHANGED,
-            request,
-            detail={
-                "setting": self.audit_setting_name,
-                "operation": "bulk_save",
-                "data_type": data_type,
-                "count": len(objects_to_create),
-            },
-        )
-
-        return Response({"message": f"{data_type} の表示設定を保存しました。"}, status=status.HTTP_200_OK)
+    bulk_save_label = "表示設定"

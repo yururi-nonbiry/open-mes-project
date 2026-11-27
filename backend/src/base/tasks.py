@@ -14,7 +14,7 @@ from django.utils import timezone
 
 from master.models import StockPurpose, WorkCenter
 
-from .csv_io import decode_csv_bytes
+from .csv_io import decode_csv_bytes, unescape_formula
 from .feature_settings import apply_terms
 from .model_utils import CSV_IMPORT_FK_ALIASES
 from .models import DATA_TYPE_MODEL_MAPPING, AsyncTask, CsvColumnMapping
@@ -343,7 +343,8 @@ def import_csv_task(self, data_type, file_path):
             for csv_header, model_field_name in header_to_model_map.items():
                 if csv_header not in present_headers:
                     continue  # CSVに無い列は変更しない
-                value = (row.get(csv_header) or "").strip()
+                # 書き出し時に数式対策で付けた先頭の ' は外す
+                value = unescape_formula((row.get(csv_header) or "").strip())
                 if not value:
                     # 空欄は値のクリア(NULL可は None、文字列は空文字)。必須の数値などは変更しない
                     empty = _empty_value(field_objs[model_field_name])

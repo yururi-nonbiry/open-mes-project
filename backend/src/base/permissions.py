@@ -32,3 +32,14 @@ class IsAuthenticatedDeleteAdmin(permissions.BasePermission):
         if request.method == "DELETE":
             return _is_admin(request.user)
         return True
+
+
+class IsAuthenticatedReadOrAdminWrite(permissions.BasePermission):
+    """参照(GET 等)は認証済みユーザー、変更は管理者(スタッフ)のみ。全員の画面に効くシステム設定の API 向け。"""
+
+    def has_permission(self, request, view):
+        if not (request.user and request.user.is_authenticated):
+            return False
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        return _is_admin(request.user)

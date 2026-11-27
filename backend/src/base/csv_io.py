@@ -25,10 +25,32 @@ def decode_csv_bytes(data: bytes) -> str:
     raise ValueError("文字コードを判定できません。UTF-8 または Shift_JIS(Excelの標準CSV)で保存してください。")
 
 
+# 表計算ソフトが数式として実行する先頭の文字(CSV/数式インジェクション対策)
+FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+FORMULA_ESCAPE = "'"
+
+
+def escape_formula(text: str) -> str:
+    """数式として解釈される文字で始まる文字列の先頭に ' を付け、Excel 等で開いたときに実行されないようにする。"""
+    return FORMULA_ESCAPE + text if text.startswith(FORMULA_PREFIXES) else text
+
+
+def unescape_formula(text: str) -> str:
+    """escape_formula で付けた先頭の ' を外す(書き出したCSVを取り込み直したときに値が変わらないように)。"""
+    if text.startswith(FORMULA_ESCAPE) and text[1:].startswith(FORMULA_PREFIXES):
+        return text[1:]
+    return text
+
+
 def format_export_value(value) -> str:
-    """モデルの値をCSV用の文字列にする。取り込み側(tasks._convert_value)で解釈できる書式にする。"""
+    """
+    モデルの値をCSV用の文字列にする。取り込み側(tasks._convert_value)で解釈できる書式にする。
+    文字列は数式として実行されないよう escape_formula する(数値は負数を壊さないよう対象外)。
+    """
     if value is None:
         return ""
+    if isinstance(value, str):
+        return escape_formula(value)
     if isinstance(value, datetime):
         if timezone.is_aware(value):
             value = timezone.localtime(value)

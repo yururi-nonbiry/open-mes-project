@@ -213,3 +213,20 @@ class CsvExportImportRoundTripTests(TestCase):
         self.assertEqual(self.client.get(url, {"data_type": "supplier"}).status_code, 400)  # マッピング無し
         self.client.force_authenticate(user=None)
         self.assertEqual(self.client.get(url, {"data_type": "item"}).status_code, 401)
+
+
+class CsvFormulaInjectionTests(TestCase):
+    """BASE-CSVINJ-* : 書き出したCSVを表計算ソフトで開いても数式として実行されず、取り込み直しても値が変わらない。"""
+
+    def test_base_csvinj_01_escape_and_unescape(self):
+        from base.csv_io import escape_formula, format_export_value, unescape_formula
+
+        for text in ("=HYPERLINK(\"http://x\")", "+1", "-cmd", "@SUM(A1)"):
+            escaped = format_export_value(text)
+            self.assertTrue(escaped.startswith("'"), text)
+            self.assertEqual(unescape_formula(escaped), text)
+        # 数値の負数・普通の文字列はそのまま
+        self.assertEqual(format_export_value(-5), "-5")
+        self.assertEqual(format_export_value("ABC"), "ABC")
+        self.assertEqual(escape_formula("'quoted"), "'quoted")
+        self.assertEqual(unescape_formula("'quoted"), "'quoted")

@@ -17,6 +17,7 @@ class CsvColumnMappingSerializer(serializers.ModelSerializer):
     class Meta:
         model = CsvColumnMapping
         fields = [
+            "id",
             "data_type",
             "data_type_display",
             "csv_header",
@@ -80,6 +81,7 @@ class ModelDisplaySettingSerializer(serializers.ModelSerializer):
     class Meta:
         model = ModelDisplaySetting
         fields = [
+            "id",
             "data_type",
             "model_field_name",
             "display_name",
