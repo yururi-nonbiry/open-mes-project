@@ -5,6 +5,12 @@ export type ScanTargetSetter = (value: string) => void;
 export interface CameraState {
     isOpen: boolean;
     targetSetter: ScanTargetSetter | null;
+    /**
+     * search: 検索欄用。QRコードアクションに一致すれば実行し、なければ読み取った値で検索する。
+     * field: フォームの入力欄用(倉庫・棚番など)。QRコードアクションは実行せず、読み取った値をそのまま入れる
+     * (アクションを実行すると、入力欄ではなく背面の一覧の検索語が書き換わってしまうため)。
+     */
+    mode?: 'search' | 'field';
 }
 
 /** 画面に表示するメッセージ(type: 'success' | 'error' | 'danger' など) */
@@ -46,6 +52,8 @@ export interface TransferModalState {
     selectedItem: LocationInventoryItem | null;
     transferQuantity: string;
     targetLocation: string;
+    /** 移動先の倉庫。棚番QR({"warehouse","shelf"})で別の倉庫の棚を読んだときに設定する(空は移動元と同じ倉庫) */
+    targetWarehouse?: string;
     purposeQuantity: string;
     purposeTo: string;
     purposeReason: string;

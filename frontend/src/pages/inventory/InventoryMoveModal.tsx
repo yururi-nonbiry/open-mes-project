@@ -45,8 +45,8 @@ const InventoryMoveModal: React.FC<InventoryMoveModalProps> = ({
 
     const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
-        if (name === 'target_location' && parseShelfQr(value)) {
-            // バーコードリーダーで棚番QRが入力された場合は倉庫と棚番に振り分ける
+        if ((name === 'target_location' || name === 'target_warehouse') && parseShelfQr(value)) {
+            // バーコードリーダーで棚番QRが入力された場合は、倉庫・棚番どちらの欄でも倉庫と棚番に振り分ける
             setFormData(prev => applyShelfInput(prev, name, value, 'target_location', 'target_warehouse'));
             return;
         }

@@ -108,8 +108,8 @@ const MobileGoodsReceiptPageContent = ({ dateDefaults }: { dateDefaults: Schedul
   }, [searchTerm, fetchPurchaseOrders]);
 
   // --- Camera Scan Logic ---
-  const startCameraScan = (targetSetter: ScanTargetSetter) => {
-    setCameraState({ isOpen: true, targetSetter: targetSetter });
+  const startCameraScan = (targetSetter: ScanTargetSetter, mode: 'search' | 'field' = 'search') => {
+    setCameraState({ isOpen: true, targetSetter, mode });
   };
 
   const stopCameraScan = useCallback(() => {
@@ -120,8 +120,13 @@ const MobileGoodsReceiptPageContent = ({ dateDefaults }: { dateDefaults: Schedul
     isOpen: cameraState.isOpen,
     videoRef,
     onResult: (text) => {
+      const { targetSetter, mode } = cameraState;
       setCameraState({ isOpen: false, targetSetter: null });
-      handleQrCodeResult(text, cameraState.targetSetter);
+      if (mode === 'field') {
+        targetSetter?.(text);
+      } else {
+        handleQrCodeResult(text, targetSetter);
+      }
     },
     onError: (err) => {
       console.error(err);
@@ -294,14 +299,14 @@ const MobileGoodsReceiptPageContent = ({ dateDefaults }: { dateDefaults: Schedul
               <label htmlFor="warehouse" className="form-label">入庫倉庫</label>
               <div className="input-group">
                 <input type="text" id="warehouse" name="warehouse" value={receiptFormData.warehouse} onChange={handleReceiptFormChange} className="form-control" placeholder="倉庫" />
-                <button className="btn btn-outline-secondary" type="button" onClick={() => startCameraScan((value: string) => setReceiptFormData(prev => inventoryService.applyReceiptFormChange(prev, 'warehouse', value, selectedOrder)))} title="カメラでスキャン" aria-label="カメラでスキャン"><CameraIcon /></button>
+                <button className="btn btn-outline-secondary" type="button" onClick={() => startCameraScan((value: string) => setReceiptFormData(prev => inventoryService.applyReceiptFormChange(prev, 'warehouse', value, selectedOrder)), 'field')} title="カメラでスキャン" aria-label="カメラでスキャン"><CameraIcon /></button>
               </div>
             </div>
             <div className="mb-3">
               <label htmlFor="location" className="form-label">入庫棚番</label>
               <div className="input-group">
                 <input type="text" id="location" name="location" value={receiptFormData.location} onChange={handleReceiptFormChange} className="form-control" placeholder="棚番" />
-                <button className="btn btn-outline-secondary" type="button" onClick={() => startCameraScan((value: string) => setReceiptFormData(prev => applyShelfInput(prev, 'location', value, 'location', 'warehouse')))} title="カメラでスキャン" aria-label="カメラでスキャン"><CameraIcon /></button>
+                <button className="btn btn-outline-secondary" type="button" onClick={() => startCameraScan((value: string) => setReceiptFormData(prev => applyShelfInput(prev, 'location', value, 'location', 'warehouse')), 'field')} title="カメラでスキャン" aria-label="カメラでスキャン"><CameraIcon /></button>
               </div>
             </div>
             <div className="mb-3">
@@ -334,7 +339,7 @@ const MobileGoodsReceiptPageContent = ({ dateDefaults }: { dateDefaults: Schedul
             e.preventDefault();
             handleQrCodeResult(text, setSearchTerm);
           }} />
-          <button className="btn btn-outline-secondary" type="button" onClick={() => startCameraScan(setSearchTerm)} title="カメラでスキャン" aria-label="カメラでスキャン"><CameraIcon /></button>
+          <button className="btn btn-outline-secondary" type="button" onClick={() => startCameraScan((value: string) => { setSearchTerm(value); setCurrentPage(1); })} title="カメラでスキャン" aria-label="カメラでスキャン"><CameraIcon /></button>
         </div>
         <div className="row g-2 mt-1">
           <div className="col-6">

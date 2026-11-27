@@ -265,7 +265,12 @@ const MobileGoodsIssuePageContent = ({ dateDefaults }: { dateDefaults: ScheduleD
                                         });
                                     }}
                                 />
-                                <Button variant="outline-secondary" type="button" onClick={() => startCameraScan(setSearchQueryInput)} title="カメラでスキャン" aria-label="カメラでスキャン"><CameraIcon /></Button>
+                                <Button variant="outline-secondary" type="button" onClick={() => startCameraScan((value) => {
+                                    // 読み取った値で検索まで行う(入力欄に入れるだけでは検索されない)
+                                    setSearchQueryInput(value);
+                                    setCommittedSearchParams({ q: value, status: searchStatusInput, from: dateFromInput, to: dateToInput });
+                                    setCurrentPage(1);
+                                })} title="カメラでスキャン" aria-label="カメラでスキャン"><CameraIcon /></Button>
                             </InputGroup>
                         </Form.Group>
                     </Col>

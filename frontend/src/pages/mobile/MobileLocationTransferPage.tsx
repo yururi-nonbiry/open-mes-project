@@ -120,15 +120,20 @@ const MobileLocationTransferPage = () => {
     if (shelf.warehouse) setWarehouse(shelf.warehouse);
     setSourceLocation(shelf.shelf);
   };
+  // 移動先の棚番QRに倉庫が含まれていれば、移動先の倉庫にも反映する(捨てると移動元の倉庫の同名の棚へ移動してしまう)
   const applyTargetInput = (value: string) => {
     const shelf = parseShelfQr(value);
-    setModalState(prev => ({ ...prev, targetLocation: shelf ? shelf.shelf : value }));
+    setModalState(prev => ({
+      ...prev,
+      targetLocation: shelf ? shelf.shelf : value,
+      targetWarehouse: shelf?.warehouse ? shelf.warehouse : prev.targetWarehouse,
+    }));
   };
 
   // 移動実行処理
   const handleExecuteTransfer = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const { selectedItem, transferQuantity, targetLocation } = modalState;
+    const { selectedItem, transferQuantity, targetLocation, targetWarehouse } = modalState;
     if (!selectedItem) return;
 
     if (!transferQuantity || !targetLocation) {
@@ -151,7 +156,8 @@ const MobileLocationTransferPage = () => {
 
     const payload = {
       quantity_to_move: parseInt(transferQuantity, 10),
-      target_warehouse: warehouse, // 移動は同一倉庫内を想定
+      // 棚番QRで別の倉庫の棚を読んだ場合はその倉庫へ、それ以外は移動元と同じ倉庫内で移動する
+      target_warehouse: targetWarehouse || warehouse,
       target_location: targetLocation,
     };
 
@@ -207,7 +213,7 @@ const MobileLocationTransferPage = () => {
 
   const closeModal = () => {
     cancelClose();
-    setModalState({ isOpen: false, step: 'selection', items: [], selectedItem: null, transferQuantity: '', targetLocation: '', purposeQuantity: '', purposeTo: '', purposeReason: '', message: { text: '', type: '' } });
+    setModalState({ isOpen: false, step: 'selection', items: [], selectedItem: null, transferQuantity: '', targetLocation: '', targetWarehouse: '', purposeQuantity: '', purposeTo: '', purposeReason: '', message: { text: '', type: '' } });
   };
 
   // --- Camera Scan Logic ---
@@ -305,6 +311,7 @@ const MobileLocationTransferPage = () => {
                     <input type="text" id="targetLocation" name="targetLocation" className="form-control form-control-lg" placeholder="移動先をスキャン" value={targetLocation} onChange={e => applyTargetInput(e.target.value)} required />
                     <button className="btn btn-outline-secondary" type="button" onClick={() => startCameraScan(applyTargetInput)} title="カメラでスキャン" aria-label="カメラでスキャン"><CameraIcon /></button>
                   </div>
+                  <div className="form-text">移動先の倉庫: <strong>{modalState.targetWarehouse || warehouse}</strong></div>
                 </div>
                 {renderMessage(modalMessage)}
                 <div className="d-grid gap-2 mt-4">
