@@ -116,3 +116,107 @@ class ImportCsvPurposeTests(TestCase):
         self.assertEqual(len(task.result["errors"]), 1)
         self.assertEqual(SalesOrder.objects.get(order_number="SO-1").purpose, "PRD-A")
         self.assertEqual(SalesOrder.objects.get(order_number="SO-2").purpose, "PRD-B")
+
+
+class ImportCsvBusinessRuleTests(TestCase):
+    """BASE-IMPORTTASK-2x : CSV取込で業務処理と連動する項目・データを書き換えさせない。空欄はクリアとして扱う。"""
+
+    _run = ImportCsvTaskTests._run
+
+    def setUp(self):
+        from master.models import Warehouse
+
+        CsvColumnMapping.objects.all().delete()  # マイグレーション投入の既定マッピングを除外
+        self.item = Item.objects.create(code="P-1", name="Part", item_type="material", description="desc")
+        Warehouse.objects.create(warehouse_number="W1", name="W1")
+
+    def _map(self, data_type, *columns):
+        for order, (header, field, key) in enumerate(columns, start=1):
+            CsvColumnMapping.objects.create(
+                data_type=data_type, csv_header=header, model_field_name=field, order=order, is_update_key=key
+            )
+
+    def _inventory_mapping(self):
+        self._map(
+            "inventory",
+            ("part", "part_number_rel_id", True),
+            ("wh", "warehouse_rel_id", True),
+            ("loc", "location", True),
+            ("qty", "quantity", False),
+        )
+
+    def test_base_importtask_20_inventory_quantity_recorded_as_adjustment(self):
+        """在庫数量は在庫調整として反映し、入出庫履歴を残す。棚番が空欄の行は「棚番なし」として照合する。"""
+        from inventory.models import Inventory, StockMovement
+
+        self._inventory_mapping()
+        task = self._run("part,wh,loc,qty\nP-1,W1,,10\n", data_type="inventory")
+        self.assertEqual(task.status, "SUCCESS", task.result)
+        inventory = Inventory.objects.get(part_number_rel_id="P-1", warehouse_rel_id="W1", location="")
+        self.assertEqual(inventory.quantity, 10)
+        self.assertEqual(StockMovement.objects.filter(part_number_rel_id="P-1").count(), 1)
+
+    def test_base_importtask_21_inventory_quantity_below_reserved_rejected(self):
+        from inventory.models import Inventory
+
+        self._inventory_mapping()
+        Inventory.objects.create(part_number="P-1", warehouse="W1", location="A", quantity=10, reserved=6)
+        task = self._run("part,wh,loc,qty\nP-1,W1,A,5\nP-1,W1,A,-1\n", data_type="inventory")
+        self.assertEqual(len(task.result["errors"]), 2, task.result)
+        self.assertEqual(Inventory.objects.get(location="A").quantity, 10)
+
+    def test_base_importtask_22_goods_receipt_import_disabled(self):
+        self._map("goods_receipt", ("no", "receipt_number", True))
+        task = self._run("no\nR-1\n", data_type="goods_receipt")
+        self.assertEqual(task.status, "FAILURE")
+        self.assertIn("入庫", task.result["error"])
+
+    def test_base_importtask_23_internal_sales_order_rejected(self):
+        from inventory.models import SalesOrder
+
+        self._map("sales_order", ("no", "order_number", True), ("qty", "quantity", False))
+        SalesOrder.objects.create(order_number="INT-abc", quantity=5)
+        task = self._run("no,qty\nINT-abc,99\nINT-new,1\nSO-1,3\n", data_type="sales_order")
+        self.assertEqual(len(task.result["errors"]), 2, task.result)
+        self.assertEqual(SalesOrder.objects.get(order_number="INT-abc").quantity, 5)
+        self.assertFalse(SalesOrder.objects.filter(order_number="INT-new").exists())
+        self.assertTrue(SalesOrder.objects.filter(order_number="SO-1").exists())
+
+    def test_base_importtask_24_production_plan_protected_fields_rejected(self):
+        self._map("production_plan", ("name", "plan_name", True), ("fg", "finished_goods_warehouse", False))
+        task = self._run("name,fg\nPlan,W1\n", data_type="production_plan")
+        self.assertEqual(task.status, "FAILURE")
+        self.assertIn("finished_goods_warehouse", task.result["error"])
+        CsvColumnMapping.objects.all().delete()
+        self._map("production_plan", ("name", "plan_name", True), ("merged", "merged_into_id", False))
+        task = self._run("name,merged\nPlan,x\n", data_type="production_plan")
+        self.assertIn("merged_into_id", task.result["error"])
+
+    def test_base_importtask_25_completed_plan_quantity_not_changed(self):
+        from django.utils import timezone
+
+        from production.models import ProductionPlan
+
+        product = Item.objects.create(code="PR-1", name="Product", item_type="product")
+        now = timezone.now()
+        ProductionPlan.objects.create(
+            plan_name="Done", product=product, planned_quantity=5, status="COMPLETED",
+            planned_start_datetime=now, planned_end_datetime=now + timezone.timedelta(hours=1),
+        )
+        self._map("production_plan", ("name", "plan_name", True), ("qty", "planned_quantity", False))
+        task = self._run("name,qty\nDone,50\n", data_type="production_plan")
+        self.assertEqual(len(task.result["errors"]), 1, task.result)
+        self.assertEqual(ProductionPlan.objects.get(plan_name="Done").planned_quantity, 5)
+
+    def test_base_importtask_26_empty_cell_clears_value(self):
+        """CSVにある列の空欄は値のクリア、CSVに無い列は変更しない。"""
+        self._map(
+            "item", ("code", "code", True), ("name", "name", False), ("desc", "description", False),
+            ("lead", "lead_time_days", False),
+        )
+        Item.objects.filter(code="P-1").update(lead_time_days=3)
+        task = self._run("code,name,desc\nP-1,Part,\n")
+        self.assertEqual(task.status, "SUCCESS", task.result)
+        self.item.refresh_from_db()
+        self.assertIn(self.item.description, ("", None))
+        self.assertEqual(self.item.lead_time_days, 3)

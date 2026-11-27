@@ -27,7 +27,7 @@ from .models import DATA_TYPE_MODEL_MAPPING as CSV_DATA_TYPE_MODELS
 from .models import AsyncTask, CsvColumnMapping, ModelDisplaySetting, QrCodeAction
 from .responses import VALIDATION_ERROR_MESSAGE, error_response
 from .serializers import CsvColumnMappingSerializer, ModelDisplaySettingSerializer, QrCodeActionSerializer
-from .tasks import import_csv_task
+from .tasks import IMPORT_DISABLED_DATA_TYPES, import_csv_task
 from .viewsets import IntegrityErrorAsBadRequestMixin
 
 logger = logging.getLogger(__name__)
@@ -393,10 +393,14 @@ class CsvColumnMappingViewSet(AuditSettingsChangeMixin, IntegrityErrorAsBadReque
             return error_response(f'"{data_type}" に有効なCSVマッピング設定がありません。')
 
         model = apps.get_model(*model_string.split("."))
+        queryset = model.objects.order_by("pk")
+        if data_type == "sales_order":
+            # 生産計画の引当に連動する内部受注(INT-)は取り込めないため、書き出しにも含めない
+            queryset = queryset.exclude(order_number__startswith=model.INTERNAL_ORDER_PREFIX)
         # 外部キーの別名(用途コード等)は getattr で値(コード)を取れる。存在しない項目は空欄にする。
         rows = (
             [format_export_value(getattr(obj, m.model_field_name, None)) for m in mappings]
-            for obj in model.objects.order_by("pk").iterator()
+            for obj in queryset.iterator()
         )
         csv_data = build_export_csv(rows, [m.csv_header for m in mappings])
 
@@ -413,6 +417,9 @@ class CsvColumnMappingViewSet(AuditSettingsChangeMixin, IntegrityErrorAsBadReque
         forbidden = self._forbid_admin_only_csv(request, data_type)
         if forbidden:
             return forbidden
+
+        if data_type in IMPORT_DISABLED_DATA_TYPES:
+            return error_response(IMPORT_DISABLED_DATA_TYPES[data_type])
 
         csv_file = request.FILES.get("csv_file")
         if not csv_file:
