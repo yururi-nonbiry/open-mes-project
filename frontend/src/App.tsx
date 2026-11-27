@@ -60,12 +60,16 @@ const MobileLocationTransferPage = lazy(() => import('./pages/mobile/MobileLocat
 const MobileRedirector = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { isAuthenticated, isPasswordExpired } = useAuth();
 
   useEffect(() => {
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     const path = location.pathname;
     const isMobilePath = path.startsWith('/mobile');
     const isLoginPath = path === '/login';
+    // パスワードの有効期限切れ時は、端末によらずパスワード変更のある設定画面(/user/settings)へ誘導する。
+    // ここでモバイルトップへ戻すと、期限切れの誘導と交互にリダイレクトし続けて操作できなくなる
+    const isPasswordSettingsPath = isAuthenticated && isPasswordExpired && path === '/user/settings';
 
     if (isMobile) {
       // モバイル端末かつデスクトップ用ログインならモバイルログインへ
@@ -74,7 +78,7 @@ const MobileRedirector = () => {
         return;
       }
       // モバイル端末かつモバイル以外のページならモバイルトップへ
-      if (!isMobilePath) {
+      if (!isMobilePath && !isPasswordSettingsPath) {
         navigate('/mobile', { replace: true });
         return;
       }
@@ -85,7 +89,7 @@ const MobileRedirector = () => {
       navigate('/', { replace: true });
       return;
     }
-  }, [location.pathname, location.state, navigate]);
+  }, [location.pathname, location.state, navigate, isAuthenticated, isPasswordExpired]);
 
   return null;
 };

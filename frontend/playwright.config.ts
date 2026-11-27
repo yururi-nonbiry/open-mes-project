@@ -28,7 +28,7 @@ const functionalProjects = [
   },
   {
     name: 'functional-smartphone',
-    testMatch: ['**/goods-receipt-mobile.spec.ts', '**/picking-search-fields.spec.ts', '**/picking-columns.spec.ts'],
+    testMatch: ['**/goods-receipt-mobile.spec.ts', '**/picking-search-fields.spec.ts', '**/picking-columns.spec.ts', '**/mobile-password-expired.spec.ts'],
     use: { ...smartphoneViewport, ...functionalUse },
   },
 ];
