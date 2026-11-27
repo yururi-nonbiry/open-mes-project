@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import productionService, { ProductionPlan } from '../services/productionService';
 import { usePagination } from './usePagination';
 import { useFilters } from './useFilters';
@@ -19,7 +19,11 @@ export const useProductionPlans = () => {
         planned_start_to: '',
     }, { field: 'id', direction: 'asc' });
 
+    // 入力のたびに検索するため、古い検索の遅れた応答で最新の結果を上書きしないよう、最新の検索だけを反映する
+    const latestRequest = useRef(0);
+
     const fetchPlans = useCallback(async (pageUrl: string | null = null) => {
+        const requestId = ++latestRequest.current;
         setLoading(true);
         setError(null);
 
@@ -49,13 +53,15 @@ export const useProductionPlans = () => {
 
         try {
             const data = await productionService.getProductionPlans(Object.fromEntries(params.entries()));
+            if (requestId !== latestRequest.current) return;
             setPlans(data.results || []);
             updatePagination(data, currentUrl);
         } catch {
+            if (requestId !== latestRequest.current) return;
             setError('生産計画データの取得中にエラーが発生しました。');
             setPlans([]);
         } finally {
-            setLoading(false);
+            if (requestId === latestRequest.current) setLoading(false);
         }
     }, [filters, pageSize, updatePagination]);
 

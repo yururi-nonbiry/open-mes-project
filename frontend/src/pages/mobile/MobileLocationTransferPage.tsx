@@ -5,6 +5,7 @@ import { useQrScanner } from '../../hooks/useQrScanner';
 import QrScannerOverlay from '../../components/common/QrScannerOverlay';
 import CameraIcon from '../../components/common/CameraIcon';
 import { useStockPurposes } from '../../hooks/useStockPurposes';
+import { useDelayedClose } from '../../hooks/useDelayedClose';
 import './MobileLocationTransferPage.css'; // 新しいCSSファイルをインポート
 import type { ChangeEvent, FormEvent } from 'react';
 import { errorMessage } from './mobileTypes';
@@ -18,6 +19,8 @@ const MobileLocationTransferPage = () => {
 
   // UI状態
   const [isLoading, setIsLoading] = useState(false);
+  // 成功後に閉じるまでの間も送信を受け付けず、閉じた・開き直したら予約を取り消す(前回の予約で勝手に閉じないように)
+  const { schedule: scheduleClose, cancel: cancelClose, closing } = useDelayedClose();
   const [message, setMessage] = useState<MobileMessage>({ text: '', type: '' }); // type: 'success' or 'error'
 
   // モーダルの状態
@@ -155,7 +158,7 @@ const MobileLocationTransferPage = () => {
     try {
       const result = await inventoryService.moveInventory(selectedItem.id, payload);
       showMessage(result.message, 'success', true);
-      setTimeout(() => {
+      scheduleClose(() => {
         closeModal();
         setSourceLocation('');
       }, 1500);
@@ -191,7 +194,7 @@ const MobileLocationTransferPage = () => {
         reason: purposeReason.trim(),
       });
       showMessage(result.message, 'success', true);
-      setTimeout(() => {
+      scheduleClose(() => {
         closeModal();
         setSourceLocation('');
       }, 1500);
@@ -203,6 +206,7 @@ const MobileLocationTransferPage = () => {
   };
 
   const closeModal = () => {
+    cancelClose();
     setModalState({ isOpen: false, step: 'selection', items: [], selectedItem: null, transferQuantity: '', targetLocation: '', purposeQuantity: '', purposeTo: '', purposeReason: '', message: { text: '', type: '' } });
   };
 
@@ -304,7 +308,7 @@ const MobileLocationTransferPage = () => {
                 </div>
                 {renderMessage(modalMessage)}
                 <div className="d-grid gap-2 mt-4">
-                  <button type="submit" className="btn btn-primary btn-lg" disabled={isLoading}>{isLoading ? '処理中...' : '移動実行'}</button>
+                  <button type="submit" className="btn btn-primary btn-lg" disabled={isLoading || closing}>{isLoading ? '処理中...' : '移動実行'}</button>
                   <button type="button" className="btn btn-outline-secondary" onClick={() => setModalState(p => ({ ...p, step: 'purpose', purposeQuantity: String(Math.max(0, selectedItem.quantity - selectedItem.reserved)), purposeTo: '', purposeReason: '', message: { text: '', type: '' } }))}>用途を変更する</button>
                   <button type="button" className="btn btn-secondary" onClick={closeModal}>キャンセル</button>
                 </div>
@@ -331,7 +335,7 @@ const MobileLocationTransferPage = () => {
                 </div>
                 {renderMessage(modalMessage)}
                 <div className="d-grid gap-2 mt-4">
-                  <button type="submit" className="btn btn-primary btn-lg" disabled={isLoading}>{isLoading ? '処理中...' : '用途を変更'}</button>
+                  <button type="submit" className="btn btn-primary btn-lg" disabled={isLoading || closing}>{isLoading ? '処理中...' : '用途を変更'}</button>
                   <button type="button" className="btn btn-secondary" onClick={() => setModalState(p => ({ ...p, step: 'transfer', message: { text: '', type: '' } }))}>戻る</button>
                 </div>
               </form>

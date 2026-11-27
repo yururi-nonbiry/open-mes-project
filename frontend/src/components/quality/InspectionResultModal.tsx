@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Modal from '../Modal';
 import qualityService, { InspectionItem, MeasurementDetail } from '../../services/qualityService';
 import { describeError } from '../../utils/api';
+import { useDelayedClose } from '../../hooks/useDelayedClose';
 
 type FormValue = string | number | File | null | undefined;
 
@@ -26,6 +27,8 @@ const InspectionResultModal: React.FC<InspectionResultModalProps> = ({ item, onC
     const [measurementDetails, setMeasurementDetails] = useState<MeasurementDetail[]>([]);
     const [formData, setFormData] = useState<Record<string, FormValue>>({});
     const [submitting, setSubmitting] = useState(false);
+    // 成功後に閉じるまでの間も送信を受け付けず、閉じた・開き直したら予約を取り消す(前回の予約で勝手に閉じないように)
+    const { schedule: scheduleClose, closing } = useDelayedClose();
     const [alert, setAlert] = useState({ show: false, type: '', message: '' });
 
     const fetchModalData = useCallback(async () => {
@@ -93,7 +96,7 @@ const InspectionResultModal: React.FC<InspectionResultModalProps> = ({ item, onC
         try {
             const result = await qualityService.recordInspectionResult(item.id!, submissionData);
             setAlert({ show: true, type: 'success', message: result.message || '検査結果を登録しました。' });
-            setTimeout(() => {
+            scheduleClose(() => {
                 onSuccess();
                 onClose();
             }, 2000);
@@ -187,7 +190,7 @@ const InspectionResultModal: React.FC<InspectionResultModalProps> = ({ item, onC
                         </div>
                         <div className="mt-4 text-end border-top pt-3">
                             <button type="button" className="btn btn-secondary" onClick={onClose}>閉じる</button>
-                            <button type="submit" className="btn btn-primary ml-2" disabled={submitting || loading}>
+                            <button type="submit" className="btn btn-primary ml-2" disabled={submitting || closing || loading}>
                                 {submitting ? '登録中...' : '検査結果を登録'}
                             </button>
                         </div>

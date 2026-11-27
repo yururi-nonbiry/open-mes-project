@@ -4,6 +4,7 @@ import inventoryService, { InventoryItem } from '../../services/inventoryService
 import { useStockPurposes } from '../../hooks/useStockPurposes';
 import { NavIcon } from '../../components/NavIcon';
 import type { ApiErrorLike } from '../apiError';
+import { useDelayedClose } from '../../hooks/useDelayedClose';
 
 interface InventoryChangePurposeModalProps {
     isOpen: boolean;
@@ -23,6 +24,12 @@ const InventoryChangePurposeModal: React.FC<InventoryChangePurposeModalProps> = 
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    // 成功後に閉じるまでの間も送信を受け付けず、閉じた・開き直したら予約を取り消す
+    const { schedule: scheduleClose, cancel: cancelClose, closing } = useDelayedClose();
+
+    useEffect(() => {
+        if (!isOpen) cancelClose();
+    }, [isOpen, cancelClose]);
 
     const movable = item ? Math.max(0, item.quantity - item.reserved) : 0;
     const currentPurpose = item?.purpose || '';
@@ -55,7 +62,7 @@ const InventoryChangePurposeModal: React.FC<InventoryChangePurposeModalProps> = 
         try {
             const result = await inventoryService.changeInventoryPurpose(item.id, { quantity, purpose, reason: reason.trim() });
             setSuccess(result.message || '在庫の用途を変更しました。');
-            setTimeout(() => {
+            scheduleClose(() => {
                 onSuccess();
                 onClose();
             }, 1000);
@@ -170,7 +177,7 @@ const InventoryChangePurposeModal: React.FC<InventoryChangePurposeModalProps> = 
                 </Modal.Body>
                 <Modal.Footer className="mes-modal-footer">
                     <Button variant="outline-secondary" onClick={onClose}>キャンセル</Button>
-                    <Button type="submit" variant="primary" className="fw-bold px-4" disabled={submitting || movable <= 0}>
+                    <Button type="submit" variant="primary" className="fw-bold px-4" disabled={submitting || closing || movable <= 0}>
                         {submitting ? '変更中...' : '用途を変更する'}
                     </Button>
                 </Modal.Footer>

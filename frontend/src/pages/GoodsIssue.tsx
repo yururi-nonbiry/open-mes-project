@@ -4,6 +4,7 @@ import inventoryService, { SalesOrder, validateIssueQuantity } from '../services
 import { NavIcon } from '../components/NavIcon';
 import { useWorkCenters } from '../hooks/useWorkCenters';
 import { useScheduleDateDefaults } from '../hooks/useScheduleDateDefaults';
+import { useDelayedClose } from '../hooks/useDelayedClose';
 import type { ScheduleDateDefaults } from '../services/scheduleDateDefaultsService';
 import WarehouseLocationMapModal from './inventory/WarehouseLocationMapModal';
 import authFetch from '../utils/api';
@@ -139,6 +140,9 @@ const GoodsIssueContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefault
   };
 
   const closeModal = () => {
+    // 完了後の自動クローズを待たずに閉じた場合も、予約を取り消して次の出庫を受け付ける
+    cancelClose();
+    issueSubmittingRef.current = false;
     setIsModalOpen(false);
     setSelectedOrder(null);
     setIssueQuantity('');
@@ -156,6 +160,8 @@ const GoodsIssueContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefault
   };
 
   const issueSubmittingRef = useRef(false);
+  // 成功後に閉じるまでの間も送信を受け付けず、閉じた・開き直したら予約を取り消す(前回の予約で勝手に閉じないように)
+  const { schedule: scheduleClose, cancel: cancelClose } = useDelayedClose();
 
   const handleIssueSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -175,8 +181,7 @@ const GoodsIssueContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefault
       const result = await inventoryService.issueSalesOrder(selectedOrder.id, parseInt(issueQuantity, 10));
       if (result.ok) {
         setModalMessage({ text: result.message || t('出庫処理が完了しました。'), type: 'success' });
-        setTimeout(() => {
-          issueSubmittingRef.current = false;
+        scheduleClose(() => {
           closeModal();
           fetchSalesOrders();
         }, 1200);

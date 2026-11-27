@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Modal, Button, Spinner, Alert } from 'react-bootstrap';
 import { useStockPurposes } from '../hooks/useStockPurposes';
 import { useScheduleDateDefaults } from '../hooks/useScheduleDateDefaults';
+import { useDelayedClose } from '../hooks/useDelayedClose';
 import type { ScheduleDateDefaults } from '../services/scheduleDateDefaultsService';
 import ReceiptLocationMap from '../components/common/ReceiptLocationMap';
 import authFetch, { ApiError } from '../utils/api';
@@ -243,6 +244,9 @@ const GoodsReceiptContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefau
   };
 
   const closeReceiptModal = () => {
+    // 完了後の自動クローズを待たずに閉じた場合も、予約を取り消して次の入庫を受け付ける
+    cancelReceiptClose();
+    receiptSubmittingRef.current = false;
     setReceiptModal({ isOpen: false, order: null, error: '', success: '' });
   };
 
@@ -253,6 +257,9 @@ const GoodsReceiptContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefau
   };
 
   const receiptSubmittingRef = useRef(false);
+  // 成功後に閉じるまでの間も送信を受け付けず、閉じた・開き直したら予約を取り消す(前回の予約で勝手に閉じないように)
+  const { schedule: scheduleReceiptClose, cancel: cancelReceiptClose } = useDelayedClose();
+  const { schedule: scheduleDeliveryClose, cancel: cancelDeliveryClose, closing: deliveryClosing } = useDelayedClose();
 
   const handleReceiptSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -292,8 +299,7 @@ const GoodsReceiptContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefau
         ...prev,
         success: `発注番号「${result.order_number || targetOrder.order_number}」の入庫処理が完了し、在庫へ反映されました。${result.default_location_registered ? `デフォルト入庫棚番に「${location}」を登録しました。` : ''}`,
       }));
-      setTimeout(() => {
-        receiptSubmittingRef.current = false;
+      scheduleReceiptClose(() => {
         closeReceiptModal();
         fetchPurchaseOrders();
       }, 1200);
@@ -319,6 +325,7 @@ const GoodsReceiptContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefau
   };
 
   const closeDeliveryModal = () => {
+    cancelDeliveryClose();
     setDeliveryModal({ isOpen: false, order: null, error: '', success: '' });
   };
 
@@ -350,7 +357,7 @@ const GoodsReceiptContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefau
         ...prev,
         success: `発注番号「${targetOrder.order_number}」の納品記録を保存しました。`,
       }));
-      setTimeout(() => {
+      scheduleDeliveryClose(() => {
         closeDeliveryModal();
         fetchPurchaseOrders();
       }, 1200);
@@ -941,7 +948,7 @@ const GoodsReceiptContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefau
             <Button variant="outline-secondary" onClick={closeDeliveryModal}>
               キャンセル
             </Button>
-            <Button type="submit" variant="primary" className="fw-bold px-4">
+            <Button type="submit" variant="primary" className="fw-bold px-4" disabled={deliveryClosing}>
               納品記録を保存する
             </Button>
           </Modal.Footer>

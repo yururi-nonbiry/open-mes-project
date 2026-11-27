@@ -4,6 +4,7 @@ import inventoryService, { InventoryItem } from '../../services/inventoryService
 import { NavIcon } from '../../components/NavIcon';
 import { applyShelfInput, parseShelfQr } from '../../utils/shelfQr';
 import type { ApiErrorLike } from '../apiError';
+import { useDelayedClose } from '../../hooks/useDelayedClose';
 
 interface InventoryModifyModalProps {
     isOpen: boolean;
@@ -22,6 +23,12 @@ const InventoryModifyModal: React.FC<InventoryModifyModalProps> = ({
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    // 成功後に閉じるまでの間も送信を受け付けず、閉じた・開き直したら予約を取り消す
+    const { schedule: scheduleClose, cancel: cancelClose, closing } = useDelayedClose();
+
+    useEffect(() => {
+        if (!isOpen) cancelClose();
+    }, [isOpen, cancelClose]);
 
     useEffect(() => {
         if (isOpen && item) {
@@ -58,7 +65,7 @@ const InventoryModifyModal: React.FC<InventoryModifyModalProps> = ({
                 location: (formData.location || '').trim(),
             });
             setSuccess(result.message || '在庫数量・棚番を更新しました。');
-            setTimeout(() => {
+            scheduleClose(() => {
                 onSuccess();
                 onClose();
             }, 1200);
@@ -161,7 +168,7 @@ const InventoryModifyModal: React.FC<InventoryModifyModalProps> = ({
                     <Button variant="outline-secondary" onClick={onClose}>
                         キャンセル
                     </Button>
-                    <Button type="submit" variant="primary" className="fw-bold px-4" disabled={submitting}>
+                    <Button type="submit" variant="primary" className="fw-bold px-4" disabled={submitting || closing}>
                         {submitting ? '保存中...' : '修正内容を保存する'}
                     </Button>
                 </Modal.Footer>

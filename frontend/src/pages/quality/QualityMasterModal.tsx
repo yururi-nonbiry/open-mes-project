@@ -40,6 +40,13 @@ const QualityMasterModal: React.FC<QualityMasterModalProps> = ({ isOpen, onClose
     const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     // 保存後に自動で閉じるタイマーを、画面が閉じられたあとに実行しない
     useEffect(() => () => { if (closeTimer.current) clearTimeout(closeTimer.current); }, []);
+    // 自動で閉じる前に手動で閉じた場合も予約を取り消す(開き直したモーダルが前回の予約で閉じないように)
+    useEffect(() => {
+        if (isOpen || !closeTimer.current) return;
+        clearTimeout(closeTimer.current);
+        closeTimer.current = null;
+        setSubmitting(false);
+    }, [isOpen]);
 
     useEffect(() => {
         if (isOpen) {

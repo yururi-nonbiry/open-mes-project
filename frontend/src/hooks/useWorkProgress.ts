@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import productionService from '../services/productionService';
 import { usePagination } from './usePagination';
 import { useFilters } from './useFilters';
@@ -25,7 +25,11 @@ export const useWorkProgress = () => {
 
     const [statusFilters, setStatusFilters] = useState<Set<string>>(getDefaultSelectedStatuses());
 
+    // 入力のたびに検索するため、古い検索の遅れた応答で最新の結果を上書きしないよう、最新の検索だけを反映する
+    const latestRequest = useRef(0);
+
     const fetchPlans = useCallback(async (pageUrl: string | null = null) => {
+        const requestId = ++latestRequest.current;
         if (statusFilters.size === 0) {
             setPlans([]);
             setPageInfo('表示するステータスが選択されていません。');
@@ -52,13 +56,15 @@ export const useWorkProgress = () => {
                 );
             }
 
+            if (requestId !== latestRequest.current) return;
             setPlans(data.results || []);
             updatePagination(data, pageUrl || '');
         } catch (e) {
+            if (requestId !== latestRequest.current) return;
             setError(`データの読み込みに失敗しました: ${(e as Error).message}`);
             setPlans([]);
         } finally {
-            setLoading(false);
+            if (requestId === latestRequest.current) setLoading(false);
         }
     }, [filters, statusFilters, sorting, pageSize, updatePagination, setPageInfo]);
 

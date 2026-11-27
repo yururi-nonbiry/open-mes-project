@@ -6,6 +6,7 @@ import { useQrScanner } from '../../hooks/useQrScanner';
 import QrScannerOverlay from '../../components/common/QrScannerOverlay';
 import { useStockPurposes } from '../../hooks/useStockPurposes';
 import { useScheduleDateDefaults } from '../../hooks/useScheduleDateDefaults';
+import { useDelayedClose } from '../../hooks/useDelayedClose';
 import type { ScheduleDateDefaults } from '../../services/scheduleDateDefaultsService';
 import ReceiptLocationMap from '../../components/common/ReceiptLocationMap';
 import CameraIcon from '../../components/common/CameraIcon';
@@ -175,6 +176,9 @@ const MobileGoodsReceiptPageContent = ({ dateDefaults }: { dateDefaults: Schedul
   }, []);
 
   const closeReceiptForm = () => {
+    // 完了後の自動クローズを待たずに閉じた場合も、予約を取り消して次の入庫を受け付ける
+    cancelClose();
+    receiptSubmittingRef.current = false;
     setSelectedOrder(null);
   };
 
@@ -184,6 +188,8 @@ const MobileGoodsReceiptPageContent = ({ dateDefaults }: { dateDefaults: Schedul
   };
 
   const receiptSubmittingRef = useRef(false);
+  // 成功後に閉じるまでの間も送信を受け付けず、閉じた・開き直したら予約を取り消す(前回の予約で勝手に閉じないように)
+  const { schedule: scheduleClose, cancel: cancelClose } = useDelayedClose();
 
   const handleReceiptSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -224,8 +230,7 @@ const MobileGoodsReceiptPageContent = ({ dateDefaults }: { dateDefaults: Schedul
         purpose: receiptFormData.purpose,
       });
       setFormSuccess(`発注 ${result.order_number} の入庫処理が正常に完了しました。${result.default_location_registered ? `デフォルト入庫棚番に「${location}」を登録しました。` : ''}`);
-      setTimeout(() => {
-        receiptSubmittingRef.current = false;
+      scheduleClose(() => {
         closeReceiptForm();
         fetchPurchaseOrders(); // Refresh data
       }, 1500);

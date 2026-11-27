@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import inventoryService, { InventoryItem, DisplaySetting } from '../services/inventoryService';
 import { usePagination } from './usePagination';
 import { useFilters } from './useFilters';
@@ -40,7 +40,11 @@ export const useInventory = () => {
         }
     }, []);
 
+    // 入力のたびに検索するため、後から送った検索の結果を古い検索の遅れた応答で上書きしないよう、最新の検索だけを反映する
+    const latestRequest = useRef(0);
+
     const fetchInventory = useCallback(async (pageUrl: string | null = null) => {
+        const requestId = ++latestRequest.current;
         setIsLoading(true);
         setError(null);
 
@@ -71,6 +75,7 @@ export const useInventory = () => {
 
         try {
             const data = await inventoryService.getInventories(params);
+            if (requestId !== latestRequest.current) return;
             const results = data.results || [];
 
             if (results.length > 0) {
@@ -84,13 +89,15 @@ export const useInventory = () => {
                 }
             }
 
+            if (requestId !== latestRequest.current) return;
             setInventory(results);
             updatePagination(data, currentUrl);
         } catch (err) {
+            if (requestId !== latestRequest.current) return;
             setError('在庫データの取得中にエラーが発生しました。');
             console.error(err);
         } finally {
-            setIsLoading(false);
+            if (requestId === latestRequest.current) setIsLoading(false);
         }
     }, [filters, updatePagination]);
 

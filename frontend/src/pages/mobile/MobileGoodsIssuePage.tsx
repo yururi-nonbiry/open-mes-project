@@ -11,6 +11,7 @@ import './MobileLocationTransferPage.css'; // スタイルを再利用
 import type { FormEvent } from 'react';
 import { errorMessage } from './mobileTypes';
 import { useScheduleDateDefaults } from '../../hooks/useScheduleDateDefaults';
+import { useDelayedClose } from '../../hooks/useDelayedClose';
 import type { ScheduleDateDefaults } from '../../services/scheduleDateDefaultsService';
 import type { CameraState, MobileMessage, QrActionResponse, ScanTargetSetter } from './mobileTypes';
 import { t } from '../../utils/terms';
@@ -47,6 +48,8 @@ const MobileGoodsIssuePageContent = ({ dateDefaults }: { dateDefaults: ScheduleD
     const [quantityToShip, setQuantityToShip] = useState('');
     const [modalMessage, setModalMessage] = useState<MobileMessage>({ text: '', type: '' });
     const [isSubmitting, setIsSubmitting] = useState(false);
+    // 成功後に閉じるまでの間も送信を受け付けず、閉じた・開き直したら予約を取り消す(前回の予約で勝手に閉じないように)
+    const { schedule: scheduleClose, cancel: cancelClose, closing } = useDelayedClose();
 
     // カメラの状態
     const [cameraState, setCameraState] = useState<CameraState>({
@@ -162,6 +165,7 @@ const MobileGoodsIssuePageContent = ({ dateDefaults }: { dateDefaults: ScheduleD
     };
 
     const handleCloseModal = () => {
+        cancelClose();
         setShowModal(false);
         setSelectedOrder(null);
     };
@@ -183,7 +187,7 @@ const MobileGoodsIssuePageContent = ({ dateDefaults }: { dateDefaults: ScheduleD
 
             if (result.ok) {
                 setModalMessage({ text: result.message, type: 'success' });
-                setTimeout(() => {
+                scheduleClose(() => {
                     handleCloseModal();
                     // Re-fetch data for the current page
                     fetchSalesOrders(currentPage, committedSearchParams.q, committedSearchParams.status, committedSearchParams.from, committedSearchParams.to, groupByLine);
@@ -438,7 +442,7 @@ const MobileGoodsIssuePageContent = ({ dateDefaults }: { dateDefaults: ScheduleD
                 <Button variant="secondary" className="btn-lg flex-fill" onClick={handleCloseModal} disabled={isSubmitting}>
                     キャンセル
                 </Button>
-                <Button variant="primary" className="btn-lg flex-fill" onClick={handleIssueSubmit} disabled={isSubmitting}>
+                <Button variant="primary" className="btn-lg flex-fill" onClick={handleIssueSubmit} disabled={isSubmitting || closing}>
                     {isSubmitting ? <><Spinner as="span" animation="border" size="sm" /> 処理中...</> : t('出庫実行')}
                 </Button>
             </Modal.Footer>
