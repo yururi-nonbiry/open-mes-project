@@ -64,6 +64,8 @@ export const useInventory = () => {
                 }
             }
             params.append('hide_zero_stock_query', filters.hideZeroStock ? 'true' : 'false');
+            // 総ページ数の計算と同じ件数で取得する(送らないとサーバー既定の25件になり、ページ数の表示がずれる)
+            params.append('page_size', String(pageSize));
             currentUrl = `/api/inventory/inventories/?${params.toString()}`;
         }
 

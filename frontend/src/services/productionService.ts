@@ -1,4 +1,4 @@
-import authFetch, { apiRequest, buildQueryString, handleError } from '../utils/api';
+import authFetch, { apiRequest, buildQueryString, handleError, toRelativeApiPath } from '../utils/api';
 import {
     ProductionPlan,
     PaginationData,
@@ -72,7 +72,8 @@ const productionService = {
     },
 
     getProductionPlansByUrl: async (url: string) => {
-        const response = await authFetch(url);
+        // next/previous は絶対URLで返るため、同一オリジンの相対パスにしてから取得する(リバースプロキシ配下対策)
+        const response = await authFetch(toRelativeApiPath(url));
         await handleError(response, 'Failed to fetch production plans');
         return await response.json() as PaginationData<ProductionPlan>;
     },
