@@ -9,6 +9,8 @@ import authFetch, { ApiError } from '../utils/api';
 import { executeQrAction } from '../utils/qrAction';
 import { GOODS_RECEIPT_DEFAULT_COLUMNS } from '../config/listDefaultColumns';
 import { useDisplayColumns } from '../hooks/useDisplayColumns';
+import { useDefaultLocationConfirm } from '../hooks/useDefaultLocationConfirm';
+import DefaultLocationConfirmModal from '../components/inventory/DefaultLocationConfirmModal';
 import inventoryService from '../services/inventoryService';
 import { NavIcon } from '../components/NavIcon';
 import './InventoryInquiry.css';
@@ -85,20 +87,8 @@ const GoodsReceiptContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefau
   });
 
   // 納品記録モーダル
-  // デフォルト入庫棚番の登録確認モーダル(OK/キャンセルの結果を Promise で返す)
-  const [defaultLocationConfirm, setDefaultLocationConfirm] = useState<{ partNumber: string; location: string } | null>(null);
-  // 結果: true=登録して入庫 / false=登録しないで入庫 / null=入庫を取りやめる(×・Esc・キャンセル)
-  const defaultLocationResolver = useRef<((value: boolean | null) => void) | null>(null);
-  const askRegisterDefaultLocation = (partNumber: string, location: string) =>
-    new Promise<boolean | null>(resolve => {
-      defaultLocationResolver.current = resolve;
-      setDefaultLocationConfirm({ partNumber, location });
-    });
-  const answerRegisterDefaultLocation = (value: boolean | null) => {
-    defaultLocationResolver.current?.(value);
-    defaultLocationResolver.current = null;
-    setDefaultLocationConfirm(null);
-  };
+  // デフォルト入庫棚番の登録確認(モバイルの入庫画面と共通)
+  const defaultLocationConfirm = useDefaultLocationConfirm();
 
   const [deliveryModal, setDeliveryModal] = useState<{
     isOpen: boolean;
@@ -244,9 +234,7 @@ const GoodsReceiptContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefau
     if (receiptSubmittingRef.current) return;
     receiptSubmittingRef.current = true;
     const location = receiptFormData.location.trim();
-    const registerDefaultLocation = (await inventoryService.shouldConfirmRegisterDefaultLocation(targetOrder, location))
-      ? await askRegisterDefaultLocation(targetOrder.part_number ?? '', location)
-      : false;
+    const registerDefaultLocation = await defaultLocationConfirm.confirm(targetOrder, location);
     if (registerDefaultLocation === null) {
       // 確認を閉じた場合は入庫しない
       receiptSubmittingRef.current = false;
@@ -786,34 +774,7 @@ const GoodsReceiptContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefau
       </Modal>
 
       {/* デフォルト入庫棚番の登録確認 */}
-      <Modal
-        show={defaultLocationConfirm !== null}
-        onHide={() => answerRegisterDefaultLocation(null)}
-        centered
-        backdrop="static"
-        className="mes-clean-modal"
-        style={{ zIndex: 1100 }}
-      >
-        <Modal.Header closeButton className="mes-modal-header">
-          <Modal.Title className="mes-modal-title">デフォルト入庫棚番の登録</Modal.Title>
-        </Modal.Header>
-        <Modal.Body className="mes-modal-body">
-          <p className="mb-2">
-            品番「{defaultLocationConfirm?.partNumber}」のデフォルト入庫棚番が未登録です。
-          </p>
-          <p className="mb-0">
-            今回の棚番「<strong>{defaultLocationConfirm?.location}</strong>」をデフォルト入庫棚番として登録しますか？
-          </p>
-        </Modal.Body>
-        <Modal.Footer className="mes-modal-footer">
-          <Button variant="outline-secondary" onClick={() => answerRegisterDefaultLocation(false)}>
-            登録しないで入庫
-          </Button>
-          <Button variant="primary" onClick={() => answerRegisterDefaultLocation(true)} autoFocus>
-            登録して入庫
-          </Button>
-        </Modal.Footer>
-      </Modal>
+      <DefaultLocationConfirmModal pending={defaultLocationConfirm.pending} onAnswer={defaultLocationConfirm.answer} />
 
       {/* 納品記録（受領メモ）の編集ポップアップ */}
       <Modal

@@ -7,6 +7,7 @@ import QrScannerOverlay from '../../components/common/QrScannerOverlay';
 import { useStockPurposes } from '../../hooks/useStockPurposes';
 import { useScheduleDateDefaults } from '../../hooks/useScheduleDateDefaults';
 import { useDelayedClose } from '../../hooks/useDelayedClose';
+import { useDefaultLocationConfirm } from '../../hooks/useDefaultLocationConfirm';
 import type { ScheduleDateDefaults } from '../../services/scheduleDateDefaultsService';
 import ReceiptLocationMap from '../../components/common/ReceiptLocationMap';
 import CameraIcon from '../../components/common/CameraIcon';
@@ -21,20 +22,8 @@ import type { CameraState, QrActionResponse, ScanTargetSetter } from './mobileTy
 const remainingOf = (order: PurchaseOrderRow) => (order.quantity ?? 0) - (order.received_quantity ?? 0);
 
 const MobileGoodsReceiptPageContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefaults }) => {
-  // デフォルト入庫棚番の登録確認モーダル(結果を Promise で返す)
-  const [defaultLocationConfirm, setDefaultLocationConfirm] = useState<{ partNumber: string; location: string } | null>(null);
-  // 結果: true=登録して入庫 / false=登録しないで入庫 / null=入庫を取りやめる(×・Esc・キャンセル)
-  const defaultLocationResolver = useRef<((value: boolean | null) => void) | null>(null);
-  const askRegisterDefaultLocation = (partNumber: string, location: string) =>
-    new Promise<boolean | null>(resolve => {
-      defaultLocationResolver.current = resolve;
-      setDefaultLocationConfirm({ partNumber, location });
-    });
-  const answerRegisterDefaultLocation = (value: boolean | null) => {
-    defaultLocationResolver.current?.(value);
-    defaultLocationResolver.current = null;
-    setDefaultLocationConfirm(null);
-  };
+  // デフォルト入庫棚番の登録確認(PC の入庫画面と共通)
+  const { pending: defaultLocationConfirm, confirm: confirmRegisterDefaultLocation, answer: answerRegisterDefaultLocation } = useDefaultLocationConfirm();
 
   // State for purchase orders, loading/error status
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrderRow[]>([]);
@@ -216,9 +205,7 @@ const MobileGoodsReceiptPageContent = ({ dateDefaults }: { dateDefaults: Schedul
     if (receiptSubmittingRef.current) return;
     receiptSubmittingRef.current = true;
     const location = receiptFormData.location.trim();
-    const registerDefaultLocation = (await inventoryService.shouldConfirmRegisterDefaultLocation(selectedOrder, location))
-      ? await askRegisterDefaultLocation(selectedOrder.part_number ?? '', location)
-      : false;
+    const registerDefaultLocation = await confirmRegisterDefaultLocation(selectedOrder, location);
     if (registerDefaultLocation === null) {
       // 確認を閉じた場合は入庫しない
       receiptSubmittingRef.current = false;
