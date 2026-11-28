@@ -7,11 +7,11 @@ import { useScheduleDateDefaults } from '../hooks/useScheduleDateDefaults';
 import { useDelayedClose } from '../hooks/useDelayedClose';
 import type { ScheduleDateDefaults } from '../services/scheduleDateDefaultsService';
 import WarehouseLocationMapModal from './inventory/WarehouseLocationMapModal';
-import authFetch from '../utils/api';
 import { executeQrAction } from '../utils/qrAction';
 import type { DisplaySetting } from './types/listPage';
 import { t, registerTermTarget } from '../utils/terms';
 import { GOODS_ISSUE_DEFAULT_COLUMNS } from '../config/listDefaultColumns';
+import { useDisplayColumns } from '../hooks/useDisplayColumns';
 
 const NUMERIC_FIELDS = ['quantity', 'shipped_quantity', 'reserved_quantity', 'remaining_quantity'];
 const DATE_FIELDS = ['expected_shipment', 'order_date'];
@@ -36,7 +36,9 @@ const GoodsIssueContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefault
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const [displaySettings, setDisplaySettings] = useState<DisplaySetting[]>([]);
+  // 表示列はページ項目表示設定(出庫処理)で決める。取得できない・未設定なら既定の列を使う。
+  // 列名は、既定の列の名前 > 設定が持つ項目名の順に使う
+  const { displaySettings } = useDisplayColumns(['sales_order'], { labels: getDefaultLabels() });
 
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -76,29 +78,6 @@ const GoodsIssueContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefault
     fetchSalesOrders();
   }, [fetchSalesOrders]);
 
-  // 表示列はモデル項目表示設定(出庫予定)で決める。取得できない・未設定なら既定の列を使う
-  useEffect(() => {
-    (async () => {
-      try {
-        // 列名は表示設定APIが返す項目名を使い、管理者専用の model-fields は呼ばない
-        // (一般ユーザーが呼ぶと403になり、権限エラーとして監査ログに記録されてしまうため)
-        const settingsRes = await authFetch('/api/base/model-display-settings/?data_type=sales_order');
-        const settings = settingsRes.ok ? await settingsRes.json() : [];
-        const visible = (settings as DisplaySetting[])
-          .filter((s) => s.is_list_display)
-          .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
-          .map((s) => ({
-            ...s,
-            // 列名は、既定の列の名前 > 設定が持つ項目名の順に使う
-            verbose_name: getDefaultLabels().get(s.model_field_name) || s.verbose_name || s.model_field_name,
-          }));
-        setDisplaySettings(visible);
-      } catch (e) {
-        console.error('Display settings fetch error:', e);
-        setDisplaySettings([]);
-      }
-    })();
-  }, []);
 
   const columns = displaySettings.length > 0 ? displaySettings : DEFAULT_COLUMNS;
   const colSpan = columns.length + 1;

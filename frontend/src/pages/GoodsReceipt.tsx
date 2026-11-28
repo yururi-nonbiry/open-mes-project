@@ -8,6 +8,7 @@ import ReceiptLocationMap from '../components/common/ReceiptLocationMap';
 import authFetch, { ApiError } from '../utils/api';
 import { executeQrAction } from '../utils/qrAction';
 import { GOODS_RECEIPT_DEFAULT_COLUMNS } from '../config/listDefaultColumns';
+import { useDisplayColumns } from '../hooks/useDisplayColumns';
 import inventoryService from '../services/inventoryService';
 import { NavIcon } from '../components/NavIcon';
 import './InventoryInquiry.css';
@@ -63,8 +64,8 @@ const GoodsReceiptContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefau
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [displaySettings, setDisplaySettings] = useState<DisplaySetting[]>([]);
-  const [searchFields, setSearchFields] = useState<DisplaySetting[]>([]);
+  // 列・検索欄は入庫予定と入庫実績の表示設定から決める(画面を開いたときに1回だけ取得)
+  const { displaySettings, searchFields } = useDisplayColumns(['purchase_order', 'goods_receipt']);
 
   const [filters, setFilters] = useState<Record<string, string>>(() => defaultFilters(dateDefaults));
 
@@ -110,40 +111,6 @@ const GoodsReceiptContent = ({ dateDefaults }: { dateDefaults: ScheduleDateDefau
     delivered_quantity: '',
   });
 
-  // 列・検索項目の表示設定は画面を開いたときに1回だけ取得する(検索・ページ送りのたびに取得しない)。
-  // 列名は表示設定APIが返す項目名(verbose_name)を使い、管理者専用の model-fields は呼ばない
-  // (一般ユーザーが呼ぶと403になり、権限エラーとして監査ログに記録されてしまうため)
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const [poSettings, grSettings] = await Promise.all([
-          inventoryService.getDisplaySettings('purchase_order'),
-          inventoryService.getDisplaySettings('goods_receipt'),
-        ]);
-        if (cancelled) return;
-        const settingsMap = new Map<string, DisplaySetting>();
-        [...poSettings, ...grSettings].forEach((setting) => {
-          settingsMap.set(setting.model_field_name, {
-            ...setting,
-            verbose_name: setting.verbose_name || setting.model_field_name,
-          } as DisplaySetting);
-        });
-        const combinedSettings = Array.from(settingsMap.values());
-        setDisplaySettings(combinedSettings
-          .filter((s) => s.is_list_display)
-          .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0)));
-        setSearchFields(combinedSettings
-          .filter((s) => s.is_search_field)
-          .sort((a, b) => (a.search_order ?? 0) - (b.search_order ?? 0)));
-      } catch (_err) {
-        if (cancelled) return;
-        setDisplaySettings([]);
-        setSearchFields([]);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
 
   const fetchPurchaseOrders = useCallback(async (pageUrl: string | null = null) => {
     setIsLoading(true);
