@@ -278,15 +278,13 @@ class UpdateProgressTests(ProductionAPITestBase):
         self.assertEqual(self._finished_qty(self.warehouse_a.warehouse_number), 3)
 
     def test_pp_prog_18_unknown_default_warehouse_rejected(self):
-        """PP-PROG-18: 品番マスタのデフォルト入庫倉庫が存在しない倉庫の場合は400になり、完了しない。"""
-        self._set_product_default("NO-SUCH-WH")
-        plan = self.create_plan(status="IN_PROGRESS")
-        response = self.client.post(self._url(plan), {"status": "COMPLETED", "good_quantity": 10}, format="json")
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("NO-SUCH-WH", str(response.data))
-        plan.refresh_from_db()
-        self.assertEqual(plan.status, "IN_PROGRESS")
-        self.assertIsNone(plan.finished_goods_warehouse)
+        """PP-PROG-18: 品番マスタのデフォルト入庫倉庫は倉庫マスターへの外部キーのため、存在しない倉庫は登録できない。"""
+        from django.db import IntegrityError, connection, transaction
+
+        # 外部キーの検査はコミット時まで遅延されるため、明示的に検査する
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            self._set_product_default("NO-SUCH-WH")
+            connection.check_constraints(table_names=["master_item"])
 
     def test_pp_prog_19_completion_uses_requested_warehouse_and_location(self):
         """PP-PROG-19: 完了報告で指定した入庫倉庫・棚番へ計上し、品番マスタのデフォルトより優先する。"""

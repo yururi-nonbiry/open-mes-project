@@ -91,9 +91,17 @@ class ProductionPlan(models.Model):
     # 完成品を計上した倉庫・棚番。完了報告で指定した値(初期値は品番マスタのデフォルト入庫倉庫・棚番、
     # 倉庫が無ければ既定の完成品倉庫)を記録し、完了数量の増減・完了の取消はこの倉庫に対して行う。
     # 完了前、および記録を始める前に完了した計画は空(空の場合は既定の完成品倉庫を使う)。
-    finished_goods_warehouse = models.CharField(
-        max_length=255, null=True, blank=True, verbose_name="完成品の入庫倉庫"
+    finished_goods_warehouse_rel = models.ForeignKey(
+        "master.Warehouse",
+        to_field="warehouse_number",
+        db_column="finished_goods_warehouse",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="finished_goods_plans",
+        verbose_name="完成品の入庫倉庫",
     )
+    finished_goods_warehouse = fk_id_alias("finished_goods_warehouse_rel")
     finished_goods_location = models.CharField(
         max_length=255, null=True, blank=True, verbose_name="完成品の入庫棚番"
     )

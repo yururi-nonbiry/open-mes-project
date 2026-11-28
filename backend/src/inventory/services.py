@@ -594,7 +594,7 @@ def register_item_default_location(part_number, warehouse, location):
     update_fields = ["default_location"]
     if warehouse and not item.default_warehouse:
         item.default_warehouse = warehouse
-        update_fields.append("default_warehouse")
+        update_fields.append("default_warehouse_rel")
     item.save(update_fields=update_fields)
     return True
 

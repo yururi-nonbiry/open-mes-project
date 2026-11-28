@@ -32,7 +32,7 @@ PROTECTED_IMPORT_FIELDS = {
         "actual_start_datetime",
         "actual_end_datetime",
         # 完成品の計上先は完了報告で、統合・子計画の関係は統合・中間品の手配で決まる
-        "finished_goods_warehouse",
+        "finished_goods_warehouse_rel",
         "finished_goods_location",
         "merged_into",
         "parent_plan",

@@ -107,7 +107,7 @@
 | PP-PROG-15 | 正常系 | `update-progress` | PP-PROG-14 で完了後、品番マスタを `FG-MAIN`/`FG-09` に変更 | `good_quantity=15` に変更 → `status=ON_HOLD` | 増分は記録した `WH-A`/`A-09` に計上、取消も `WH-A` から減算。取消で記録をクリア | 同上 |
 | PP-PROG-16 | 正常系 | `update-progress` | 品番マスタのデフォルト入庫倉庫なし・棚番 `X-01` | `status=COMPLETED`（倉庫・棚番省略） | `FG-MAIN`/`X-01` に計上 | 同上 |
 | PP-PROG-17 | 正常系 | `update-progress` | 品番マスタのデフォルト入庫倉庫 `WH-A` | 良品0で完了 → 品番マスタを変更 → `good_quantity=3` | 良品0でも計上倉庫を記録し、増分は `WH-A` に計上 | 同上 |
-| PP-PROG-18 | 異常系 | `update-progress` | 品番マスタのデフォルト入庫倉庫が存在しない倉庫 | `status=COMPLETED`（倉庫省略） | 400（倉庫番号を含むメッセージ）、計画は完了しない | 同上 |
+| PP-PROG-18 | 異常系 | 品番マスタ | — | デフォルト入庫倉庫に存在しない倉庫を保存 | `IntegrityError`（倉庫マスターへの外部キー） | 2026-11-28 変更（REF-11）。以前は文字列のため保存でき、完了時に400にしていた |
 | PP-PROG-19 | 正常系 | `update-progress` | 品番マスタのデフォルト `WH-A`/`A-09` | `status=COMPLETED, warehouse=FG-MAIN, location=FG-05` | 指定した `FG-MAIN`/`FG-05` に計上し記録（品番マスタより優先） | 同上 |
 | PP-PROG-20 | 正常系 | `update-progress` | 品番マスタのデフォルト `WH-A`/`A-09` | `warehouse=FG-MAIN`（棚番省略） | 別倉庫のデフォルト棚番は使わず、`FG-MAIN` の棚番なしに計上 | 同上 |
 | PP-PROG-21 | 異常系 | `update-progress` | `WH-A` で完了済み | 完了数量の変更時に `warehouse=FG-MAIN` を指定 | 400、在庫は変わらない（同じ `WH-A` の指定は200） | 同上 |

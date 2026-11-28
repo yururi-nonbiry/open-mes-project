@@ -1,6 +1,8 @@
 from django.db import models
 from uuid6 import uuid7
 
+from base.model_utils import fk_id_alias
+
 
 # 品番マスター
 class Item(models.Model):
@@ -23,9 +25,18 @@ class Item(models.Model):
     item_type = models.CharField(max_length=20, choices=ITEM_TYPE_CHOICES)  # 製品 / 材料 / 中間品
     description = models.TextField(blank=True, null=True)  # 説明
     unit = models.CharField(max_length=10, default="kg")  # 単位 (例: kg, 個)
-    default_warehouse = models.CharField(
-        max_length=255, blank=True, null=True, verbose_name="デフォルト入庫倉庫"
-    )  # デフォルト入庫倉庫
+    # デフォルト入庫倉庫。倉庫マスターを参照する(存在しない倉庫を登録できないように)。
+    default_warehouse_rel = models.ForeignKey(
+        "Warehouse",
+        to_field="warehouse_number",
+        db_column="default_warehouse",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="default_items",
+        verbose_name="デフォルト入庫倉庫",
+    )
+    default_warehouse = fk_id_alias("default_warehouse_rel")
     default_location = models.CharField(
         max_length=255, blank=True, null=True, verbose_name="デフォルト入庫棚番"
     )  # デフォルト入庫棚番

@@ -217,7 +217,7 @@ def apportion_completion(merged, good_quantity):
                 "status",
                 "actual_start_datetime",
                 "actual_end_datetime",
-                "finished_goods_warehouse",
+                "finished_goods_warehouse_rel",
                 "finished_goods_location",
                 "updated_at",
             ]
@@ -243,7 +243,7 @@ def reverse_apportion(merged):
                 "status",
                 "actual_start_datetime",
                 "actual_end_datetime",
-                "finished_goods_warehouse",
+                "finished_goods_warehouse_rel",
                 "finished_goods_location",
                 "updated_at",
             ]

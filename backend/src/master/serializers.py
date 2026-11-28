@@ -24,6 +24,9 @@ class ItemSerializer(serializers.ModelSerializer):
     item_type = serializers.CharField(source="get_item_type_display", read_only=True)
     provision_type = serializers.CharField(source="get_provision_type_display", read_only=True)
 
+    # デフォルト入庫倉庫は倉庫番号で返す
+    default_warehouse = serializers.CharField(read_only=True, allow_null=True)
+
     class Meta:
         model = Item
         fields = (
@@ -44,6 +47,15 @@ class ItemSerializer(serializers.ModelSerializer):
 
 
 class ItemCreateUpdateSerializer(serializers.ModelSerializer):
+    # デフォルト入庫倉庫は倉庫番号で受け取る(倉庫マスターに無い倉庫は登録できない。空欄は未設定)
+    default_warehouse = serializers.SlugRelatedField(
+        source="default_warehouse_rel",
+        slug_field="warehouse_number",
+        queryset=Warehouse.objects.all(),
+        allow_null=True,
+        required=False,
+    )
+
     class Meta:
         model = Item
         fields = [

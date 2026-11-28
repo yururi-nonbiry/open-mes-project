@@ -22,6 +22,8 @@ def fk_id_alias(fk_name):
 # CSVインポートで取り込める外部キー項目(CSVでは品番・倉庫などの外部キーは対象外だが、用途コードだけは
 # 発注・受注・生産計画の登録に使えるよう許可する)。{データ種別: {CSV項目名(別名): モデルの外部キーフィールド名}}
 CSV_IMPORT_FK_ALIASES = {
+    # 品番のデフォルト入庫倉庫は倉庫番号で取り込む(以前の文字列の項目と同じ項目名で取り込めるように)
+    "item": {"default_warehouse": "default_warehouse_rel"},
     "purchase_order": {"purpose": "purpose_rel"},
     "sales_order": {"purpose": "purpose_rel", "line": "line_rel"},
     "production_plan": {"purpose": "purpose_rel", "line": "line_rel"},
